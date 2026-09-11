@@ -5,8 +5,8 @@
 **سروستان | Sarvestan**  
 داشبورد مدرن و زیبا برای سامانه **بهستان** دانشگاه صنعتی خواجه‌نصیرالدین طوسی
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-10b981?style=flat-square&logo=github)](https://mjb4khshi.github.io/sarvestan/)
-[![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?style=flat-square&logo=googlechrome&logoColor=white)](https://github.com/mjb4khshi/sarvestan/releases)
+[![Showcase & Landing](https://img.shields.io/badge/Website-Showcase%20%26%20Demo-10b981?style=flat-square&logo=github)](https://mjb4khshi.github.io/sarvestan/)
+[![Download Extension ZIP](https://img.shields.io/badge/Download-Extension%20(.zip)-blue?style=flat-square&logo=googlechrome&logoColor=white)](https://mjb4khshi.github.io/sarvestan/sarvestan-extension.zip)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![Tailwind](https://img.shields.io/badge/Tailwind-4-38BDF8?style=flat-square&logo=tailwindcss)](https://tailwindcss.com)
 [![Sarv UI](https://img.shields.io/badge/Design-Sarv%20UI-10b981?style=flat-square)](https://github.com/mjb4khshi/sarv-ui)
