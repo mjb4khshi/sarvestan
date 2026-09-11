@@ -26,7 +26,8 @@ import {
   FileCheck,
   Heart,
   Maximize2,
-  Check
+  Check,
+  BookOpen
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
@@ -65,15 +66,19 @@ export default function LandingPage({ onOpenDemo }) {
       const rect = showcaseRef.current.getBoundingClientRect();
       const windowHeight = window.innerHeight;
       
-      const totalDistance = rect.height + windowHeight;
-      const currentDistance = windowHeight - rect.top;
-      const progress = Math.max(0, Math.min(1, currentDistance / totalDistance));
+      const totalScrollableDistance = rect.height - windowHeight;
+      if (totalScrollableDistance <= 0) return;
+      
+      // Pinning begins when rect.top <= 80
+      const scrolledSoFar = 80 - rect.top;
+      const progress = Math.max(0, Math.min(1, scrolledSoFar / totalScrollableDistance));
       
       const newIndex = Math.min(showcaseThemes.length - 1, Math.floor(progress * showcaseThemes.length));
       setShowcaseThemeIndex(newIndex);
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
     return () => window.removeEventListener('scroll', handleScroll);
   }, [showcaseThemes.length]);
 
@@ -137,6 +142,19 @@ export default function LandingPage({ onOpenDemo }) {
 
           {/* Action CTAs */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Lead Developer Spotlight Badge */}
+            <a
+              href="https://github.com/mjb4khshi"
+              target="_blank"
+              rel="noreferrer"
+              className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/25 text-xs font-bold transition-all shadow-sm group"
+              title="پروفایل گیت‌هاب محمدجواد بخشی (توسعه‌دهنده و طراح اصلی)"
+            >
+              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+              <span className="text-neutral font-normal text-[11px]">توسعه‌دهنده اصلی:</span>
+              <span className="text-base-content font-black group-hover:text-primary transition-colors">محمدجواد بخشی</span>
+            </a>
+
             {/* Theme Selector */}
             <div className="relative group">
               <button
@@ -203,7 +221,7 @@ export default function LandingPage({ onOpenDemo }) {
             className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-base-500/15 border border-base-500/30 text-xs sm:text-sm font-medium text-neutral mb-6"
           >
             <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
-            <span>نسل نوین دستیار دانشجویی بر بستر مرورگر • Manifest V3</span>
+            <span>نسل نوین دستیار بهستان ۲.۰ • طراحی و توسعه مستقل توسط <strong className="text-base-content font-bold">محمدجواد بخشی ایرج</strong></span>
           </motion.div>
 
           {/* Main Headline */}
@@ -227,7 +245,7 @@ export default function LandingPage({ onOpenDemo }) {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="text-base sm:text-lg text-neutral max-w-3xl mx-auto leading-relaxed mb-10"
           >
-            <strong className="text-base-content font-bold">سروستان</strong> یک افزونه تحت وب و مرورگر است که به صورت مستقیم روی سامانه بهستان دانشگاه خواجه نصیرالدین طوسی می‌نشیند؛ کارنامه تحلیلی، برنامه هفتگی بصری، مدیریت شفاف مالی و پالت دسترسی سریع را با دیزاین‌سیستم اختصاصی <strong className="text-primary font-bold">سَرو (Sarv UI)</strong> در اختیارتان می‌گذارد.
+            <strong className="text-base-content font-bold">سروستان</strong> افزونه‌ای مستقل و مدرن است که توسط <a href="https://github.com/mjb4khshi" target="_blank" rel="noreferrer" className="text-primary hover:underline font-bold">محمدجواد بخشی ایرج</a> مهندسی شده تا مستقیماً روی سامانه بهستان بنشیند؛ کارنامه تحلیلی، برنامه هفتگی بصری، مدیریت شفاف مالی و پالت فرمان سریع را با دیزاین‌سیستم اختصاصی <strong className="text-primary font-bold">سَرو (Sarv UI)</strong> در اختیارتان می‌گذارد.
           </motion.p>
 
           {/* CTA Buttons */}
@@ -389,41 +407,43 @@ export default function LandingPage({ onOpenDemo }) {
       </AnimatePresence>
 
       {/* =========================================================
-          Interactive Multi-Theme Product Showcase (Scroll-Driven)
+          Interactive Multi-Theme Product Showcase (Sticky Pinned Scroll)
           ========================================================= */}
-      <section id="preview" ref={showcaseRef} className="py-16 sm:py-24 relative z-10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-8">
-            <span className="text-xs font-bold text-accent px-3.5 py-1.5 rounded-full bg-accent/10 border border-accent/25 mb-3 inline-block shadow-sm">
-              پیش‌نمایش تعاملی چندپوسته
+      <section id="preview" ref={showcaseRef} className="relative z-10" style={{ minHeight: '260vh' }}>
+        <div className="sticky top-20 z-20 py-4 max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-4">
+            <span className="text-xs font-bold text-accent px-3.5 py-1 rounded-full bg-accent/10 border border-accent/25 mb-2 inline-block shadow-sm">
+              پیش‌نمایش زنده چندپوسته (پین‌شده هنگام اسکرول)
             </span>
-            <h2 className="text-2xl sm:text-4xl font-black mb-3 text-base-content">
+            <h2 className="text-xl sm:text-3xl font-black mb-1.5 text-base-content">
               تنوع چشم‌نواز با <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">پوسته‌های زنده سَرو (Sarv UI)</span>
             </h2>
-            <p className="text-sm sm:text-base text-neutral max-w-2xl mx-auto">
-              با اسکرول کردن صفحه یا انتخاب گزینه‌های زیر، نحوه تغییر آنی رنگ‌ها و حس بصری داشبورد را به صورت زنده تجربه کنید
+            <p className="text-xs sm:text-sm text-neutral max-w-xl mx-auto">
+              صفحه حین اسکرول ثابت می‌ماند و تم‌ها یکی‌یکی عوض می‌شوند؛ یا مستقیماً روی هر پوسته کلیک کنید
             </p>
           </div>
 
-          {/* Theme Switcher Ribbon / Scroll Status Bar */}
-          <div className="mb-6 p-3 sm:p-4 sarv-card rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2.5 text-xs">
+          {/* Theme Switcher Ribbon with Progress Indicator */}
+          <div className="mb-4 p-2.5 sm:p-3 sarv-card rounded-2xl flex flex-col md:flex-row items-center justify-between gap-3 shadow-lg">
+            <div className="flex items-center gap-2 text-xs">
               <span className="w-2.5 h-2.5 rounded-full animate-ping inline-block" style={{ backgroundColor: currentShowcaseTheme.color }} />
-              <span className="text-neutral">پوسته فعال در این بخش:</span>
-              <strong className="text-base-content font-bold flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-base-500/20 border border-base-500/30">
+              <span className="text-neutral text-[11px]">پوسته فعال:</span>
+              <strong className="text-base-content font-bold flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-base-500/25 border border-base-500/30">
                 <span>{currentShowcaseTheme.icon}</span>
                 <span>{currentShowcaseTheme.name}</span>
               </strong>
-              <span className="text-[11px] text-neutral/70 hidden sm:inline">(تغییر خودکار با اسکرول صفحه)</span>
+              <span className="text-[10px] text-neutral/70 font-mono hidden sm:inline">
+                ({showcaseThemeIndex + 1} از {showcaseThemes.length})
+              </span>
             </div>
 
             {/* Quick theme click pills */}
-            <div className="flex flex-wrap items-center justify-center gap-1.5">
+            <div className="flex flex-wrap items-center justify-center gap-1">
               {showcaseThemes.map((st, idx) => (
                 <button
                   key={st.id}
                   onClick={() => setShowcaseThemeIndex(idx)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                  className={`px-2 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
                     showcaseThemeIndex === idx
                       ? 'bg-primary text-primary-content shadow-sm scale-105 font-bold'
                       : 'bg-base-500/15 text-neutral hover:text-base-content hover:bg-base-500/25'
@@ -448,14 +468,14 @@ export default function LandingPage({ onOpenDemo }) {
             }}
           >
             {/* Window Header */}
-            <div className="px-4 py-3 bg-base-500/20 border-b border-base-500/30 flex items-center justify-between gap-4">
+            <div className="px-4 py-2.5 bg-base-500/20 border-b border-base-500/30 flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-danger/80 inline-block" />
                 <span className="w-3 h-3 rounded-full bg-warn/80 inline-block" />
                 <span className="w-3 h-3 rounded-full bg-success/80 inline-block" />
               </div>
-              <div className="flex-1 max-w-md mx-auto bg-base-500/20 border border-base-500/30 rounded-lg px-3 py-1 text-xs text-neutral font-mono text-center truncate">
-                chrome-extension://sarvestan/preview?theme={currentShowcaseTheme.id}
+              <div className="flex-1 max-w-md mx-auto bg-base-500/20 border border-base-500/30 rounded-lg px-3 py-0.5 text-xs text-neutral font-mono text-center truncate">
+                chrome-extension://sarvestan/dashboard?theme={currentShowcaseTheme.id}
               </div>
               <button
                 onClick={onOpenDemo}
@@ -466,218 +486,192 @@ export default function LandingPage({ onOpenDemo }) {
               </button>
             </div>
 
-            {/* Showcase Navigation Bar inside Mockup */}
-            <div className="flex border-b border-base-500/30 bg-base-500/10 px-4 py-2 overflow-x-auto gap-2">
-              <button
-                onClick={() => setPreviewTab('overview')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
-                  previewTab === 'overview'
-                    ? 'bg-primary text-primary-content shadow-sm'
-                    : 'text-neutral hover:text-base-content'
-                }`}
-              >
-                <Compass className="w-3.5 h-3.5" />
-                <span>نمای کلی و معدل</span>
-              </button>
-              <button
-                onClick={() => setPreviewTab('schedule')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
-                  previewTab === 'schedule'
-                    ? 'bg-primary text-primary-content shadow-sm'
-                    : 'text-neutral hover:text-base-content'
-                }`}
-              >
-                <Calendar className="w-3.5 h-3.5" />
-                <span>برنامه هفتگی ویژوال</span>
-              </button>
-              <button
-                onClick={() => setPreviewTab('grades')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
-                  previewTab === 'grades'
-                    ? 'bg-primary text-primary-content shadow-sm'
-                    : 'text-neutral hover:text-base-content'
-                }`}
-              >
-                <GraduationCap className="w-3.5 h-3.5" />
-                <span>کارنامه و ریزنمرات</span>
-              </button>
-              <button
-                onClick={() => setPreviewTab('finance')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
-                  previewTab === 'finance'
-                    ? 'bg-primary text-primary-content shadow-sm'
-                    : 'text-neutral hover:text-base-content'
-                }`}
-              >
-                <CreditCard className="w-3.5 h-3.5" />
-                <span>امور مالی و پرداخت شاپرک</span>
-              </button>
-            </div>
-
-            {/* Preview Window Content */}
-            <div className="p-4 sm:p-6 bg-base/50 min-h-[340px]">
-              <AnimatePresence mode="wait">
-                {previewTab === 'overview' && (
-                  <motion.div
-                    key="overview"
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    className="grid grid-cols-1 md:grid-cols-3 gap-4"
-                  >
-                    <div className="sarv-card p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs text-neutral">معدل کل دانشجو</span>
-                        <span className="text-xs font-bold text-success bg-success/15 px-2 py-0.5 rounded-md">رتبه اول</span>
-                      </div>
-                      <div className="text-3xl font-black text-primary font-mono mb-1">۱۸٫۷۵</div>
-                      <p className="text-[11px] text-neutral">روند صعودی در ۴ نیم‌سال گذشته</p>
+            {/* Authentic Behestan Dashboard Replica with Theme Support */}
+            <div className="p-3 sm:p-4 bg-base/50">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 text-right font-sans">
+                {/* Right Sidebar: Behestan Navigation (lg:col-span-4) */}
+                <div className="lg:col-span-4 space-y-2.5 order-last lg:order-first">
+                  <div className="sarv-card p-3 border border-base-500/30">
+                    <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-base-500/20">
+                      <span className="text-xs font-bold text-base-content">ناوبری خدمات بهستان</span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-primary/15 text-primary border border-primary/25">سروستان ۲.۰</span>
                     </div>
-
-                    <div className="sarv-card p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs text-neutral">واحدهای گذرانده</span>
-                        <span className="text-xs text-primary font-mono font-bold">۸۲ / ۱۴۰</span>
+                    <div className="space-y-1 text-xs">
+                      <div className="flex items-center gap-2.5 p-2 rounded-xl bg-primary text-primary-content font-bold shadow-sm">
+                        <Compass className="w-4 h-4 shrink-0" />
+                        <div className="truncate">
+                          <div>میز کار و وضعیت جامع</div>
+                          <div className="text-[10px] opacity-80 font-normal">خلاصه تحصیلی، اعلانات و کارت دانشجو</div>
+                        </div>
                       </div>
-                      <div className="w-full bg-base-500/20 rounded-full h-2.5 mb-2 overflow-hidden">
-                        <div className="bg-primary h-2.5 rounded-full" style={{ width: '58%' }} />
+                      <div className="flex items-center gap-2.5 p-2 rounded-xl text-neutral hover:text-base-content hover:bg-base-500/15 transition-colors">
+                        <GraduationCap className="w-4 h-4 shrink-0 text-primary" />
+                        <div className="truncate">
+                          <div className="font-bold text-base-content">کارنامه و ریز نمرات</div>
+                          <div className="text-[10px] text-neutral">نمرات نهایی، معدل کل و اعتراض</div>
+                        </div>
                       </div>
-                      <p className="text-[11px] text-neutral">۵۸٪ از کل چارت دوره کارشناسی</p>
+                      <div className="flex items-center gap-2.5 p-2 rounded-xl text-neutral hover:text-base-content hover:bg-base-500/15 transition-colors">
+                        <Calendar className="w-4 h-4 shrink-0 text-accent" />
+                        <div className="truncate">
+                          <div className="font-bold text-base-content">برنامه هفتگی و آزمون‌ها</div>
+                          <div className="text-[10px] text-neutral">برنامه کلاسی و کارت ورود به جلسه</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2.5 p-2 rounded-xl text-neutral hover:text-base-content hover:bg-base-500/15 transition-colors">
+                        <CreditCard className="w-4 h-4 shrink-0 text-info" />
+                        <div className="truncate">
+                          <div className="font-bold text-base-content">امور مالی و پرداخت شهریه</div>
+                          <div className="text-[10px] text-neutral">شهریه ثابت، متغیر و پرداخت شتاب</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2.5 p-2 rounded-xl text-neutral hover:text-base-content hover:bg-base-500/15 transition-colors">
+                        <BookOpen className="w-4 h-4 shrink-0 text-warn" />
+                        <div className="truncate">
+                          <div className="font-bold text-base-content">چارت و وضعیت دروس</div>
+                          <div className="text-[10px] text-neutral">دروس پایه، تخصصی، عمومی و پیش‌نیاز</div>
+                        </div>
+                      </div>
                     </div>
+                  </div>
 
-                    <div className="sarv-card p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs text-neutral">وضعیت مالی جاری</span>
-                        <span className="text-xs text-info font-bold">بدون بدهی مسدودکننده</span>
-                      </div>
-                      <div className="text-xl font-bold text-base-content font-mono mb-1">تسویه کامل</div>
-                      <p className="text-[11px] text-neutral">آماده برای ثبت‌نام و انتخاب واحد</p>
+                  {/* Degree Progress Widget inside Sidebar */}
+                  <div className="sarv-card p-3 border border-base-500/30">
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <span className="font-bold text-base-content">پیشرفت کل فارغ‌التحصیلی</span>
+                      <span className="text-[11px] font-mono text-primary font-bold">۸۲ از ۱۴۰ واحد</span>
                     </div>
+                    <div className="w-full bg-base-500/30 rounded-full h-2 mb-2 overflow-hidden">
+                      <div className="bg-primary h-2 rounded-full transition-all duration-500" style={{ width: '58%' }} />
+                    </div>
+                    <div className="flex items-center justify-between pt-1.5 border-t border-base-500/20 text-xs">
+                      <span className="text-neutral">معدل کل دانشجو:</span>
+                      <span className="font-mono font-black text-primary text-sm">۱۸٫۷۵</span>
+                    </div>
+                  </div>
+                </div>
 
-                    <div className="md:col-span-3 sarv-card p-4 bg-gradient-to-r from-primary/10 via-base to-accent/10">
-                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-primary/20 text-primary flex items-center justify-center">
-                            <Clock className="w-5 h-5" />
+                {/* Main Content Area (lg:col-span-8) */}
+                <div className="lg:col-span-8 space-y-2.5">
+                  {/* Student Profile Card */}
+                  <div className="sarv-card p-3.5 border border-base-500/30 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-2xl bg-primary text-primary-content font-black text-lg flex items-center justify-center shadow-md shadow-primary/20 shrink-0">
+                        س
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-black text-sm sm:text-base text-base-content">دانشجوی میهمان</h4>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-success/15 text-success border border-success/30 font-medium">
+                            متصل به بهستان
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-neutral mt-0.5">
+                          دانشجو • مهندسی کامپیوتر • دانشگاه صنعتی خواجه نصیر
+                        </p>
+                      </div>
+                    </div>
+                    <button className="btn btn-xs btn-primary rounded-xl font-bold flex items-center gap-1.5 self-end sm:self-auto">
+                      <FileCheck className="w-3.5 h-3.5" />
+                      <span>گواهی اشتغال به تحصیل</span>
+                    </button>
+                  </div>
+
+                  {/* 4 Stat Cards Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="sarv-card p-2.5 border border-base-500/30">
+                      <div className="flex items-center justify-between text-[11px] text-neutral mb-1">
+                        <span>معدل کل</span>
+                        <GraduationCap className="w-3.5 h-3.5 text-primary" />
+                      </div>
+                      <div className="text-lg font-black font-mono text-primary">۱۸٫۷۵</div>
+                      <div className="text-[10px] text-success font-medium mt-0.5">رتبه برتر ترم</div>
+                    </div>
+                    <div className="sarv-card p-2.5 border border-base-500/30">
+                      <div className="flex items-center justify-between text-[11px] text-neutral mb-1">
+                        <span>واحدهای گذرانده</span>
+                        <BookOpen className="w-3.5 h-3.5 text-info" />
+                      </div>
+                      <div className="text-lg font-black font-mono text-base-content">۸۲</div>
+                      <div className="text-[10px] text-neutral mt-0.5">از ۱۴۰ واحد چارت</div>
+                    </div>
+                    <div className="sarv-card p-2.5 border border-base-500/30">
+                      <div className="flex items-center justify-between text-[11px] text-neutral mb-1">
+                        <span>بدهی شهریه</span>
+                        <CreditCard className="w-3.5 h-3.5 text-success" />
+                      </div>
+                      <div className="text-lg font-black font-mono text-success">۰ تومان</div>
+                      <div className="text-[10px] text-neutral mt-0.5">تسویه کامل</div>
+                    </div>
+                    <div className="sarv-card p-2.5 border border-base-500/30">
+                      <div className="flex items-center justify-between text-[11px] text-neutral mb-1">
+                        <span>کلاس‌های امروز</span>
+                        <Calendar className="w-3.5 h-3.5 text-accent" />
+                      </div>
+                      <div className="text-lg font-black font-mono text-accent">۲ جلسه</div>
+                      <div className="text-[10px] text-neutral mt-0.5">کلاس ۳۰۴ برق</div>
+                    </div>
+                  </div>
+
+                  {/* 4 Quick Access Cards Grid */}
+                  <div>
+                    <div className="text-xs font-bold text-neutral mb-1.5">دسترسی سریع به فرآیندهای بهستان:</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="sarv-card p-2.5 border border-base-500/30 hover:border-primary/50 transition-colors flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-primary/15 text-primary flex items-center justify-center">
+                            <GraduationCap className="w-3.5 h-3.5" />
                           </div>
                           <div>
-                            <div className="font-bold text-sm text-base-content">کلاس بعدی: طراحی الگوریتم</div>
-                            <div className="text-xs text-neutral">شنبه ۱۰:۳۰ الی ۱۲:۰۰ • کلاس ۳۰۴ دانشکده برق و کامپیوتر</div>
+                            <div className="text-xs font-bold text-base-content">کارنامه و ریز نمرات</div>
+                            <div className="text-[10px] text-neutral">کارنامه رسمی گزارش ۷۹</div>
                           </div>
                         </div>
-                        <button
-                          onClick={onOpenDemo}
-                          className="btn btn-sm btn-primary rounded-xl font-bold self-stretch sm:self-auto"
-                        >
-                          تست تعاملی کامل
-                        </button>
+                        <span className="text-[11px] font-bold text-primary">بازکردن ←</span>
                       </div>
-                    </div>
-                  </motion.div>
-                )}
 
-                {previewTab === 'schedule' && (
-                  <motion.div
-                    key="schedule"
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    className="space-y-3"
-                  >
-                    <div className="flex items-center justify-between text-xs text-neutral pb-2 border-b border-base-500/20">
-                      <span>نمای ماتریس هفتگی دروس ترم جاری (۴۰۴۱)</span>
-                      <span className="font-mono text-primary font-bold">۱۸ واحد اخذ شده</span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div className="sarv-chip sarv-chip-primary p-3">
-                        <div className="text-xs font-bold text-primary">شبکه‌های کامپیوتری</div>
-                        <div className="text-[11px] text-neutral mt-1">شنبه و دوشنبه ۰۹:۰۰ - ۱۰:۳۰</div>
-                        <div className="text-[10px] text-base-content/60 mt-1">دکتر فراهانی • ۳ واحد</div>
+                      <div className="sarv-card p-2.5 border border-base-500/30 hover:border-accent/50 transition-colors flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-accent/15 text-accent flex items-center justify-center">
+                            <Calendar className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-base-content">برنامه هفتگی و آزمون‌ها</div>
+                            <div className="text-[10px] text-neutral">ماتریس کلاس‌ها گزارش ۷۸</div>
+                          </div>
+                        </div>
+                        <span className="text-[11px] font-bold text-accent">بازکردن ←</span>
                       </div>
-                      <div className="sarv-chip sarv-chip-success p-3">
-                        <div className="text-xs font-bold text-success">سیستم‌های عامل</div>
-                        <div className="text-[11px] text-neutral mt-1">یکشنبه و سه‌شنبه ۱۰:۳۰ - ۱۲:۰۰</div>
-                        <div className="text-[10px] text-base-content/60 mt-1">دکتر احمدی • ۳ واحد</div>
-                      </div>
-                      <div className="sarv-chip sarv-chip-accent p-3">
-                        <div className="text-xs font-bold text-accent">آزمایشگاه پایگاه داده</div>
-                        <div className="text-[11px] text-neutral mt-1">چهارشنبه ۱۳:۳۰ - ۱۵:۳۰</div>
-                        <div className="text-[10px] text-base-content/60 mt-1">مهندس صالحی • ۱ واحد</div>
-                      </div>
-                    </div>
-                    <div className="text-center pt-2">
-                      <button onClick={onOpenDemo} className="text-xs text-primary font-bold hover:underline">
-                        مشاهده جدول کامل ساعات و تقویم امتحانات در دمو →
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
 
-                {previewTab === 'grades' && (
-                  <motion.div
-                    key="grades"
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    className="space-y-2"
-                  >
-                    <div className="sarv-card p-3 flex items-center justify-between">
-                      <div>
-                        <div className="text-xs font-bold">طراحی الگوریتم</div>
-                        <div className="text-[10px] text-neutral">تخصصی • ۳ واحد</div>
+                      <div className="sarv-card p-2.5 border border-base-500/30 hover:border-warn/50 transition-colors flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-warn/15 text-warn flex items-center justify-center">
+                            <CreditCard className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-base-content">امور مالی و شهریه</div>
+                            <div className="text-[10px] text-neutral">ریزتراز فرم ۲۵۶۳ و شاپرک</div>
+                          </div>
+                        </div>
+                        <span className="text-[11px] font-bold text-warn">بازکردن ←</span>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs px-2 py-0.5 rounded bg-success/15 text-success font-bold">پاس شده</span>
-                        <span className="text-sm font-black font-mono text-primary">۱۹٫۵۰</span>
-                      </div>
-                    </div>
-                    <div className="sarv-card p-3 flex items-center justify-between">
-                      <div>
-                        <div className="text-xs font-bold">پایگاه داده‌ها</div>
-                        <div className="text-[10px] text-neutral">تخصصی • ۳ واحد</div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs px-2 py-0.5 rounded bg-success/15 text-success font-bold">پاس شده</span>
-                        <span className="text-sm font-black font-mono text-primary">۱۸٫۰۰</span>
-                      </div>
-                    </div>
-                    <div className="sarv-card p-3 flex items-center justify-between">
-                      <div>
-                        <div className="text-xs font-bold">هوش مصنوعی و یادگیری ماشین</div>
-                        <div className="text-[10px] text-neutral">اختیاری تخصصی • ۳ واحد</div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs px-2 py-0.5 rounded bg-warn/15 text-warn font-bold">نمره موقت</span>
-                        <span className="text-sm font-black font-mono text-warn">۱۷٫۲۵</span>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
 
-                {previewTab === 'finance' && (
-                  <motion.div
-                    key="finance"
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    className="space-y-3"
-                  >
-                    <div className="sarv-card p-4 border border-info/30 bg-info/5">
-                      <div className="flex items-center gap-2 text-info text-xs font-bold mb-1">
-                        <ShieldCheck className="w-4 h-4" />
-                        <span>سوییچ امن و هوشمند به فرم بومی بهستان (۲۷۵۷۰)</span>
+                      <div className="sarv-card p-2.5 border border-base-500/30 hover:border-info/50 transition-colors flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-info/15 text-info flex items-center justify-center">
+                            <BookOpen className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-base-content">چارت و سرفصل دروس</div>
+                            <div className="text-[10px] text-neutral">وضعیت دروس و پیش‌نیازها</div>
+                          </div>
+                        </div>
+                        <span className="text-[11px] font-bold text-info">بازکردن ←</span>
                       </div>
-                      <p className="text-xs text-neutral leading-relaxed">
-                        هنگام پرداخت شهریه، سروستان مستقیماً فرم اصیل شاپرک بانک‌های سامان، تجارت و ملت را فراخوانی می‌کند تا هیچ خطایی در توکن‌های امنیتی رخ ندهد.
-                      </p>
                     </div>
-                    <div className="flex items-center justify-between p-3 sarv-card">
-                      <span className="text-xs text-neutral">مانده شهریه متغیر نیم‌سال:</span>
-                      <span className="text-sm font-bold font-mono text-base-content">۰ ریال (تسویه شده)</span>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1031,6 +1025,59 @@ export default function LandingPage({ onOpenDemo }) {
           ========================================================= */}
       <footer className="border-t border-base-500/30 py-12 bg-base-500/10 text-xs text-neutral relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Lead Creator & Architect Spotlight Card */}
+          <div className="sarv-card p-6 sm:p-7 rounded-3xl border border-primary/40 bg-gradient-to-br from-primary/15 via-base to-accent/10 mb-10 shadow-xl shadow-primary/5">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
+              <div className="flex flex-col sm:flex-row items-center text-center sm:text-right gap-5">
+                <div className="relative">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr from-primary via-accent to-primary p-0.5 shadow-xl shadow-primary/30">
+                    <div className="w-full h-full bg-base rounded-[14px] flex items-center justify-center font-black text-primary text-2xl sm:text-3xl font-mono">
+                      MJB
+                    </div>
+                  </div>
+                  <span className="absolute -bottom-1.5 -left-1.5 w-6 h-6 rounded-full bg-success text-white flex items-center justify-center text-xs shadow-md font-bold" title="خالق و سرپرست توسعه">
+                    ✓
+                  </span>
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-1.5">
+                    <span className="text-xs font-black px-3 py-1 rounded-full bg-primary text-primary-content shadow-sm">
+                      خالق و سرپرست توسعه
+                    </span>
+                    <span className="text-xs font-medium text-neutral px-2.5 py-0.5 rounded-full bg-base-500/20 border border-base-500/30">
+                      دانشگاه صنعتی خواجه نصیرالدین طوسی
+                    </span>
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-black text-base-content">
+                    محمدجواد بخشی ایرج (Mohammad Javad Bakhshi)
+                  </h3>
+                  <p className="text-xs sm:text-sm text-neutral mt-1 max-w-xl leading-relaxed">
+                    طراح و مهندس دیزاین‌سیستم بومی <strong className="text-primary font-bold">سَرو (Sarv UI)</strong> و خالق اکوسیستم متن‌باز سروستان برای ارتقای تجربه کاربری سامانه بهستان
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <a
+                  href="https://github.com/mjb4khshi"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-sm btn-primary rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-primary/25 hover:scale-105 active:scale-95 transition-all px-4 py-2"
+                >
+                  <GithubIcon className="w-4 h-4" />
+                  <span>گیت‌هاب @mjb4khshi</span>
+                </a>
+                <a
+                  href="https://github.com/mjb4khshi/sarv-ui"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-sm btn-ghost border border-base-500/30 rounded-xl text-base-content hover:bg-base-500/20 px-4 py-2 font-medium"
+                >
+                  دیزاین‌سیستم Sarv UI
+                </a>
+              </div>
+            </div>
+          </div>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center">
