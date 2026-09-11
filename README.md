@@ -49,11 +49,17 @@
 * **[صفحه Releases در گیت‌هاب](https://github.com/mjb4khshi/sarvestan/releases)**
 
 ### ۲. نصب در مرورگر (Chrome / Edge / Brave / Opera)
-1. فایل زیپ دریافت‌شده (`sarvestan-extension.zip`) را در یک پوشه مناسب **Unzip (Extract)** کنید.
-2. مرورگر کروم را باز کنید و آدرس `chrome://extensions` را وارد نمایید.
-3. در گوشه بالا سمت راست، گزینه **Developer mode** را فعال کنید.
-4. دکمه **Load unpacked** را بزنید و پوشه اکسترکت‌شده (که شامل فایل `manifest.json` است) را انتخاب کنید.
-5. سامانه **[behestan.kntu.ac.ir](https://behestan.kntu.ac.ir/)** را باز کرده و لاگین کنید؛ داشبورد مدرن سروستان به صورت خودکار فعال می‌شود!
+1. فایل زیپ دریافت‌شده (`sarvestan-extension.zip`) را در یک پوشه دلخواه **Unzip (Extract)** کنید.
+2. صفحه مدیریت افزونه‌ها را باز کنید:
+   * **از طریق رابط کاربری مرورگر (پیشنهادی و سریع):** کلیک روی آیکون پازل (**🧩 Extensions**) در بالای مرورگر ⬅️ انتخاب **Manage extensions** *(یا از منوی سه‌نقطه **⋮** ⬅️ Extensions ⬅️ Manage extensions)*
+   * **یا ورود آدرس مستقیم در نوار آدرس:**
+     * **گوگل کروم:** `chrome://extensions`
+     * **مایکروسافت اج:** `edge://extensions`
+     * **بریو:** `brave://extensions`
+     * **اپرا:** `opera://extensions`
+3. در صفحه بازشده، کلید **Developer mode** (حالت توسعه‌دهنده) را روشن کنید.
+4. دکمه **Load unpacked** را در بالای صفحه بزنید و فولدری که استخراج کردید (حاوی `manifest.json`) را انتخاب کنید.
+5. سامانه **[behestan.kntu.ac.ir](https://behestan.kntu.ac.ir/)** را باز کرده و لاگین کنید؛ سروستان فعال است!
 
 ---
 

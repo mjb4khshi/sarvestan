@@ -27,7 +27,8 @@ import {
   Heart,
   Maximize2,
   Check,
-  BookOpen
+  BookOpen,
+  Copy
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
@@ -46,7 +47,20 @@ export default function LandingPage({ onOpenDemo }) {
   const [isZoomOpen, setIsZoomOpen] = useState(false);
   const [showcaseThemeIndex, setShowcaseThemeIndex] = useState(0);
   const [showcaseProgress, setShowcaseProgress] = useState(0);
+  const [copiedBrowser, setCopiedBrowser] = useState(null);
   const showcaseRef = useRef(null);
+
+  const handleCopyUrl = (url, id) => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(url);
+      }
+      setCopiedBrowser(id);
+      setTimeout(() => setCopiedBrowser(null), 2200);
+    } catch (e) {
+      console.warn(e);
+    }
+  };
 
   const showcaseThemes = [
     {
@@ -1118,18 +1132,90 @@ export default function LandingPage({ onOpenDemo }) {
               <div className="w-10 h-10 rounded-xl bg-accent text-accent-content font-black text-lg flex items-center justify-center shrink-0 shadow-md shadow-accent/20">
                 ۲
               </div>
-              <div className="flex-1">
-                <h3 className="font-bold text-base mb-1 text-base-content">باز کردن صفحه مدیریت افزونه‌ها در مرورگر</h3>
-                <p className="text-xs sm:text-sm text-neutral leading-relaxed mb-2">
-                  مرورگر خود (Chrome, Edge, Brave, Opera) را باز کرده و در نوار آدرس عبارت زیر را تایپ و اینتر بزنید:
+              <div className="flex-1 w-full">
+                <h3 className="font-bold text-base mb-2 text-base-content">
+                  باز کردن بخش مدیریت افزونه‌ها (Manage Extensions)
+                </h3>
+                <p className="text-xs sm:text-sm text-neutral leading-relaxed mb-3">
+                  برای ورود به صفحه افزونه‌ها در مرورگر خود، از یکی از دو روش زیر استفاده کنید:
                 </p>
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-base-500/20 border border-base-500/30 font-mono text-xs text-base-content">
-                  <Terminal className="w-3.5 h-3.5 text-neutral" />
-                  <span>chrome://extensions</span>
+
+                {/* روش اول: از طریق ظاهر و منوی مرورگر */}
+                <div className="p-3.5 rounded-xl bg-base-500/15 border border-base-500/30 mb-3">
+                  <div className="flex items-center gap-2 font-bold text-xs sm:text-sm text-base-content mb-2">
+                    <span className="text-base">🧩</span>
+                    <span>روش اول (آسان‌تر — بدون نیاز به تایپ، از منوی مرورگر):</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-neutral">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-base-500/25 border border-base-500/40 text-base-content font-medium">
+                      <span>۱. کلیک روی آیکون پازل</span>
+                      <strong className="text-primary font-bold">🧩 Extensions</strong>
+                    </span>
+                    <span className="text-neutral/60">⬅️</span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-base-500/25 border border-base-500/40 text-base-content font-medium">
+                      <span>۲. انتخاب گزینه</span>
+                      <strong className="text-accent font-bold">Manage extensions</strong>
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-neutral/70 mt-2">
+                    💡 همچنین می‌توانید از منوی سه‌نقطه بالای مرورگر (<strong>⋮</strong> یا <strong>⋯</strong>) گزینه <strong>Extensions</strong> و سپس <strong>Manage extensions</strong> را انتخاب نمایید.
+                  </p>
                 </div>
-                <p className="text-xs text-neutral mt-2">
-                  سپس در گوشه بالا سمت راست، کلید <strong className="text-base-content font-bold">Developer mode</strong> (حالت توسعه‌دهنده) را روشن کنید.
-                </p>
+
+                {/* روش دوم: آدرس مستقیم نوار مرورگر برای هر مرورگر */}
+                <div className="p-3.5 rounded-xl bg-base-500/15 border border-base-500/30 mb-3">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2 font-bold text-xs sm:text-sm text-base-content">
+                      <Terminal className="w-4 h-4 text-primary" />
+                      <span>روش دوم (ورود آدرس اختصاصی هر مرورگر در نوار آدرس):</span>
+                    </div>
+                    <span className="text-[11px] text-neutral hidden sm:inline">جهت کپی روی آدرس کلیک کنید</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {[
+                      { id: 'chrome', name: 'Google Chrome', url: 'chrome://extensions', icon: '🌐' },
+                      { id: 'edge', name: 'Microsoft Edge', url: 'edge://extensions', icon: '🌀' },
+                      { id: 'brave', name: 'Brave Browser', url: 'brave://extensions', icon: '🦁' },
+                      { id: 'opera', name: 'Opera / GX', url: 'opera://extensions', icon: '🔴' }
+                    ].map((b) => (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => handleCopyUrl(b.url, b.id)}
+                        className="flex items-center justify-between p-2 rounded-lg bg-base-500/20 hover:bg-base-500/35 border border-base-500/30 transition-all text-right group cursor-pointer"
+                        title="برای کپی آدرس کلیک کنید"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-sm">{b.icon}</span>
+                          <span className="text-xs font-medium text-neutral group-hover:text-base-content transition-colors">
+                            {b.name}:
+                          </span>
+                          <code className="text-xs font-mono font-bold text-primary dir-ltr">
+                            {b.url}
+                          </code>
+                        </div>
+                        <span className="text-[10px] text-neutral/80 group-hover:text-primary transition-colors flex items-center gap-1 shrink-0 mr-2">
+                          {copiedBrowser === b.id ? (
+                            <>
+                              <Check className="w-3 h-3 text-success" />
+                              <span className="text-success font-bold">کپی شد</span>
+                            </>
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* فعال‌سازی Developer mode */}
+                <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-warn/10 border border-warn/25 text-xs text-neutral">
+                  <span className="text-warn text-base shrink-0">⚡</span>
+                  <div className="leading-relaxed">
+                    <strong className="text-base-content font-bold">مرحله نهایی گام ۲:</strong> در گوشه بالا سمت راست (یا بالا چپ بسته به زبان مرورگر)، کلید <strong className="text-warn font-bold">Developer mode</strong> (حالت توسعه‌دهنده) را <span className="text-success font-bold">روشن</span> کنید تا دکمه Load unpacked در مرحله بعد نمایان شود.
+                  </div>
+                </div>
               </div>
             </div>
 
