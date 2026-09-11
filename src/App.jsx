@@ -14,8 +14,10 @@ import CommandPalette from './components/CommandPalette';
 import NotificationsDrawer from './components/NotificationsDrawer';
 import LoginModal from './components/LoginModal';
 import NotAvailableModal from './components/NotAvailableModal';
+import LandingPage from './components/LandingPage';
 import { getDashboardTabForCode } from './services/behestanSearchIndex';
 import { REAL_WORKFLOW_REQUESTS, REAL_FINANCIAL_REPORT_2563, subscribeToData } from './services/behestanData';
+import { Sparkles, Download, ArrowRight } from 'lucide-react';
 
 function DashboardContent() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -116,7 +118,7 @@ function DashboardContent() {
             </span>
             <span className="opacity-40">•</span>
             <span>
-              توسعه‌یافته با مقادیر فراوان چای و حوصله توسط{' '}
+              توسعه‌یافته توسط{' '}
               <a
                 href="https://github.com/mjb4khshi"
                 target="_blank"
@@ -157,9 +159,59 @@ function DashboardContent() {
 }
 
 export default function App() {
+  const [viewMode, setViewMode] = useState(() => {
+    // If running inside Chrome Extension tab/popup
+    if (typeof window !== 'undefined' && window.location.protocol === 'chrome-extension:') {
+      return 'dashboard';
+    }
+    // If URL has demo or dashboard query/hash
+    if (typeof window !== 'undefined') {
+      const search = window.location.search || '';
+      const hash = window.location.hash || '';
+      if (search.includes('demo') || hash.includes('demo') || search.includes('mode=dashboard')) {
+        return 'demo';
+      }
+    }
+    // Default for web visitors / GitHub Pages is the Landing Showcase
+    return 'landing';
+  });
+
   return (
     <ThemeProvider>
-      <DashboardContent />
+      {viewMode === 'landing' ? (
+        <LandingPage onOpenDemo={() => setViewMode('demo')} />
+      ) : (
+        <div className="flex flex-col min-h-screen">
+          {viewMode === 'demo' && (
+            <div className="sticky top-0 z-50 bg-gradient-to-r from-primary via-accent to-primary text-white px-4 py-2.5 shadow-lg flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-warn animate-pulse shrink-0" />
+                <span className="font-bold">پیش‌نمایش تعاملی سروستان (نسخه آزمایشی آنلاین)</span>
+                <span className="opacity-80 hidden md:inline">— این نما صرفاً دمو است؛ برای اتصال به داده‌های زنده بهستان، افزونه را نصب کنید.</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href="./sarvestan-extension.zip"
+                  download
+                  className="px-3 py-1 rounded-lg bg-white text-primary font-bold hover:bg-white/90 transition-all text-xs flex items-center gap-1.5 shadow-sm"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>دانلود افزونه (.zip)</span>
+                </a>
+                <button
+                  onClick={() => setViewMode('landing')}
+                  className="px-3 py-1 rounded-lg bg-black/25 hover:bg-black/40 text-white font-bold transition-all text-xs flex items-center gap-1"
+                >
+                  <span>بازگشت به سایت معرفی</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+          <DashboardContent />
+        </div>
+      )}
     </ThemeProvider>
   );
 }
+

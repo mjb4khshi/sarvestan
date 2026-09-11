@@ -33,6 +33,12 @@ jobs:
       - name: Build with Vite
         run: npm run build
 
+      - name: Package extension zip for direct download
+        run: |
+          cd dist
+          zip -r sarvestan-extension.zip .
+          cd ..
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
