@@ -369,7 +369,7 @@ export default function LandingPage({ onOpenDemo }) {
             className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-base-500/15 border border-base-500/30 text-xs sm:text-sm font-medium text-neutral mb-6"
           >
             <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
-            <span>نسل نوین دستیار بهستان ۲.۰ • طراحی و توسعه مستقل توسط <strong className="text-base-content font-bold">محمدجواد بخشی ایرج</strong></span>
+            <span>نسل نوین دستیار هوشمند بهستان ۲.۰ • سریع، مستقل و مدرن</span>
           </motion.div>
 
           {/* Main Headline */}
@@ -393,7 +393,7 @@ export default function LandingPage({ onOpenDemo }) {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="text-base sm:text-lg text-neutral max-w-3xl mx-auto leading-relaxed mb-10"
           >
-            <strong className="text-base-content font-bold">سروستان</strong> افزونه‌ای مستقل و مدرن است که توسط <a href="https://github.com/mjb4khshi" target="_blank" rel="noreferrer" className="text-primary hover:underline font-bold">محمدجواد بخشی ایرج</a> مهندسی شده تا مستقیماً روی سامانه بهستان بنشیند؛ کارنامه تحلیلی، برنامه هفتگی بصری، مدیریت شفاف مالی و پالت فرمان سریع را با دیزاین‌سیستم اختصاصی <strong className="text-primary font-bold">سَرو (Sarv UI)</strong> در اختیارتان می‌گذارد.
+            <strong className="text-base-content font-bold">سروستان</strong> افزونه‌ای مستقل و مدرن است که مستقیماً روی سامانه بهستان می‌نشیند؛ کارنامه تحلیلی، برنامه هفتگی بصری، مدیریت شفاف مالی و پالت فرمان سریع را با دیزاین‌سیستم اختصاصی <strong className="text-primary font-bold">سَرو (Sarv UI)</strong> در اختیارتان می‌گذارد.
           </motion.p>
 
           {/* CTA Buttons */}
