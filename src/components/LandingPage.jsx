@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Download,
@@ -23,7 +23,10 @@ import {
   Terminal,
   Clock,
   Compass,
-  FileCheck
+  FileCheck,
+  Heart,
+  Maximize2,
+  Check
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
@@ -39,6 +42,51 @@ export default function LandingPage({ onOpenDemo }) {
   const { currentTheme, setTheme, availableThemes } = useTheme();
   const [openFaq, setOpenFaq] = useState(null);
   const [previewTab, setPreviewTab] = useState('overview');
+  const [isZoomOpen, setIsZoomOpen] = useState(false);
+  const [showcaseThemeIndex, setShowcaseThemeIndex] = useState(0);
+  const showcaseRef = useRef(null);
+
+  const showcaseThemes = [
+    { id: 'persian-dark', name: 'پرشین دارک (تیره اصیل)', color: '#0066a4', mode: 'dark', icon: '🌙' },
+    { id: 'cyberpunk', name: 'سایبرپانک نئون', color: '#00f0ff', mode: 'dark', icon: '⚡' },
+    { id: 'sunset', name: 'غروب کویر (روشن)', color: '#ff5e36', mode: 'light', icon: '🌅' },
+    { id: 'tokyo-midnight', name: 'توکیو نیمه‌شب', color: '#8b5cf6', mode: 'dark', icon: '🌃' },
+    { id: 'emerald', name: 'زمرد کهنسال', color: '#10b981', mode: 'dark', icon: '🌲' },
+    { id: 'persian-light', name: 'پرشین لایت (سفید پاکیزه)', color: '#0066a4', mode: 'light', icon: '☀️' },
+    { id: 'royal-purple', name: 'ارغوانی سلطنتی', color: '#a855f7', mode: 'dark', icon: '🔮' },
+    { id: 'nordic', name: 'یخسار نوردیک', color: '#0284c7', mode: 'light', icon: '❄️' },
+  ];
+
+  const currentShowcaseTheme = showcaseThemes[showcaseThemeIndex] || showcaseThemes[0];
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!showcaseRef.current) return;
+      const rect = showcaseRef.current.getBoundingClientRect();
+      const windowHeight = window.innerHeight;
+      
+      const totalDistance = rect.height + windowHeight;
+      const currentDistance = windowHeight - rect.top;
+      const progress = Math.max(0, Math.min(1, currentDistance / totalDistance));
+      
+      const newIndex = Math.min(showcaseThemes.length - 1, Math.floor(progress * showcaseThemes.length));
+      setShowcaseThemeIndex(newIndex);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [showcaseThemes.length]);
+
+  const scrollToSection = (e, targetId) => {
+    if (e) e.preventDefault();
+    const id = targetId.replace('#', '');
+    const el = document.getElementById(id);
+    if (el) {
+      const yOffset = -75;
+      const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+    }
+  };
 
   const toggleFaq = (index) => {
     setOpenFaq(openFaq === index ? null : index);
@@ -73,18 +121,18 @@ export default function LandingPage({ onOpenDemo }) {
                 </span>
               </div>
               <p className="text-[11px] text-neutral hidden sm:block">
-                افزونه هوشمند سامانه بهستان دانشگاه صنعتی خواجه نصیر
+                سامانه هوشمند بهستان • در حال توسعه برای تمام دانشگاه‌های مبتنی بر بهستان
               </p>
             </div>
           </div>
 
-          {/* Nav Links (Desktop) */}
+          {/* Nav Links (Desktop) with Smooth Scrolling */}
           <nav className="hidden md:flex items-center gap-6 text-sm text-neutral font-medium">
-            <a href="#features" className="hover:text-primary transition-colors">قابلیت‌ها</a>
-            <a href="#comparison" className="hover:text-primary transition-colors">مقایسه با بهستان</a>
-            <a href="#preview" className="hover:text-primary transition-colors">پیش‌نمایش</a>
-            <a href="#install" className="hover:text-primary transition-colors">راهنمای نصب</a>
-            <a href="#faq" className="hover:text-primary transition-colors">سوالات متداول</a>
+            <a href="#features" onClick={(e) => scrollToSection(e, '#features')} className="hover:text-primary transition-colors cursor-pointer">قابلیت‌ها</a>
+            <a href="#comparison" onClick={(e) => scrollToSection(e, '#comparison')} className="hover:text-primary transition-colors cursor-pointer">مقایسه با بهستان</a>
+            <a href="#preview" onClick={(e) => scrollToSection(e, '#preview')} className="hover:text-primary transition-colors cursor-pointer">پیش‌نمایش و تم‌ها</a>
+            <a href="#install" onClick={(e) => scrollToSection(e, '#install')} className="hover:text-primary transition-colors cursor-pointer">راهنمای نصب</a>
+            <a href="#faq" onClick={(e) => scrollToSection(e, '#faq')} className="hover:text-primary transition-colors cursor-pointer">سوالات متداول</a>
           </nav>
 
           {/* Action CTAs */}
@@ -93,7 +141,7 @@ export default function LandingPage({ onOpenDemo }) {
             <div className="relative group">
               <button
                 className="btn btn-sm btn-ghost p-2 rounded-xl text-neutral hover:text-base-content border border-base-500/30"
-                title="تغییر تم"
+                title="تغییر تم سایت"
                 onClick={() => {
                   const nextTheme = currentTheme.includes('dark') ? 'persian-light' : 'persian-dark';
                   setTheme(nextTheme);
@@ -232,28 +280,173 @@ export default function LandingPage({ onOpenDemo }) {
               <span>کاملاً متن‌باز و آزاد (MIT)</span>
             </div>
           </motion.div>
+
+          {/* Real Dashboard Screenshot Window in Hero */}
+          <motion.div
+            initial={{ opacity: 0, y: 25 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.45 }}
+            className="mt-12 max-w-5xl mx-auto"
+          >
+            <div className="sarv-card overflow-hidden border border-base-500/40 shadow-2xl rounded-2xl bg-base">
+              {/* Window Bar */}
+              <div className="px-4 py-3 bg-base-500/20 border-b border-base-500/30 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-danger/80 inline-block" />
+                  <span className="w-3 h-3 rounded-full bg-warn/80 inline-block" />
+                  <span className="w-3 h-3 rounded-full bg-success/80 inline-block" />
+                </div>
+                <div className="flex-1 max-w-md mx-auto bg-base-500/25 border border-base-500/30 rounded-lg px-3 py-1 text-xs text-neutral font-mono text-center truncate flex items-center justify-center gap-1.5">
+                  <Lock className="w-3 h-3 text-success inline-block" />
+                  <span>chrome-extension://sarvestan/dashboard • سامانه هوشمند بهستان</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setIsZoomOpen(true)}
+                    className="btn btn-xs btn-ghost text-neutral hover:text-base-content flex items-center gap-1 text-[11px]"
+                    title="بزرگ‌نمایی تصویر"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">بزرگ‌نمایی</span>
+                  </button>
+                  <button
+                    onClick={onOpenDemo}
+                    className="btn btn-xs btn-primary font-bold flex items-center gap-1 text-[11px]"
+                  >
+                    <span>ورود به دمو</span>
+                    <ArrowLeft className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Real Dashboard Screenshot Display */}
+              <div className="relative group cursor-pointer overflow-hidden bg-base-500/10" onClick={() => setIsZoomOpen(true)}>
+                <img
+                  src="./dashboard-screenshot.png"
+                  alt="محیط واقعی افزونه سروستان در سامانه بهستان دانشگاه صنعتی خواجه نصیر"
+                  className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-[1.01]"
+                  loading="eager"
+                />
+                <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                  <span className="px-4 py-2 rounded-xl bg-base/90 text-base-content text-xs font-bold shadow-xl border border-base-500/30 flex items-center gap-2 backdrop-blur-md">
+                    <Maximize2 className="w-4 h-4 text-primary" />
+                    کلیک کنید برای بزرگ‌نمایی با کیفیت اصلی
+                  </span>
+                </div>
+              </div>
+
+              <div className="px-4 py-2.5 bg-base-500/10 border-t border-base-500/20 text-xs text-neutral flex flex-col sm:flex-row items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-success inline-block" />
+                  <span className="font-medium text-base-content/90">تصویر واقعی محیط افزونه بر روی سامانه بهستان دانشگاه خواجه نصیرالدین طوسی</span>
+                </div>
+                <span className="text-[11px] text-neutral/70">تطبیق خودکار با نشست مرورگر بدون نیاز به رمز عبور</span>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </section>
 
+      {/* Lightbox Modal for Full Screenshot Zoom */}
+      <AnimatePresence>
+        {isZoomOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsZoomOpen(false)}
+            className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md p-4 sm:p-8 flex items-center justify-center cursor-zoom-out"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative max-w-6xl w-full max-h-[90vh] bg-base rounded-2xl overflow-hidden shadow-2xl border border-base-500/40 flex flex-col"
+            >
+              <div className="p-4 bg-base-500/20 border-b border-base-500/30 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-bold text-base-content">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  <span>اسکرین‌شات محیط زنده افزونه سروستان در سامانه بهستان</span>
+                </div>
+                <button
+                  onClick={() => setIsZoomOpen(false)}
+                  className="w-8 h-8 rounded-lg bg-base-500/20 hover:bg-danger hover:text-white flex items-center justify-center text-neutral transition-colors font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="overflow-auto p-2 sm:p-4 max-h-[80vh] flex items-center justify-center bg-base-500/5">
+                <img
+                  src="./dashboard-screenshot.png"
+                  alt="محیط واقعی افزونه سروستان"
+                  className="max-w-full h-auto rounded-xl shadow-lg"
+                />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* =========================================================
-          Interactive Product Showcase (Mockup)
+          Interactive Multi-Theme Product Showcase (Scroll-Driven)
           ========================================================= */}
-      <section id="preview" className="py-12 sm:py-16 relative z-10">
+      <section id="preview" ref={showcaseRef} className="py-16 sm:py-24 relative z-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-8">
             <span className="text-xs font-bold text-accent px-3.5 py-1.5 rounded-full bg-accent/10 border border-accent/25 mb-3 inline-block shadow-sm">
-              پیش‌نمایش تعاملی
+              پیش‌نمایش تعاملی چندپوسته
             </span>
             <h2 className="text-2xl sm:text-4xl font-black mb-3 text-base-content">
-              نگاهی به داخل <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">داشبورد سروستان</span>
+              تنوع چشم‌نواز با <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">پوسته‌های زنده سَرو (Sarv UI)</span>
             </h2>
             <p className="text-sm sm:text-base text-neutral max-w-2xl mx-auto">
-              رابط کاربری مدرن با تم تاریک چشم‌نواز، نمودارهای زنده و دسترسی فوری به تمام بخش‌های دانشگاه
+              با اسکرول کردن صفحه یا انتخاب گزینه‌های زیر، نحوه تغییر آنی رنگ‌ها و حس بصری داشبورد را به صورت زنده تجربه کنید
             </p>
           </div>
 
-          {/* Browser Window Frame */}
-          <div className="sarv-card overflow-hidden border border-base-500/40 shadow-2xl rounded-2xl bg-base">
+          {/* Theme Switcher Ribbon / Scroll Status Bar */}
+          <div className="mb-6 p-3 sm:p-4 sarv-card rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2.5 text-xs">
+              <span className="w-2.5 h-2.5 rounded-full animate-ping inline-block" style={{ backgroundColor: currentShowcaseTheme.color }} />
+              <span className="text-neutral">پوسته فعال در این بخش:</span>
+              <strong className="text-base-content font-bold flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-base-500/20 border border-base-500/30">
+                <span>{currentShowcaseTheme.icon}</span>
+                <span>{currentShowcaseTheme.name}</span>
+              </strong>
+              <span className="text-[11px] text-neutral/70 hidden sm:inline">(تغییر خودکار با اسکرول صفحه)</span>
+            </div>
+
+            {/* Quick theme click pills */}
+            <div className="flex flex-wrap items-center justify-center gap-1.5">
+              {showcaseThemes.map((st, idx) => (
+                <button
+                  key={st.id}
+                  onClick={() => setShowcaseThemeIndex(idx)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                    showcaseThemeIndex === idx
+                      ? 'bg-primary text-primary-content shadow-sm scale-105 font-bold'
+                      : 'bg-base-500/15 text-neutral hover:text-base-content hover:bg-base-500/25'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: st.color }} />
+                  <span>{st.name.split(' ')[0]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Browser Window Frame with active scroll theme */}
+          <div
+            datatheme={currentShowcaseTheme.id}
+            data-theme={currentShowcaseTheme.id}
+            data-theme-mode={currentShowcaseTheme.mode}
+            className="sarv-card overflow-hidden border border-base-500/40 shadow-2xl rounded-2xl transition-all duration-500"
+            style={{
+              backgroundColor: 'var(--theme-color-base, #0a0a0c)',
+              color: 'var(--theme-color-base-content, #ffffff)',
+            }}
+          >
             {/* Window Header */}
             <div className="px-4 py-3 bg-base-500/20 border-b border-base-500/30 flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
@@ -262,7 +455,7 @@ export default function LandingPage({ onOpenDemo }) {
                 <span className="w-3 h-3 rounded-full bg-success/80 inline-block" />
               </div>
               <div className="flex-1 max-w-md mx-auto bg-base-500/20 border border-base-500/30 rounded-lg px-3 py-1 text-xs text-neutral font-mono text-center truncate">
-                chrome-extension://sarvestan/index.html
+                chrome-extension://sarvestan/preview?theme={currentShowcaseTheme.id}
               </div>
               <button
                 onClick={onOpenDemo}
@@ -503,7 +696,7 @@ export default function LandingPage({ onOpenDemo }) {
               چرا باید از <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">سروستان</span> استفاده کنیم؟
             </h2>
             <p className="text-sm sm:text-base text-neutral max-w-2xl mx-auto">
-              مقایسه رو در رو بین تجربه سنتی گلستان/بهستان با افزونه ارگونومیک سروستان
+              مقایسه رو در رو بین سامانه سنتی بهستان با افزونه ارگونومیک و مدرن سروستان
             </p>
           </div>
 
@@ -787,30 +980,46 @@ export default function LandingPage({ onOpenDemo }) {
                 a: 'تمامی مرورگرهای مبتنی بر هسته کرومیوم شامل Google Chrome, Microsoft Edge, Brave Browser, Opera و Vivaldi به صورت کامل پشتیبانی می‌شوند.'
               },
               {
-                q: 'آیا این افزونه برای سایر دانشگاه‌هایی که از سیستم گلستان استفاده می‌کنند هم کاربرد دارد؟',
-                a: 'معماری هسته سروستان برای پروتکل گلستان طراحی شده است، اما شاخص‌ها و فرم‌ها در نسخه کنونی به صورت اختصاصی برای دانشگاه صنعتی خواجه نصیرالدین طوسی (سامانه بهستان) پیکربندی شده‌اند.'
+                q: 'آیا این افزونه برای سایر دانشگاه‌هایی که از سامانه بهستان استفاده می‌کنند هم کاربرد دارد؟',
+                a: 'بله؛ معماری هسته سروستان اختصاصاً بر پایه پروتکل و ساختار مدرن سامانه بهستان مهندسی شده است. در نسخه ۱.۲ فرم‌ها و فیلدها با بهستان دانشگاه صنعتی خواجه نصیرالدین طوسی هماهنگ شده‌اند و هم‌اکنون با جدیت در تلاشیم تا با توسعه و نگاشت جامع کدهای فرم، سروستان را برای تمامی دانشگاه‌های سراسر کشور که بر بستر سامانه بهستان فعالیت می‌کنند آماده و فعال کنیم.'
               }
             ].map((faq, idx) => (
-              <div key={idx} className="sarv-card rounded-2xl overflow-hidden border border-base-500/30">
+              <div
+                key={idx}
+                className={`sarv-card rounded-2xl overflow-hidden border transition-all duration-300 ${
+                  openFaq === idx ? 'border-primary/40 shadow-lg shadow-primary/5' : 'border-base-500/30 hover:border-base-500/50'
+                }`}
+              >
                 <button
                   onClick={() => toggleFaq(idx)}
                   className="w-full p-4 sm:p-5 text-right flex items-center justify-between gap-4 font-bold text-sm sm:text-base text-base-content hover:text-primary hover:bg-base-500/10 transition-colors"
                 >
                   <span className="text-base-content font-bold flex items-center gap-2.5">
-                    <span className="w-2 h-2 rounded-full bg-primary inline-block shrink-0" />
+                    <span className={`w-2 h-2 rounded-full inline-block shrink-0 transition-colors ${openFaq === idx ? 'bg-accent' : 'bg-primary'}`} />
                     {faq.q}
                   </span>
                   <ChevronDown
-                    className={`w-4 h-4 text-neutral transition-transform duration-200 shrink-0 ${
+                    className={`w-4 h-4 text-neutral transition-transform duration-300 shrink-0 ${
                       openFaq === idx ? 'rotate-180 text-primary' : ''
                     }`}
                   />
                 </button>
-                {openFaq === idx && (
-                  <div className="px-5 pb-5 pt-2 text-xs sm:text-sm text-base-content/85 leading-relaxed border-t border-base-500/20 bg-base-500/5">
-                    {faq.a}
-                  </div>
-                )}
+                <AnimatePresence initial={false}>
+                  {openFaq === idx && (
+                    <motion.div
+                      key="faq-content"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-5 pb-5 pt-2 text-xs sm:text-sm text-base-content/85 leading-relaxed border-t border-base-500/20 bg-base-500/5">
+                        {faq.a}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             ))}
           </div>
@@ -821,54 +1030,77 @@ export default function LandingPage({ onOpenDemo }) {
           Footer
           ========================================================= */}
       <footer className="border-t border-base-500/30 py-12 bg-base-500/10 text-xs text-neutral relative z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center">
-              <Sparkles className="w-4 h-4" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="font-bold text-base-content text-sm">پروژه آزاد سروستان (سامانه هوشمند بهستان)</div>
+                <div>طراحی‌شده با دیزاین‌سیستم <a href="https://github.com/mjb4khshi/sarv-ui" target="_blank" rel="noreferrer" className="text-primary hover:underline font-bold">سَرو (Sarv UI)</a></div>
+              </div>
             </div>
-            <div>
-              <div className="font-bold text-base-content text-sm">پروژه آزاد سروستان (بهستان ۲٫۰)</div>
-              <div>طراحی‌شده با دیزاین‌سیستم <a href="https://github.com/mjb4khshi/sarv-ui" target="_blank" rel="noreferrer" className="text-primary hover:underline font-bold">سَرو (Sarv UI)</a></div>
+
+            <div className="flex flex-wrap items-center justify-center gap-4 text-neutral">
+              <a
+                href="https://github.com/mjb4khshi/sarvestan"
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-primary transition-colors flex items-center gap-1.5"
+              >
+                <GithubIcon className="w-4 h-4" />
+                <span>مخزن گیت‌هاب</span>
+              </a>
+              <span className="opacity-30">•</span>
+              <button
+                onClick={onOpenDemo}
+                className="hover:text-primary transition-colors"
+              >
+                دموی آنلاین
+              </button>
+              <span className="opacity-30">•</span>
+              <a
+                href="./sarvestan-extension.zip"
+                download
+                className="hover:text-primary transition-colors"
+              >
+                دانلود مستقیم (.zip)
+              </a>
+              <span className="opacity-30">•</span>
+              <span>
+                توسعه داده شده توسط{' '}
+                <a
+                  href="https://github.com/mjb4khshi"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-primary hover:underline font-bold"
+                >
+                  محمدجواد بخشی ایرج
+                </a>
+              </span>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-4 text-neutral">
-            <a
-              href="https://github.com/mjb4khshi/sarvestan"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-primary transition-colors flex items-center gap-1.5"
-            >
-              <GithubIcon className="w-4 h-4" />
-              <span>مخزن گیت‌هاب</span>
-            </a>
-            <span className="opacity-30">•</span>
-            <button
-              onClick={onOpenDemo}
-              className="hover:text-primary transition-colors"
-            >
-              دموی آنلاین
-            </button>
-            <span className="opacity-30">•</span>
-            <a
-              href="./sarvestan-extension.zip"
-              download
-              className="hover:text-primary transition-colors"
-            >
-              دانلود مستقیم (.zip)
-            </a>
-            <span className="opacity-30">•</span>
-            <span>
-              توسعه داده شده توسط{' '}
+          {/* Special Thanks to Ashkan Jalali */}
+          <div className="mt-8 pt-6 border-t border-base-500/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-neutral">
+              <Heart className="w-4 h-4 text-accent fill-accent shrink-0 animate-pulse" />
+              <span>با تشکر و قدردانی ویژه از</span>
               <a
-                href="https://github.com/mjb4khshi"
+                href="https://github.com/ashkanjalaliQ"
                 target="_blank"
                 rel="noreferrer"
-                className="text-primary hover:underline font-bold"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-base-500/20 hover:bg-primary/20 text-base-content hover:text-primary font-bold border border-base-500/30 transition-all shadow-sm"
               >
-                محمدجواد بخشی ایرج
+                <GithubIcon className="w-3.5 h-3.5 text-primary" />
+                <span>اشکان جلالی (Ashkan Jalali)</span>
               </a>
-            </span>
+              <span className="text-neutral/80">بابت همراهی، همفکری و حمایت‌های ارزشمند در مسیر خلق و توسعه سروستان</span>
+            </div>
+            <div className="text-[11px] text-neutral/60 font-mono">
+              سروستان • سامانه هوشمند بهستان
+            </div>
           </div>
         </div>
       </footer>
