@@ -261,3 +261,40 @@
     box-shadow: none !important;
   }
 }
+
+/* =========================================================
+   Smooth Liquid Theme Transitions & Showcase Replica Styles
+   ========================================================= */
+.sarv-showcase-frame,
+.sarv-showcase-frame *,
+.sarv-showcase-frame *::before,
+.sarv-showcase-frame *::after {
+  transition: background-color 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+              fill 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+              stroke 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.6s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.sarv-showcase-frame .mock-card {
+  background-color: var(--theme-card-bg, rgba(20, 20, 25, 0.75));
+  border: 1px solid var(--theme-card-border, rgba(255, 255, 255, 0.1));
+  color: var(--theme-color-base-content, #ffffff);
+  border-radius: 0.875rem;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.sarv-showcase-frame .mock-title {
+  color: var(--theme-color-base-content, #ffffff) !important;
+}
+
+.sarv-showcase-frame .mock-sub {
+  color: var(--theme-color-neutral, #94a3b8) !important;
+}
+
+.sarv-showcase-frame .mock-primary {
+  color: var(--theme-color-primary, #0066a4) !important;
+}
+
