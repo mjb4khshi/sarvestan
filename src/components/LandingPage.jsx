@@ -401,7 +401,7 @@ export default function LandingPage({ onOpenDemo }) {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-14"
+            className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-5"
           >
             <a
               href="./sarvestan-extension.zip"
@@ -409,7 +409,7 @@ export default function LandingPage({ onOpenDemo }) {
               className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-primary text-primary-content font-bold text-base shadow-xl shadow-primary/30 hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2.5"
             >
               <Download className="w-5 h-5" />
-              <span>دانلود رایگان افزونه کروم / مرورگرها</span>
+              <span>دانلود رایگان افزونه (نسخه دسکتاپ)</span>
               <span className="text-xs bg-white/20 px-2 py-0.5 rounded-md font-mono">ZIP</span>
             </a>
 
@@ -420,6 +420,24 @@ export default function LandingPage({ onOpenDemo }) {
               <Eye className="w-5 h-5 text-accent" />
               <span>مشاهده پیش‌نمایش زنده (دموی آنلاین)</span>
             </button>
+          </motion.div>
+
+          {/* Desktop & Mobile Platform Notice */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.35 }}
+            className="flex flex-wrap items-center justify-center gap-2.5 text-xs text-neutral mb-14"
+          >
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-base-500/20 border border-base-500/30 text-base-content font-medium shadow-sm">
+              <span>💻</span>
+              <span>بهینه‌شده برای مرورگرهای دسکتاپ (Chrome, Edge, Brave, Opera)</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/10 border border-accent/25 text-accent font-semibold shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+              <span>📱</span>
+              <span>نسخه اختصاصی موبایل به‌زودی منتشر می‌شود</span>
+            </span>
           </motion.div>
 
           {/* Quick Pillars Row */}
@@ -1274,7 +1292,11 @@ export default function LandingPage({ onOpenDemo }) {
               },
               {
                 q: 'سروستان روی چه مرورگرهایی کار می‌کند؟',
-                a: 'تمامی مرورگرهای مبتنی بر هسته کرومیوم شامل Google Chrome, Microsoft Edge, Brave Browser, Opera و Vivaldi به صورت کامل پشتیبانی می‌شوند.'
+                a: 'تمامی مرورگرهای دسکتاپ مبتنی بر هسته کرومیوم شامل Google Chrome, Microsoft Edge, Brave Browser, Opera و Vivaldi در سیستم‌عامل‌های ویندوز، مک و لینوکس به صورت کامل پشتیبانی می‌شوند.'
+              },
+              {
+                q: 'آیا سروستان روی گوشی موبایل هم کار می‌کند؟',
+                a: 'افزونه در حال حاضر برای کامپیوتر و لپ‌تاپ (مرورگرهای دسکتاپ) بهینه‌سازی شده است. نسخه اختصاصی و مستقل وب‌اپلیکیشن موبایل (PWA / اندروید) در دست توسعه فعال است و به‌زودی برای گوشی‌های هوشمند نیز منتشر خواهد شد. تا آن زمان برای تجربه کامل، لطفاً از نسخه دسکتاپ استفاده کنید.'
               },
               {
                 q: 'آیا این افزونه برای سایر دانشگاه‌هایی که از سامانه بهستان استفاده می‌کنند هم کاربرد دارد؟',

@@ -17,11 +17,14 @@
 [![React 19](https://img.shields.io/badge/React-19.0-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![Tailwind CSS v4](https://img.shields.io/badge/Tailwind-v4-38BDF8?style=flat-square&logo=tailwindcss)](https://tailwindcss.com)
 [![Sarv UI](https://img.shields.io/badge/Design%20System-Sarv%20UI-10b981?style=flat-square)](https://github.com/mjb4khshi/sarv-ui)
+[![Platform: Desktop](https://img.shields.io/badge/Platform-Desktop%20(Mobile%20Coming%20Soon)-f59e0b?style=flat-square&logo=googlechrome&logoColor=white)](https://mjb4khshi.github.io/sarvestan/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
 <br/>
 
-**سروستان** یک افزونه مدرن مرورگر (کروم و اج) است که سامانه دانشگاهی قدیمی بهستان را به یک وب‌اپلیکیشن فوق‌العاده سریع، مینیمال، هوشمند و زیبا با زبان طراحی **Sarv UI** تبدیل می‌کند؛ بدون هیچ دیتای هاردکد، با حفظ کامل امنیت و حفظ حریم خصوصی دانشجو.
+**سروستان** یک افزونه مدرن مرورگر (کروم، اج، بریو، اپرا) برای کامپیوتر و لپ‌تاپ است که سامانه دانشگاهی قدیمی بهستان را به یک وب‌اپلیکیشن فوق‌العاده سریع، مینیمال، هوشمند و زیبا با زبان طراحی **Sarv UI** تبدیل می‌کند؛ بدون هیچ دیتای هاردکد، با حفظ کامل امنیت و حفظ حریم خصوصی دانشجو.
+
+> 💻 **پلتفرم هدف:** این افزونه برای مرورگرهای دسکتاپ طراحی و بهینه‌سازی شده است. نسخه اختصاصی و وب‌اپلیکیشن همراه (موبایل) به‌زودی منتشر خواهد شد.
 
 </div>
 
