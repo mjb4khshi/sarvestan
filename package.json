@@ -1,0 +1,26 @@
+{
+  "name": "sarvestan-dashboard",
+  "private": true,
+  "version": "1.2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "pack": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/pack-extension.ps1"
+  },
+  "dependencies": {
+    "canvas-confetti": "^1.9.4",
+    "framer-motion": "^12.4.7",
+    "lucide-react": "^1.16.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "sarv-ui": "file:./sarv-ui-0.3.1.tgz"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.9",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tailwindcss": "^4.0.9",
+    "vite": "^6.2.0"
+  }
+}

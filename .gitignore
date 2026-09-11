@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Private / sensitive HAR files and personal dumps — NEVER commit
+*.har
+**/*.har
+HAR/
+parse_grades.js
+scripts/*
+!scripts/pack-extension.ps1
+package/
+sarvestan-extension.zip
+
+# Logs & Environment
+*.log
+.env
+.env.*
+.DS_Store
+Thumbs.db
+
+# Package archives
+*.tgz
+!sarv-ui-0.3.1.tgz
+
+# Editor & IDE
+.vscode/
+.idea/
+*.swp
+*.swo

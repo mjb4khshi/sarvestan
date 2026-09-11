@@ -1,0 +1,75 @@
+{
+  "manifest_version": 3,
+  "name": "سروستان | Sarvestan - افزونه هوشمند سامانه بهستان",
+  "version": "1.2.0",
+  "description": "داشبورد مدرن، زیبا و سریع سامانه بهستان دانشگاه صنعتی خواجه نصیرالدین طوسی با دیزاین‌سیستم سرو",
+  "author": "MJ",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "سروستان - داشبورد مدرن سامانه بهستان",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "permissions": [
+    "storage",
+    "activeTab",
+    "tabs"
+  ],
+  "host_permissions": [
+    "*://*.kntu.ac.ir/*",
+    "*://behestan.kntu.ac.ir/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://behestan.kntu.ac.ir/*",
+        "*://*.kntu.ac.ir/*"
+      ],
+      "js": [
+        "behestanInterceptor.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "*://behestan.kntu.ac.ir/*",
+        "*://*.kntu.ac.ir/*"
+      ],
+      "js": [
+        "contentScript.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "behestanInterceptor.js",
+        "fonts/*",
+        "icons/*",
+        "index.html",
+        "assets/*"
+      ],
+      "matches": [
+        "*://*.kntu.ac.ir/*",
+        "*://behestan.kntu.ac.ir/*"
+      ]
+    }
+  ]
+}
