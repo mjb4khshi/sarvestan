@@ -203,6 +203,38 @@
   min-width: 0;
 }
 
+/* Badge refinements for perfect theme harmony */
+.badge-soft-neutral {
+  background-color: color-mix(in oklab, var(--theme-color-neutral, #94a3b8) 22%, var(--theme-color-base, transparent)) !important;
+  color: var(--theme-color-neutral, #94a3b8) !important;
+}
+
+[data-theme-mode="light"] .badge-soft-warn,
+[datatheme="persian-light"] .badge-soft-warn,
+[data-theme="persian-light"] .badge-soft-warn,
+[datatheme="persian-light-sharp"] .badge-soft-warn,
+[data-theme="persian-light-sharp"] .badge-soft-warn,
+[datatheme="sunset"] .badge-soft-warn,
+[data-theme="sunset"] .badge-soft-warn {
+  color: #b45309 !important;
+}
+
+[data-theme-mode="light"] .badge-soft-success,
+[datatheme="persian-light"] .badge-soft-success,
+[data-theme="persian-light"] .badge-soft-success,
+[datatheme="persian-light-sharp"] .badge-soft-success,
+[data-theme="persian-light-sharp"] .badge-soft-success {
+  color: #15803d !important;
+}
+
+[data-theme-mode="light"] .badge-soft-info,
+[datatheme="persian-light"] .badge-soft-info,
+[data-theme="persian-light"] .badge-soft-info,
+[datatheme="persian-light-sharp"] .badge-soft-info,
+[data-theme="persian-light-sharp"] .badge-soft-info {
+  color: #0f766e !important;
+}
+
 /* Glowing border accent */
 .sarv-glow-primary {
   box-shadow: 0 0 24px -8px color-mix(in oklab, var(--theme-color-primary) 35%, transparent);

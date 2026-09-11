@@ -12,6 +12,39 @@ const ALIAS = {
   royal: 'primary',
 };
 
+const BADGE_MAP = {
+  solid: {
+    primary: 'badge-primary',
+    secondary: 'badge-secondary',
+    accent: 'badge-accent',
+    success: 'badge-success',
+    warn: 'badge-warn',
+    danger: 'badge-danger',
+    info: 'badge-info',
+    neutral: 'badge-neutral',
+  },
+  soft: {
+    primary: 'badge-soft-primary',
+    secondary: 'badge-soft-secondary',
+    accent: 'badge-soft-accent',
+    success: 'badge-soft-success',
+    warn: 'badge-soft-warn',
+    danger: 'badge-soft-danger',
+    info: 'badge-soft-info',
+    neutral: 'badge-soft-neutral',
+  },
+  outline: {
+    primary: 'badge-outline-primary',
+    secondary: 'badge-outline-secondary',
+    accent: 'badge-outline-accent',
+    success: 'badge-outline-success',
+    warn: 'badge-outline-warn',
+    danger: 'badge-outline-danger',
+    info: 'badge-outline-info',
+    neutral: 'badge-outline-neutral',
+  },
+};
+
 export default function SarvBadge({
   children,
   variant = 'primary',
@@ -24,16 +57,10 @@ export default function SarvBadge({
   ...props
 }) {
   const base = ALIAS[variant] || (VARIANTS.has(variant) ? variant : 'primary');
+  const styleKey = outline ? 'outline' : soft ? 'soft' : 'solid';
+  const variantClass = BADGE_MAP[styleKey]?.[base] || BADGE_MAP[styleKey].primary;
 
-  // کلاس‌های رسمی Sarv UI: badge-soft-primary / badge-outline-info / badge-success
-  let badgeClass = 'badge';
-  if (outline) {
-    badgeClass += ` badge-outline-${base}`;
-  } else if (soft) {
-    badgeClass += ` badge-soft-${base}`;
-  } else {
-    badgeClass += ` badge-${base}`;
-  }
+  let badgeClass = `badge ${variantClass}`;
 
   if (size === 'sm') badgeClass += ' text-[10px] px-1.5 py-0.5';
   if (size === 'xs') badgeClass += ' text-[9px] px-1 py-0';

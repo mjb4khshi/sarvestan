@@ -11,6 +11,49 @@ const VARIANTS = new Set(['primary', 'success', 'warn', 'danger', 'secondary', '
  *
  * برای سازگاری قدیمی: اگر variant="flat|outline|soft" بود، آن را styleType در نظر می‌گیریم.
  */
+const BUTTON_MAP = {
+  solid: {
+    primary: 'btn-primary',
+    secondary: 'btn-secondary',
+    accent: 'btn-accent',
+    success: 'btn-success',
+    warn: 'btn-warn',
+    danger: 'btn-danger',
+    info: 'btn-info',
+    neutral: 'btn-neutral',
+  },
+  soft: {
+    primary: 'btn-soft-primary',
+    secondary: 'btn-soft-secondary',
+    accent: 'btn-soft-accent',
+    success: 'btn-soft-success',
+    warn: 'btn-soft-warn',
+    danger: 'btn-soft-danger',
+    info: 'btn-soft-info',
+    neutral: 'btn-soft-neutral',
+  },
+  outline: {
+    primary: 'btn-outline-primary',
+    secondary: 'btn-outline-secondary',
+    accent: 'btn-outline-accent',
+    success: 'btn-outline-success',
+    warn: 'btn-outline-warn',
+    danger: 'btn-outline-danger',
+    info: 'btn-outline-info',
+    neutral: 'btn-outline-neutral',
+  },
+  flat: {
+    primary: 'btn-flat-primary',
+    secondary: 'btn-flat-secondary',
+    accent: 'btn-flat-accent',
+    success: 'btn-flat-success',
+    warn: 'btn-flat-warn',
+    danger: 'btn-flat-danger',
+    info: 'btn-flat-info',
+    neutral: 'btn-flat-neutral',
+  },
+};
+
 export default function SarvButton({
   children,
   variant = 'primary',
@@ -34,11 +77,9 @@ export default function SarvButton({
   if (!VARIANTS.has(color)) color = 'primary';
   if (!style) style = 'solid';
 
-  let classes = 'btn';
-  if (style === 'soft') classes += ` btn-soft btn-${color}`;
-  else if (style === 'outline') classes += ` btn-outline btn-${color}`;
-  else if (style === 'flat') classes += ` btn-flat btn-${color}`;
-  else classes += ` btn-${color}`;
+  const styleGroup = BUTTON_MAP[style] || BUTTON_MAP.solid;
+  const variantClass = styleGroup[color] || styleGroup.primary;
+  let classes = `btn ${variantClass}`;
 
   if (size === 'sm') classes += ' text-xs';
   if (size === 'lg') classes += ' text-base';

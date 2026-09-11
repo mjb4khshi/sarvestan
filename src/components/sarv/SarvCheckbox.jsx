@@ -1,5 +1,16 @@
 import React from 'react';
 
+const CHECKBOX_MAP = {
+  primary: 'checkbox-primary',
+  secondary: 'checkbox-secondary',
+  accent: 'checkbox-accent',
+  success: 'checkbox-success',
+  warn: 'checkbox-warn',
+  danger: 'checkbox-danger',
+  info: 'checkbox-info',
+  neutral: 'checkbox-neutral',
+};
+
 export default function SarvCheckbox({
   checked,
   onChange,
@@ -10,10 +21,11 @@ export default function SarvCheckbox({
   description = null,
   ...props
 }) {
+  const checkboxClass = CHECKBOX_MAP[variant] || CHECKBOX_MAP.primary;
   return (
     <label className={`inline-flex items-start gap-3 cursor-pointer select-none group ${disabled ? 'opacity-50 pointer-events-none' : ''} ${className}`}>
       <div className="relative mt-0.5">
-        <label className={`checkbox checkbox-${variant}`}>
+        <label className={`checkbox ${checkboxClass}`}>
           <input
             type="checkbox"
             checked={checked}
