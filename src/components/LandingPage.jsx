@@ -241,8 +241,11 @@ export default function LandingPage({ onOpenDemo }) {
       <section id="preview" className="py-12 sm:py-16 relative z-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-8">
-            <h2 className="text-2xl sm:text-3xl font-black mb-3">
-              نگاهی به داخل داشبورد سروستان
+            <span className="text-xs font-bold text-accent px-3.5 py-1.5 rounded-full bg-accent/10 border border-accent/25 mb-3 inline-block shadow-sm">
+              پیش‌نمایش تعاملی
+            </span>
+            <h2 className="text-2xl sm:text-4xl font-black mb-3 text-base-content">
+              نگاهی به داخل <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">داشبورد سروستان</span>
             </h2>
             <p className="text-sm sm:text-base text-neutral max-w-2xl mx-auto">
               رابط کاربری مدرن با تم تاریک چشم‌نواز، نمودارهای زنده و دسترسی فوری به تمام بخش‌های دانشگاه
@@ -493,8 +496,11 @@ export default function LandingPage({ onOpenDemo }) {
       <section id="comparison" className="py-16 sm:py-24 bg-base-500/10 border-y border-base-500/20 relative z-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-14">
-            <h2 className="text-2xl sm:text-4xl font-black mb-4">
-              چرا باید از سروستان استفاده کنیم؟
+            <span className="text-xs font-bold text-info px-3.5 py-1.5 rounded-full bg-info/10 border border-info/25 mb-3 inline-block shadow-sm">
+              بررسی تفاوت‌ها
+            </span>
+            <h2 className="text-2xl sm:text-4xl font-black mb-4 text-base-content">
+              چرا باید از <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">سروستان</span> استفاده کنیم؟
             </h2>
             <p className="text-sm sm:text-base text-neutral max-w-2xl mx-auto">
               مقایسه رو در رو بین تجربه سنتی گلستان/بهستان با افزونه ارگونومیک سروستان
@@ -581,11 +587,11 @@ export default function LandingPage({ onOpenDemo }) {
       <section id="features" className="py-16 sm:py-24 relative z-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-14">
-            <span className="text-xs font-bold text-primary px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
+            <span className="text-xs font-bold text-primary px-3.5 py-1.5 rounded-full bg-primary/10 border border-primary/25 mb-3 inline-block shadow-sm">
               ویژگی‌های کلیدی
             </span>
-            <h2 className="text-2xl sm:text-4xl font-black mt-3 mb-4">
-              هر آنچه یک دانشجوی خواجه نصیر نیاز دارد
+            <h2 className="text-2xl sm:text-4xl font-black mt-3 mb-4 text-base-content">
+              هر آنچه یک دانشجوی خواجه نصیر <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">نیاز دارد</span>
             </h2>
             <p className="text-sm sm:text-base text-neutral max-w-2xl mx-auto">
               ابزارهای هوشمند توسعه‌یافته بر پایه بررسی رفتار و نیازهای واقعی دانشجویان
@@ -668,13 +674,13 @@ export default function LandingPage({ onOpenDemo }) {
       <section id="install" className="py-16 sm:py-24 bg-base-500/10 border-t border-base-500/20 relative z-10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-14">
-            <span className="text-xs font-bold text-success px-3 py-1 rounded-full bg-success/10 border border-success/20">
+            <span className="text-xs font-bold text-success px-3.5 py-1.5 rounded-full bg-success/10 border border-success/25 mb-3 inline-block shadow-sm">
               راهنمای راه‌اندازی
             </span>
-            <h2 className="text-2xl sm:text-4xl font-black mt-3 mb-4">
-              نصب آسان در کمتر از ۱ دقیقه
+            <h2 className="text-2xl sm:text-4xl font-black mt-3 mb-4 text-base-content">
+              نصب آسان در <span className="bg-gradient-to-r from-success via-info to-success bg-clip-text text-transparent">کمتر از ۱ دقیقه</span>
             </h2>
-            <p className="text-sm sm:text-base text-neutral">
+            <p className="text-sm sm:text-base text-neutral max-w-xl mx-auto">
               بدون نیاز به تنظیمات پیچیده؛ افزونه با تمام مرورگرهای مبتنی بر Chromium (کروم، اج، بریو و...) سازگار است.
             </p>
           </div>
@@ -682,12 +688,12 @@ export default function LandingPage({ onOpenDemo }) {
           <div className="space-y-6">
             {/* Step 1 */}
             <div className="sarv-card p-6 rounded-2xl flex flex-col sm:flex-row items-start gap-4">
-              <div className="w-10 h-10 rounded-xl bg-primary text-primary-content font-black text-lg flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-primary text-primary-content font-black text-lg flex items-center justify-center shrink-0 shadow-md shadow-primary/20">
                 ۱
               </div>
               <div className="flex-1">
                 <div className="flex items-center justify-between gap-2 mb-1">
-                  <h3 className="font-bold text-base">دانلود فایل افزونه و استخراج (Unzip)</h3>
+                  <h3 className="font-bold text-base text-base-content">دانلود فایل افزونه و استخراج (Unzip)</h3>
                   <a
                     href="./sarvestan-extension.zip"
                     download
@@ -705,11 +711,11 @@ export default function LandingPage({ onOpenDemo }) {
 
             {/* Step 2 */}
             <div className="sarv-card p-6 rounded-2xl flex flex-col sm:flex-row items-start gap-4">
-              <div className="w-10 h-10 rounded-xl bg-accent text-accent-content font-black text-lg flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-accent text-accent-content font-black text-lg flex items-center justify-center shrink-0 shadow-md shadow-accent/20">
                 ۲
               </div>
               <div className="flex-1">
-                <h3 className="font-bold text-base mb-1">باز کردن صفحه مدیریت افزونه‌ها در مرورگر</h3>
+                <h3 className="font-bold text-base mb-1 text-base-content">باز کردن صفحه مدیریت افزونه‌ها در مرورگر</h3>
                 <p className="text-xs sm:text-sm text-neutral leading-relaxed mb-2">
                   مرورگر خود (Chrome, Edge, Brave, Opera) را باز کرده و در نوار آدرس عبارت زیر را تایپ و اینتر بزنید:
                 </p>
@@ -725,11 +731,11 @@ export default function LandingPage({ onOpenDemo }) {
 
             {/* Step 3 */}
             <div className="sarv-card p-6 rounded-2xl flex flex-col sm:flex-row items-start gap-4">
-              <div className="w-10 h-10 rounded-xl bg-success text-success-content font-black text-lg flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-success text-success-content font-black text-lg flex items-center justify-center shrink-0 shadow-md shadow-success/20">
                 ۳
               </div>
               <div className="flex-1">
-                <h3 className="font-bold text-base mb-1">بارگذاری در حالت توسعه (Load unpacked)</h3>
+                <h3 className="font-bold text-base mb-1 text-base-content">بارگذاری در حالت توسعه (Load unpacked)</h3>
                 <p className="text-xs sm:text-sm text-neutral leading-relaxed">
                   روی دکمه <strong className="text-base-content font-bold">Load unpacked</strong> در بالای صفحه افزونه‌ها کلیک کنید و فولدری که در گام اول استخراج کردید را انتخاب کنید. تبریک! افزونه سروستان نصب شد و با ورود به بهستان فعال می‌شود.
                 </p>
@@ -751,10 +757,13 @@ export default function LandingPage({ onOpenDemo }) {
       <section id="faq" className="py-16 sm:py-24 relative z-10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-14">
-            <h2 className="text-2xl sm:text-4xl font-black mb-3">
-              پرسش‌های متداول
+            <span className="text-xs font-bold text-warn px-3.5 py-1.5 rounded-full bg-warn/10 border border-warn/25 mb-3 inline-block shadow-sm">
+              پرسش و پاسخ
+            </span>
+            <h2 className="text-2xl sm:text-4xl font-black mb-3 text-base-content">
+              پرسش‌های <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">متداول</span>
             </h2>
-            <p className="text-sm sm:text-base text-neutral">
+            <p className="text-sm sm:text-base text-neutral max-w-xl mx-auto">
               پاسخ به سوالات متداول درباره نحوه کار، امنیت و سازگاری سروستان
             </p>
           </div>
@@ -785,9 +794,12 @@ export default function LandingPage({ onOpenDemo }) {
               <div key={idx} className="sarv-card rounded-2xl overflow-hidden border border-base-500/30">
                 <button
                   onClick={() => toggleFaq(idx)}
-                  className="w-full p-4 sm:p-5 text-right flex items-center justify-between gap-4 font-bold text-sm sm:text-base hover:bg-base-500/10 transition-colors"
+                  className="w-full p-4 sm:p-5 text-right flex items-center justify-between gap-4 font-bold text-sm sm:text-base text-base-content hover:text-primary hover:bg-base-500/10 transition-colors"
                 >
-                  <span>{faq.q}</span>
+                  <span className="text-base-content font-bold flex items-center gap-2.5">
+                    <span className="w-2 h-2 rounded-full bg-primary inline-block shrink-0" />
+                    {faq.q}
+                  </span>
                   <ChevronDown
                     className={`w-4 h-4 text-neutral transition-transform duration-200 shrink-0 ${
                       openFaq === idx ? 'rotate-180 text-primary' : ''
@@ -795,7 +807,7 @@ export default function LandingPage({ onOpenDemo }) {
                   />
                 </button>
                 {openFaq === idx && (
-                  <div className="px-4 pb-5 pt-1 text-xs sm:text-sm text-neutral leading-relaxed border-t border-base-500/20">
+                  <div className="px-5 pb-5 pt-2 text-xs sm:text-sm text-base-content/85 leading-relaxed border-t border-base-500/20 bg-base-500/5">
                     {faq.a}
                   </div>
                 )}

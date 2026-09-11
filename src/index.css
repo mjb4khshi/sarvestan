@@ -49,6 +49,28 @@
 @layer base {
   :root {
     --font-arad: 'Arad', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --theme-color-base: #0a0a0c;
+    --theme-color-base-content: #f8fafc;
+    --theme-color-base-500: #1f222e;
+    --theme-color-neutral: #94a3b8;
+  }
+
+  /* Persian Dark explicit mapping */
+  [datatheme="persian-dark"],
+  [data-theme="persian-dark"] {
+    --theme-color-base: #000000;
+    --theme-color-base-content: #ffffff;
+    --theme-color-base-500: #222222;
+    --theme-color-neutral: #a2a2a2;
+  }
+
+  /* Persian Light explicit mapping — ensures titles and text are crisp dark, never white */
+  [datatheme="persian-light"],
+  [data-theme="persian-light"] {
+    --theme-color-base: #ffffff;
+    --theme-color-base-content: #0f172a;
+    --theme-color-base-500: #e2e8f0;
+    --theme-color-neutral: #64748b;
   }
 
   html, body, div, span, h1, h2, h3, h4, h5, h6, p, a,
@@ -59,9 +81,13 @@
     text-rendering: optimizeLegibility;
   }
 
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--theme-color-base-content, currentColor);
+  }
+
   body {
-    background-color: var(--theme-color-base, #ffffff);
-    color: var(--theme-color-base-content, #111111);
+    background-color: var(--theme-color-base, #0a0a0c);
+    color: var(--theme-color-base-content, #f8fafc);
     transition: background-color 0.3s ease, color 0.3s ease;
     letter-spacing: -0.015em;
   }
@@ -88,9 +114,10 @@
    (هماهنگ با توکن‌های radius-card سرو)
    ========================================================= */
 .sarv-card {
-  background: color-mix(in oklab, var(--theme-color-base-500, #141414) 14%, var(--theme-color-base, #000000));
-  border: 1px solid color-mix(in oklab, var(--theme-color-base-500, #2c2c2c) 45%, transparent);
+  background: color-mix(in oklab, var(--theme-color-base-500, #141414) 18%, var(--theme-color-base, #000000));
+  border: 1px solid color-mix(in oklab, var(--theme-color-base-500, #2c2c2c) 55%, transparent);
   border-radius: var(--radius-card, 1.25rem);
+  color: var(--theme-color-base-content);
   transition: border-color 0.25s ease, box-shadow 0.25s ease;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
