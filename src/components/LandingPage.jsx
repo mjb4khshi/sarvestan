@@ -163,7 +163,7 @@ export default function LandingPage({ onOpenDemo }) {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-tight sm:leading-tight mb-6"
+            className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-tight sm:leading-tight mb-6 text-base-content"
           >
             تجربه مدرن، سریع و زیبای بهستان؛{' '}
             <br className="hidden sm:block" />
@@ -368,7 +368,7 @@ export default function LandingPage({ onOpenDemo }) {
                             <Clock className="w-5 h-5" />
                           </div>
                           <div>
-                            <div className="font-bold text-sm">کلاس بعدی: طراحی الگوریتم</div>
+                            <div className="font-bold text-sm text-base-content">کلاس بعدی: طراحی الگوریتم</div>
                             <div className="text-xs text-neutral">شنبه ۱۰:۳۰ الی ۱۲:۰۰ • کلاس ۳۰۴ دانشکده برق و کامپیوتر</div>
                           </div>
                         </div>
@@ -604,7 +604,7 @@ export default function LandingPage({ onOpenDemo }) {
               <div className="w-12 h-12 rounded-xl bg-primary/15 text-primary flex items-center justify-center mb-4">
                 <GraduationCap className="w-6 h-6" />
               </div>
-              <h3 className="font-bold text-base mb-2">تحلیل جامع کارنامه و معدل</h3>
+              <h3 className="font-bold text-base mb-2 text-base-content">تحلیل جامع کارنامه و معدل</h3>
               <p className="text-xs sm:text-sm text-neutral leading-relaxed">
                 مشاهده کارنامه کلیه ترم‌ها، تفکیک نمرات موقت و قطعی، محاسبه معدل کل و معدل الف به تفکیک دروس اختصاصی، عمومی و پایه.
               </p>
@@ -615,7 +615,7 @@ export default function LandingPage({ onOpenDemo }) {
               <div className="w-12 h-12 rounded-xl bg-accent/15 text-accent flex items-center justify-center mb-4">
                 <Calendar className="w-6 h-6" />
               </div>
-              <h3 className="font-bold text-base mb-2">برنامه هفتگی ویژوال و تقویم</h3>
+              <h3 className="font-bold text-base mb-2 text-base-content">برنامه هفتگی ویژوال و تقویم</h3>
               <p className="text-xs sm:text-sm text-neutral leading-relaxed">
                 تقویم رنگی هوشمند ساعات کلاسی بدون تداخل، همراه با تاریخ و ساعت امتحانات پایان‌ترم و قابلیت پرینت مستقیم جدول.
               </p>
@@ -626,7 +626,7 @@ export default function LandingPage({ onOpenDemo }) {
               <div className="w-12 h-12 rounded-xl bg-info/15 text-info flex items-center justify-center mb-4">
                 <CreditCard className="w-6 h-6" />
               </div>
-              <h3 className="font-bold text-base mb-2">تسویه‌حساب و پرداخت امن شاپرک</h3>
+              <h3 className="font-bold text-base mb-2 text-base-content">تسویه‌حساب و پرداخت امن شاپرک</h3>
               <p className="text-xs sm:text-sm text-neutral leading-relaxed">
                 تفکیک شفاف بدهی و بستانکاری شهریه با سوییچ هوشمند به فرم امن بومی ۲۷۵۷۰ بهستان برای تضمین عدم ابطال توکن‌های بانکی.
               </p>
@@ -637,7 +637,7 @@ export default function LandingPage({ onOpenDemo }) {
               <div className="w-12 h-12 rounded-xl bg-warn/15 text-warn flex items-center justify-center mb-4">
                 <Search className="w-6 h-6" />
               </div>
-              <h3 className="font-bold text-base mb-2">پالت فرمان سریع (Ctrl + K)</h3>
+              <h3 className="font-bold text-base mb-2 text-base-content">پالت فرمان سریع (Ctrl + K)</h3>
               <p className="text-xs sm:text-sm text-neutral leading-relaxed">
                 دسترسی فوری مانند Raycast و VS Code؛ جستجوی نام اساتید، کد دروس، فرم‌های اداری و عملیات تنها با چند کلید کیبورد.
               </p>
@@ -648,7 +648,7 @@ export default function LandingPage({ onOpenDemo }) {
               <div className="w-12 h-12 rounded-xl bg-success/15 text-success flex items-center justify-center mb-4">
                 <Lock className="w-6 h-6" />
               </div>
-              <h3 className="font-bold text-base mb-2">حفظ ۱۰۰٪ امنیت و حریم خصوصی</h3>
+              <h3 className="font-bold text-base mb-2 text-base-content">حفظ ۱۰۰٪ امنیت و حریم خصوصی</h3>
               <p className="text-xs sm:text-sm text-neutral leading-relaxed">
                 هیچ سرور واسطی وجود ندارد. کلمه عبور شما ذخیره نمی‌شود و تمام محاسبات روی نشست مرورگر شما در لپ‌تاپ خودتان انجام می‌شود.
               </p>
@@ -659,7 +659,7 @@ export default function LandingPage({ onOpenDemo }) {
               <div className="w-12 h-12 rounded-xl bg-secondary/15 text-secondary flex items-center justify-center mb-4">
                 <Layers className="w-6 h-6" />
               </div>
-              <h3 className="font-bold text-base mb-2">دیزاین‌سیستم ایرانی سَرو (Sarv UI)</h3>
+              <h3 className="font-bold text-base mb-2 text-base-content">دیزاین‌سیستم ایرانی سَرو (Sarv UI)</h3>
               <p className="text-xs sm:text-sm text-neutral leading-relaxed">
                 طراحی چشم‌نواز با تایپوگرافی متغیر آراد، حاشیه‌های شیشه‌ای (Glassmorphism)، انیمیشن‌های نرم و هماهنگی کامل با فرهنگ بومی.
               </p>

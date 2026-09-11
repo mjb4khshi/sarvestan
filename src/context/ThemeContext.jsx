@@ -164,6 +164,8 @@ export function ThemeProvider({ children }) {
     // Apply both datatheme and data-theme to support all Sarv UI variants
     document.documentElement.setAttribute('datatheme', currentTheme);
     document.documentElement.setAttribute('data-theme', currentTheme);
+    const meta = SARV_THEMES.find(t => t.id === currentTheme);
+    document.documentElement.setAttribute('data-theme-mode', meta?.mode || 'dark');
     localStorage.setItem('sarvestan_theme', currentTheme);
   }, [currentTheme]);
 

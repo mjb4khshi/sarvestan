@@ -56,21 +56,33 @@
   }
 
   /* Persian Dark explicit mapping */
+  [data-theme-mode="dark"],
   [datatheme="persian-dark"],
   [data-theme="persian-dark"] {
     --theme-color-base: #000000;
     --theme-color-base-content: #ffffff;
     --theme-color-base-500: #222222;
-    --theme-color-neutral: #a2a2a2;
+    --theme-color-neutral: #94a3b8;
   }
 
-  /* Persian Light explicit mapping — ensures titles and text are crisp dark, never white */
+  /* Persian Light and all light themes explicit mapping — ensures titles and text are crisp dark, never white */
+  [data-theme-mode="light"],
   [datatheme="persian-light"],
-  [data-theme="persian-light"] {
+  [data-theme="persian-light"],
+  [datatheme="persian-light-sharp"],
+  [data-theme="persian-light-sharp"],
+  [datatheme="sunset"],
+  [data-theme="sunset"],
+  [datatheme="matcha"],
+  [data-theme="matcha"],
+  [datatheme="nordic"],
+  [data-theme="nordic"],
+  [datatheme="rose-gold"],
+  [data-theme="rose-gold"] {
     --theme-color-base: #ffffff;
     --theme-color-base-content: #0f172a;
     --theme-color-base-500: #e2e8f0;
-    --theme-color-neutral: #64748b;
+    --theme-color-neutral: #475569;
   }
 
   html, body, div, span, h1, h2, h3, h4, h5, h6, p, a,
@@ -121,6 +133,15 @@
   transition: border-color 0.25s ease, box-shadow 0.25s ease;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+}
+
+.sarv-card h1,
+.sarv-card h2,
+.sarv-card h3,
+.sarv-card h4,
+.sarv-card h5,
+.sarv-card h6 {
+  color: var(--theme-color-base-content) !important;
 }
 
 .sarv-card-hover:hover {
