@@ -697,7 +697,7 @@ export default function LandingPage({ onOpenDemo }) {
                       </span>
                     </div>
                     <p className="text-[11px] mock-sub mt-0.5">
-                      مهندسی کامپیوتر • دانشگاه صنعتی خواجه نصیرالدین طوسی • <span className="font-mono font-bold">۴۰۱۲۳۴۵۶</span>
+                      مهندسی صنایع • دانشگاه صنعتی خواجه نصیرالدین طوسی • <span className="font-mono font-bold">۴۰۱۲۳۴۵۶</span>
                     </p>
                   </div>
                 </div>
@@ -724,7 +724,7 @@ export default function LandingPage({ onOpenDemo }) {
                     <GraduationCap className="w-4 h-4" style={{ color: currentShowcaseTheme.primary }} />
                   </div>
                   <div className="text-xl font-black font-mono" style={{ color: currentShowcaseTheme.primary }}>
-                    ۱۸٫۷۵
+                    ۱۹٫۴۰
                   </div>
                   <div className="text-[10px] font-bold mt-1 flex items-center gap-1" style={{ color: currentShowcaseTheme.success }}>
                     <Sparkles className="w-3 h-3" />
