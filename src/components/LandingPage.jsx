@@ -45,6 +45,7 @@ export default function LandingPage({ onOpenDemo }) {
   const [previewTab, setPreviewTab] = useState('overview');
   const [isZoomOpen, setIsZoomOpen] = useState(false);
   const [showcaseThemeIndex, setShowcaseThemeIndex] = useState(0);
+  const [showcaseProgress, setShowcaseProgress] = useState(0);
   const showcaseRef = useRef(null);
 
   const showcaseThemes = [
@@ -72,6 +73,7 @@ export default function LandingPage({ onOpenDemo }) {
       // Pinning begins when rect.top <= 80
       const scrolledSoFar = 80 - rect.top;
       const progress = Math.max(0, Math.min(1, scrolledSoFar / totalScrollableDistance));
+      setShowcaseProgress(progress);
       
       const newIndex = Math.min(showcaseThemes.length - 1, Math.floor(progress * showcaseThemes.length));
       setShowcaseThemeIndex(newIndex);
@@ -98,7 +100,7 @@ export default function LandingPage({ onOpenDemo }) {
   };
 
   return (
-    <div className="min-h-screen bg-base text-base-content font-sans antialiased overflow-x-hidden selection:bg-primary selection:text-primary-content">
+    <div className="min-h-screen bg-base text-base-content font-sans antialiased overflow-x-clip selection:bg-primary selection:text-primary-content" style={{ overflowX: 'clip' }}>
       {/* =========================================================
           Ambient Background Glowing Orbs
           ========================================================= */}
@@ -144,19 +146,6 @@ export default function LandingPage({ onOpenDemo }) {
 
           {/* Action CTAs */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Lead Developer Spotlight Badge */}
-            <a
-              href="https://github.com/mjb4khshi"
-              target="_blank"
-              rel="noreferrer"
-              className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/25 text-xs font-bold transition-all shadow-sm group"
-              title="پروفایل گیت‌هاب محمدجواد بخشی (توسعه‌دهنده و طراح اصلی)"
-            >
-              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-              <span className="text-neutral font-normal text-[11px]">توسعه‌دهنده اصلی:</span>
-              <span className="text-base-content font-black group-hover:text-primary transition-colors">محمدجواد بخشی</span>
-            </a>
-
             {/* Theme Selector */}
             <div className="relative group">
               <button
@@ -435,8 +424,16 @@ export default function LandingPage({ onOpenDemo }) {
                 <span>{currentShowcaseTheme.name}</span>
               </strong>
               <span className="text-[10px] text-neutral/70 font-mono hidden sm:inline">
-                ({showcaseThemeIndex + 1} از {showcaseThemes.length})
+                ({showcaseThemeIndex + 1} از {showcaseThemes.length} • {Math.round(showcaseProgress * 100)}% اسکرول)
               </span>
+            </div>
+
+            {/* Live scroll progress bar */}
+            <div className="w-full md:w-32 bg-base-500/30 rounded-full h-1.5 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-primary via-accent to-primary transition-all duration-100 rounded-full"
+                style={{ width: `${Math.round(showcaseProgress * 100)}%` }}
+              />
             </div>
 
             {/* Quick theme click pills */}
