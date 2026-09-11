@@ -36,7 +36,7 @@ jobs:
       - name: Package extension zip for direct download
         run: |
           cd dist
-          zip -r sarvestan-extension.zip .
+          zip -r sarvestan-extension.zip . -x "sarvestan-extension.zip"
           cd ..
 
       - name: Upload Pages artifact
