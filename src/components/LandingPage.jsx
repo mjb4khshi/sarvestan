@@ -257,19 +257,19 @@ export default function LandingPage({ onOpenDemo }) {
       {/* =========================================================
           Top Sticky Navigation
           ========================================================= */}
-      <header className="sticky top-0 z-40 backdrop-blur-md bg-base/80 border-b border-base-500/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-40 backdrop-blur-md bg-base/80 border-b border-base-500/20 w-full">
+        <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 h-15 sm:h-18 flex items-center justify-between gap-1.5 sm:gap-4">
           {/* Logo & Brand */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <img
               src="./sarv-logo.png"
               alt="لوگوی سرو"
-              className="w-9 h-9 object-contain shrink-0"
+              className="w-7 h-7 sm:w-9 sm:h-9 object-contain shrink-0"
             />
             <div className="whitespace-nowrap">
-              <div className="flex items-center gap-2">
-                <span className="font-black text-xl tracking-tight text-base-content">سَروستان</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="font-black text-base sm:text-xl tracking-tight text-base-content">سَروستان</span>
+                <span className="text-[9px] sm:text-[10px] font-mono px-1.5 sm:px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
                   v1.2
                 </span>
               </div>
@@ -289,31 +289,29 @@ export default function LandingPage({ onOpenDemo }) {
           </nav>
 
           {/* Action CTAs */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             {/* Theme Selector */}
-            <div className="relative group">
-              <button
-                className="btn btn-sm btn-ghost p-2 rounded-xl text-neutral hover:text-base-content border border-base-500/30"
-                title="تغییر تم سایت"
-                onClick={() => {
-                  const nextTheme = currentTheme.includes('dark') ? 'persian-light' : 'persian-dark';
-                  setTheme(nextTheme);
-                }}
-              >
-                {currentTheme.includes('dark') ? (
-                  <Moon className="w-4 h-4 text-accent" />
-                ) : (
-                  <Sun className="w-4 h-4 text-warn" />
-                )}
-              </button>
-            </div>
+            <button
+              className="btn btn-sm btn-ghost p-1.5 sm:p-2 rounded-xl text-neutral hover:text-base-content border border-base-500/30 shrink-0"
+              title="تغییر تم سایت"
+              onClick={() => {
+                const nextTheme = currentTheme.includes('dark') ? 'persian-light' : 'persian-dark';
+                setTheme(nextTheme);
+              }}
+            >
+              {currentTheme.includes('dark') ? (
+                <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-accent" />
+              ) : (
+                <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-warn" />
+              )}
+            </button>
 
             {/* GitHub Repo */}
             <a
               href="https://github.com/mjb4khshi/sarvestan"
               target="_blank"
               rel="noreferrer"
-              className="btn btn-sm btn-ghost p-2 rounded-xl text-neutral hover:text-base-content border border-base-500/30 hidden sm:flex items-center gap-1.5"
+              className="btn btn-sm btn-ghost p-2 rounded-xl text-neutral hover:text-base-content border border-base-500/30 hidden md:flex items-center gap-1.5 shrink-0"
               title="مخزن گیت‌هاب"
             >
               <GithubIcon className="w-4 h-4" />
@@ -323,21 +321,22 @@ export default function LandingPage({ onOpenDemo }) {
             {/* Live Demo Trigger */}
             <button
               onClick={onOpenDemo}
-              className="btn btn-sm btn-outline border-primary/40 text-primary hover:bg-primary hover:text-primary-content rounded-xl font-bold flex items-center gap-1.5 transition-all"
+              className="btn btn-sm btn-outline border-primary/40 text-primary hover:bg-primary hover:text-primary-content rounded-xl font-bold flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 text-xs sm:text-sm whitespace-nowrap shrink-0 transition-all"
             >
-              <Eye className="w-4 h-4" />
-              <span>دموی آنلاین</span>
+              <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="hidden sm:inline whitespace-nowrap">دموی آنلاین</span>
+              <span className="sm:hidden whitespace-nowrap">دمو</span>
             </button>
 
             {/* Download Extension ZIP */}
             <a
               href="./sarvestan-extension.zip"
               download
-              className="btn btn-sm btn-primary rounded-xl font-bold flex items-center gap-1.5 shadow-md shadow-primary/25 hover:shadow-lg hover:shadow-primary/30 transition-all"
+              className="btn btn-sm btn-primary rounded-xl font-bold flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 shadow-md shadow-primary/25 hover:shadow-lg hover:shadow-primary/30 text-xs sm:text-sm whitespace-nowrap shrink-0 transition-all"
             >
-              <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">دریافت افزونه</span>
-              <span className="sm:hidden">دانلود</span>
+              <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="hidden sm:inline whitespace-nowrap">دریافت افزونه</span>
+              <span className="sm:hidden whitespace-nowrap">دانلود</span>
             </a>
           </div>
         </div>
