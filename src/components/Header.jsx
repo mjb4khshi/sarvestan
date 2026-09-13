@@ -68,15 +68,14 @@ export default function Header({ onOpenSearch, onNavigate, unreadNotificationsCo
     (window.self !== window.top || window.location.search.includes('mode=overlay'));
 
   return (
-    <header className="sticky top-0 z-40 w-full backdrop-blur-xl bg-base/90 border-b border-base-500/40">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
-
+    <header className="sticky top-0 z-40 w-full backdrop-blur-xl bg-base/92 border-b border-base-500/40">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2">
         {/* Brand */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 min-w-0">
           <img
             src="https://raw.githubusercontent.com/mjb4khshi/sarv-ui/main/sarv-logo.png"
             alt="Sarv"
-            className="w-8 h-8 object-contain"
+            className="w-7 h-7 sm:w-8 sm:h-8 object-contain"
           />
           <div className="hidden sm:flex flex-col leading-tight">
             <h1 className="text-base font-bold text-base-content">سروستان</h1>

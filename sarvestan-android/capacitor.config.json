@@ -1,0 +1,19 @@
+{
+  "appId": "ir.mjbakhshi.sarvestan",
+  "appName": "سروستان",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "android": {
+    "path": "android",
+    "allowMixedContent": false,
+    "backgroundColor": "#000000"
+  },
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}

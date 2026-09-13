@@ -1,0 +1,506 @@
+/* 🌿 Sarv UI Themes - Complete System Palette
+ * All 15 official Sarv themes with dynamic token variables
+ */
+
+:root {
+  /* Default: Persian Dark (اصیل) */
+  --theme-color-primary: #0066a4;
+  --theme-color-secondary: #d88f58;
+  --theme-color-accent: #fe28a2;
+  --theme-color-success: #46c93a;
+  --theme-color-warn: #ffba00;
+  --theme-color-info: #00a594;
+  --theme-color-danger: #ff4757;
+  --theme-color-neutral: #94a3b8;
+  --theme-color-neutral-dark: #404040;
+  --theme-color-neutral-darker: #1e1e1e;
+
+  --theme-color-base: #000000;
+  --theme-color-base-500: #222222;
+  --theme-color-base-900: #858585;
+
+  --theme-color-primary-content: #ffffff;
+  --theme-color-secondary-content: #ffffff;
+  --theme-color-accent-content: #ffffff;
+  --theme-color-success-content: #ffffff;
+  --theme-color-warn-content: #000000;
+  --theme-color-danger-content: #ffffff;
+  --theme-color-info-content: #ffffff;
+  --theme-color-neutral-content: #ffffff;
+  --theme-color-base-content: #ffffff;
+
+  --theme-shadow-color: 0, 0, 0;
+  --theme-radius-card: 1.15rem;
+  --theme-radius-button: 0.85rem;
+  --theme-radius-input: 0.85rem;
+  --theme-radius-checkbox: 40%;
+}
+
+/* 1. Persian Dark (اصیل) */
+[datatheme="persian-dark"],
+[data-theme="persian-dark"] {
+  --theme-color-primary: #0066a4;
+  --theme-color-secondary: #d88f58;
+  --theme-color-accent: #fe28a2;
+  --theme-color-success: #46c93a;
+  --theme-color-warn: #ffba00;
+  --theme-color-info: #00a594;
+  --theme-color-danger: #ff4757;
+  --theme-color-neutral: #94a3b8;
+  --theme-color-neutral-dark: #404040;
+  --theme-color-neutral-darker: #1e1e1e;
+  --theme-color-base: #000000;
+  --theme-color-base-500: #222222;
+  --theme-color-base-900: #858585;
+  --theme-color-primary-content: #ffffff;
+  --theme-color-secondary-content: #ffffff;
+  --theme-color-accent-content: #ffffff;
+  --theme-color-success-content: #ffffff;
+  --theme-color-warn-content: #000000;
+  --theme-color-danger-content: #ffffff;
+  --theme-color-info-content: #ffffff;
+  --theme-color-neutral-content: #ffffff;
+  --theme-color-base-content: #ffffff;
+  --theme-shadow-color: 0, 0, 0;
+  --theme-radius-card: 1.15rem;
+  --theme-radius-button: 0.85rem;
+  --theme-radius-input: 0.85rem;
+}
+
+/* 2. Persian Light (روشن) */
+[datatheme="persian-light"],
+[data-theme="persian-light"] {
+  --theme-color-primary: #0066a4;
+  --theme-color-secondary: #d88f58;
+  --theme-color-accent: #fe28a2;
+  --theme-color-success: #46c93a;
+  --theme-color-warn: #ffba00;
+  --theme-color-info: #00a594;
+  --theme-color-danger: #ff4757;
+  --theme-color-neutral: #6b7280;
+  --theme-color-neutral-dark: #404040;
+  --theme-color-neutral-darker: #1e1e1e;
+  --theme-color-base: #ffffff;
+  --theme-color-base-500: #e2e8f0;
+  --theme-color-base-900: #858585;
+  --theme-color-primary-content: #ffffff;
+  --theme-color-secondary-content: #ffffff;
+  --theme-color-accent-content: #ffffff;
+  --theme-color-success-content: #ffffff;
+  --theme-color-warn-content: #000000;
+  --theme-color-danger-content: #ffffff;
+  --theme-color-info-content: #ffffff;
+  --theme-color-neutral-content: #ffffff;
+  --theme-color-base-content: #0f172a;
+  --theme-shadow-color: 0, 0, 0;
+  --theme-radius-card: 1.15rem;
+  --theme-radius-button: 0.85rem;
+  --theme-radius-input: 0.85rem;
+}
+
+/* 3. Persian Dark Sharp (زاویه‌دار تیره) */
+[datatheme="persian-dark-sharp"],
+[data-theme="persian-dark-sharp"] {
+  --theme-color-primary: #0066a4;
+  --theme-color-secondary: #d88f58;
+  --theme-color-accent: #fe28a2;
+  --theme-color-success: #46c93a;
+  --theme-color-warn: #ffba00;
+  --theme-color-info: #00a594;
+  --theme-color-danger: #ff4757;
+  --theme-color-neutral: #94a3b8;
+  --theme-color-neutral-dark: #404040;
+  --theme-color-neutral-darker: #1e1e1e;
+  --theme-color-base: #000000;
+  --theme-color-base-500: #222222;
+  --theme-color-base-900: #858585;
+  --theme-color-primary-content: #ffffff;
+  --theme-color-secondary-content: #ffffff;
+  --theme-color-accent-content: #ffffff;
+  --theme-color-success-content: #ffffff;
+  --theme-color-warn-content: #000000;
+  --theme-color-danger-content: #ffffff;
+  --theme-color-info-content: #ffffff;
+  --theme-color-neutral-content: #ffffff;
+  --theme-color-base-content: #ffffff;
+  --theme-shadow-color: 0, 0, 0;
+  --theme-radius-card: 0px !important;
+  --theme-radius-button: 0px !important;
+  --theme-radius-input: 0px !important;
+  --theme-radius-checkbox: 0px !important;
+  --theme-radius-badge: 0px !important;
+}
+
+/* 4. Persian Light Sharp (زاویه‌دار روشن) */
+[datatheme="persian-light-sharp"],
+[data-theme="persian-light-sharp"] {
+  --theme-color-primary: #0066a4;
+  --theme-color-secondary: #d88f58;
+  --theme-color-accent: #fe28a2;
+  --theme-color-success: #46c93a;
+  --theme-color-warn: #ffba00;
+  --theme-color-info: #00a594;
+  --theme-color-danger: #ff4757;
+  --theme-color-neutral: #6b7280;
+  --theme-color-neutral-dark: #404040;
+  --theme-color-neutral-darker: #1e1e1e;
+  --theme-color-base: #ffffff;
+  --theme-color-base-500: #e2e8f0;
+  --theme-color-base-900: #858585;
+  --theme-color-primary-content: #ffffff;
+  --theme-color-secondary-content: #ffffff;
+  --theme-color-accent-content: #ffffff;
+  --theme-color-success-content: #ffffff;
+  --theme-color-warn-content: #000000;
+  --theme-color-danger-content: #ffffff;
+  --theme-color-info-content: #ffffff;
+  --theme-color-neutral-content: #ffffff;
+  --theme-color-base-content: #0f172a;
+  --theme-shadow-color: 0, 0, 0;
+  --theme-radius-card: 0px !important;
+  --theme-radius-button: 0px !important;
+  --theme-radius-input: 0px !important;
+  --theme-radius-checkbox: 0px !important;
+  --theme-radius-badge: 0px !important;
+}
+
+/* 5. Cyberpunk Neon */
+[datatheme="cyberpunk"],
+[data-theme="cyberpunk"] {
+  --theme-color-primary: #00f0ff;
+  --theme-color-secondary: #ff007f;
+  --theme-color-accent: #ffe600;
+  --theme-color-success: #00ff66;
+  --theme-color-warn: #ffaa00;
+  --theme-color-danger: #ff2a6d;
+  --theme-color-info: #05d9e8;
+  --theme-color-neutral: #718096;
+  --theme-color-base: #08090d;
+  --theme-color-base-500: #1a1d28;
+  --theme-color-base-900: #2d3748;
+  --theme-color-neutral-dark: #12151f;
+  --theme-color-neutral-darker: #0d0f17;
+  --theme-color-primary-content: #000000;
+  --theme-color-secondary-content: #ffffff;
+  --theme-color-accent-content: #000000;
+  --theme-color-success-content: #000000;
+  --theme-color-warn-content: #000000;
+  --theme-color-danger-content: #ffffff;
+  --theme-color-info-content: #000000;
+  --theme-color-neutral-content: #ffffff;
+  --theme-color-base-content: #e2e8f0;
+  --theme-shadow-color: 0, 240, 255;
+  --theme-radius-card: 1.15rem;
+  --theme-radius-button: 8px;
+  --theme-radius-input: 8px;
+}
+
+/* 6. Tokyo Midnight */
+[datatheme="tokyo-midnight"],
+[data-theme="tokyo-midnight"] {
+  --theme-color-primary: #8b5cf6;
+  --theme-color-secondary: #06b6d4;
+  --theme-color-accent: #f43f5e;
+  --theme-color-success: #10b981;
+  --theme-color-warn: #f59e0b;
+  --theme-color-danger: #ff0055;
+  --theme-color-info: #3b82f6;
+  --theme-color-neutral: #94a3b8;
+  --theme-color-base: #090a16;
+  --theme-color-base-500: #13172d;
+  --theme-color-base-900: #242b4d;
+  --theme-color-neutral-dark: #1e1b4b;
+  --theme-color-neutral-darker: #0d0e1f;
+  --theme-color-primary-content: #ffffff;
+  --theme-color-secondary-content: #ffffff;
+  --theme-color-accent-content: #ffffff;
+  --theme-color-success-content: #ffffff;
+  --theme-color-warn-content: #000000;
+  --theme-color-danger-content: #ffffff;
+  --theme-color-info-content: #ffffff;
+  --theme-color-neutral-content: #ffffff;
+  --theme-color-base-content: #f1f5f9;
+  --theme-shadow-color: 139, 92, 246;
+  --theme-radius-card: 1.15rem;
+  --theme-radius-button: 12px;
+  --theme-radius-input: 12px;
+}
+
+/* 7. Ocean Abyss */
+[datatheme="ocean-abyss"],
+[data-theme="ocean-abyss"] {
+  --theme-color-primary: #06b6d4;
+  --theme-color-secondary: #0e7490;
+  --theme-color-accent: #38bdf8;
+  --theme-color-success: #14b8a6;
+  --theme-color-warn: #f59e0b;
+  --theme-color-danger: #f43f5e;
+  --theme-color-info: #3b82f6;
+  --theme-color-neutral: #64748b;
+  --theme-color-base: #030712;
+  --theme-color-base-500: #0f172a;
+  --theme-color-base-900: #1e293b;
+  --theme-color-neutral-dark: #0f233a;
+  --theme-color-neutral-darker: #050f1d;
+  --theme-color-primary-content: #04121d;
+  --theme-color-secondary-content: #ffffff;
+  --theme-color-accent-content: #04121d;
+  --theme-color-success-content: #ffffff;
+  --theme-color-warn-content: #000000;
+  --theme-color-danger-content: #ffffff;
+  --theme-color-info-content: #ffffff;
+  --theme-color-neutral-content: #ffffff;
+  --theme-color-base-content: #e0f2fe;
+  --theme-shadow-color: 6, 182, 212;
+  --theme-radius-card: 1.15rem;
+  --theme-radius-button: 12px;
+  --theme-radius-input: 12px;
+}
+
+/* 8. Emerald Forest */
+[datatheme="emerald"],
+[data-theme="emerald"] {
+  --theme-color-primary: #10b981;
+  --theme-color-secondary: #065f46;
+  --theme-color-accent: #84cc16;
+  --theme-color-success: #22c55e;
+  --theme-color-warn: #eab308;
+  --theme-color-danger: #f43f5e;
+  --theme-color-info: #14b8a6;
+  --theme-color-neutral: #94a3b8;
+  --theme-color-base: #061510;
+  --theme-color-base-500: #0e2920;
+  --theme-color-base-900: #1d4638;
+  --theme-color-neutral-dark: #0a1f18;
+  --theme-color-neutral-darker: #05130d;
+  --theme-color-primary-content: #ffffff;
+  --theme-color-secondary-content: #ffffff;
+  --theme-color-accent-content: #000000;
+  --theme-color-success-content: #ffffff;
+  --theme-color-warn-content: #000000;
+  --theme-color-danger-content: #ffffff;
+  --theme-color-info-content: #ffffff;
+  --theme-color-neutral-content: #ffffff;
+  --theme-color-base-content: #ecfdf5;
+  --theme-shadow-color: 16, 185, 129;
+  --theme-radius-card: 1.15rem;
+  --theme-radius-button: 14px;
+  --theme-radius-input: 14px;
+}
+
+/* 9. Royal Purple */
+[datatheme="royal-purple"],
+[data-theme="royal-purple"] {
+  --theme-color-primary: #8b5cf6;
+  --theme-color-secondary: #6366f1;
+  --theme-color-accent: #ec4899;
+  --theme-color-success: #10b981;
+  --theme-color-warn: #f59e0b;
+  --theme-color-danger: #ef4444;
+  --theme-color-info: #38bdf8;
+  --theme-color-neutral: #a5b4fc;
+  --theme-color-base: #0b0914;
+  --theme-color-base-500: #1b162f;
+  --theme-color-base-900: #2d244c;
+  --theme-color-neutral-dark: #151124;
+  --theme-color-neutral-darker: #0d0a17;
+  --theme-color-primary-content: #ffffff;
+  --theme-color-secondary-content: #ffffff;
+  --theme-color-accent-content: #ffffff;
+  --theme-color-success-content: #ffffff;
+  --theme-color-warn-content: #000000;
+  --theme-color-danger-content: #ffffff;
+  --theme-color-info-content: #ffffff;
+  --theme-color-neutral-content: #ffffff;
+  --theme-color-base-content: #f5f3ff;
+  --theme-shadow-color: 139, 92, 246;
+  --theme-radius-card: 1.15rem;
+  --theme-radius-button: 16px;
+  --theme-radius-input: 16px;
+}
+
+/* 10. Crimson Velvet */
+[datatheme="crimson"],
+[data-theme="crimson"] {
+  --theme-color-primary: #e11d48;
+  --theme-color-secondary: #881337;
+  --theme-color-accent: #fb7185;
+  --theme-color-success: #10b981;
+  --theme-color-warn: #f59e0b;
+  --theme-color-danger: #dc2626;
+  --theme-color-info: #0ea5e9;
+  --theme-color-neutral: #a1a1aa;
+  --theme-color-base: #0a0a0c;
+  --theme-color-base-500: #18181b;
+  --theme-color-base-900: #27272a;
+  --theme-color-neutral-dark: #1e1e24;
+  --theme-color-neutral-darker: #121216;
+  --theme-color-primary-content: #ffffff;
+  --theme-color-secondary-content: #ffffff;
+  --theme-color-accent-content: #ffffff;
+  --theme-color-success-content: #ffffff;
+  --theme-color-warn-content: #000000;
+  --theme-color-danger-content: #ffffff;
+  --theme-color-info-content: #ffffff;
+  --theme-color-neutral-content: #ffffff;
+  --theme-color-base-content: #f4f4f5;
+  --theme-shadow-color: 225, 29, 72;
+  --theme-radius-card: 1.15rem;
+  --theme-radius-button: 12px;
+  --theme-radius-input: 12px;
+}
+
+/* 11. Coffee Roast */
+[datatheme="coffee-roast"],
+[data-theme="coffee-roast"] {
+  --theme-color-primary: #d97706;
+  --theme-color-secondary: #92400e;
+  --theme-color-accent: #fbbf24;
+  --theme-color-success: #16a34a;
+  --theme-color-warn: #eab308;
+  --theme-color-danger: #ef4444;
+  --theme-color-info: #0284c7;
+  --theme-color-neutral: #a8a29e;
+  --theme-color-base: #1c1512;
+  --theme-color-base-500: #291f1b;
+  --theme-color-base-900: #44342e;
+  --theme-color-neutral-dark: #231b17;
+  --theme-color-neutral-darker: #17110e;
+  --theme-color-primary-content: #ffffff;
+  --theme-color-secondary-content: #ffffff;
+  --theme-color-accent-content: #1c1512;
+  --theme-color-success-content: #ffffff;
+  --theme-color-warn-content: #1c1512;
+  --theme-color-danger-content: #ffffff;
+  --theme-color-info-content: #ffffff;
+  --theme-color-neutral-content: #ffffff;
+  --theme-color-base-content: #f5f5f4;
+  --theme-shadow-color: 217, 119, 6;
+  --theme-radius-card: 1.15rem;
+  --theme-radius-button: 12px;
+  --theme-radius-input: 12px;
+}
+
+/* 12. Sunset Terracotta (روشن) */
+[datatheme="sunset"],
+[data-theme="sunset"] {
+  --theme-color-primary: #ff5e36;
+  --theme-color-secondary: #f97316;
+  --theme-color-accent: #e11d48;
+  --theme-color-success: #16a34a;
+  --theme-color-warn: #eab308;
+  --theme-color-danger: #dc2626;
+  --theme-color-info: #0284c7;
+  --theme-color-neutral: #78716c;
+  --theme-color-base: #fffbf7;
+  --theme-color-base-500: #f5ebe1;
+  --theme-color-base-900: #d6c5b4;
+  --theme-color-neutral-dark: #e7ded4;
+  --theme-color-neutral-darker: #f0e7dc;
+  --theme-color-primary-content: #ffffff;
+  --theme-color-secondary-content: #ffffff;
+  --theme-color-accent-content: #ffffff;
+  --theme-color-success-content: #ffffff;
+  --theme-color-warn-content: #000000;
+  --theme-color-danger-content: #ffffff;
+  --theme-color-info-content: #ffffff;
+  --theme-color-neutral-content: #ffffff;
+  --theme-color-base-content: #292524;
+  --theme-shadow-color: 255, 94, 54;
+  --theme-radius-card: 1.15rem;
+  --theme-radius-button: 12px;
+  --theme-radius-input: 12px;
+}
+
+/* 13. Matcha Blossom (روشن) */
+[datatheme="matcha"],
+[data-theme="matcha"] {
+  --theme-color-primary: #4d7c0f;
+  --theme-color-secondary: #3f6212;
+  --theme-color-accent: #65a30d;
+  --theme-color-success: #15803d;
+  --theme-color-warn: #b45309;
+  --theme-color-danger: #e11d48;
+  --theme-color-info: #0284c7;
+  --theme-color-neutral: #78716c;
+  --theme-color-base: #f7f9f4;
+  --theme-color-base-500: #e2e8db;
+  --theme-color-base-900: #c5d2bc;
+  --theme-color-neutral-dark: #edf2e8;
+  --theme-color-neutral-darker: #f2f6ee;
+  --theme-color-primary-content: #ffffff;
+  --theme-color-secondary-content: #ffffff;
+  --theme-color-accent-content: #ffffff;
+  --theme-color-success-content: #ffffff;
+  --theme-color-warn-content: #ffffff;
+  --theme-color-danger-content: #ffffff;
+  --theme-color-info-content: #ffffff;
+  --theme-color-neutral-content: #ffffff;
+  --theme-color-base-content: #1a2e05;
+  --theme-shadow-color: 77, 124, 15;
+  --theme-radius-card: 1.15rem;
+  --theme-radius-button: 14px;
+  --theme-radius-input: 14px;
+}
+
+/* 14. Nordic Glacier (روشن) */
+[datatheme="nordic"],
+[data-theme="nordic"] {
+  --theme-color-primary: #0284c7;
+  --theme-color-secondary: #475569;
+  --theme-color-accent: #0ea5e9;
+  --theme-color-success: #059669;
+  --theme-color-warn: #d97706;
+  --theme-color-danger: #e11d48;
+  --theme-color-info: #2563eb;
+  --theme-color-neutral: #64748b;
+  --theme-color-base: #f8fafc;
+  --theme-color-base-500: #e2e8f0;
+  --theme-color-base-900: #94a3b8;
+  --theme-color-neutral-dark: #cbd5e1;
+  --theme-color-neutral-darker: #f1f5f9;
+  --theme-color-primary-content: #ffffff;
+  --theme-color-secondary-content: #ffffff;
+  --theme-color-accent-content: #ffffff;
+  --theme-color-success-content: #ffffff;
+  --theme-color-warn-content: #000000;
+  --theme-color-danger-content: #ffffff;
+  --theme-color-info-content: #ffffff;
+  --theme-color-neutral-content: #ffffff;
+  --theme-color-base-content: #0f172a;
+  --theme-shadow-color: 2, 132, 199;
+  --theme-radius-card: 1.15rem;
+  --theme-radius-button: 10px;
+  --theme-radius-input: 10px;
+}
+
+/* 15. Rose Gold (روشن) */
+[datatheme="rose-gold"],
+[data-theme="rose-gold"] {
+  --theme-color-primary: #e11d48;
+  --theme-color-secondary: #c2410c;
+  --theme-color-accent: #fb7185;
+  --theme-color-success: #15803d;
+  --theme-color-warn: #b45309;
+  --theme-color-danger: #be123c;
+  --theme-color-info: #0284c7;
+  --theme-color-neutral: #881337;
+  --theme-color-base: #fff5f5;
+  --theme-color-base-500: #fed7aa;
+  --theme-color-base-900: #f43f5e;
+  --theme-color-neutral-dark: #ffe4e6;
+  --theme-color-neutral-darker: #fff1f2;
+  --theme-color-primary-content: #ffffff;
+  --theme-color-secondary-content: #ffffff;
+  --theme-color-accent-content: #ffffff;
+  --theme-color-success-content: #ffffff;
+  --theme-color-warn-content: #ffffff;
+  --theme-color-danger-content: #ffffff;
+  --theme-color-info-content: #ffffff;
+  --theme-color-neutral-content: #ffffff;
+  --theme-color-base-content: #4c0519;
+  --theme-shadow-color: 225, 29, 72;
+  --theme-radius-card: 1.15rem;
+  --theme-radius-button: 14px;
+  --theme-radius-input: 14px;
+}

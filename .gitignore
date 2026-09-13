@@ -3,6 +3,8 @@ node_modules/
 
 # Build output
 dist/
+*.apk
+*.aab
 
 # Private / sensitive HAR files and personal dumps — NEVER commit
 *.har

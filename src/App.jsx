@@ -3,6 +3,7 @@ import { AnimatePresence } from 'framer-motion';
 import { ThemeProvider } from './context/ThemeContext';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
+import MobileNav from './components/MobileNav';
 import DashboardOverview from './modules/DashboardOverview';
 import WeeklySchedule from './modules/WeeklySchedule';
 import TranscriptsGrades from './modules/TranscriptsGrades';
@@ -68,8 +69,11 @@ function DashboardContent() {
         onSelectSearchResult={handleSelectSearchResult}
       />
 
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex flex-col lg:flex-row gap-6 sm:gap-8">
-        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+      <div className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 pt-4 pb-24 lg:pb-8 flex flex-col lg:flex-row gap-0 lg:gap-8">
+        {/* سایدبار فقط در دسکتاپ — در موبایل MobileNav جایگزین می‌شود */}
+        <div className="hidden lg:block">
+          <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+        </div>
 
         <main className="flex-1 min-w-0">
           <AnimatePresence mode="wait">
@@ -98,7 +102,8 @@ function DashboardContent() {
         </main>
       </div>
 
-      <footer className="mt-auto border-t border-base-500/40 py-6 text-center text-xs text-neutral bg-base-500/10">
+      {/* فوتر فقط دسکتاپ — موبایل فضای لازم را دارد */}
+      <footer className="hidden lg:block mt-auto border-t border-base-500/40 py-6 text-center text-xs text-neutral bg-base-500/10">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="font-bold text-base-content">سامانه هوشمند خدمات آموزشی سروستان</span>
@@ -132,6 +137,9 @@ function DashboardContent() {
           </div>
         </div>
       </footer>
+
+      {/* ناوبری موبایل — پایین صفحه، همیشه در دسترس */}
+      <MobileNav activeTab={activeTab} onTabChange={setActiveTab} />
 
       <CommandPalette
         isOpen={isSearchOpen}

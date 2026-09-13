@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.apk
+*.aab
+sarvestan.apk
+
+# Capacitor generated assets & plugins
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/app/src/main/res/xml/config.xml
+android/capacitor-cordova-android-plugins/
+
+# Android build outputs & local config
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/*.jar
+android/*.pom
+android/*.module
+!android/gradle/wrapper/gradle-wrapper.jar
+
+# Sensitive scripts, HAR files, auth tokens and behestan dumps
+scripts/*
+!scripts/update-icons.ps1
+*.har
+**/*.har
+
+# Environment & Logs
+*.log
+.env
+.env.*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
