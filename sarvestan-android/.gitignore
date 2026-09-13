@@ -5,7 +5,7 @@ node_modules/
 dist/
 *.apk
 *.aab
-sarvestan.apk
+!sarvestan.apk
 
 # Capacitor generated assets & plugins
 android/app/src/main/assets/public/
