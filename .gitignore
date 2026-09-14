@@ -32,8 +32,10 @@ Thumbs.db
 *.tgz
 !sarv-ui-0.3.1.tgz
 
-# Editor & IDE
+# Editor & IDE & Loose assets
 .vscode/
 .idea/
 *.swp
 *.swo
+*.xd
+/social profile.png
