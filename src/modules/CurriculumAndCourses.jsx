@@ -43,10 +43,15 @@ function parseNum(v) {
 
 /** وضعیت درس از نمره/وضعیت F1825 */
 function courseState(c) {
+  const isDropped = c.regStatus === 'dropped' || c.isDropped || String(c.status || '').includes('حذف') || String(c.grade || '').includes('حذف');
+  if (isDropped) return 'dropped';
+  const isWaitlist = c.regStatus === 'waitlist' || c.isWait || String(c.status || '').includes('انتظار') || String(c.grade || '').includes('انتظار');
+  if (isWaitlist) return 'waitlist';
+
   const grade = parseNum(c.grade);
   const status = String(c.status || '');
   if (grade !== null && grade >= 10) return 'passed';
-  if (/نپذيرفته|مشروط|حذف/i.test(status)) return 'failed';
+  if (/نپذيرفته|مشروط/i.test(status)) return 'failed';
   if (grade !== null && grade > 0) return 'failed';
   if (c.isRegistration || (!c.grade && c.termId === '4051')) return 'enrolled';
   if (!c.grade && c.termId) return 'enrolled';
@@ -130,15 +135,18 @@ export default function CurriculumAndCourses() {
   const totals = useMemo(() => {
     const passed = liveCourses.filter(c => c.state === 'passed');
     const enrolled = liveCourses.filter(c => c.state === 'enrolled');
+    const dropped = liveCourses.filter(c => c.state === 'dropped');
     const passedUnits = passed.reduce((s, c) => s + (c.units || 0), 0);
     const enrolledUnits = enrolled.reduce((s, c) => s + (c.units || 0), 0);
-    return { passedCount: passed.length, enrolledCount: enrolled.length, passedUnits, enrolledUnits };
+    return { passedCount: passed.length, enrolledCount: enrolled.length, droppedCount: dropped.length, passedUnits, enrolledUnits };
   }, [liveCourses]);
 
   const stateBadge = (state) => {
     if (state === 'passed') return { variant: 'success', label: 'پاس شده' };
     if (state === 'enrolled') return { variant: 'warn', label: 'در جریان' };
-    if (state === 'failed') return { variant: 'danger', label: 'مردود / حذف' };
+    if (state === 'dropped') return { variant: 'danger', label: 'حذف اضطراری' };
+    if (state === 'waitlist') return { variant: 'warn', label: 'در انتظار' };
+    if (state === 'failed') return { variant: 'danger', label: 'مردود' };
     return { variant: 'neutral', label: 'نامشخص' };
   };
 
@@ -275,6 +283,7 @@ export default function CurriculumAndCourses() {
               { value: 'all', label: 'همه وضعیت‌ها' },
               { value: 'passed', label: 'پاس شده' },
               { value: 'enrolled', label: 'در جریان' },
+              { value: 'dropped', label: 'حذف اضطراری' },
               { value: 'failed', label: 'مردود' }
             ]}
           />
@@ -319,7 +328,15 @@ export default function CurriculumAndCourses() {
                     <td className="p-3 text-center font-mono">{toFaDigits(c.units)}</td>
                     <td className="p-3 text-center font-mono text-neutral">{toFaDigits(c.termId || 'ـ')}</td>
                     <td className="p-3 text-center font-mono font-semibold">
-                      {c.grade ? toFaDigits(c.grade) : 'ـ'}
+                      {c.state === 'dropped' ? (
+                        <span className="text-danger font-bold">حذف</span>
+                      ) : c.state === 'waitlist' ? (
+                        <span className="text-warn font-bold">انتظار</span>
+                      ) : c.grade ? (
+                        toFaDigits(c.grade)
+                      ) : (
+                        'ـ'
+                      )}
                     </td>
                     <td className="p-3 text-center">
                       <SarvBadge variant={sb.variant} soft size="sm" dot={c.state === 'enrolled'}>

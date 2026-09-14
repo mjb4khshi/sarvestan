@@ -281,7 +281,7 @@ export default function FinanceAndTuition() {
                 ) : (
                   termsList.map((term, idx) => (
                     <tr key={term.termId || idx} className="hover:bg-base-500/20 transition-colors">
-                      <td className="py-3.5 px-3 font-bold text-neutral">{idx + 1}</td>
+                      <td className="py-3.5 px-3 font-bold text-neutral font-mono">{toFaDigits(idx + 1)}</td>
                       <td className="py-3.5 px-3 font-mono font-bold text-primary">{toFaDigits(term.termId)}</td>
                       <td className="py-3.5 px-3 font-medium text-base-content">{term.termTitle}</td>
                       <td className="py-3.5 px-3 text-left font-mono">{fmt(term.fixedTuitionRial)}</td>
@@ -297,7 +297,7 @@ export default function FinanceAndTuition() {
                       </td>
                       <td className="py-3.5 px-3 text-center">
                         <SarvBadge variant={n(term.debtRial) > 0 ? 'warn' : 'success'} soft size="sm">
-                          {term.status || (n(term.debtRial) > 0 ? 'بدهکار' : 'تسویه')}
+                          {n(term.debtRial) > 0 ? (term.status || 'بدهکار') : 'تسویه کامل'}
                         </SarvBadge>
                       </td>
                     </tr>

@@ -111,10 +111,17 @@ function scanBehestanDOM() {
   const degree = 'کارشناسی';
 
   try {
-    // الف: استخراج شماره دانشجویی مستقیماً از حافظه محلی سامانه بهستان (کلید 'un' یا 'sid')
-    studentId = localStorage.getItem('un') || null;
+    // الف: استخراج شماره دانشجویی مستقیماً از حافظه محلی سامانه بهستان (کلیدهای un, std, stdno, studentId)
+    studentId = localStorage.getItem('un') ||
+                localStorage.getItem('std') ||
+                localStorage.getItem('stdno') ||
+                localStorage.getItem('studentId') ||
+                sessionStorage.getItem('un') ||
+                sessionStorage.getItem('std') ||
+                sessionStorage.getItem('stdno') || null;
 
-    const pageText = document.body ? document.body.innerText : (document.documentElement ? document.documentElement.innerText : '');
+    const rawText = document.body ? document.body.innerText : (document.documentElement ? document.documentElement.innerText : '');
+    const pageText = rawText.replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
 
     // ب: بررسی تگ‌های کاربری نبولار / هدر بهستان برای نام
     const nbUser = document.querySelector('nb-user');
@@ -139,8 +146,9 @@ function scanBehestanDOM() {
     }
 
     // د: استخراج شماره دانشجویی با الگوی عددی در صورت عدم وجود در localStorage
-    if (!studentId) {
-      const stdMatch = pageText.match(/\b(40[0-9]{6,7}|99[0-9]{6}|98[0-9]{6})\b/);
+    if (!studentId || studentId === 'ـ') {
+      const stdMatch = pageText.match(/(?:شماره|کد)\s*(?:دانشجوی[یي]|دانشجو)?\s*[:\-]?\s*([0-9]{7,10})/i) ||
+                       pageText.match(/\b(40[0-9]{5,8}|9[5-9][0-9]{5,8})\b/);
       if (stdMatch) studentId = stdMatch[1];
     }
 
@@ -157,9 +165,13 @@ function scanBehestanDOM() {
     // و: خواندن کش قبلی برای مقادیر موجود
     const cachedProfile = readStorage('sarvestan_live_profile', {});
 
+    const finalStd = (studentId && studentId !== 'ـ')
+      ? studentId
+      : ((cachedProfile.studentId && cachedProfile.studentId !== 'ـ') ? cachedProfile.studentId : 'ـ');
+
     return {
       studentName: studentName || cachedProfile.fullName || (isLoggedIn ? 'دانشجو' : 'دانشجوی میهمان'),
-      studentId: studentId || cachedProfile.studentId || (isLoggedIn ? 'ـ' : 'ـ'),
+      studentId: finalStd,
       faculty: cachedProfile.faculty || faculty,
       major: cachedProfile.major || major,
       degree: cachedProfile.degree || degree,
@@ -276,9 +288,16 @@ function handleInterceptedData(dataType, payload) {
       break;
     }
     case 'session_info': {
-      const cur = readStorage('sarvestan_live_profile', scanBehestanDOM());
-      if (payload.studentId && !cur.studentId) cur.studentId = payload.studentId;
+      const cur = readStorage('sarvestan_live_profile', scanBehestanDOM()) || {};
+      const newStd = payload.studentId || payload.std;
+      if (newStd && newStd !== 'ـ') {
+        cur.studentId = newStd;
+        cur.isLoggedIn = true;
+      }
+      if (payload.userId) cur.userId = payload.userId;
       saveStorage('sarvestan_live_profile', cur);
+      forwardToOverlay('INIT_LIVE_BEHESTAN_SESSION', cur);
+      forwardToOverlay('SARVESTAN_DATA_UPDATE', { dataType: 'profile_update', payload: cur });
       break;
     }
   }
@@ -296,9 +315,13 @@ function forwardToOverlay(action, payload) {
 function syncStorage(session) {
   if (session && session.isLoggedIn) {
     const existing = readStorage('sarvestan_live_profile', {});
+    const finalStd = (session.studentId && session.studentId !== 'ـ')
+      ? session.studentId
+      : ((existing.studentId && existing.studentId !== 'ـ') ? existing.studentId : 'ـ');
+
     const merged = {
       fullName: session.studentName || existing.fullName || 'دانشجو',
-      studentId: session.studentId || existing.studentId || 'ـ',
+      studentId: finalStd,
       faculty: session.faculty || existing.faculty,
       major: session.major || existing.major,
       degree: session.degree || existing.degree,

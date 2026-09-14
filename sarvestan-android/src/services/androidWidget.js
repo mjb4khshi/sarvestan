@@ -7,6 +7,13 @@ export async function updateAndroidWidget(vm) {
     const next = vm?.nextClass;
     const exams = vm?.exams || [];
     const exam = exams[0];
+    let themeMode = 'auto';
+    try {
+      const activeId = localStorage.getItem('sarvestan_theme');
+      if (activeId) {
+        themeMode = activeId.includes('light') ? 'light' : activeId.includes('dark') ? 'dark' : 'auto';
+      }
+    } catch {}
     await p.update({
       nextTitle: next?.title || '',
       nextTime: next?.time || '',
@@ -17,6 +24,7 @@ export async function updateAndroidWidget(vm) {
       gpa: vm?.summary?.gpa || '',
       unitsPassed: vm?.summary?.unitsPassed ? String(vm.summary.unitsPassed) : '',
       termGpa: vm?.summary?.termGpa ? String(vm.summary.termGpa) : '',
+      theme: themeMode,
     });
     return true;
   } catch {

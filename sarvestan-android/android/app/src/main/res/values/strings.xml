@@ -4,7 +4,10 @@
     <string name="title_activity_main">سروستان</string>
     <string name="package_name">ir.mjbakhshi.sarvestan</string>
     <string name="custom_url_scheme">ir.mjbakhshi.sarvestan</string>
+    <string name="widget_combo_name">سروستان: ویجت جامع (۴×۲)</string>
     <string name="widget_combo_desc">ویجت جامع سروستان (کلاس بعدی، امتحان و معدل)</string>
+    <string name="widget_gpa_name">سروستان: معدل و کارنامه (۲×۲)</string>
     <string name="widget_gpa_desc">ویجت شیک معدل کل و کارنامه</string>
+    <string name="widget_class_name">سروستان: کلاس بعدی (۲×۲)</string>
     <string name="widget_class_desc">ویجت کلاس بعدی و برنامه امروز</string>
 </resources>

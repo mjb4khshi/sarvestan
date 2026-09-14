@@ -515,17 +515,21 @@
         if (isManualLogoutLocked() || userLoggedOut) return;
         rememberFromText(responseText);
         if (requestText) rememberFromText(requestText);
-        const std = data.outpar.std;
-        const u = data.outpar.u;
+        const std = data.outpar.std || localStorage.getItem('un') || localStorage.getItem('std') || localStorage.getItem('stdno') || localStorage.getItem('studentId');
+        const u = data.outpar.u || localStorage.getItem('u') || localStorage.getItem('uid');
         const sid = data.oaut?.rp?.sid || sessionCache.sid || localStorage.getItem('sid');
         if (sid) sessionCache.sid = sid;
         if (std) sessionCache.studentId = std;
         if (u) sessionCache.userId = u;
         if (std || u) {
           sendData('session_info', {
-            studentId: std || localStorage.getItem('un'),
+            studentId: std,
             userId: u,
             sid: sid
+          });
+          sendData('profile_update', {
+            studentId: std,
+            userId: u
           });
           triggerProactiveSync();
         }
@@ -624,18 +628,55 @@
         let allCourses = [];
         if (grids[1] && grids[1].xml) {
           const courseRows = parseBehestanXmlGrid(grids[1].xml);
-          allCourses = courseRows.map(row => ({
-            code: (row.F3 || '') + (row.F4 || '') + (row.F5 || '') || row.F2 || '',
-            name: normalizeCourseName(cleanHtml(row.F1)),
-            group: row.F6 || '',
-            units: parseInt(row.F7 || '0', 10),
-            grade: row.F9 || '',
-            status: cleanHtml(row.F10) || 'ثبت شده',
-            type: cleanHtml(row.F13) || 'تخصصی',
-            tuitionRial: row.F15 || '',
-            termId: row.F18 || '',
-            note: cleanHtml(row.F17) || ''
-          })).filter(c => c.name);
+          allCourses = courseRows.map(row => {
+            const code = (row.F3 || '') + (row.F4 || '') + (row.F5 || '') || row.F2 || '';
+            const statusRaw = cleanHtml(row.F10 || '');
+            const gradeModeRaw = cleanHtml(row.F11 || '');
+            const crsModeRaw = cleanHtml(row.F12 || '');
+            const typeRaw = cleanHtml(row.F13 || '');
+            const regTypeRaw = cleanHtml(row.F23 || '');
+            const a0 = String(row.A0 || '').trim();
+            const gradeRaw = String(row.F9 || '').trim();
+
+            const isDropped = /حذف\s*اضطرار|حذف\s*شده|حذف\s*ايثار|حذف\s*ایثار|cancell?ed|dropped/i.test(`${gradeModeRaw} ${crsModeRaw} ${statusRaw}`);
+            const isWait = a0 === '3' || /انتظار|ليست\s*انتظار|لیست\s*انتظار|wait\s*list|waitlist/i.test(`${regTypeRaw} ${gradeModeRaw} ${crsModeRaw} ${statusRaw}`);
+
+            let regStatus = 'registered';
+            let status = statusRaw;
+            let displayGrade = gradeRaw;
+
+            if (isDropped) {
+              regStatus = 'dropped';
+              status = 'حذف اضطراری';
+              displayGrade = 'حذف';
+            } else if (isWait) {
+              regStatus = 'waitlist';
+              status = 'در انتظار';
+              displayGrade = 'انتظار';
+            } else if (gradeRaw && gradeRaw !== 'ـ' && gradeRaw !== '-') {
+              const g = parseFloat(gradeRaw.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+              if (!isNaN(g)) {
+                status = g >= 10 ? 'قبول' : 'مردود';
+              }
+            }
+
+            return {
+              code,
+              name: normalizeCourseName(cleanHtml(row.F1)),
+              group: cleanHtml(row.F2).match(/گروه\s*(\S+)/)?.[1] || cleanHtml(row.F6) || '',
+              units: parseInt(row.F7 || '0', 10),
+              grade: displayGrade,
+              rawGrade: gradeRaw,
+              status,
+              regStatus,
+              isDropped,
+              isWaitlist: isWait,
+              type: typeRaw || 'تخصصی',
+              tuitionRial: row.F15 || '',
+              termId: String(row.F18 || '').trim(),
+              note: cleanHtml(row.F17) || ''
+            };
+          }).filter(c => c.name);
 
           if (allCourses.length > 0) {
             rememberCourseUnits(allCourses);
@@ -650,22 +691,23 @@
         if (grids[2] && grids[2].xml) {
           const finRows = parseBehestanXmlGrid(grids[2].xml);
           let latestDebtRial = 0;
+          let overallDebtRial = 0;
           const termsSummary = finRows.map(row => {
-            const rawDebt = row.F9 || row.F13 || '';
-            const numDebt = parseInt(rawDebt.replace(/[^\d]/g, '') || '0', 10);
+            const numDebt = parseInt(String(row.F9 || '').replace(/[^\d]/g, '') || '0', 10);
+            const rowOverall = parseInt(String(row.F13 || '').replace(/[^\d]/g, '') || '0', 10);
+            if (rowOverall > 0 && overallDebtRial === 0) overallDebtRial = rowOverall;
+            if (numDebt > 0 && latestDebtRial === 0) latestDebtRial = numDebt;
+
             const totalBill = parseInt((row.F7 || '0').replace(/[^\d]/g, ''), 10);
             const totalPaid = parseInt((row.F8 || '0').replace(/[^\d]/g, ''), 10);
             const fixed = parseInt((row.F1 || '0').replace(/[^\d]/g, ''), 10);
             const variable = parseInt((row.F2 || '0').replace(/[^\d]/g, ''), 10);
             const insurance = parseInt((row.F3 || '0').replace(/[^\d]/g, ''), 10);
-
-            if (row.F10 === '4051' || latestDebtRial === 0) {
-              latestDebtRial = numDebt;
-            }
+            const tid = String(row.F10 || '').trim();
 
             return {
-              termId: row.F10 || '',
-              termTitle: cleanHtml(row.F11) || `ترم ${row.F10}`,
+              termId: tid,
+              termTitle: cleanHtml(row.F11) || `ترم ${tid}`,
               fixedTuitionRial: fixed,
               variableTuitionRial: variable,
               insuranceRial: insurance,
@@ -673,17 +715,18 @@
               totalPaidRial: totalPaid,
               debtRial: numDebt,
               debtToman: Math.floor(numDebt / 10),
-              status: numDebt > 0 ? `${(numDebt / 10).toLocaleString('fa-IR')} تومان بدهکار` : 'تسویه کامل'
+              status: numDebt > 0 ? `${Math.floor(numDebt / 10).toLocaleString('fa-IR')} تومان بدهکار` : 'تسویه کامل'
             };
           });
 
+          const finalTotalDebt = overallDebtRial > 0 ? overallDebtRial : latestDebtRial;
           sendData('finance', {
-            totalDebtRial: latestDebtRial,
-            totalDebtToman: Math.floor(latestDebtRial / 10),
-            statusText: latestDebtRial > 0 ? 'بدهکار' : 'تسویه حساب کامل',
+            totalDebtRial: finalTotalDebt,
+            totalDebtToman: Math.floor(finalTotalDebt / 10),
+            statusText: finalTotalDebt > 0 ? 'بدهکار' : 'تسویه حساب کامل',
             termsSummary: termsSummary
           });
-          console.log('[Sarvestan] ✅ Captured financial status: Debt =', latestDebtRial);
+          console.log('[Sarvestan] ✅ Captured financial status: Debt =', finalTotalDebt);
         }
 
         // ج) پردازش کارنامه رسمی و معدل از گرید ۳ (AfqV) یا گرید ۰ (AUWp)
@@ -695,15 +738,23 @@
         if (grids[3] && grids[3].xml) {
           const gpaRows = parseBehestanXmlGrid(grids[3].xml);
           transcripts = gpaRows.map(row => {
-            const termId = row.F1 || '';
+            const termId = String(row.F1 || '').trim();
             const tCourses = allCourses.filter(c => c.termId === termId);
-            const termUnits = parseInt(row.F3 || '0', 10);
-            const totUnits = parseInt(row.F4 || '0', 10);
+            const regUnits = parseInt(row.F3 || '0', 10);
+            const termUnits = parseInt(row.F5 || row.F6 || row.F3 || '0', 10);
+            const totUnits = parseInt(row.F7 || row.F4 || '0', 10);
+            const droppedUnits = parseInt(row.F10 || '0', 10);
             const termGpa = (row.F12 || '').trim();
             const cumGpa = (row.F13 || '').trim();
 
             if (totUnits > finalTotalUnits) finalTotalUnits = totUnits;
             if (cumGpa) finalGpa = cumGpa;
+
+            const gpaNum = parseFloat(termGpa.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+            let standing = 'عادی';
+            if (gpaNum >= 19) standing = 'ممتاز';
+            else if (gpaNum >= 17) standing = 'معدل الف';
+            else if (gpaNum < 10) standing = 'مشروط';
 
             return {
               termId: termId,
@@ -712,20 +763,27 @@
               cumulativeGpa: cumGpa || termGpa,
               passedUnits: termUnits,
               unitsPassed: termUnits,
+              registeredUnits: regUnits,
+              droppedUnits: droppedUnits,
               totalPassedUnits: totUnits,
               termStatus: cleanHtml(row.F2),
-              standing: (parseFloat(termGpa) >= 17) ? 'ممتاز' : 'عادی',
+              standing,
               courses: tCourses
             };
           }).filter(t => t.termId);
         } else if (grids[0] && grids[0].xml) {
           const termRows = parseBehestanXmlGrid(grids[0].xml);
           transcripts = termRows.map(row => {
-            const termId = row.F13 || '';
+            const termId = String(row.F13 || '').trim();
             const tCourses = allCourses.filter(c => c.termId === termId);
             const passed = parseInt(row.F5 || row.F6 || '0', 10);
             const total = parseInt(row.F4 || '0', 10);
             if (total > finalTotalUnits) finalTotalUnits = total;
+            const gpaNum = parseFloat(String(row.F1 || '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+            let standing = 'عادی';
+            if (gpaNum >= 19) standing = 'ممتاز';
+            else if (gpaNum >= 17) standing = 'معدل الف';
+            else if (gpaNum < 10) standing = 'مشروط';
 
             return {
               termId: termId,
@@ -736,13 +794,26 @@
               unitsPassed: passed,
               totalPassedUnits: total,
               termStatus: cleanHtml(row.F16) || '',
-              standing: (parseFloat(row.F1) >= 17) ? 'ممتاز' : 'عادی',
+              standing,
               courses: tCourses
             };
           }).filter(t => t.termId);
         }
 
-        if (parseFloat(finalGpa) >= 17) finalStanding = 'ممتاز (دانشجوی برتر)';
+        if (!finalTotalUnits) {
+          const passedCourses = allCourses.filter(c => 
+            c.regStatus !== 'dropped' && 
+            c.regStatus !== 'waitlist' && 
+            !/حذف|انتظار/i.test(c.status) &&
+            (c.regStatus === 'passed' || parseFloat(c.grade) >= 10)
+          );
+          finalTotalUnits = passedCourses.reduce((s, c) => s + (c.units || 0), 0);
+        }
+
+        const gpaFloat = parseFloat(String(finalGpa).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+        if (gpaFloat >= 19) finalStanding = 'ممتاز (دانشجوی برتر)';
+        else if (gpaFloat >= 17) finalStanding = 'معدل الف';
+        else if (gpaFloat < 10) finalStanding = 'مشروط';
 
         if (transcripts.length > 0) {
           sendData('transcripts', transcripts);
@@ -964,14 +1035,20 @@
   }
 
   function getStudentId() {
-    const ls = localStorage.getItem('un') || localStorage.getItem('std') || localStorage.getItem('stdno');
+    const ls = localStorage.getItem('un') || localStorage.getItem('std') || localStorage.getItem('stdno') || localStorage.getItem('studentId') || sessionStorage.getItem('un') || sessionStorage.getItem('std');
     if (ls) return ls;
     if (userLoggedOut || isManualLogoutLocked()) return null;
-    if (isBehestanSessionAlive() && sessionCache.studentId) return sessionCache.studentId;
+    if (sessionCache.studentId) return sessionCache.studentId;
     if (!isBehestanSessionAlive()) return null;
-    const text = document.body ? document.body.innerText : '';
-    const m = text.match(/\b(40[0-9]{6,7}|99[0-9]{6}|98[0-9]{6})\b/);
-    return m ? m[1] : null;
+    const rawText = document.body ? document.body.innerText : '';
+    const text = rawText.replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+    const m = text.match(/(?:شماره|کد)\s*(?:دانشجوی[یي]|دانشجو)?\s*[:\-]?\s*([0-9]{7,10})/i) ||
+              text.match(/\b(40[0-9]{5,8}|9[5-9][0-9]{5,8})\b/);
+    if (m) {
+      sessionCache.studentId = m[1];
+      return m[1];
+    }
+    return null;
   }
 
   function normalizeTicket(t) {

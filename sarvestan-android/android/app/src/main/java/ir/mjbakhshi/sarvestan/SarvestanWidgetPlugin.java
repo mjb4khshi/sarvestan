@@ -30,8 +30,9 @@ public class SarvestanWidgetPlugin extends Plugin {
         String gpa = call.getString("gpa", "");
         String unitsPassed = call.getString("unitsPassed", "");
         String termGpa = call.getString("termGpa", "");
+        String theme = call.getString("theme", "auto");
 
-        SarvestanWidgetProvider.save(ctx, nextTitle, nextTime, nextRoom, examTitle, examDays, examDate, gpa, unitsPassed, termGpa);
+        SarvestanWidgetProvider.save(ctx, nextTitle, nextTime, nextRoom, examTitle, examDays, examDate, gpa, unitsPassed, termGpa, theme);
 
         AppWidgetManager mgr = AppWidgetManager.getInstance(ctx);
         int total = 0;

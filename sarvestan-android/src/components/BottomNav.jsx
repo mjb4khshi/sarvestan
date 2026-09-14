@@ -12,7 +12,7 @@ import { motion } from 'framer-motion';
  * مستطیل پس‌زمینه + آیکون + نقطه؛ بدون پرش
  */
 const TABS_RIGHT = [
-  { id: 'schedule', label: 'برنامه هفتگی', Icon: CalendarDays, activeColor: 'text-primary' },
+  { id: 'schedule', label: 'برنامه هفتگی', Icon: CalendarDays, activeColor: 'text-secondary' },
   { id: 'grades', label: 'کارنامه و ریز نمرات', Icon: Award, activeColor: 'text-info' },
 ];
 

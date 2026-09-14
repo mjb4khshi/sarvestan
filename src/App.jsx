@@ -15,18 +15,27 @@ import CommandPalette from './components/CommandPalette';
 import NotificationsDrawer from './components/NotificationsDrawer';
 import LoginModal from './components/LoginModal';
 import NotAvailableModal from './components/NotAvailableModal';
+import BehestanReferralModal from './components/BehestanReferralModal';
 import LandingPage from './components/LandingPage';
 import { getDashboardTabForCode } from './services/behestanSearchIndex';
 import { REAL_WORKFLOW_REQUESTS, REAL_FINANCIAL_REPORT_2563, subscribeToData } from './services/behestanData';
-import { Sparkles, Download, ArrowRight } from 'lucide-react';
 
 function DashboardContent() {
   const [activeTab, setActiveTab] = useState('overview');
+  const [behestanReferralType, setBehestanReferralType] = useState(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [notAvailableItem, setNotAvailableItem] = useState(null);
   const [, setNotifyTick] = React.useState(0);
+
+  const handleTabChange = (tab) => {
+    if (tab === 'requests' || tab === 'letters') {
+      setBehestanReferralType(tab);
+      return;
+    }
+    setActiveTab(tab);
+  };
 
   React.useEffect(() => {
     return subscribeToData(() => setNotifyTick((t) => t + 1));
@@ -49,7 +58,7 @@ function DashboardContent() {
     const code = String(item.code || '');
     const tab = getDashboardTabForCode(code);
     if (tab) {
-      setActiveTab(tab);
+      handleTabChange(tab);
       setIsSearchOpen(false);
       setNotAvailableItem(null);
       return;
@@ -62,7 +71,7 @@ function DashboardContent() {
     <div className="min-h-screen bg-base text-base-content flex flex-col font-sans transition-colors duration-300">
       <Header
         onOpenSearch={() => setIsSearchOpen(true)}
-        onNavigate={setActiveTab}
+        onNavigate={handleTabChange}
         unreadNotificationsCount={liveUnread}
         onToggleNotifications={() => setIsNotificationsOpen(!isNotificationsOpen)}
         onOpenLogin={() => setIsLoginOpen(true)}
@@ -72,13 +81,17 @@ function DashboardContent() {
       <div className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 pt-4 pb-24 lg:pb-8 flex flex-col lg:flex-row gap-0 lg:gap-8">
         {/* سایدبار فقط در دسکتاپ — در موبایل MobileNav جایگزین می‌شود */}
         <div className="hidden lg:block">
-          <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+          <Sidebar
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+            onOpenBehestanReferral={setBehestanReferralType}
+          />
         </div>
 
         <main className="flex-1 min-w-0">
           <AnimatePresence mode="wait">
             {activeTab === 'overview' && (
-              <DashboardOverview key="overview" onNavigate={setActiveTab} />
+              <DashboardOverview key="overview" onNavigate={handleTabChange} />
             )}
             {activeTab === 'transcripts' && (
               <TranscriptsGrades key="transcripts" />
@@ -91,12 +104,6 @@ function DashboardContent() {
             )}
             {activeTab === 'curriculum' && (
               <CurriculumAndCourses key="curriculum" />
-            )}
-            {activeTab === 'requests' && (
-              <EducationalRequests key="requests" />
-            )}
-            {activeTab === 'letters' && (
-              <LettersAndCertificates key="letters" />
             )}
           </AnimatePresence>
         </main>
@@ -130,7 +137,7 @@ function DashboardContent() {
                 rel="noreferrer"
                 className="text-primary hover:underline font-semibold"
               >
-                محمدجواد بخشی ایرج
+                محمدجواد بخشی
               </a>
               <span className="font-mono text-neutral/80 mx-1">@mjb4khshi</span>
             </span>
@@ -139,12 +146,16 @@ function DashboardContent() {
       </footer>
 
       {/* ناوبری موبایل — پایین صفحه، همیشه در دسترس */}
-      <MobileNav activeTab={activeTab} onTabChange={setActiveTab} />
+      <MobileNav
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        onOpenBehestanReferral={setBehestanReferralType}
+      />
 
       <CommandPalette
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
-        onNavigate={setActiveTab}
+        onNavigate={handleTabChange}
         onSelectSearchResult={handleSelectSearchResult}
       />
 
@@ -162,63 +173,21 @@ function DashboardContent() {
         item={notAvailableItem}
         onClose={() => setNotAvailableItem(null)}
       />
+
+      <BehestanReferralModal
+        type={behestanReferralType}
+        onClose={() => setBehestanReferralType(null)}
+      />
     </div>
   );
 }
 
 export default function App() {
-  const [viewMode, setViewMode] = useState(() => {
-    // If running inside Chrome Extension tab/popup
-    if (typeof window !== 'undefined' && window.location.protocol === 'chrome-extension:') {
-      return 'dashboard';
-    }
-    // If URL has demo or dashboard query/hash
-    if (typeof window !== 'undefined') {
-      const search = window.location.search || '';
-      const hash = window.location.hash || '';
-      if (search.includes('demo') || hash.includes('demo') || search.includes('mode=dashboard')) {
-        return 'demo';
-      }
-    }
-    // Default for web visitors / GitHub Pages is the Landing Showcase
-    return 'landing';
-  });
+  const isExtension = typeof window !== 'undefined' && window.location.protocol === 'chrome-extension:';
 
   return (
     <ThemeProvider>
-      {viewMode === 'landing' ? (
-        <LandingPage onOpenDemo={() => setViewMode('demo')} />
-      ) : (
-        <div className="flex flex-col min-h-screen">
-          {viewMode === 'demo' && (
-            <div className="sticky top-0 z-50 bg-gradient-to-r from-primary via-accent to-primary text-white px-4 py-2.5 shadow-lg flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-warn animate-pulse shrink-0" />
-                <span className="font-bold">پیش‌نمایش تعاملی سروستان (نسخه آزمایشی آنلاین)</span>
-                <span className="opacity-80 hidden md:inline">— این نما صرفاً دمو است؛ برای اتصال به داده‌های زنده بهستان، افزونه را نصب کنید.</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <a
-                  href="./sarvestan-extension.zip"
-                  download
-                  className="px-3 py-1 rounded-lg bg-white text-primary font-bold hover:bg-white/90 transition-all text-xs flex items-center gap-1.5 shadow-sm"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>دانلود افزونه (.zip)</span>
-                </a>
-                <button
-                  onClick={() => setViewMode('landing')}
-                  className="px-3 py-1 rounded-lg bg-black/25 hover:bg-black/40 text-white font-bold transition-all text-xs flex items-center gap-1"
-                >
-                  <span>بازگشت به سایت معرفی</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          )}
-          <DashboardContent />
-        </div>
-      )}
+      {isExtension ? <DashboardContent /> : <LandingPage />}
     </ThemeProvider>
   );
 }

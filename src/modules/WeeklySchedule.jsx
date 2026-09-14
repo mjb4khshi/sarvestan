@@ -171,7 +171,7 @@ export default function WeeklySchedule() {
     try {
       const parsed = getCourses() || [];
       return parsed
-        .filter(c => c.termId === selectedTerm || (!c.grade && selectedTerm === '4051'))
+        .filter(c => (c.termId === selectedTerm || (!c.grade && selectedTerm === '4051')) && !c.isDropped && c.regStatus !== 'dropped' && !String(c.status || '').includes('حذف'))
         .map(c => ({
           id: c.code || c.name,
           code: c.code,
@@ -193,9 +193,10 @@ export default function WeeklySchedule() {
   }, [selectedTerm, schedules]);
 
   const activeCourses = useMemo(() => {
-    const list = (schedules[selectedTerm] && schedules[selectedTerm].length > 0)
+    const rawList = (schedules[selectedTerm] && schedules[selectedTerm].length > 0)
       ? schedules[selectedTerm]
       : cachedCoursesForTerm;
+    const list = (rawList || []).filter(c => !c.isDropped && c.regStatus !== 'dropped' && !String(c.status || '').includes('حذف'));
 
     // غنی‌سازی واحد / نام / نوع از کش دروس F1825
     const metaByCode = {};

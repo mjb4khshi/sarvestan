@@ -8,17 +8,42 @@ import {
   X,
   Megaphone,
   Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useSarvestanData } from '../hooks/useSarvestanData';
+import { toFaDigits } from '../utils/faDigits';
+import { getLocalNotes, clearLocalNotes } from '../services/behestan/store';
+import { useAppIcon } from '../services/appIcon';
 
 export default function TopBar({ title, onBack }) {
   const { currentTheme, setTheme, themes, activeThemeMeta } = useTheme();
   const { workflows, live } = useSarvestanData();
-  const announcements = (workflows || []).slice(0, 5);
-  const unread = live ? Math.min(5, announcements.length) : 0;
+  const { currentIcon } = useAppIcon();
   const [themeSheetOpen, setThemeSheetOpen] = useState(false);
   const [notifySheetOpen, setNotifySheetOpen] = useState(false);
+
+  const localNotes = getLocalNotes();
+  const allNotifications = [
+    ...localNotes.map((n) => ({
+      id: n.id,
+      title: n.title || 'گزارش همگام‌سازی',
+      body: n.body || '',
+      color: n.color || 'info',
+      isSync: true,
+      time: n.at
+        ? new Date(n.at).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
+        : '',
+    })),
+    ...(workflows || []).map((w, i) => ({
+      id: w.id || `w${i}`,
+      title: w.title || 'درخواست آموزشی',
+      body: w.body || w.status || '',
+      color: i % 2 === 0 ? 'info' : 'warn',
+      isSync: false,
+    })),
+  ];
+  const unread = Math.min(9, allNotifications.length);
 
   return (
     <>
@@ -46,7 +71,7 @@ export default function TopBar({ title, onBack }) {
                     <svg
                       viewBox="0 0 1080 1080"
                       className="w-full h-full drop-shadow-sm transition-colors duration-300"
-                      style={{ fill: 'var(--color-primary, #0066a4)' }}
+                      style={{ fill: currentIcon?.leaf || 'var(--color-primary, #0066a4)' }}
                       aria-label="سروستان"
                     >
                       <path d="M540,167.08 C540,167.08 213.25,912.92 540,912.92 C866.75,912.92 540,167.08 540,167.08 Z" />
@@ -55,8 +80,8 @@ export default function TopBar({ title, onBack }) {
                 <div className="flex flex-col leading-tight min-w-0">
                   <h1 className="text-[14px] font-bold text-base-content flex items-center gap-1">
                     سروستان
-                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-primary/15 text-primary border border-primary/25">
-                      موبایل
+                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-secondary-soft text-secondary">
+                      همراه
                     </span>
                   </h1>
                   <span className="text-[10px] text-neutral truncate">
@@ -103,7 +128,7 @@ export default function TopBar({ title, onBack }) {
               <Bell className="w-4 h-4" />
               {unread > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-content text-[9px] font-bold flex items-center justify-center shadow-sm">
-                  {unread}
+                  {toFaDigits(unread)}
                 </span>
               )}
             </button>
@@ -223,44 +248,72 @@ export default function TopBar({ title, onBack }) {
                     <Bell className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="text-[15px] font-bold text-base-content">اعلانات بهستان</h3>
-                    <p className="text-[11px] text-neutral">اطلاعیه‌های آموزشی دانشگاه خواجه نصیر</p>
+                    <h3 className="text-[15px] font-bold text-base-content">اعلانات و پیام‌ها</h3>
+                    <p className="text-[11px] text-neutral">گزارش همگام‌سازی و اطلاعیه‌های بهستان</p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setNotifySheetOpen(false)}
-                  className="w-8 h-8 rounded-full bg-base-500/30 text-neutral hover:text-base-content grid place-items-center"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1.5">
+                  {localNotes.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => clearLocalNotes()}
+                      className="text-[10.5px] font-bold px-2 py-1 rounded-lg bg-base-500/30 hover:bg-base-500/50 text-neutral hover:text-base-content transition-all"
+                      title="پاک کردن گزارش‌های همگام‌سازی"
+                    >
+                      پاک‌سازی گزارش‌ها
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setNotifySheetOpen(false)}
+                    className="w-8 h-8 rounded-full bg-base-500/30 text-neutral hover:text-base-content grid place-items-center"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               <div className="overflow-y-auto py-3 pb-24 space-y-2.5 flex-1 pr-1">
-                {announcements.length === 0 && (
-                  <p className="text-[12px] text-neutral text-center py-6">اعلانی ثبت نشده</p>
+                {allNotifications.length === 0 && (
+                  <div className="text-center py-8 space-y-1.5">
+                    <p className="text-[13px] font-bold text-base-content">پیام یا اعلانی نیست</p>
+                    <p className="text-[11.5px] text-neutral">همه اطلاعات آموزشی و همگام‌سازی به‌روز هستند</p>
+                  </div>
                 )}
-                {announcements.map((a) => (
+                {allNotifications.map((a) => (
                   <article
                     key={a.id}
                     className={`sarv-card p-3.5 border-r-4 ${
-                      a.color === 'warn' ? 'border-r-warn' : 'border-r-info'
+                      a.isSync
+                        ? 'border-r-primary bg-primary-soft/25'
+                        : a.color === 'warn'
+                        ? 'border-r-warn bg-warn-soft/40'
+                        : 'border-r-info bg-info-soft/40'
                     }`}
                   >
                     <div className="flex items-start gap-3">
                       <span
                         className={`w-8 h-8 rounded-xl grid place-items-center shrink-0 ${
-                          a.color === 'warn'
+                          a.isSync
+                            ? 'bg-primary-soft text-primary'
+                            : a.color === 'warn'
                             ? 'bg-warn-soft text-warn'
                             : 'bg-info-soft text-info'
                         }`}
                       >
-                        <Megaphone className="w-4 h-4" />
+                        {a.isSync ? <RefreshCw className="w-4 h-4" /> : <Megaphone className="w-4 h-4" />}
                       </span>
-                      <div className="min-w-0">
-                        <h4 className="text-[13px] font-bold text-base-content">{a.title}</h4>
-                        <p className="text-[12px] text-neutral mt-0.5 leading-relaxed">
-                          {a.body || a.status || ''}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <h4 className="text-[13px] font-bold text-base-content">{a.title}</h4>
+                          {a.isSync ? (
+                            <span className="text-[9.5px] px-1.5 py-0.5 rounded-md bg-primary-soft text-primary font-bold">
+                              {a.time ? `همگام‌سازی · ${toFaDigits(a.time)}` : 'همگام‌سازی'}
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="text-[12px] text-neutral mt-1 leading-relaxed whitespace-pre-line font-medium">
+                          {toFaDigits(a.body || a.status || '')}
                         </p>
                       </div>
                     </div>

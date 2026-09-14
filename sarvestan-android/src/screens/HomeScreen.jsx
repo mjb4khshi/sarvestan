@@ -17,10 +17,42 @@ import { useSarvestanData } from '../hooks/useSarvestanData';
 import { openLoginModal } from '../services/loginFlow';
 import { toFaDigits } from '../utils/faDigits';
 
+export function getGpaStatusBadge(gpaRaw) {
+  if (!gpaRaw || gpaRaw === 'ـ' || gpaRaw === '—' || gpaRaw === '-') return null;
+  const clean = String(gpaRaw)
+    .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+    .replace(/٫/g, '.')
+    .replace(/,/g, '.')
+    .trim();
+  const num = parseFloat(clean);
+  if (!Number.isFinite(num)) return null;
+
+  if (num >= 19) {
+    return {
+      label: 'ممتاز',
+      chip: 'bg-amber-500/15 text-amber-600 dark:text-amber-300 font-black',
+    };
+  }
+  if (num >= 17) {
+    return {
+      label: 'معدل الف',
+      chip: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold',
+    };
+  }
+  if (num < 10) {
+    return {
+      label: 'مشروط',
+      chip: 'bg-rose-500/15 text-rose-600 dark:text-rose-400 font-bold',
+    };
+  }
+  return null;
+}
+
 const statusMeta = {
-  now: { label: 'در حال برگزاری', chip: 'bg-success-soft text-success border-success-soft font-bold' },
-  next: { label: 'کلاس بعدی', chip: 'bg-primary-soft text-primary border-primary-soft font-bold' },
-  later: { label: 'کلاس عصر', chip: 'bg-secondary-soft text-secondary border-secondary-soft font-bold' },
+  now: { label: 'در حال برگزاری', chip: 'bg-success-soft text-success font-bold' },
+  next: { label: 'کلاس بعدی', chip: 'bg-primary-soft text-primary font-bold' },
+  later: { label: 'در ادامه امروز', chip: 'bg-secondary-soft text-secondary font-bold' },
+  done: { label: 'پایان یافته', chip: 'bg-base-500/30 text-neutral font-normal' },
 };
 
 export default function HomeScreen({ onNavigate }) {
@@ -36,6 +68,7 @@ export default function HomeScreen({ onNavigate }) {
   const TERM_LABEL = vm.termLabel || STUDENT.term || 'نیمسال اول ۱۴۰۴–۱۴۰۵';
   const dayNameMap = { 6: 'شنبه', 0: 'یکشنبه', 1: 'دوشنبه', 2: 'سه‌شنبه', 3: 'چهارشنبه' };
   const todayIdx = Math.max(0, WEEK.findIndex((d) => d.day === dayNameMap[new Date().getDay()]));
+  const gpaStatus = getGpaStatusBadge(SUMMARY.gpa || STUDENT.gpa || vm.grades?.cumulativeGpa);
 
   return (
     <div className="px-4 pt-3.5 space-y-3.5 mobile-pad-bottom">
@@ -88,16 +121,21 @@ export default function HomeScreen({ onNavigate }) {
           <p className="text-[11px] text-neutral mt-0.5">{STUDENT.college}</p>
         ) : null}
 
-        {/* بج‌های اطلاعاتی ترم با توکن‌های سرو (سکندری + پرایمری) */}
+        {/* بج‌های اطلاعاتی ترم و وضعیت تحصیلی با استایل سافت بدون بوردر */}
         <div className="mt-3 flex items-center justify-center gap-2 flex-wrap">
-          <span className="text-[10.5px] font-black px-2.5 py-1 rounded-xl bg-secondary-soft text-secondary border border-secondary-soft">
+          <span className="text-[10.5px] font-black px-2.5 py-1 rounded-xl bg-secondary-soft text-secondary">
             {toFaDigits(TERM_LABEL)}
           </span>
-          <span className="text-[10.5px] font-bold px-2.5 py-1 rounded-xl bg-primary-soft text-primary border border-primary-soft">
+          <span className="text-[10.5px] font-bold px-2.5 py-1 rounded-xl bg-primary-soft text-primary">
             {STUDENT.major || STUDENT.college}
           </span>
+          {gpaStatus && (
+            <span className={`text-[10.5px] px-2.5 py-1 rounded-xl ${gpaStatus.chip}`}>
+              {gpaStatus.label}
+            </span>
+          )}
           {(SUMMARY.droppedCount > 0 || SUMMARY.waitlistCount > 0) && (
-            <span className="text-[10px] font-bold px-2 py-1 rounded-xl bg-warn-soft text-warn border border-warn-soft">
+            <span className="text-[10px] font-bold px-2.5 py-1 rounded-xl bg-warn-soft text-warn">
               {SUMMARY.droppedCount > 0 ? `حذف اضطراری: ${toFaDigits(SUMMARY.droppedCount)}` : ''}
               {SUMMARY.droppedCount > 0 && SUMMARY.waitlistCount > 0 ? ' · ' : ''}
               {SUMMARY.waitlistCount > 0 ? `در انتظار: ${toFaDigits(SUMMARY.waitlistCount)}` : ''}
@@ -177,15 +215,28 @@ export default function HomeScreen({ onNavigate }) {
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-black text-primary">
-                {NEXT?.status === 'now' ? 'کلاس در جریان' : 'کلاس بعدی شما'}
+                {NEXT?.status === 'now'
+                  ? 'کلاس در جریان'
+                  : NEXT
+                  ? 'کلاس بعدی شما'
+                  : TODAY_CLASSES.length > 0
+                  ? 'کلاس‌های امروز'
+                  : 'برنامه امروز'}
               </span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary text-primary-content font-bold font-mono">
-                {toFaDigits(NEXT?.time || SUMMARY.nextClassIn || '—')}
+                {toFaDigits(
+                  NEXT?.time ||
+                    (TODAY_CLASSES.length > 0 && !NEXT
+                      ? 'پایان کلاس‌ها'
+                      : SUMMARY.nextClassIn || '—'),
+                )}
               </span>
             </div>
             <h4 className="text-[14px] font-bold text-base-content truncate mt-0.5">
               {vm.nextClass
                 ? `${vm.nextClass.title}${vm.nextClass.room && vm.nextClass.room !== 'ـ' ? ` · ${vm.nextClass.room}` : ''}`
+                : TODAY_CLASSES.length > 0
+                ? 'تمام کلاس‌های امروز برگزار شده‌اند'
                 : 'امروز کلاسی ثبت نشده'}
             </h4>
           </div>
@@ -280,7 +331,7 @@ export default function HomeScreen({ onNavigate }) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <h4 className="text-[14px] font-bold text-base-content truncate">{cls.title}</h4>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full border ${meta.chip}`}>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${meta.chip}`}>
                       {meta.label}
                     </span>
                   </div>
@@ -312,41 +363,62 @@ export default function HomeScreen({ onNavigate }) {
             <span className="w-7 h-7 rounded-xl bg-primary-soft text-primary grid place-items-center">
               <Calendar className="w-4 h-4" />
             </span>
-            <h3 className="text-[13px] font-bold text-base-content">توزیع بار آموزشی هفته</h3>
+            <h3 className="text-[13px] font-bold text-base-content">پراکندگی بار آموزشی هفته</h3>
           </div>
           <span className="text-[11px] font-bold px-2 py-0.5 rounded-lg bg-base-500/50 text-neutral">
             مجموع: {toFaDigits(WEEK_HOURS)} ساعت
           </span>
         </div>
 
-        <div className="flex items-end justify-between gap-2 h-24 pt-2">
-          {WEEK.map((d, idx) => {
-            const height = 28 + d.count * 16;
-            const isToday = idx === todayIdx;
-            const barBgTokens = ['bg-info', 'bg-primary', 'bg-secondary', 'bg-accent', 'bg-success'];
+        {/* نمودار میله‌ای با مقیاس‌بندی پویا و جلوگیری از تداخل با متن بالا */}
+        {(() => {
+          const maxCount = Math.max(...WEEK.map((d) => d.count || 0), 1);
+          return (
+            <div className="flex items-end justify-between gap-2 h-28 pt-2">
+              {WEEK.map((d, idx) => {
+                const count = d.count || 0;
+                const isToday = idx === todayIdx;
+                const barBgTokens = ['bg-info', 'bg-primary', 'bg-secondary', 'bg-accent', 'bg-success'];
+                // مقیاس‌بندی متناسب بر اساس حداکثر کلاس‌ها در هفته
+                const heightPct = count > 0
+                  ? Math.max(14, Math.min(96, Math.round((count / Math.max(maxCount, 4)) * 96)))
+                  : 6;
 
-            return (
-              <div key={d.day} className="flex-1 flex flex-col items-center gap-2">
-                <span className={`text-[10px] font-mono font-bold ${isToday ? 'text-primary' : 'text-neutral'}`}>
-                  {toFaDigits(d.count)}
-                </span>
-                <div
-                  className={`w-full rounded-t-xl rounded-b-md transition-all ${barBgTokens[idx]} ${
-                    isToday ? 'ring-2 ring-primary ring-offset-2 ring-offset-base scale-105' : 'opacity-75'
-                  }`}
-                  style={{ height: `${height}px` }}
-                />
-                <span
-                  className={`text-[10.5px] ${
-                    isToday ? 'text-primary font-black' : 'text-neutral font-medium'
-                  }`}
-                >
-                  {d.day}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+                return (
+                  <div key={d.day} className="flex-1 flex flex-col items-center h-full">
+                    {/* شمارنده ستون — محافظت‌شده که هرگز با هدر بالا تداخل نمی‌کند */}
+                    <div className="h-5 flex items-center justify-center">
+                      <span className={`text-[10.5px] font-mono font-bold ${isToday ? 'text-primary font-black' : 'text-neutral'}`}>
+                        {toFaDigits(count)}
+                      </span>
+                    </div>
+
+                    {/* فضای میله — مقیاس‌بندی داخل کادر */}
+                    <div className="flex-1 w-full flex items-end justify-center py-1">
+                      <div
+                        className={`w-full max-w-[28px] rounded-t-xl rounded-b-md transition-all duration-300 ${barBgTokens[idx % barBgTokens.length]} ${
+                          isToday ? 'ring-2 ring-primary ring-offset-2 ring-offset-base scale-105' : 'opacity-80 hover:opacity-100'
+                        }`}
+                        style={{ height: `${heightPct}%` }}
+                      />
+                    </div>
+
+                    {/* نام روز */}
+                    <div className="h-5 flex items-center justify-center">
+                      <span
+                        className={`text-[10.5px] ${
+                          isToday ? 'text-primary font-black' : 'text-neutral font-medium'
+                        }`}
+                      >
+                        {d.day}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
       </section>
 
       {/* اعلانات با توکن‌های رسمی سرو */}
@@ -374,10 +446,6 @@ export default function HomeScreen({ onNavigate }) {
           </article>
         ))}
       </section>
-
-      <p className="text-center text-[10.5px] text-neutral pb-2">
-        پرتال همراه بهستان ۲٫۰ — هویت بصری سروستان
-      </p>
     </div>
   );
 }

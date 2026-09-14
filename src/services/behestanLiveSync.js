@@ -277,9 +277,13 @@ class BehestanSyncEngine {
       ...this.currentProfile,
       fullName: behestanUser.fullName || `${behestanUser.firstName || ''} ${behestanUser.lastName || ''}`.trim() || 'دانشجو',
       firstName: behestanUser.firstName || '',
-      lastName: behestanUser.lastName || '',
-      studentId: behestanUser.studentId || behestanUser.std || this.currentProfile.studentId || 'ـ',
-      userId: behestanUser.userId || behestanUser.u || this.currentProfile.userId || 'ـ',
+      studentId: (behestanUser.studentId && behestanUser.studentId !== 'ـ')
+        ? behestanUser.studentId
+        : (behestanUser.std && behestanUser.std !== 'ـ')
+          ? behestanUser.std
+          : (this.currentProfile.studentId && this.currentProfile.studentId !== 'ـ')
+            ? this.currentProfile.studentId
+            : 'ـ',
       major: behestanUser.major || behestanUser.B8 || this.currentProfile.major || 'دانشجو',
       faculty: behestanUser.faculty || behestanUser.B4 || this.currentProfile.faculty || 'دانشگاه صنعتی خواجه نصیرالدین طوسی',
       degree: behestanUser.degree || behestanUser.B6 || this.currentProfile.degree || 'کارشناسی',

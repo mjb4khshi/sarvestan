@@ -19,16 +19,23 @@ import { getViewModel } from '../data/viewModel';
 import { toFaDigits } from '../utils/faDigits';
 import OdometerNumber from '../components/OdometerNumber';
 import SarvCheckbox from '../components/SarvCheckbox';
+import { getGpaStatusBadge } from './HomeScreen';
 
-function scoreColor(scoreVal) {
+function scoreColor(scoreVal, status) {
+  if (status === 'حذف اضطراری') {
+    return 'text-danger bg-danger-soft font-black';
+  }
+  if (status === 'در انتظار') {
+    return 'text-warn bg-warn-soft font-black';
+  }
   if (scoreVal === null || scoreVal === undefined || isNaN(scoreVal)) {
-    return 'text-neutral bg-base-500/40 border-base-500';
+    return 'text-neutral bg-base-500/40';
   }
   const num = Number(scoreVal);
-  if (num >= 17) return 'text-success bg-success-soft border-success-soft font-black';
-  if (num >= 14) return 'text-primary bg-primary-soft border-primary-soft font-black';
-  if (num >= 12) return 'text-warn bg-warn-soft border-warn-soft font-black';
-  return 'text-danger bg-danger-soft border-danger-soft font-black';
+  if (num >= 17) return 'text-success bg-success-soft font-black';
+  if (num >= 14) return 'text-primary bg-primary-soft font-black';
+  if (num >= 12) return 'text-warn bg-warn-soft font-black';
+  return 'text-danger bg-danger-soft font-black';
 }
 
 export default function GradesScreen({ onNavigate }) {
@@ -52,7 +59,7 @@ export default function GradesScreen({ onNavigate }) {
     const init = {};
     (TERMS[0]?.courses || []).forEach((c) => {
       init[c.id] = {
-        included: true,
+        included: c.status !== 'حذف اضطراری' && c.status !== 'در انتظار',
         score: c.score ?? 17.0,
       };
     });
@@ -237,9 +244,19 @@ export default function GradesScreen({ onNavigate }) {
             <div className="mt-1 flex items-center gap-1">
               <OdometerNumber value={activeTerm.gpa} height={38} className="text-[36px] text-primary" />
             </div>
-            <p className="text-[11px] text-success mt-2 flex items-center gap-1 font-bold">
+            <p
+              className={`text-[11px] mt-2 flex items-center gap-1 font-bold ${
+                getGpaStatusBadge(activeTerm.gpa)?.label === 'مشروط'
+                  ? 'text-danger'
+                  : getGpaStatusBadge(activeTerm.gpa)?.label === 'ممتاز'
+                  ? 'text-amber-600 dark:text-amber-400'
+                  : getGpaStatusBadge(activeTerm.gpa)?.label === 'معدل الف'
+                  ? 'text-success'
+                  : 'text-neutral'
+              }`}
+            >
               <CheckCircle2 className="w-3.5 h-3.5" />
-              وضعیت ترم: عادی (ممتاز)
+              وضعیت ترم: {getGpaStatusBadge(activeTerm.gpa)?.label || 'عادی'}
             </p>
           </div>
 
@@ -435,7 +452,13 @@ export default function GradesScreen({ onNavigate }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.03 * i }}
             className={`sarv-card p-3.5 flex items-center justify-between gap-3 hover:border-primary transition-colors border-r-4 ${
-              g.status === 'قطعی' ? 'border-r-success' : 'border-r-warn'
+              g.status === 'حذف اضطراری'
+                ? 'border-r-danger'
+                : g.status === 'در انتظار'
+                  ? 'border-r-warn'
+                  : g.status === 'قطعی'
+                    ? 'border-r-success'
+                    : 'border-r-warn'
             }`}
           >
             <div className="min-w-0 flex-1">
@@ -463,7 +486,8 @@ export default function GradesScreen({ onNavigate }) {
             <div className="text-left shrink-0">
               <div
                 className={`min-w-[56px] px-2.5 py-1 rounded-xl border text-center font-mono text-[15px] ${scoreColor(
-                  g.score
+                  g.score,
+                  g.status
                 )}`}
               >
                 {toFaDigits(g.displayScore)}

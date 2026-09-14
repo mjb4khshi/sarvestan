@@ -216,7 +216,12 @@ export async function runFullSync({ force = false } = {}) {
         notes.push(`«${prev.name}» از برنامهٔ ترم جاری حذف شد`);
       }
     }
-    notes.slice(0, 8).forEach((n) => addLocalNote(n, { title: 'تغییر پس از همگام‌سازی' }));
+    if (notes.length > 0) {
+      const summaryBody = notes.length === 1
+        ? notes[0]
+        : `تغییرات ثبت‌شده در ${notes.length} مورد:\n• ` + notes.slice(0, 10).join('\n• ');
+      addLocalNote(summaryBody, { title: 'گزارش همگام‌سازی دروس', color: 'info' });
+    }
 
     // ── فاز تکمیلی ──
     await delay(150);

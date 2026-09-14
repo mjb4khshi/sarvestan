@@ -21,7 +21,7 @@ const TABS = [
 ];
 
 /** نوار پایین موبایل — همیشه در دسترس بدون اسکرول به بالا */
-export default function MobileNav({ activeTab, onTabChange }) {
+export default function MobileNav({ activeTab, onTabChange, onOpenBehestanReferral }) {
   return (
     <nav
       className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-base-500/40 bg-base/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom)]"
@@ -34,7 +34,15 @@ export default function MobileNav({ activeTab, onTabChange }) {
             <button
               key={id}
               type="button"
-              onClick={() => onTabChange(id)}
+              onClick={() => {
+                if (id === 'requests' || id === 'letters') {
+                  if (onOpenBehestanReferral) {
+                    onOpenBehestanReferral(id);
+                    return;
+                  }
+                }
+                onTabChange(id);
+              }}
               className={`relative flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 py-2 rounded-lg transition-colors outline-none ${
                 isActive ? 'text-primary font-semibold' : 'text-neutral'
               }`}

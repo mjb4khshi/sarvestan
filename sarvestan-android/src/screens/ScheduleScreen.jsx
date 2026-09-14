@@ -16,7 +16,7 @@ import {
   AlertCircle,
   Hash,
 } from 'lucide-react';
-import { getScheduleMatrix, getExamsView } from '../data/viewModel';
+import { getScheduleMatrix, getExamsView, parseClassTime } from '../data/viewModel';
 import { toFaDigits } from '../utils/faDigits';
 
 const edge = {
@@ -225,7 +225,19 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
 
               const dayCells = Object.entries(cells)
                 .filter(([k]) => k.endsWith(`-${di}`))
-                .map(([k, v]) => ({ slot: slots[parseInt(k, 10)], ...v }));
+                .map(([k, v]) => {
+                  const slotIndex = parseInt(k, 10);
+                  return {
+                    slotIndex,
+                    slot: slots[slotIndex],
+                    ...v,
+                  };
+                })
+                .sort((a, b) => {
+                  const ta = parseClassTime(a.time).startHour ?? a.slotIndex;
+                  const tb = parseClassTime(b.time).startHour ?? b.slotIndex;
+                  return ta - tb;
+                });
 
               if (!dayCells.length) {
                 if (selectedDayIndex === di) {
@@ -245,7 +257,7 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                       <span className="w-2 h-2 rounded-full bg-primary" />
                       {day}
                     </h3>
-                    <span className="text-[11px] text-neutral">{dayCells.length} درس</span>
+                    <span className="text-[11px] text-neutral">{toFaDigits(dayCells.length)} درس</span>
                   </div>
 
                   <div className="space-y-2.5">
@@ -467,10 +479,10 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                     {/* بج روزشمار */}
                     <div className="shrink-0 text-left">
                       <span
-                        className={`text-[10.5px] font-black px-2.5 py-1 rounded-xl border font-mono flex items-center gap-1 shadow-xs ${
+                        className={`text-[10.5px] font-black px-2.5 py-1 rounded-xl font-mono flex items-center gap-1 shadow-xs ${
                           isUrgent
-                            ? 'bg-warn-soft text-warn border-warn-soft'
-                            : 'bg-primary-soft text-primary border-primary-soft'
+                            ? 'bg-warn-soft text-warn'
+                            : 'bg-primary-soft text-primary'
                         }`}
                       >
                         <Clock className="w-3 h-3" />

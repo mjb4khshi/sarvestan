@@ -22,8 +22,40 @@ import {
 import liveSync from '../services/behestanLiveSync';
 import { toFaDigits } from '../utils/faDigits';
 
+export function getGpaStatusBadge(gpa) {
+  if (!gpa || gpa === 'ـ' || gpa === '-') return null;
+  const num = typeof gpa === 'number' ? gpa : parseFloat(String(gpa).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+  if (isNaN(num)) return null;
+  if (num >= 19) {
+    return {
+      label: 'ممتاز',
+      variant: 'accent',
+      colorClass: 'text-amber-500'
+    };
+  }
+  if (num >= 17) {
+    return {
+      label: 'معدل الف',
+      variant: 'success',
+      colorClass: 'text-emerald-500'
+    };
+  }
+  if (num < 10) {
+    return {
+      label: 'مشروط',
+      variant: 'danger',
+      colorClass: 'text-rose-500'
+    };
+  }
+  return null;
+}
+
 const gradeBadge = (g) => {
-  const n = parseFloat(String(g).replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+  if (!g) return 'neutral';
+  const str = String(g);
+  if (str.includes('حذف')) return 'danger';
+  if (str.includes('انتظار')) return 'warn';
+  const n = parseFloat(str.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
   if (Number.isNaN(n)) return 'neutral';
   if (n >= 17) return 'success';
   if (n >= 14) return 'primary';
@@ -112,11 +144,14 @@ export default function TranscriptsGrades() {
               <span className="text-2xl font-bold font-mono text-primary">
                 {toFaDigits(BEHESTAN_PROFILE.gpa)}
               </span>
-              {BEHESTAN_PROFILE.standing && (
-                <span className="text-[10px] text-success block font-semibold mt-0.5">
-                  {BEHESTAN_PROFILE.standing}
-                </span>
-              )}
+              {(() => {
+                const b = getGpaStatusBadge(BEHESTAN_PROFILE.gpa);
+                return b ? (
+                  <span className={`text-[10px] block font-bold mt-0.5 ${b.colorClass}`}>
+                    {b.label}
+                  </span>
+                ) : null;
+              })()}
             </div>
             <div className="sarv-chip sarv-chip-info p-3.5 text-center min-w-24">
               <span className="text-[11px] text-neutral block">واحد</span>
@@ -186,11 +221,14 @@ export default function TranscriptsGrades() {
                         <span className="text-[11px] text-neutral">معدل ترم</span>
                       </div>
                       <div className="text-left space-y-0.5">
-                        {term.standing && (
-                          <span className="text-[11px] font-semibold text-success block">
-                            {term.standing}
-                          </span>
-                        )}
+                        {(() => {
+                          const b = getGpaStatusBadge(term.termGpa);
+                          return b ? (
+                            <span className={`text-[11px] font-bold block ${b.colorClass}`}>
+                              {b.label}
+                            </span>
+                          ) : null;
+                        })()}
                         <span className="text-[11px] text-neutral">
                           {toFaDigits(term.unitsPassed)} واحد
                         </span>
@@ -242,36 +280,60 @@ export default function TranscriptsGrades() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-base-500/30">
-                      {(activeTermData.courses || []).map((c, idx) => (
-                        <motion.tr
-                          key={`${c.code}-${idx}`}
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ delay: idx * 0.03 }}
-                          className="hover:bg-base-500/10 transition-colors"
-                        >
-                          <td className="p-3 text-center text-neutral font-mono">
-                            {toFaDigits(idx + 1)}
-                          </td>
-                          <td className="p-3 font-mono font-semibold text-primary">
-                            {toFaDigits(c.code)}
-                          </td>
-                          <td className="p-3 font-medium text-base-content">{c.name}</td>
-                          <td className="p-3 text-center font-mono">
-                            {toFaDigits(c.units)}
-                          </td>
-                          <td className="p-3 text-center">
-                            <SarvBadge variant={gradeBadge(c.grade)} soft size="sm" className="font-mono font-bold">
-                              {toFaDigits(c.grade)}
-                            </SarvBadge>
-                          </td>
-                          <td className="p-3 text-center">
-                            <SarvBadge variant="success" soft size="sm" dot>
-                              {c.status || 'قبول'}
-                            </SarvBadge>
-                          </td>
-                        </motion.tr>
-                      ))}
+                      {(activeTermData.courses || []).map((c, idx) => {
+                        const isDropped = c.regStatus === 'dropped' || c.isDropped || String(c.status || '').includes('حذف') || String(c.grade || '').includes('حذف');
+                        const isWaitlist = c.regStatus === 'waitlist' || c.isWait || String(c.status || '').includes('انتظار') || String(c.grade || '').includes('انتظار');
+
+                        let statusText = c.status || 'قبول';
+                        let statusVariant = 'success';
+                        let gradeText = toFaDigits(c.grade);
+                        let gradeVariant = gradeBadge(c.grade);
+
+                        if (isDropped) {
+                          statusText = 'حذف اضطراری';
+                          statusVariant = 'danger';
+                          gradeText = 'حذف';
+                          gradeVariant = 'danger';
+                        } else if (isWaitlist) {
+                          statusText = 'در انتظار';
+                          statusVariant = 'warn';
+                          gradeText = 'انتظار';
+                          gradeVariant = 'warn';
+                        } else if (String(c.status || '').includes('مردود') || (parseFloat(c.grade) > 0 && parseFloat(c.grade) < 10)) {
+                          statusVariant = 'danger';
+                        }
+
+                        return (
+                          <motion.tr
+                            key={`${c.code}-${idx}`}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: idx * 0.03 }}
+                            className="hover:bg-base-500/10 transition-colors"
+                          >
+                            <td className="p-3 text-center text-neutral font-mono">
+                              {toFaDigits(idx + 1)}
+                            </td>
+                            <td className="p-3 font-mono font-semibold text-primary">
+                              {toFaDigits(c.code)}
+                            </td>
+                            <td className="p-3 font-medium text-base-content">{c.name}</td>
+                            <td className="p-3 text-center font-mono">
+                              {toFaDigits(c.units)}
+                            </td>
+                            <td className="p-3 text-center">
+                              <SarvBadge variant={gradeVariant} soft size="sm" className="font-mono font-bold">
+                                {gradeText}
+                              </SarvBadge>
+                            </td>
+                            <td className="p-3 text-center">
+                              <SarvBadge variant={statusVariant} soft size="sm" dot={!isDropped}>
+                                {statusText}
+                              </SarvBadge>
+                            </td>
+                          </motion.tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -302,12 +364,14 @@ export default function TranscriptsGrades() {
                   <span className="text-[10px] text-neutral block">معدل تخمینی</span>
                   <span className="text-2xl font-bold font-mono text-primary">{simulatedTermGPA}</span>
                 </div>
-                <SarvBadge variant="accent" soft size="sm">
-                  {(() => {
-                    const g = parseFloat(String(simulatedTermGPA).replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
-                    return g >= 17 ? 'ممتاز' : 'عادی';
-                  })()}
-                </SarvBadge>
+                {(() => {
+                  const b = getGpaStatusBadge(simulatedTermGPA);
+                  return b ? (
+                    <SarvBadge variant={b.variant} soft size="sm" className="font-bold">
+                      {b.label}
+                    </SarvBadge>
+                  ) : null;
+                })()}
               </div>
               <SarvButton
                 variant="primary"

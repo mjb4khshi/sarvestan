@@ -64,6 +64,7 @@
 
     <!-- نوار پایین: واحدهای گذرانده -->
     <LinearLayout
+        android:id="@+id/w_gpa_card_bottom"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"

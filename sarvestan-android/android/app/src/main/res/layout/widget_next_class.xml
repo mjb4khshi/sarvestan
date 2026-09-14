@@ -43,6 +43,7 @@
 
     <!-- کارت کلاس -->
     <LinearLayout
+        android:id="@+id/w_class_card_inner"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"

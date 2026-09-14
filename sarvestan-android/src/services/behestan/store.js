@@ -27,12 +27,43 @@ function read(key, fallback) {
   }
 }
 
+export function sanitizeFinance(fin) {
+  if (!fin) return fin;
+  let overallDebtRial = fin.totalDebtRial || 0;
+  if (Array.isArray(fin.termsSummary)) {
+    const terms = fin.termsSummary.map((t) => {
+      const bill = Number(t.totalBillRial) || 0;
+      const paid = Number(t.totalPaidRial) || 0;
+      // اگر پرداختی با کل صورت‌حساب برابر یا بیشتر باشد یا بدهی صفر باشد، قطعاً تسویه کامل است
+      const isSettled = (bill > 0 && paid >= bill) || (Number(t.debtRial) || 0) <= 0 || t.status === 'تسویه کامل';
+      const debtRial = isSettled ? 0 : (bill > paid ? bill - paid : (Number(t.debtRial) || 0));
+      return {
+        ...t,
+        totalBillRial: bill,
+        totalPaidRial: paid,
+        debtRial,
+        debtToman: Math.floor(debtRial / 10),
+        status: isSettled ? 'تسویه کامل' : 'بدهکار',
+      };
+    });
+    const activeDebt = terms.reduce((acc, cur) => Math.max(acc, cur.debtRial), 0);
+    if (!overallDebtRial && activeDebt > 0) overallDebtRial = activeDebt;
+    return {
+      ...fin,
+      totalDebtRial: overallDebtRial,
+      totalDebtToman: Math.floor(overallDebtRial / 10),
+      termsSummary: terms,
+    };
+  }
+  return fin;
+}
+
 let cache = {
   profile: read(KEYS.PROFILE, null),
   schedule: read(KEYS.SCHEDULE, {}),
   exams: read(KEYS.EXAMS, {}),
   transcripts: read(KEYS.TRANSCRIPTS, []),
-  finance: read(KEYS.FINANCE, null),
+  finance: sanitizeFinance(read(KEYS.FINANCE, null)),
   courses: read(KEYS.COURSES, []),
   workflows: read(KEYS.WORKFLOWS, []),
   announcements: read(KEYS.ANNOUNCEMENTS, []),
@@ -94,6 +125,9 @@ export function hasLiveData() {
 }
 
 export function updatePart(partial) {
+  if (partial.finance !== undefined) {
+    partial.finance = sanitizeFinance(partial.finance);
+  }
   let changed = false;
   for (const [k, v] of Object.entries(partial)) {
     if (v !== undefined) {
@@ -194,6 +228,8 @@ export function enrichScheduleFromCourses(courses) {
         units: c.units > 0 ? c.units : 0,
         name: c.name || null,
         type: c.type || null,
+        regStatus: c.regStatus || null,
+        status: c.status || null,
       };
     }
   }
@@ -202,10 +238,24 @@ export function enrichScheduleFromCourses(courses) {
   for (const termId of Object.keys(schedule)) {
     const list = schedule[termId];
     if (!Array.isArray(list)) continue;
-    for (const course of list) {
+    // حذف قطعی دروس حذف‌شده و در انتظار از برنامه هفتگی
+    const filtered = list.filter((course) => {
+      if (!course) return false;
+      const hit = byCode[String(course.code)];
+      const reg = hit?.regStatus || course.regStatus;
+      const st = hit?.status || course.status;
+      if (reg === 'dropped' || reg === 'waitlist') return false;
+      if (/حذف\s*اضطرار|حذف\s*شده|حذف\s*ايثار|حذف\s*ایثار|انتظار/i.test(String(st || ''))) return false;
+      return true;
+    });
+
+    if (filtered.length !== list.length) {
+      schedule[termId] = filtered;
+      changed = true;
+    }
+
+    for (const course of schedule[termId]) {
       if (!course || !course.code) continue;
-      // دروس حذف‌شده / در انتظار را روی برنامهٔ هفتگی نیاور
-      if (course.regStatus === 'dropped' || course.regStatus === 'waitlist') continue;
       const hit = byCode[String(course.code)];
       if (!hit) continue;
       if (hit.units > 0 && course.units !== hit.units) {
@@ -252,6 +302,10 @@ export function addLocalNote(text, { color = 'info', title = 'تغییر جدی�
 
 export function getLocalNotes() {
   return Array.isArray(cache.localNotes) ? cache.localNotes : [];
+}
+
+export function clearLocalNotes() {
+  updatePart({ localNotes: [] });
 }
 
 export function clearLiveData() {
@@ -333,7 +387,23 @@ export function debugDump() {
 
 export function getTodayClasses(persianDay) {
   const courses = getCurrentTermSchedule();
-  return courses.filter((c) => Array.isArray(c.days) && c.days.includes(persianDay));
+  return courses
+    .filter((c) => Array.isArray(c.days) && c.days.includes(persianDay))
+    .map((c) => {
+      // اگر daySlots دارد، ساعت و مکان مختص همین روز را ست کن
+      if (Array.isArray(c.daySlots) && c.daySlots.length) {
+        const slot = c.daySlots.find((s) => s.day === persianDay);
+        if (slot) {
+          return {
+            ...c,
+            time: slot.time || c.time,
+            classTimeRaw: slot.time || c.classTimeRaw,
+            hall: slot.hall && slot.hall !== 'ـ' ? slot.hall : c.hall,
+          };
+        }
+      }
+      return c;
+    });
 }
 
 export function getSummary() {
@@ -393,4 +463,22 @@ export function getSummary() {
       finance?.termsSummary?.[0]?.totalPaidRial ||
       0,
   };
+}
+
+/** بارگذاری کامل داده‌های آماده (تست لوکال از HAR) */
+export function loadSnapshotData(data) {
+  if (!data) return;
+  updatePart({
+    profile: data.profile || cache.profile,
+    courses: data.courses || cache.courses,
+    schedule: data.schedule || cache.schedule,
+    exams: data.exams || cache.exams,
+    finance: data.finance || cache.finance,
+    transcripts: data.transcripts || cache.transcripts,
+    syncMeta: {
+      status: 'live',
+      lastSyncAt: Date.now(),
+      sources: ['har-seed'],
+    },
+  });
 }

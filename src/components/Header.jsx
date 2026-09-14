@@ -73,12 +73,17 @@ export default function Header({ onOpenSearch, onNavigate, unreadNotificationsCo
         {/* Brand */}
         <div className="flex items-center gap-2 shrink-0 min-w-0">
           <img
-            src="https://raw.githubusercontent.com/mjb4khshi/sarv-ui/main/sarv-logo.png"
+            src="/icons/icon48.png"
             alt="Sarv"
             className="w-7 h-7 sm:w-8 sm:h-8 object-contain"
           />
           <div className="hidden sm:flex flex-col leading-tight">
-            <h1 className="text-base font-bold text-base-content">سروستان</h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-base font-bold text-base-content">سروستان</h1>
+              <SarvBadge variant="secondary" soft size="xs" className="font-semibold">
+                رومیزی
+              </SarvBadge>
+            </div>
             <span className="text-[10px] text-neutral">سامانه هوشمند بهستان</span>
           </div>
         </div>

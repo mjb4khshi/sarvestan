@@ -197,7 +197,7 @@ export const REAL_COURSES_TERM_4051 = new Proxy([], {
 export const CURRENT_TERM_4051_COURSES = new Proxy([], {
   get(target, prop) {
     const list = (_cache.courses && _cache.courses.length > 0)
-      ? _cache.courses.filter(c => c.termId === '4051' || !c.grade)
+      ? _cache.courses.filter(c => (c.termId === '4051' || !c.grade) && !c.isDropped && c.regStatus !== 'dropped' && !String(c.status || '').includes('حذف'))
       : [];
     const simCourses = list.map(c => ({
       id: c.id || c.code,

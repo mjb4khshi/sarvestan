@@ -48,6 +48,34 @@ const itemUp = {
   show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 320, damping: 28 } }
 };
 
+export function getGpaStatusBadge(gpa) {
+  if (!gpa || gpa === 'ـ' || gpa === '-') return null;
+  const num = typeof gpa === 'number' ? gpa : parseFloat(String(gpa).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+  if (isNaN(num)) return null;
+  if (num >= 19) {
+    return {
+      label: 'ممتاز',
+      variant: 'accent',
+      className: 'bg-amber-500/15 text-amber-500 font-bold border-none'
+    };
+  }
+  if (num >= 17) {
+    return {
+      label: 'معدل الف',
+      variant: 'success',
+      className: 'bg-emerald-500/15 text-emerald-500 font-bold border-none'
+    };
+  }
+  if (num < 10) {
+    return {
+      label: 'مشروط',
+      variant: 'danger',
+      className: 'bg-rose-500/15 text-rose-500 font-bold border-none'
+    };
+  }
+  return null;
+}
+
 export default function DashboardOverview({ onNavigate }) {
   const [, setTick] = React.useState(0);
 
@@ -124,12 +152,9 @@ export default function DashboardOverview({ onNavigate }) {
   })();
 
   const computedStanding = (() => {
-    if (BEHESTAN_PROFILE.isLoggedIn && BEHESTAN_PROFILE.standing && BEHESTAN_PROFILE.standing !== 'ـ') {
-      return BEHESTAN_PROFILE.standing;
-    }
-    if (AUTHENTIC_STUDENT_TRANSCRIPTS.length > 0 && AUTHENTIC_STUDENT_TRANSCRIPTS[0].standing) {
-      return AUTHENTIC_STUDENT_TRANSCRIPTS[0].standing;
-    }
+    const badge = getGpaStatusBadge(BEHESTAN_PROFILE.gpa || computedGpa);
+    if (badge) return badge.label;
+    if (BEHESTAN_PROFILE.isLoggedIn) return 'وضعیت عادی';
     return 'در انتظار دریافت از بهستان';
   })();
 
@@ -202,11 +227,14 @@ export default function DashboardOverview({ onNavigate }) {
                     متصل به بهستان
                   </SarvBadge>
                 )}
-                {BEHESTAN_PROFILE.standing && BEHESTAN_PROFILE.standing !== 'ـ' && (
-                  <SarvBadge variant="primary" soft size="sm">
-                    {BEHESTAN_PROFILE.standing}
-                  </SarvBadge>
-                )}
+                {(() => {
+                  const gpaBadge = getGpaStatusBadge(BEHESTAN_PROFILE.gpa || computedGpa);
+                  return gpaBadge ? (
+                    <SarvBadge variant={gpaBadge.variant} soft size="sm" className="font-bold">
+                      {gpaBadge.label}
+                    </SarvBadge>
+                  ) : null;
+                })()}
               </div>
               <div className="text-xs text-neutral flex flex-wrap items-center gap-2">
                 <span>{BEHESTAN_PROFILE.major}</span>
@@ -223,7 +251,7 @@ export default function DashboardOverview({ onNavigate }) {
             onClick={() => onNavigate('letters')}
           >
             <FileText className="w-4 h-4 ml-1.5" />
-            گواهی اشتغال به تحصیل
+            گواهی اشتغال به تحصیل (بهستان)
           </SarvButton>
         </div>
       </motion.div>

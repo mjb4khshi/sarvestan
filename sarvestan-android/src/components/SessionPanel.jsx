@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link2, RefreshCw, LogIn, LogOut, User } from 'lucide-react';
+import { Link2, RefreshCw, LogIn, LogOut, User, Clock } from 'lucide-react';
 import { useSarvestanData } from '../hooks/useSarvestanData';
 import { resetSyncState } from '../services/behestan/sync';
 import { openLoginModal, isLoginModalOpen } from '../services/loginFlow';
-import { toFaDigits } from '../utils/faDigits';
+import { toFaDigits, formatLastSync, getLastSyncTimestamp } from '../utils/faDigits';
 
 /**
  * اتصال بهستان — وضعیت، همگام‌سازی دستی و خروج از حساب
@@ -23,6 +23,9 @@ export default function SessionPanel() {
 
   const displayName = profile?.fullName || '';
   const displayId = profile?.studentId || session?.studentId || '';
+
+  const lastSyncTime = getLastSyncTimestamp(syncMeta);
+  const lastSyncFormatted = formatLastSync(lastSyncTime);
 
   const statusLabel = live
     ? 'متصل — دادهٔ زنده'
@@ -63,6 +66,24 @@ export default function SessionPanel() {
           </div>
         </div>
       )}
+
+      {/* آخرین همگام‌سازی */}
+      <div className="flex items-center justify-between text-[11.5px] px-3 py-2 rounded-xl bg-base-500/20 border border-base-500/30">
+        <span className="text-neutral flex items-center gap-1.5 font-medium">
+          <Clock className="w-3.5 h-3.5 text-neutral/80" />
+          آخرین همگام‌سازی:
+        </span>
+        <span className="font-bold text-base-content">
+          {syncing ? (
+            <span className="text-primary flex items-center gap-1.5">
+              <RefreshCw className="w-3 h-3 animate-spin" />
+              در حال دریافت داده…
+            </span>
+          ) : (
+            lastSyncFormatted || 'هنوز انجام نشده'
+          )}
+        </span>
+      </div>
 
       {syncMeta?.error && (
         <div className="text-danger text-[11px] font-medium leading-relaxed rounded-xl bg-danger-soft border border-danger-soft px-3 py-2">

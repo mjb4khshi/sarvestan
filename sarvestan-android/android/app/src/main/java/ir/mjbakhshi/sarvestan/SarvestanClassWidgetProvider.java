@@ -53,27 +53,47 @@ public class SarvestanClassWidgetProvider extends AppWidgetProvider {
         String nextTitle = sp.getString(SarvestanWidgetProvider.KEY_NEXT_TITLE, "");
         String nextTime = sp.getString(SarvestanWidgetProvider.KEY_NEXT_TIME, "");
         String nextRoom = sp.getString(SarvestanWidgetProvider.KEY_NEXT_ROOM, "");
+        String theme = sp.getString(SarvestanWidgetProvider.KEY_THEME, "auto");
+
+        boolean isNight;
+        if ("light".equalsIgnoreCase(theme)) {
+            isNight = false;
+        } else if ("dark".equalsIgnoreCase(theme)) {
+            isNight = true;
+        } else {
+            isNight = (context.getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+        }
+
+        // تنظیم کادرهای پس‌زمینه و کارت داخلی متناسب با تم لایت و دارک
+        rv.setInt(R.id.w_class_root, "setBackgroundResource", isNight ? R.drawable.widget_bg_modern : R.drawable.widget_bg_modern_light);
+        rv.setInt(R.id.w_class_card_inner, "setBackgroundResource", isNight ? R.drawable.widget_card_inner : R.drawable.widget_card_inner_light);
+
+        int colorBrand = isNight ? Color.parseColor("#34D399") : Color.parseColor("#059669");
+        int colorBadge = isNight ? Color.parseColor("#38BDF8") : Color.parseColor("#0284C7");
+        int colorTitle = isNight ? Color.WHITE : Color.parseColor("#0F172A");
+        int colorTime = isNight ? Color.parseColor("#38BDF8") : Color.parseColor("#0284C7");
+        int colorRoom = isNight ? Color.parseColor("#94A3B8") : Color.parseColor("#64748B");
 
         // 1. سربرگ
-        Bitmap bTitle = WidgetTypographyHelper.renderText(context, "سروستان", 13f, Color.parseColor("#34D399"), WidgetTypographyHelper.getBold(context), android.graphics.Paint.Align.RIGHT);
+        Bitmap bTitle = WidgetTypographyHelper.renderText(context, "سروستان", 13f, colorBrand, WidgetTypographyHelper.getBold(context), android.graphics.Paint.Align.RIGHT);
         if (bTitle != null) rv.setImageViewBitmap(R.id.w_class_header_title, bTitle);
 
-        Bitmap bBadge = WidgetTypographyHelper.renderText(context, "کلاس بعدی", 11f, Color.parseColor("#38BDF8"), WidgetTypographyHelper.getMedium(context), android.graphics.Paint.Align.LEFT);
+        Bitmap bBadge = WidgetTypographyHelper.renderText(context, "کلاس بعدی", 11f, colorBadge, WidgetTypographyHelper.getMedium(context), android.graphics.Paint.Align.LEFT);
         if (bBadge != null) rv.setImageViewBitmap(R.id.w_class_header_badge, bBadge);
 
         // 2. نام درس
         String titleStr = (nextTitle == null || nextTitle.isEmpty()) ? "امروز کلاسی ثبت نشده" : nextTitle;
-        Bitmap bClassTitle = WidgetTypographyHelper.renderText(context, titleStr, 15f, Color.WHITE, WidgetTypographyHelper.getBold(context), android.graphics.Paint.Align.RIGHT);
+        Bitmap bClassTitle = WidgetTypographyHelper.renderText(context, titleStr, 15f, colorTitle, WidgetTypographyHelper.getBold(context), android.graphics.Paint.Align.RIGHT);
         if (bClassTitle != null) rv.setImageViewBitmap(R.id.w_class_title_img, bClassTitle);
 
         // 3. ساعت
         String timeStr = (nextTime == null || nextTime.isEmpty()) ? "—" : toFaDigits(nextTime);
-        Bitmap bTime = WidgetTypographyHelper.renderText(context, timeStr, 11f, Color.parseColor("#38BDF8"), WidgetTypographyHelper.getMedium(context), android.graphics.Paint.Align.RIGHT);
+        Bitmap bTime = WidgetTypographyHelper.renderText(context, timeStr, 11f, colorTime, WidgetTypographyHelper.getMedium(context), android.graphics.Paint.Align.RIGHT);
         if (bTime != null) rv.setImageViewBitmap(R.id.w_class_time_img, bTime);
 
         // 4. کلاس / دانشکده
         String roomStr = (nextRoom != null && !nextRoom.isEmpty() && !nextRoom.equals("ـ")) ? ("کلاس " + toFaDigits(nextRoom)) : "کلاس حضوری";
-        Bitmap bRoom = WidgetTypographyHelper.renderText(context, roomStr, 11f, Color.parseColor("#94A3B8"), WidgetTypographyHelper.getRegular(context), android.graphics.Paint.Align.RIGHT);
+        Bitmap bRoom = WidgetTypographyHelper.renderText(context, roomStr, 11f, colorRoom, WidgetTypographyHelper.getRegular(context), android.graphics.Paint.Align.RIGHT);
         if (bRoom != null) rv.setImageViewBitmap(R.id.w_class_room_img, bRoom);
 
         Intent open = new Intent(context, MainActivity.class);

@@ -11,6 +11,8 @@ import GradesScreen from './screens/GradesScreen';
 import FinanceScreen from './screens/FinanceScreen';
 import MoreScreen from './screens/MoreScreen';
 import LoginScreen from './screens/LoginScreen';
+import StoryPreviewScreen from './screens/StoryPreviewScreen';
+import WidgetPreviewScreen from './screens/WidgetPreviewScreen';
 import { extractSsoCodeFromUrl, completeCentralSsoLogin } from './services/behestan/login';
 import { useSarvestanData } from './hooks/useSarvestanData';
 import {
@@ -128,10 +130,30 @@ function Shell() {
 }
 
 export default function App() {
-  // صفحهٔ لاگین تمام‌صفحه با ?login=1 (برای خروج دستی و لینک مستقیم)
+  // صفحهٔ پیش‌نمایش پوسترها با ?story=1 یا ?preview=1
   try {
-    const login = new URLSearchParams(window.location.search).has('login');
-    if (login) {
+    const qs = new URLSearchParams(window.location.search);
+    if (qs.has('story') || qs.has('preview')) {
+      return (
+        <ErrorBoundary>
+          <ThemeProvider>
+            <StoryPreviewScreen onBack={() => { window.location.href = '/'; }} />
+          </ThemeProvider>
+        </ErrorBoundary>
+      );
+    }
+    // صفحهٔ پیش‌نمایش ویجت‌های اندروید با ?widgets=1 یا ?widget=1
+    if (qs.has('widget') || qs.has('widgets')) {
+      return (
+        <ErrorBoundary>
+          <ThemeProvider>
+            <WidgetPreviewScreen onBack={() => { window.location.href = '/'; }} />
+          </ThemeProvider>
+        </ErrorBoundary>
+      );
+    }
+    // صفحهٔ لاگین تمام‌صفحه با ?login=1 (برای خروج دستی و لینک مستقیم)
+    if (qs.has('login')) {
       return (
         <ErrorBoundary>
           <ThemeProvider>

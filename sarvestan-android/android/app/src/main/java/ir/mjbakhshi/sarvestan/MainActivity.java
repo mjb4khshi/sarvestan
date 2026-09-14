@@ -9,6 +9,8 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(SsoWebViewPlugin.class);
         registerPlugin(SarvestanWidgetPlugin.class);
+        registerPlugin(SarvestanSharePlugin.class);
+        registerPlugin(SarvestanIconPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

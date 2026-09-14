@@ -60,22 +60,22 @@ export const NAVIGATION_ITEMS = [
   {
     id: 'requests',
     label: 'پیشخوان خدمت و گردش‌کارها',
-    subtitle: 'پیگیری مصوبات و درخواست‌ها',
+    subtitle: 'ارجاع مستقیم به سامانه بهستان',
     icon: FileCheck2,
     formCode: '۲۱۱۲۲',
-    badge: null
+    badge: 'بهستان ↗'
   },
   {
     id: 'letters',
     label: 'نامه‌ها و گواهی‌های اداری',
-    subtitle: 'اشتغال به تحصیل و استعلامات',
+    subtitle: 'ارجاع مستقیم به سامانه بهستان',
     icon: FileText,
     formCode: '۱۱۱۲۲',
-    badge: null
+    badge: 'بهستان ↗'
   }
 ];
 
-export default function Sidebar({ activeTab, onTabChange }) {
+export default function Sidebar({ activeTab, onTabChange, onOpenBehestanReferral }) {
   return (
     <aside className="w-full lg:w-72 shrink-0 flex flex-col gap-6">
       
@@ -97,7 +97,15 @@ export default function Sidebar({ activeTab, onTabChange }) {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => onTabChange(item.id)}
+                onClick={() => {
+                  if (item.id === 'requests' || item.id === 'letters') {
+                    if (onOpenBehestanReferral) {
+                      onOpenBehestanReferral(item.id);
+                      return;
+                    }
+                  }
+                  onTabChange(item.id);
+                }}
                 className={`relative flex items-center justify-between p-3 rounded-xl transition-all text-right cursor-pointer group ${
                   isActive
                     ? 'text-primary font-bold'
@@ -136,14 +144,16 @@ export default function Sidebar({ activeTab, onTabChange }) {
                 {(() => {
                   let bText = null;
                   let bVar = 'primary';
-                  if (BEHESTAN_PROFILE.isLoggedIn) {
+                  if (item.id === 'requests' || item.id === 'letters') {
+                    bText = 'بهستان ↗';
+                    bVar = 'info';
+                  } else if (BEHESTAN_PROFILE.isLoggedIn) {
                     if (item.id === 'finance') { bText = 'بدهی'; bVar = 'warn'; }
                     else if (item.id === 'transcripts') { bText = `معدل ${toFaDigits(BEHESTAN_PROFILE.gpa)}`; bVar = 'success'; }
-                    else if (item.id === 'requests' || item.id === 'letters') { bText = 'جریان'; bVar = 'primary'; }
                   }
                   return bText ? (
                     <div className="relative z-10">
-                      <SarvBadge variant={bVar} size="sm">
+                      <SarvBadge variant={bVar} soft size="sm">
                         {bText}
                       </SarvBadge>
                     </div>
@@ -195,18 +205,6 @@ export default function Sidebar({ activeTab, onTabChange }) {
           </div>
           <span className="text-sm font-bold text-primary font-mono">{toFaDigits(BEHESTAN_PROFILE.gpa)}</span>
         </div>
-      </div>
-
-      {/* University Hotline & Tech Support */}
-      <div className="sarv-card p-4 text-center space-y-2 text-xs text-neutral">
-        <div className="flex items-center justify-center gap-1.5 font-bold text-base-content">
-          <Clock className="w-3.5 h-3.5 text-primary" />
-          <span>ساعات پاسخگویی آموزش دانشکده</span>
-        </div>
-        <p className="text-[11px] leading-relaxed">
-          شنبه تا چهارشنبه، ۸:۰۰ الی ۱۵:۳۰<br />
-          داخلی آموزش مهندسی صنایع: ۴۲۱۰
-        </p>
       </div>
 
     </aside>

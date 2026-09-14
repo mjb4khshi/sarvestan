@@ -16,16 +16,183 @@
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
             android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
 
+        <!-- ۱۲ آیکون پویای لانچر با قابلیت انتخاب از بخش تنظیمات -->
+        <activity-alias
+            android:name=".MainActivityDefault"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_default"
+            android:roundIcon="@mipmap/ic_launcher_default_round"
+            android:label="@string/app_name"
+            android:enabled="true"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity-alias>
 
-        </activity>
+        <activity-alias
+            android:name=".MainActivityDark"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_dark"
+            android:roundIcon="@mipmap/ic_launcher_dark_round"
+            android:label="@string/app_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivitySapphire"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_sapphire"
+            android:roundIcon="@mipmap/ic_launcher_sapphire_round"
+            android:label="@string/app_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityCyberpunk"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_cyberpunk"
+            android:roundIcon="@mipmap/ic_launcher_cyberpunk_round"
+            android:label="@string/app_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityGold"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_gold"
+            android:roundIcon="@mipmap/ic_launcher_gold_round"
+            android:label="@string/app_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityCrimson"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_crimson"
+            android:roundIcon="@mipmap/ic_launcher_crimson_round"
+            android:label="@string/app_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityViolet"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_violet"
+            android:roundIcon="@mipmap/ic_launcher_violet_round"
+            android:label="@string/app_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivitySunset"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_sunset"
+            android:roundIcon="@mipmap/ic_launcher_sunset_round"
+            android:label="@string/app_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityMatcha"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_matcha"
+            android:roundIcon="@mipmap/ic_launcher_matcha_round"
+            android:label="@string/app_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityRose"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_rose"
+            android:roundIcon="@mipmap/ic_launcher_rose_round"
+            android:label="@string/app_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityNordic"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_nordic"
+            android:roundIcon="@mipmap/ic_launcher_nordic_round"
+            android:label="@string/app_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityStealth"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_stealth"
+            android:roundIcon="@mipmap/ic_launcher_stealth_round"
+            android:label="@string/app_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <receiver
             android:name=".SarvestanWidgetProvider"
+            android:label="@string/widget_combo_name"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -37,6 +204,7 @@
 
         <receiver
             android:name=".SarvestanGpaWidgetProvider"
+            android:label="@string/widget_gpa_name"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -48,6 +216,7 @@
 
         <receiver
             android:name=".SarvestanClassWidgetProvider"
+            android:label="@string/widget_class_name"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />

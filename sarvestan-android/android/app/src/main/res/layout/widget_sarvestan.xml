@@ -43,6 +43,7 @@
 
     <!-- کارت کلاس بعدی -->
     <LinearLayout
+        android:id="@+id/w_combo_card_class"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
@@ -73,6 +74,7 @@
 
     <!-- کارت روزشمار امتحان -->
     <LinearLayout
+        android:id="@+id/w_combo_card_exam"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"

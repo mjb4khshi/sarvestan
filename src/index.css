@@ -204,6 +204,12 @@
 }
 
 /* Badge refinements for perfect theme harmony */
+.badge[class*="badge-soft-"],
+[class*="badge-soft-"] {
+  border: none !important;
+  border-width: 0 !important;
+}
+
 .badge-soft-neutral {
   background-color: color-mix(in oklab, var(--theme-color-neutral, #94a3b8) 22%, var(--theme-color-base, transparent)) !important;
   color: var(--theme-color-neutral, #94a3b8) !important;

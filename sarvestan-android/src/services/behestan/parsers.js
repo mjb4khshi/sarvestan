@@ -53,7 +53,7 @@ export function normalizeRegStatus(raw, { onSchedule = false, hasGrade = false, 
   const s = cleanHtml(raw || '')
     .replace(/[يى]/g, 'ی')
     .replace(/ك/g, 'ک');
-  if (/حذف\s*اضطراري|حذف\s*اضطراری|حذف\s*شده|حذف\s*ايثار|حذف\s*ایثار|cancell?ed|dropped/i.test(s)) {
+  if (/حذف\s*اضطرار|حذف\s*شده|حذف\s*ايثار|حذف\s*ایثار|cancell?ed|dropped/i.test(s)) {
     return 'dropped';
   }
   if (/انتظار|ليست\s*انتظار|لیست\s*انتظار|wait\s*list|waitlist|در\s*صف/i.test(s)) {
@@ -238,7 +238,10 @@ export function parseTimeRange(raw) {
 // نرمال start-end (بدون جابه‌جایی اشتباه)
 export function normalizeTimeRange(raw) {
   if (!raw) return '';
-  const m = String(raw).match(/(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})/);
+  const s = String(raw)
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+  const m = s.match(/(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})/);
   if (!m) return String(raw).trim();
   const toMin = (t) => {
     const [h, mm] = t.split(':').map(Number);
@@ -580,31 +583,68 @@ export function parseF1825(data) {
         const code = extractCourseCode(row.F2, row.F3, row.F4, row.F5);
         const gradeRaw = String(row.F9 || '').trim();
         const statusRaw = cleanHtml(row.F10 || '');
+        const gradeModeRaw = cleanHtml(row.F11 || '');
+        const crsModeRaw = cleanHtml(row.F12 || '');
         const typeRaw = cleanHtml(row.F13 || '');
+        const regModeRaw = cleanHtml(row.F14 || '');
         const note = cleanHtml(row.F17 || '');
+        const regTypeRaw = cleanHtml(row.F23 || '');
+        const regKindRaw = cleanHtml(row.F24 || '');
+        const a0 = String(row.A0 || '').trim();
+
         const hasGrade = Boolean(gradeRaw && gradeRaw !== 'ـ' && gradeRaw !== '-');
         const g = toNum(gradeRaw);
         const gradePassed = hasGrade && g !== null && g >= 10;
-        // F10 معمولاً «قبول/مردود» است؛ وضعیت حذف/انتظار از متن‌های دیگر
-        const combined = `${statusRaw} ${typeRaw} ${note}`;
-        const regStatus = normalizeRegStatus(combined, {
+
+        const combined = `${statusRaw} ${gradeModeRaw} ${crsModeRaw} ${typeRaw} ${regTypeRaw} ${regKindRaw} ${note}`;
+        let regStatus = normalizeRegStatus(combined, {
           onSchedule: false,
           hasGrade,
           gradePassed,
         });
+
+        // بررسی دقیق‌تر فیلدهای اختصاصی بهستان (F11 وضع نمره، F23 وضع ثبت‌نام، A0 نوع ردیف)
+        const isDropped =
+          regStatus === 'dropped' ||
+          /حذف\s*اضطرار|حذف\s*شده|حذف\s*ايثار|حذف\s*ایثار|cancell?ed|dropped/i.test(
+            `${gradeModeRaw} ${crsModeRaw} ${statusRaw}`,
+          );
+        const isWait =
+          regStatus === 'waitlist' ||
+          a0 === '3' ||
+          /انتظار|ليست\s*انتظار|لیست\s*انتظار|wait\s*list|waitlist/i.test(
+            `${regTypeRaw} ${gradeModeRaw} ${crsModeRaw} ${statusRaw}`,
+          );
+
+        let status = statusRaw;
+        if (isDropped) {
+          regStatus = 'dropped';
+          status = gradeModeRaw || 'حذف اضطراری';
+        } else if (isWait) {
+          regStatus = 'waitlist';
+          status = 'در انتظار';
+        } else if (hasGrade) {
+          status = statusRaw || (gradePassed ? 'قبول' : 'مردود');
+        } else if (/ثبت/i.test(regTypeRaw) || /ثبت/i.test(regKindRaw) || a0 === '1') {
+          regStatus = 'registered';
+          status = statusRaw || 'ثبت شده';
+        }
+
         return {
           code,
           name: normalizeCourseName(cleanHtml(row.F1)),
           group: cleanHtml(row.F2).match(/گروه\s*(\S+)/)?.[1] || cleanHtml(row.F6) || '',
           units: toNum(row.F7),
           grade: gradeRaw,
-          // برای UI کارنامه: قبول/مردود/…
-          status: statusRaw || (hasGrade ? (gradePassed ? 'قبول' : 'مردود') : ''),
+          // برای UI کارنامه: قبول/مردود/حذف اضطراری/در انتظار
+          status: status || '',
           regStatus,
           type: typeRaw || 'تخصصی',
           tuitionRial: row.F15 || '',
           termId: String(row.F18 || '').trim(),
           note,
+          gradeMode: gradeModeRaw,
+          regType: regTypeRaw,
           onSchedule: false,
         };
       })
@@ -614,15 +654,19 @@ export function parseF1825(data) {
   if (grids[2]?.xml) {
     const finRows = parseBehestanXmlGrid(grids[2].xml);
     let latestDebtRial = 0;
+    let overallDebtRial = 0;
     const termsSummary = finRows.map((row) => {
-      const numDebt = toNum(row.F9 || row.F13);
-      const totalBill = toNum(row.F7);
-      const totalPaid = toNum(row.F8);
-      const fixed = toNum(row.F1);
-      const variable = toNum(row.F2);
-      const insurance = toNum(row.F3);
+      // F9 بدهی همین ترم است — اگر خالی باشد بدهی ترم صفر است و تسویه شده
+      const numDebt = toNum(row.F9) || 0;
+      const rowOverall = toNum(row.F13) || 0;
+      if (rowOverall > 0 && overallDebtRial === 0) overallDebtRial = rowOverall;
+      const totalBill = toNum(row.F7) || 0;
+      const totalPaid = toNum(row.F8) || 0;
+      const fixed = toNum(row.F1) || 0;
+      const variable = toNum(row.F2) || 0;
+      const insurance = toNum(row.F3) || 0;
       const tid = String(row.F10 || '').trim();
-      if (tid === '4051' || latestDebtRial === 0) latestDebtRial = numDebt;
+      if (numDebt > 0 && latestDebtRial === 0) latestDebtRial = numDebt;
       return {
         termId: tid,
         termTitle: cleanHtml(row.F11) || `ترم ${tid}`,
@@ -636,10 +680,11 @@ export function parseF1825(data) {
         status: numDebt > 0 ? 'بدهکار' : 'تسویه کامل',
       };
     });
+    const finalTotalDebt = overallDebtRial > 0 ? overallDebtRial : latestDebtRial;
     result.finance = {
-      totalDebtRial: latestDebtRial,
-      totalDebtToman: Math.floor(latestDebtRial / 10),
-      statusText: latestDebtRial > 0 ? 'بدهکار' : 'تسویه حساب کامل',
+      totalDebtRial: finalTotalDebt,
+      totalDebtToman: Math.floor(finalTotalDebt / 10),
+      statusText: finalTotalDebt > 0 ? 'بدهکار' : 'تسویه حساب کامل',
       termsSummary,
     };
   }
@@ -650,8 +695,12 @@ export function parseF1825(data) {
     const gpaRows = parseBehestanXmlGrid(grids[3].xml);
     result.transcripts = gpaRows.map((row) => {
       const termId = String(row.F1 || '').trim();
-      const termUnits = toNum(row.F3);
-      const totUnits = toNum(row.F4);
+      const regUnits = toNum(row.F3);
+      const cumRegUnits = toNum(row.F4);
+      // F5/F6: واحدهای گذرانده ترم (CTRMPASUNT)، F7: مجموع واحدهای گذرانده کل کارنامه (TOTPASUNT)، F10: حذف اضطراری
+      const termUnits = toNum(row.F5) ?? toNum(row.F6) ?? regUnits;
+      const totUnits = toNum(row.F7) ?? cumRegUnits;
+      const droppedUnits = toNum(row.F10) || 0;
       const termGpa = String(row.F12 || '').trim();
       const cumGpa = String(row.F13 || '').trim();
       if (totUnits > finalTotalUnits) finalTotalUnits = totUnits;
@@ -663,10 +712,22 @@ export function parseF1825(data) {
         cumulativeGpa: cumGpa || termGpa,
         passedUnits: termUnits,
         totalPassedUnits: totUnits,
+        registeredUnits: regUnits,
+        cumulativeRegisteredUnits: cumRegUnits,
+        droppedUnits,
         standing: toNum(termGpa) >= 17 ? 'ممتاز' : 'عادی',
         courses: result.courses.filter((c) => c.termId === termId),
       };
     }).filter((t) => t.termId);
+  }
+
+  if (!finalTotalUnits) {
+    const passedCourses = result.courses.filter(
+      (c) =>
+        c.regStatus === 'passed' ||
+        (toNum(c.grade) >= 10 && c.regStatus !== 'dropped' && c.regStatus !== 'waitlist'),
+    );
+    finalTotalUnits = passedCourses.reduce((s, c) => s + (c.units || 0), 0);
   }
 
   // اگر گرید ۳ خالی بود، معدل را از دروس نمره‌دار حساب کن

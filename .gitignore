@@ -12,6 +12,10 @@ dist/
 **/*.har
 HAR/
 parse_grades.js
+.behestan-session.json
+*.session.json
+**/dev-data/
+mockup.png
 scripts/*
 !scripts/pack-extension.ps1
 package/

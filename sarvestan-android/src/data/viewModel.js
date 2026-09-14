@@ -9,9 +9,9 @@ import {
   getSnapshot,
   getTodayClasses,
   getLocalNotes,
-} from '../services/behestan/store';
-import { termIdToLabel, detectCurrentTermId } from '../services/behestan/parsers';
-import { toFaDigits as faDigits } from '../utils/faDigits';
+} from '../services/behestan/store.js';
+import { termIdToLabel, detectCurrentTermId } from '../services/behestan/parsers.js';
+import { toFaDigits as faDigits } from '../utils/faDigits.js';
 
 /** کل واحد مورد نیاز رشتهٔ مهندسی کامپیوتر (بر اساس دیتای کاربر) */
 const DEFAULT_TOTAL_CREDITS = 142;
@@ -28,9 +28,30 @@ function todayPersianDay() {
   return map[day] || null;
 }
 
+export function parseClassTime(raw) {
+  if (!raw) return { startHour: null, endHour: null };
+  const s = String(raw)
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+  const matches = [...s.matchAll(/(\d{1,2}):(\d{2})/g)];
+  if (!matches.length) return { startHour: null, endHour: null };
+  const h1 = parseInt(matches[0][1], 10) + parseInt(matches[0][2], 10) / 60;
+  if (matches.length === 1) {
+    return { startHour: h1, endHour: h1 + 1.5 };
+  }
+  const h2 = parseInt(matches[1][1], 10) + parseInt(matches[1][2], 10) / 60;
+  return {
+    startHour: Math.min(h1, h2),
+    endHour: Math.max(h1, h2),
+  };
+}
+
 function parseHour(raw) {
   if (!raw) return null;
-  const m = String(raw).match(/(\d{1,2}):(\d{2})/);
+  const s = String(raw)
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+  const m = s.match(/(\d{1,2}):(\d{2})/);
   if (!m) return null;
   return parseInt(m[1], 10) + parseInt(m[2], 10) / 60;
 }
@@ -86,6 +107,7 @@ function emptyViewModel() {
     week: EMPTY_WEEK,
     weekHours: 0,
     announcements: [],
+    localNotes: [],
     grades: [],
     finance: EMPTY_FINANCE,
     scheduleCourses: [],
@@ -120,20 +142,30 @@ function buildViewModel() {
   const allCourses = getCurrentTermSchedule(currentTerm) || [];
   const todayCourses = day ? getTodayClasses(day) : [];
 
+  // مرتب‌سازی صعودی کلاس‌های امروز بر اساس ساعت شروع (از صبح تا عصر)
+  todayCourses.sort((a, b) => {
+    const ta = parseClassTime(a.time || a.classTimeRaw).startHour ?? 999;
+    const tb = parseClassTime(b.time || b.classTimeRaw).startHour ?? 999;
+    return ta - tb;
+  });
+
+  let foundUpcoming = false;
   const todayClasses = todayCourses.map((c, i) => {
-    const start = parseHour(String(c.classTimeRaw || c.time || '').split('-')[0]);
+    const { startHour, endHour } = parseClassTime(c.time || c.classTimeRaw);
     let status = 'later';
-    if (start != null) {
-      const endM = String(c.classTimeRaw || c.time || '').match(
-        /(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/,
-      );
-      let end = start + 1.5;
-      if (endM) {
-        const [eh, em] = endM[2].split(':').map(Number);
-        end = eh + em / 60;
+    if (startHour != null && endHour != null) {
+      if (nowH >= endHour) {
+        status = 'done'; // کلاس پایان یافته
+      } else if (nowH >= startHour && nowH < endHour) {
+        status = 'now'; // کلاس در جریان است
+      } else if (nowH < startHour) {
+        if (!foundUpcoming) {
+          status = 'next'; // اولین کلاس پیش‌روی امروز
+          foundUpcoming = true;
+        } else {
+          status = 'later'; // کلاس‌های بعدی امروز
+        }
       }
-      if (nowH >= start && nowH < end) status = 'now';
-      else if (nowH < start && start - nowH < 1.5) status = 'next';
     }
     const tones = ['primary', 'info', 'secondary', 'success'];
     return {
@@ -145,6 +177,8 @@ function buildViewModel() {
       professor: c.professor,
       units: c.units,
       status,
+      startHour,
+      endHour,
       color: tones[i % tones.length],
     };
   });
@@ -175,31 +209,33 @@ function buildViewModel() {
   const nextClass =
     todayClasses.find((c) => c.status === 'now') ||
     todayClasses.find((c) => c.status === 'next') ||
-    todayClasses[0] ||
     null;
 
   const workflows = snap.workflows || snap.announcements || [];
   const localNotes = getLocalNotes().map((n) => ({
     id: n.id,
-    title: n.title || 'تغییر جدید',
+    title: n.title || 'گزارش همگام‌سازی',
     body: n.body || '',
     color: n.color === 'warn' ? 'warn' : 'info',
+    at: n.at,
     local: true,
   }));
-  const announcements = [
-    ...localNotes,
-    ...workflows.slice(0, 4).map((w, i) => ({
-      id: w.id || `a${i}`,
-      title: w.title || 'درخواست آموزشی',
-      body: w.body || w.status || '',
-      color: i % 2 === 0 ? 'info' : 'warn',
-    })),
-  ].slice(0, 8);
+  // اعلانات رسمی آموزشی فقط شامل درخواست‌ها و اطلاعیه‌های دانشگاهی، بدون پیام‌های سیستمی همگام‌سازی
+  const announcements = workflows.slice(0, 6).map((w, i) => ({
+    id: w.id || `a${i}`,
+    title: w.title || 'درخواست آموزشی',
+    body: w.body || w.status || '',
+    color: i % 2 === 0 ? 'info' : 'warn',
+  }));
 
-  const latestT = (snap.transcripts || [])[(snap.transcripts || []).length - 1];
-  const gradeCourses = latestT?.courses?.length
-    ? latestT.courses
-    : (snap.courses || []).filter((c) => c.grade).slice(0, 12);
+  // آخرین ترم دارای نمره یا کل دروس نمره‌دار (تا در استوری یا کارت‌ها، ترم خالی جاری نمایش داده نشود)
+  const termsWithGrades = (snap.transcripts || []).filter(
+    (t) => Array.isArray(t.courses) && t.courses.some((c) => c.grade && c.grade !== 'ـ' && c.grade !== '-'),
+  );
+  const latestGradedTerm = termsWithGrades.length ? termsWithGrades[termsWithGrades.length - 1] : null;
+  const gradeCourses = latestGradedTerm?.courses?.length
+    ? latestGradedTerm.courses
+    : (snap.courses || []).filter((c) => c.grade && c.grade !== 'ـ' && c.grade !== '-').slice(0, 12);
   const grades = gradeCourses.map((c, i) => {
     const reg = String(c.regStatus || '');
     const isDropped = reg === 'dropped' || /حذف\s*اضطرار|حذف\s*شده/i.test(String(c.status || ''));
@@ -207,7 +243,7 @@ function buildViewModel() {
     return {
       course: c.name,
       unit: c.units || 0,
-      score: c.grade && c.grade !== 'ـ' ? faDigits(c.grade) : '—',
+      score: isDropped ? 'حذف' : isWait ? 'انتظار' : c.grade && c.grade !== 'ـ' ? faDigits(c.grade) : '—',
       status: isDropped ? 'حذف اضطراری' : isWait ? 'در انتظار' : c.grade && c.grade !== 'ـ' ? 'قطعی' : 'در حال',
       regStatus: reg || (isDropped ? 'dropped' : isWait ? 'waitlist' : c.grade ? 'passed' : 'enrolled'),
       color: isDropped
@@ -252,20 +288,31 @@ function buildViewModel() {
           byTerm.set(key, { ...t });
         }
       }
-      return [...byTerm.values()].slice(0, 6).map((t, i) => ({
-        id: t.termId || `f${i}`,
-        title: t.termTitle || `ترم ${t.termId}`,
-        amount: faNum(t.debtToman || 0),
-        status: (t.debtRial || 0) > 0 ? 'پرداخت‌نشده' : 'تسویه',
-        color: (t.debtRial || 0) > 0 ? 'danger' : 'success',
-        breakdown: [
-          { label: 'شهریه ثابت', rial: t.fixedTuitionRial || 0 },
-          { label: 'شهریه متغیر', rial: t.variableTuitionRial || 0 },
-          { label: 'بیمه', rial: t.insuranceRial || 0 },
-          { label: 'کل صورتحساب', rial: t.totalBillRial || 0 },
-          { label: 'پرداختی', rial: t.totalPaidRial || 0 },
-        ].filter((x) => x.rial > 0),
-      }));
+      return [...byTerm.values()].slice(0, 6).map((t, i) => {
+        const bill = Number(t.totalBillRial) || 0;
+        const paid = Number(t.totalPaidRial) || 0;
+        // اگر پرداختی با صورت‌حساب برابر یا بیشتر باشد یا بدهی صفر باشد، قطعاً تسویه شده است
+        const isSettled = (bill > 0 && paid >= bill) || (Number(t.debtRial) || 0) <= 0 || t.status === 'تسویه کامل';
+        const calculatedDebtRial = bill > paid ? bill - paid : 0;
+        const debtToman = isSettled
+          ? 0
+          : Math.floor((calculatedDebtRial > 0 ? calculatedDebtRial : (Number(t.debtRial) || 0)) / 10);
+        const termName = termIdToLabel(t.termId);
+        return {
+          id: t.termId || `f${i}`,
+          title: termName ? `${termName} (${faDigits(t.termId)})` : t.termTitle || `ترم ${faDigits(t.termId)}`,
+          amount: isSettled ? '۰' : faNum(debtToman),
+          status: isSettled ? 'تسویه کامل' : 'پرداخت‌نشده',
+          color: isSettled ? 'success' : 'danger',
+          breakdown: [
+            { label: 'شهریه ثابت', rial: t.fixedTuitionRial || 0 },
+            { label: 'شهریه متغیر', rial: t.variableTuitionRial || 0 },
+            { label: 'بیمه', rial: t.insuranceRial || 0 },
+            { label: 'کل صورتحساب', rial: t.totalBillRial || 0 },
+            { label: 'پرداختی', rial: t.totalPaidRial || 0 },
+          ].filter((x) => x.rial > 0),
+        };
+      });
     })(),
   };
 
@@ -324,6 +371,7 @@ function buildViewModel() {
     todayClasses,
     week,
     announcements,
+    localNotes,
     grades,
     finance,
     scheduleCourses: allCourses,
@@ -366,16 +414,18 @@ function courseState(c) {
   const reg = String(c.regStatus || '');
   if (reg === 'dropped') return 'dropped';
   if (reg === 'waitlist') return 'waitlist';
-  const g = parseNum(c.grade);
   const st = String(c.status || '');
+  const gm = String(c.gradeMode || '');
+  const rt = String(c.regType || '');
+  if (/حذف\s*اضطرار|حذف\s*شده|حذف\s*ايثار|حذف\s*ایثار/i.test(`${st} ${reg} ${gm}`)) return 'dropped';
+  if (/انتظار|ليست\s*انتظار|لیست\s*انتظار/i.test(`${st} ${reg} ${rt}`)) return 'waitlist';
+  const g = parseNum(c.grade);
   if (g !== null && g >= 10) return 'passed';
-  if (/حذف\s*اضطرار|حذف\s*شده|حذف\s*ايثار|حذف\s*ایثار/i.test(st)) return 'dropped';
-  if (/انتظار|ليست\s*انتظار|لیست\s*انتظار/i.test(st)) return 'waitlist';
   if (/نپذیرفته|مشروط/i.test(st)) return 'failed';
   if (g !== null && g > 0) return 'failed';
   // روی برنامهٔ ثبت‌نام یا برچسب ثبت‌شده → در حال اخذ
   if (c.onSchedule || c.isRegistration || reg === 'registered') return 'enrolled';
-  // ترم جاری بدون نمره و بدون وضعیت — enrolled (مثل قبل) مگر فرم ۷۷ چیز دیگری گفته باشد
+  // ترم جاری بدون نمره و بدون وضعیت — enrolled (مثل قبل) مگر فرم ۷۷ یا F1825 چیز دیگری گفته باشد
   if (!c.grade && c.termId && (c.termId === '4051' || c.isRegistration)) return 'enrolled';
   return 'unknown';
 }
@@ -454,9 +504,10 @@ export function getCurriculumView() {
     };
   });
 
-  const passedCredits =
-    Number(snap.profile?.totalUnitsPassed) ||
-    categories.reduce((s, c) => s + c.passed, 0);
+  const calcPassed = categories.reduce((s, c) => s + c.passed, 0);
+  const profilePassed = Number(snap.profile?.totalUnitsPassed) || 0;
+  // اولویت با واحدهای محاسبه‌شدهٔ کارنامه چارت بدون دروس حذف و انتظار؛ در غیر این صورت مقدار رسمی پروفایل
+  const passedCredits = calcPassed > 0 ? calcPassed : profilePassed;
 
   const currentTerm = detectCurrentTermId(all) || '4051';
 
@@ -505,6 +556,7 @@ export function getCurriculumView() {
 
 function buildTermsFromLive(snap) {
   const courses = snap.courses || [];
+  const transMap = new Map((snap.transcripts || []).map((t) => [String(t.termId), t]));
   const byTerm = new Map();
   for (const c of courses) {
     const tid = c.termId || 'unknown';
@@ -516,33 +568,84 @@ function buildTermsFromLive(snap) {
 
   return termIds.map((tid, ti) => {
     const list = byTerm.get(tid);
-    const scored = list.filter((c) => c.grade && c.grade !== 'ـ');
+    const tr = transMap.get(String(tid));
+    const scored = list.filter((c) => {
+      const st = courseState(c);
+      return st === 'passed' || (c.grade && c.grade !== 'ـ' && c.grade !== '-');
+    });
     const gpa =
-      scored.length > 0
-        ? (
-            scored.reduce((s, c) => s + (parseNum(c.grade) || 0) * (c.units || 1), 0) /
-            scored.reduce((s, c) => s + (c.units || 1), 0)
-          ).toFixed(2)
-        : 'ـ';
+      tr?.termGpa && tr.termGpa !== 'ـ'
+        ? tr.termGpa
+        : scored.length > 0
+          ? (
+              scored.reduce((s, c) => s + (parseNum(c.grade) || 0) * (c.units || 1), 0) /
+              scored.reduce((s, c) => s + (c.units || 1), 0)
+            ).toFixed(2)
+          : 'ـ';
+
+    const passedUnits =
+      tr?.passedUnits != null
+        ? tr.passedUnits
+        : scored.reduce((s, c) => s + (c.units || 0), 0);
+
+    const totalUnits =
+      tr?.registeredUnits != null
+        ? tr.registeredUnits
+        : list
+            .filter((c) => courseState(c) !== 'dropped' && courseState(c) !== 'waitlist')
+            .reduce((s, c) => s + (c.units || 0), 0);
+
     return {
       id: tid,
       name: termIdToLabel(tid) || `ترم ${faDigits(tid)}`,
       shortName: termIdToLabel(tid) || `ترم ${faDigits(tid)}`,
       gpa: faDigits(gpa),
-      totalUnits: list.reduce((s, c) => s + (c.units || 0), 0),
-      passedUnits: scored.reduce((s, c) => s + (c.units || 0), 0),
+      totalUnits,
+      passedUnits,
+      droppedUnits:
+        tr?.droppedUnits != null
+          ? tr.droppedUnits
+          : list.filter((c) => courseState(c) === 'dropped').reduce((s, c) => s + (c.units || 0), 0),
       status: ti === 0 ? 'در حال ثبت نمرات' : 'تایید نهایی',
       courses: list.map((c, i) => {
-        const raw = c.grade && c.grade !== 'ـ' ? parseNum(c.grade) : null;
+        const raw = c.grade && c.grade !== 'ـ' && c.grade !== '-' ? parseNum(c.grade) : null;
+        const st = courseState(c);
+        let status = 'در حال';
+        let displayScore = '—';
+        let color = 'warn';
+
+        if (st === 'dropped') {
+          status = 'حذف اضطراری';
+          displayScore = 'حذف';
+          color = 'danger';
+        } else if (st === 'waitlist') {
+          status = 'در انتظار';
+          displayScore = 'انتظار';
+          color = 'warn';
+        } else if (raw != null) {
+          status = 'قطعی';
+          displayScore = faDigits(raw.toFixed(2));
+          color = raw >= 10 ? 'success' : 'danger';
+        } else if (c.status === 'قبول' || st === 'passed') {
+          status = 'قطعی';
+          displayScore = 'قبول';
+          color = 'success';
+        } else if (c.status === 'مردود' || st === 'failed') {
+          status = 'قطعی';
+          displayScore = 'مردود';
+          color = 'danger';
+        }
+
         return {
           id: c.code || `c${i}`,
           code: c.code ? faDigits(c.code) : String(i + 1),
           course: c.name,
           unit: c.units || 0,
           score: raw,
-          displayScore: raw != null ? faDigits(raw.toFixed(2)) : '—',
-          status: c.grade && c.grade !== 'ـ' ? 'قطعی' : 'در حال',
-          color: ['success', 'primary', 'info', 'warn'][i % 4],
+          displayScore,
+          status,
+          color,
+          regStatus: st,
         };
       }),
     };
@@ -550,11 +653,16 @@ function buildTermsFromLive(snap) {
 }
 
 function parseRange(raw) {
-  const m = String(raw || '').match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
+  const s = String(raw || '')
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+  const m = s.match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
   if (!m) return null;
+  const t1 = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+  const t2 = parseInt(m[3], 10) * 60 + parseInt(m[4], 10);
   return {
-    start: parseInt(m[1], 10) * 60 + parseInt(m[2], 10),
-    end: parseInt(m[3], 10) * 60 + parseInt(m[4], 10),
+    start: Math.min(t1, t2),
+    end: Math.max(t1, t2),
   };
 }
 

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import PrinterReceipt from '../components/PrinterReceipt';
 import { getViewModel } from '../data/viewModel';
+import { toFaDigits } from '../utils/faDigits';
 
 export default function FinanceScreen({ onNavigate }) {
   const vm = getViewModel();
@@ -114,7 +115,9 @@ export default function FinanceScreen({ onNavigate }) {
             <ShieldCheck className="w-4 h-4 text-primary" />
             اقلام صورت‌حساب نیمسال
           </h3>
-          <span className="text-[11px] text-neutral font-mono font-bold">{FINANCE.items.length} ردیف</span>
+          <span className="text-[11px] text-neutral font-mono font-bold">
+            {toFaDigits(FINANCE.items.length)} ردیف
+          </span>
         </div>
 
         {FINANCE.items.map((item, i) => (
@@ -141,13 +144,17 @@ export default function FinanceScreen({ onNavigate }) {
                     : 'bg-warn text-warn-content'
                 }`}
               >
-                {item.status === 'تسویه' ? '✓' : '!'}
+                {item.color === 'success' || item.status === 'تسویه' || item.status === 'تسویه کامل' ? '✓' : '!'}
               </span>
               <div className="min-w-0">
                 <p className="text-[13.5px] font-bold text-base-content truncate">{item.title}</p>
                 <p
                   className={`text-[11px] mt-0.5 font-bold ${
-                    item.color === 'success' ? 'text-success' : 'text-danger'
+                    item.color === 'success'
+                      ? 'text-success'
+                      : item.color === 'danger'
+                      ? 'text-danger'
+                      : 'text-warn'
                   }`}
                 >
                   {item.status}
