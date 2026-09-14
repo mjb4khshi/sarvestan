@@ -167,7 +167,7 @@ const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
   const [currentTheme, setCurrentTheme] = useState(() => {
-    return localStorage.getItem('sarvestan_theme') || 'sarv';
+    return localStorage.getItem('sarvestan_theme') || 'persian-light';
   });
 
   useEffect(() => {
@@ -186,6 +186,7 @@ export function ThemeProvider({ children }) {
       currentTheme,
       setTheme: setCurrentTheme,
       themes: SARV_THEMES,
+      availableThemes: SARV_THEMES,
       activeThemeMeta,
       isDark: activeThemeMeta.mode === 'dark'
     }}>

@@ -58,6 +58,14 @@ function GithubIcon({ className = "w-4 h-4" }) {
   );
 }
 
+function TelegramIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z" />
+    </svg>
+  );
+}
+
 /**
  * Desktop Browser & Extension Mockup (HTML/CSS Vector Sharpness)
  */
@@ -1276,13 +1284,25 @@ export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState(null);
   const [previewTab, setPreviewTab] = useState('overview');
   const [isZoomOpen, setIsZoomOpen] = useState(false);
+  const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const [showcaseThemeIndex, setShowcaseThemeIndex] = useState(0);
   const [showcaseProgress, setShowcaseProgress] = useState(0);
   const [mockupViewMode, setMockupViewMode] = useState('dual'); // 'dual' | 'desktop' | 'mobile'
   const [installTab, setInstallTab] = useState('android'); // 'android' | 'desktop'
   const [copiedBrowser, setCopiedBrowser] = useState(null);
   const showcaseRef = useRef(null);
+  const themeMenuRef = useRef(null);
 
+  // Close theme menu when clicking outside
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (themeMenuRef.current && !themeMenuRef.current.contains(e.target)) {
+        setIsThemeMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
 
   const handleCopyUrl = (url, id) => {
     try {
@@ -1297,6 +1317,44 @@ export default function LandingPage() {
   };
 
   const showcaseThemes = [
+    {
+      id: 'persian-light',
+      name: 'ایرانی روشن',
+      color: '#0066a4',
+      mode: 'light',
+      icon: '☀️',
+      primary: '#0066a4',
+      primaryContent: '#ffffff',
+      accent: '#0284c7',
+      success: '#15803d',
+      warn: '#d97706',
+      base: '#ffffff',
+      base500: '#e2e8f0',
+      cardBg: '#f8fafc',
+      cardBorder: 'rgba(0, 102, 164, 0.18)',
+      baseContent: '#0f172a',
+      neutral: '#475569',
+      neutralLight: '#64748b',
+    },
+    {
+      id: 'persian-dark',
+      name: 'ایرانی تاریک',
+      color: '#0066a4',
+      mode: 'dark',
+      icon: '🌙',
+      primary: '#0066a4',
+      primaryContent: '#ffffff',
+      accent: '#06b6d4',
+      success: '#10b981',
+      warn: '#f59e0b',
+      base: '#000000',
+      base500: '#18181b',
+      cardBg: 'rgba(24, 27, 36, 0.85)',
+      cardBorder: 'rgba(255, 255, 255, 0.1)',
+      baseContent: '#ffffff',
+      neutral: '#a1a1aa',
+      neutralLight: '#e4e4e7',
+    },
     {
       id: 'sarv',
       name: 'سَرو (امضای اختصاصی)',
@@ -1317,23 +1375,61 @@ export default function LandingPage() {
       neutralLight: '#d1fae5',
     },
     {
-      id: 'persian-dark',
-      name: 'پرشین دارک (تیره اصیل)',
-      color: '#0066a4',
+      id: 'tokyo-midnight',
+      name: 'کرج نیمه‌شب',
+      color: '#8b5cf6',
       mode: 'dark',
-      icon: '🌙',
-      primary: '#0066a4',
+      icon: '🌃',
+      primary: '#8b5cf6',
       primaryContent: '#ffffff',
-      accent: '#06b6d4',
+      accent: '#ec4899',
       success: '#10b981',
       warn: '#f59e0b',
-      base: '#000000',
-      base500: '#18181b',
-      cardBg: 'rgba(24, 27, 36, 0.85)',
-      cardBorder: 'rgba(255, 255, 255, 0.1)',
-      baseContent: '#ffffff',
-      neutral: '#a1a1aa',
-      neutralLight: '#e4e4e7',
+      base: '#090a16',
+      base500: '#181b33',
+      cardBg: 'rgba(24, 27, 51, 0.85)',
+      cardBorder: 'rgba(139, 92, 246, 0.25)',
+      baseContent: '#f8fafc',
+      neutral: '#a5b4fc',
+      neutralLight: '#e0e7ff',
+    },
+    {
+      id: 'ocean-abyss',
+      name: 'خلیج فارس',
+      color: '#06b6d4',
+      mode: 'dark',
+      icon: '🌊',
+      primary: '#06b6d4',
+      primaryContent: '#ffffff',
+      accent: '#0891b2',
+      success: '#10b981',
+      warn: '#f59e0b',
+      base: '#060d17',
+      base500: '#0f1d30',
+      cardBg: 'rgba(15, 29, 48, 0.85)',
+      cardBorder: 'rgba(6, 182, 212, 0.25)',
+      baseContent: '#f0f9ff',
+      neutral: '#7dd3fc',
+      neutralLight: '#bae6fd',
+    },
+    {
+      id: 'sunset',
+      name: 'غروب رباط کریم',
+      color: '#ff5e36',
+      mode: 'light',
+      icon: '🌅',
+      primary: '#ff5e36',
+      primaryContent: '#ffffff',
+      accent: '#d97706',
+      success: '#16a34a',
+      warn: '#ea580c',
+      base: '#fffbf7',
+      base500: '#f1e6dc',
+      cardBg: '#ffffff',
+      cardBorder: 'rgba(234, 88, 12, 0.18)',
+      baseContent: '#1c1917',
+      neutral: '#57534e',
+      neutralLight: '#78716c',
     },
     {
       id: 'cyberpunk',
@@ -1355,44 +1451,6 @@ export default function LandingPage() {
       neutralLight: '#e2e8f0',
     },
     {
-      id: 'sunset',
-      name: 'غروب کویر (روشن)',
-      color: '#ff5e36',
-      mode: 'light',
-      icon: '🌅',
-      primary: '#ff5e36',
-      primaryContent: '#ffffff',
-      accent: '#d97706',
-      success: '#16a34a',
-      warn: '#ea580c',
-      base: '#fffbf7',
-      base500: '#f1e6dc',
-      cardBg: '#ffffff',
-      cardBorder: 'rgba(234, 88, 12, 0.18)',
-      baseContent: '#1c1917',
-      neutral: '#57534e',
-      neutralLight: '#78716c',
-    },
-    {
-      id: 'tokyo-midnight',
-      name: 'توکیو نیمه‌شب',
-      color: '#8b5cf6',
-      mode: 'dark',
-      icon: '🌃',
-      primary: '#8b5cf6',
-      primaryContent: '#ffffff',
-      accent: '#ec4899',
-      success: '#10b981',
-      warn: '#f59e0b',
-      base: '#090a16',
-      base500: '#181b33',
-      cardBg: 'rgba(24, 27, 51, 0.85)',
-      cardBorder: 'rgba(139, 92, 246, 0.25)',
-      baseContent: '#f8fafc',
-      neutral: '#a5b4fc',
-      neutralLight: '#e0e7ff',
-    },
-    {
       id: 'emerald',
       name: 'زمرد کهنسال',
       color: '#10b981',
@@ -1412,27 +1470,8 @@ export default function LandingPage() {
       neutralLight: '#bbf7d0',
     },
     {
-      id: 'persian-light',
-      name: 'پرشین لایت (سفید پاکیزه)',
-      color: '#0066a4',
-      mode: 'light',
-      icon: '☀️',
-      primary: '#0066a4',
-      primaryContent: '#ffffff',
-      accent: '#0284c7',
-      success: '#15803d',
-      warn: '#d97706',
-      base: '#ffffff',
-      base500: '#e2e8f0',
-      cardBg: '#f8fafc',
-      cardBorder: 'rgba(0, 102, 164, 0.18)',
-      baseContent: '#0f172a',
-      neutral: '#475569',
-      neutralLight: '#64748b',
-    },
-    {
       id: 'royal-purple',
-      name: 'ارغوانی سلطنتی',
+      name: 'بنفش سلطنتی',
       color: '#a855f7',
       mode: 'dark',
       icon: '🔮',
@@ -1448,6 +1487,63 @@ export default function LandingPage() {
       baseContent: '#faf5ff',
       neutral: '#d8b4fe',
       neutralLight: '#f3e8ff',
+    },
+    {
+      id: 'crimson',
+      name: 'زرشکی و یاقوت',
+      color: '#f43f5e',
+      mode: 'dark',
+      icon: '🔥',
+      primary: '#f43f5e',
+      primaryContent: '#ffffff',
+      accent: '#fb7185',
+      success: '#10b981',
+      warn: '#f59e0b',
+      base: '#110507',
+      base500: '#260a0f',
+      cardBg: 'rgba(38, 10, 15, 0.85)',
+      cardBorder: 'rgba(244, 63, 94, 0.25)',
+      baseContent: '#fff1f2',
+      neutral: '#fda4af',
+      neutralLight: '#fecdd3',
+    },
+    {
+      id: 'coffee-roast',
+      name: 'اسپرسو و کهربا',
+      color: '#d97706',
+      mode: 'dark',
+      icon: '☕',
+      primary: '#d97706',
+      primaryContent: '#ffffff',
+      accent: '#f59e0b',
+      success: '#10b981',
+      warn: '#f59e0b',
+      base: '#120d09',
+      base500: '#241a12',
+      cardBg: 'rgba(36, 26, 18, 0.85)',
+      cardBorder: 'rgba(217, 119, 6, 0.25)',
+      baseContent: '#fef3c7',
+      neutral: '#fcd34d',
+      neutralLight: '#fde68a',
+    },
+    {
+      id: 'matcha',
+      name: 'چای ماچا (روشن)',
+      color: '#15803d',
+      mode: 'light',
+      icon: '🍵',
+      primary: '#15803d',
+      primaryContent: '#ffffff',
+      accent: '#16a34a',
+      success: '#16a34a',
+      warn: '#d97706',
+      base: '#fbfdfa',
+      base500: '#e7f3e8',
+      cardBg: '#ffffff',
+      cardBorder: 'rgba(21, 128, 61, 0.2)',
+      baseContent: '#0f2915',
+      neutral: '#374151',
+      neutralLight: '#6b7280',
     },
     {
       id: 'nordic',
@@ -1470,7 +1566,8 @@ export default function LandingPage() {
     },
   ];
 
-  const currentShowcaseTheme = showcaseThemes[showcaseThemeIndex] || showcaseThemes[0];
+  // Dynamic theme syncing: the live mockups and landing page reflect the selected theme
+  const currentShowcaseTheme = showcaseThemes.find(t => t.id === currentTheme) || showcaseThemes[0];
 
   useEffect(() => {
     const handleScroll = () => {
@@ -1486,8 +1583,11 @@ export default function LandingPage() {
       const progress = Math.max(0, Math.min(1, scrolledSoFar / totalScrollableDistance));
       setShowcaseProgress(progress);
       
-      const newIndex = Math.min(showcaseThemes.length - 1, Math.floor(progress * showcaseThemes.length));
-      setShowcaseThemeIndex(newIndex);
+      // Only update theme while inside the pinned scroll showcase section
+      if (rect.top <= 120 && rect.bottom >= 120) {
+        const newIndex = Math.min(showcaseThemes.length - 1, Math.floor(progress * showcaseThemes.length));
+        setShowcaseThemeIndex(newIndex);
+      }
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -1557,21 +1657,79 @@ export default function LandingPage() {
 
           {/* Action CTAs */}
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-            {/* Theme Selector (Desktop only) */}
-            <button
-              className="btn btn-sm btn-ghost p-1.5 sm:p-2 rounded-xl text-neutral hover:text-base-content border border-base-500/30 hidden md:flex shrink-0"
-              title="تغییر تم سایت"
-              onClick={() => {
-                const nextTheme = currentTheme === 'sarv' || currentTheme.includes('dark') ? 'matcha' : 'sarv';
-                setTheme(nextTheme);
-              }}
-            >
-              {currentTheme === 'sarv' || currentTheme.includes('dark') ? (
-                <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-accent" />
-              ) : (
-                <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-warn" />
-              )}
-            </button>
+            {/* Interactive Theme Selector Dropdown */}
+            <div className="relative" ref={themeMenuRef}>
+              <button
+                type="button"
+                onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)}
+                className="btn btn-sm btn-ghost p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-neutral hover:text-base-content border border-base-500/30 flex items-center gap-1.5 shrink-0 transition-all hover:bg-base-500/20"
+                title="تغییر تم سایت و دموها"
+              >
+                <Palette className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
+                <span className="text-xs font-bold hidden xl:inline">{currentShowcaseTheme?.name?.split(' ')[0] || 'تم'}</span>
+                <ChevronDown className={`w-3 h-3 transition-transform ${isThemeMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              <AnimatePresence>
+                {isThemeMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute left-0 sm:right-auto sm:left-0 mt-2 w-72 sm:w-80 p-3 rounded-2xl bg-base border border-base-500/40 shadow-2xl z-50 backdrop-blur-xl"
+                    style={{ backgroundColor: 'var(--theme-card-bg, #ffffff)' }}
+                  >
+                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-base-500/20 text-xs">
+                      <span className="font-black text-base-content flex items-center gap-1.5">
+                        <Palette className="w-4 h-4 text-primary" />
+                        <span>انتخاب تم زنده سروستان</span>
+                      </span>
+                      <span className="text-[10px] text-neutral font-mono">
+                        {showcaseThemes.length} تم موجود
+                      </span>
+                    </div>
+                    <div className="max-h-72 overflow-y-auto space-y-1 pr-0.5 custom-scrollbar">
+                      {showcaseThemes.map((t) => {
+                        const isSelected = currentTheme === t.id;
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => {
+                              setTheme(t.id);
+                              setIsThemeMenuOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between gap-2 p-2 rounded-xl text-right transition-all text-xs ${
+                              isSelected
+                                ? 'bg-primary text-primary-content font-bold shadow-sm'
+                                : 'hover:bg-base-500/20 text-base-content'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-6 h-6 rounded-lg grid place-items-center text-xs shrink-0 bg-base-500/20">
+                                {t.icon}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="truncate font-medium">{t.name}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span
+                                className="w-3 h-3 rounded-full border border-black/10 shrink-0"
+                                style={{ backgroundColor: t.primary }}
+                                title={t.name}
+                              />
+                              {isSelected && <Check className="w-3.5 h-3.5" />}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
             {/* GitHub Repo */}
             <a
@@ -1585,26 +1743,26 @@ export default function LandingPage() {
               <span className="text-xs font-mono">GitHub</span>
             </a>
 
-            {/* Flagship: Download Android APK (Primary CTA) */}
+            {/* Flagship: Download Android APK (Theme Success Green) */}
             <a
               href="./sarvestan.apk"
               download
-              className="btn btn-sm btn-primary rounded-xl font-bold flex items-center gap-1 sm:gap-1.5 px-3 sm:px-4 shadow-md shadow-primary/30 text-xs sm:text-sm whitespace-nowrap shrink-0 transition-all hover:scale-105 active:scale-95"
+              className="btn btn-sm bg-success text-success-content hover:bg-success/90 border border-success/30 rounded-xl font-bold flex items-center gap-1 sm:gap-1.5 px-3 sm:px-4 shadow-md shadow-success/25 text-xs sm:text-sm whitespace-nowrap shrink-0 transition-all hover:scale-105 active:scale-95"
               title="دانلود فایل نصبی اپلیکیشن اندروید (APK)"
             >
               <Smartphone className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
               <span>دانلود APK اندروید</span>
-              <span className="text-[10px] bg-black/20 text-white px-1.5 py-0.2 rounded font-mono font-bold hidden xs:inline">v1.0</span>
+              <span className="text-[10px] bg-black/20 text-success-content px-1.5 py-0.2 rounded font-mono font-bold hidden xs:inline">v1.0</span>
             </a>
 
-            {/* Download Extension ZIP (Secondary) */}
+            {/* Download Extension ZIP (Theme Primary) */}
             <a
               href="./sarvestan-extension.zip"
               download
-              className="btn btn-sm btn-ghost border border-base-500/40 text-base-content hover:bg-base-500/20 rounded-xl font-medium hidden sm:flex items-center gap-1.5 px-3 text-xs sm:text-sm whitespace-nowrap shrink-0 transition-all"
+              className="btn btn-sm bg-primary text-primary-content hover:bg-primary/90 border border-primary/30 rounded-xl font-medium hidden sm:flex items-center gap-1.5 px-3 text-xs sm:text-sm whitespace-nowrap shrink-0 transition-all shadow-md shadow-primary/25"
               title="دانلود افزونه دسکتاپ برای کروم و اج"
             >
-              <Download className="w-3.5 h-3.5 shrink-0 text-neutral" />
+              <Download className="w-3.5 h-3.5 shrink-0" />
               <span>افزونه دسکتاپ</span>
             </a>
           </div>
@@ -1652,36 +1810,36 @@ export default function LandingPage() {
           </motion.p>
 
 
-          {/* Flagship CTA Buttons — Android App Primary */}
+          {/* Flagship CTA Buttons — Android App (Success) & Extension (Primary) */}
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-5"
           >
-            {/* Primary Hero Button: Android APK */}
+            {/* Primary Hero Button: Android APK - Solid Theme Success Green (No gradient) */}
             <a
               href="./sarvestan.apk"
               download
-              className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-slate-950 font-black text-base sm:text-lg shadow-2xl shadow-emerald-500/40 hover:shadow-emerald-500/60 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 border border-emerald-300/30 group"
+              className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-success text-success-content hover:bg-success/90 font-black text-base sm:text-lg shadow-2xl shadow-success/30 hover:shadow-success/50 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 border border-success/40 group"
             >
-              <Smartphone className="w-6 h-6 shrink-0 group-hover:rotate-6 transition-transform text-slate-950" />
+              <Smartphone className="w-6 h-6 shrink-0 group-hover:rotate-6 transition-transform" />
               <div className="text-right">
                 <div className="leading-tight">دانلود مستقیم اپلیکیشن اندروید</div>
-                <div className="text-[11px] font-mono text-slate-900/80 font-bold">نسخه رسمی ۱.۰ • فایل نصبی APK (۵٫۴ مگابایت)</div>
+                <div className="text-[11px] font-mono opacity-90 font-bold">نسخه رسمی ۱.۰ • فایل نصبی APK (۵٫۴ مگابایت)</div>
               </div>
-              <span className="text-xs bg-black/20 text-slate-950 px-2 py-0.5 rounded-lg font-mono font-bold mr-1">رایگان</span>
+              <span className="text-xs bg-black/20 text-success-content px-2 py-0.5 rounded-lg font-mono font-bold mr-1">رایگان</span>
             </a>
 
-            {/* Secondary Button: Desktop Extension ZIP */}
+            {/* Secondary Button: Desktop Extension ZIP - Solid Primary */}
             <a
               href="./sarvestan-extension.zip"
               download
-              className="w-full sm:w-auto px-6 py-4 rounded-2xl bg-base-500/20 hover:bg-base-500/30 border border-base-500/40 text-base-content font-bold text-base hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2.5 shadow-md"
+              className="w-full sm:w-auto px-6 py-4 rounded-2xl bg-primary text-primary-content hover:bg-primary/90 border border-primary/40 font-bold text-base hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2.5 shadow-xl shadow-primary/25"
             >
-              <Download className="w-5 h-5 text-primary shrink-0" />
+              <Download className="w-5 h-5 shrink-0" />
               <span>دانلود افزونه دسکتاپ (ZIP)</span>
-              <span className="text-xs bg-base-500/30 px-2 py-0.5 rounded-md font-mono text-neutral">Chrome / Edge</span>
+              <span className="text-xs bg-black/20 text-primary-content px-2 py-0.5 rounded-md font-mono">Chrome / Edge</span>
             </a>
           </motion.div>
 
@@ -1728,12 +1886,45 @@ export default function LandingPage() {
             </div>
           </motion.div>
 
+          {/* Interactive Live Theme Quick Selector Bar */}
+          <div className="mt-8 mb-2 flex flex-wrap items-center justify-center gap-2 p-2 rounded-2xl bg-base-500/15 border border-base-500/30 backdrop-blur-sm max-w-3xl mx-auto">
+            <div className="flex items-center gap-1.5 px-2 text-xs font-bold text-base-content shrink-0">
+              <Palette className="w-3.5 h-3.5 text-primary" />
+              <span>تم زنده لندینگ و دمو:</span>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-1.5">
+              {showcaseThemes.slice(0, 6).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTheme(t.id)}
+                  className={`px-2.5 py-1 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 ${
+                    currentTheme === t.id
+                      ? 'bg-primary text-primary-content font-bold shadow-md scale-105 ring-2 ring-primary/40'
+                      : 'bg-base-500/20 text-neutral hover:text-base-content hover:bg-base-500/40'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t.primary }} />
+                  <span>{t.name}</span>
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setIsThemeMenuOpen(true)}
+                className="px-2.5 py-1 rounded-xl text-xs font-bold bg-base-500/30 text-neutral hover:text-primary transition-all flex items-center gap-1"
+                title="مشاهده تمام تم‌ها"
+              >
+                <span>سایر تم‌ها...</span>
+              </button>
+            </div>
+          </div>
+
           {/* Live Interactive Dual HTML/CSS Mockup in Hero */}
           <motion.div
             initial={{ opacity: 0, y: 25 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.45 }}
-            className="mt-12 max-w-6xl mx-auto"
+            className="mt-6 max-w-6xl mx-auto"
           >
             <div className="relative flex flex-col lg:flex-row items-center justify-center gap-5 lg:gap-6">
               {/* Desktop Browser Mockup — Shown ONLY on Desktop (hidden on mobile) */}
@@ -1850,9 +2041,12 @@ export default function LandingPage() {
               {showcaseThemes.map((st, idx) => (
                 <button
                   key={st.id}
-                  onClick={() => setShowcaseThemeIndex(idx)}
+                  onClick={() => {
+                    setShowcaseThemeIndex(idx);
+                    setTheme(st.id);
+                  }}
                   className={`px-2 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
-                    showcaseThemeIndex === idx
+                    currentTheme === st.id || showcaseThemeIndex === idx
                       ? 'bg-primary text-primary-content shadow-sm scale-105 font-bold'
                       : 'bg-base-500/15 text-neutral hover:text-base-content hover:bg-base-500/25'
                   }`}
@@ -2383,11 +2577,11 @@ export default function LandingPage() {
               💡 سروستان یک پروژه کاملاً متن‌باز، رایگان و مستقل برای رفاه دانشجویان است.
             </p>
             <div className="flex items-center gap-2 shrink-0">
-              <a href="./sarvestan.apk" download className="btn btn-xs btn-primary rounded-xl font-bold flex items-center gap-1">
+              <a href="./sarvestan.apk" download className="btn btn-xs bg-success text-success-content hover:bg-success/90 rounded-xl font-bold flex items-center gap-1">
                 <Smartphone className="w-3 h-3" />
                 <span>دانلود APK اندروید</span>
               </a>
-              <a href="./sarvestan-extension.zip" download className="btn btn-xs btn-outline border-primary/40 rounded-xl font-bold flex items-center gap-1">
+              <a href="./sarvestan-extension.zip" download className="btn btn-xs bg-primary text-primary-content hover:bg-primary/90 rounded-xl font-bold flex items-center gap-1">
                 <Download className="w-3 h-3" />
                 <span>دانلود ZIP افزونه</span>
               </a>
@@ -2524,6 +2718,16 @@ export default function LandingPage() {
 
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <a
+                  href="https://t.me/s4rvest4n"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-sm bg-[#229ED9] hover:bg-[#229ED9]/90 text-white rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-[#229ED9]/25 hover:scale-105 active:scale-95 transition-all px-4 py-2"
+                  title="کانال رسمی تلگرام سروستان"
+                >
+                  <TelegramIcon className="w-4 h-4 text-white" />
+                  <span>کانال تلگرام @s4rvest4n</span>
+                </a>
+                <a
                   href="https://github.com/mjb4khshi"
                   target="_blank"
                   rel="noreferrer"
@@ -2567,6 +2771,16 @@ export default function LandingPage() {
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-4 text-neutral">
+              <a
+                href="https://t.me/s4rvest4n"
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-[#229ED9] transition-colors flex items-center gap-1.5"
+              >
+                <TelegramIcon className="w-3.5 h-3.5 text-[#229ED9]" />
+                <span>کانال تلگرام (@s4rvest4n)</span>
+              </a>
+              <span className="opacity-30">•</span>
               <a
                 href="https://github.com/mjb4khshi/sarvestan"
                 target="_blank"
