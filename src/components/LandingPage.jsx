@@ -2508,6 +2508,16 @@ export default function LandingPage() {
                   <span>گیت‌هاب @mjb4khshi</span>
                 </a>
                 <a
+                  href="https://mjb4khshi.github.io/KNTU/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-sm btn-accent rounded-xl text-accent-content font-bold flex items-center gap-2 shadow-lg shadow-accent/20 hover:scale-105 active:scale-95 transition-all px-4 py-2"
+                  title="هاب جزوات و یادداشت‌های آموزشی دانشگاه خواجه نصیر"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span>یادداشت‌های خواجه‌نصیر (KNTU)</span>
+                </a>
+                <a
                   href="https://github.com/mjb4khshi/sarv-ui"
                   target="_blank"
                   rel="noreferrer"
@@ -2556,6 +2566,16 @@ export default function LandingPage() {
                 className="hover:text-primary transition-colors"
               >
                 دانلود مستقیم افزونه (.zip)
+              </a>
+              <span className="opacity-30">•</span>
+              <a
+                href="https://mjb4khshi.github.io/KNTU/"
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-primary transition-colors flex items-center gap-1"
+              >
+                <BookOpen className="w-3.5 h-3.5 text-accent" />
+                <span>یادداشت‌های KNTU</span>
               </a>
               <span className="opacity-30">•</span>
               <span>

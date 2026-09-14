@@ -1,129 +1,166 @@
 <div align="center">
 
-# <img src="docs/banner.png" alt="سروستان | Sarvestan Dashboard" width="100%" />
+# <img src="docs/banner.png" alt="سروستان | Sarvestan Ecosystem" width="100%" />
 
 # 🌿 سروستان | Sarvestan
 
-### داشبورد نسل جدید، مدرن و سریع برای سامانه **بهستان**
+### اکوسیستم نسل جدید، هوشمند و مینیمال برای سامانه آموزشی **بهستان**
 **دانشگاه صنعتی خواجه‌نصیرالدین طوسی**  
-*(در تلاش برای پشتیبانی از تمامی دانشگاه‌های مبتنی بر بهستان)*
+*(با ساختار ماژولار و مستقل جهت سازگاری با سایر دانشگاه‌های مبتنی بر بهستان)*
 
-[![Website Showcase & Live Demo](https://img.shields.io/badge/Website-Showcase%20%26%20Demo-10b981?style=for-the-badge&logo=googlechrome&logoColor=white)](https://mjb4khshi.github.io/sarvestan/)
-[![Download Extension ZIP](https://img.shields.io/badge/Download-Extension%20(.zip)-2563eb?style=for-the-badge&logo=googlechrome&logoColor=white)](https://mjb4khshi.github.io/sarvestan/sarvestan-extension.zip)
-[![GitHub Releases](https://img.shields.io/badge/Releases-Latest%20Version-8b5cf6?style=for-the-badge&logo=github&logoColor=white)](https://github.com/mjb4khshi/sarvestan/releases)
+<br/>
+
+[![Website Showcase](https://img.shields.io/badge/Website-Showcase%20%26%20Landing-10b981?style=for-the-badge&logo=googlechrome&logoColor=white)](https://mjb4khshi.github.io/sarvestan/)
+[![Download Android APK](https://img.shields.io/badge/Download-Android%20APK%20(v1.0)-0284c7?style=for-the-badge&logo=android&logoColor=white)](https://mjb4khshi.github.io/sarvestan/sarvestan.apk)
+[![Download Extension ZIP](https://img.shields.io/badge/Download-Extension%20(.zip)-8b5cf6?style=for-the-badge&logo=googlechrome&logoColor=white)](https://mjb4khshi.github.io/sarvestan/sarvestan-extension.zip)
+[![GitHub Releases](https://img.shields.io/badge/Releases-Latest%20Version-22c55e?style=for-the-badge&logo=github&logoColor=white)](https://github.com/mjb4khshi/sarvestan/releases)
 
 <br/>
 
 [![React 19](https://img.shields.io/badge/React-19.0-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
+[![Android Native](https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white)](https://developer.android.com)
+[![Capacitor 6](https://img.shields.io/badge/Capacitor-6.0-119EFF?style=flat-square&logo=capacitor&logoColor=white)](https://capacitorjs.com)
 [![Tailwind CSS v4](https://img.shields.io/badge/Tailwind-v4-38BDF8?style=flat-square&logo=tailwindcss)](https://tailwindcss.com)
 [![Sarv UI](https://img.shields.io/badge/Design%20System-Sarv%20UI-10b981?style=flat-square)](https://github.com/mjb4khshi/sarv-ui)
-[![Platform: Desktop](https://img.shields.io/badge/Platform-Desktop%20(Mobile%20Coming%20Soon)-f59e0b?style=flat-square&logo=googlechrome&logoColor=white)](https://mjb4khshi.github.io/sarvestan/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
 <br/>
 
-**سروستان** یک افزونه مدرن مرورگر (کروم، اج، بریو، اپرا) برای کامپیوتر و لپ‌تاپ است که سامانه دانشگاهی قدیمی بهستان را به یک وب‌اپلیکیشن فوق‌العاده سریع، مینیمال، هوشمند و زیبا با زبان طراحی **Sarv UI** تبدیل می‌کند؛ بدون هیچ دیتای هاردکد، با حفظ کامل امنیت و حفظ حریم خصوصی دانشجو.
-
-> 💻 **پلتفرم هدف:** این افزونه برای مرورگرهای دسکتاپ طراحی و بهینه‌سازی شده است. نسخه اختصاصی و وب‌اپلیکیشن همراه (موبایل) به‌زودی منتشر خواهد شد.
+**سروستان** یک اکوسیستم دوگانه، آزاد و مدرن است که سامانه آموزشی قدیمی بهستان را به یک محیط بصری چشم‌نواز، سریع و کاربرپسند با زبان طراحی اختصاصی **Sarv UI** تبدیل می‌کند. این اکوسیستم هم‌اکنون در دو قالب **افزونه مرورگر دسکتاپ** و **اپلیکیشن نیتیو اندروید (v1.0)** در دسترس است.
 
 </div>
 
 ---
 
-## ⚡ امکانات و قابلیت‌ها
+## 📱 اکوسیستم دوگانه سروستان
 
-| بخش | ویژگی‌ها و امکانات | فرم‌های بهستان مرتبط |
-| :--- | :--- | :--- |
-| **میز کار جامع** | نمایش خلاصه‌وضعیت تحصیلی، معدل کل، واحدهای گذرانده، تراز شهریه، کلاس‌های امروز و دسترسی سریع | `F1825`, `F1814` |
-| **کارنامه و نمرات** | ریز نمرات همه ترم‌ها، وضعیت قبولی/مردودی، محاسبه آنلاین معدل ترم و معدل کل، فیلتر و جستجو | `F1825` |
-| **برنامه هفتگی و امتحانات** | تقویم ماتریسی هفتگی با تفکیک روز و ساعت، کارت ورود به جلسه آزمون و تاریخ امتحانات | گزارش‌های `78`, `88`, `428` |
-| **امور مالی و شهریه** | صورتحساب ریزتراز، بدهی و بستانکاری، چاپ رسمی رسید و ارجاع امن به درگاه‌های بهستان | `F1825`, `F4563` |
-| **چارت و وضعیت دروس** | دسته‌بندی هوشمند دروس (پایه، عمومی، تخصصی، اختیاری)، رنگ‌بندی بج‌های وضعیت (پاس شده، در جریان، مردود) | `F1825`, `F1814` |
-| **پیشخوان و نامه‌ها** | مشاهده گردش‌کارهای فعال و آرشیوشده، پیگیری درخواست‌های آموزشی، گواهی اشتغال به تحصیل | `F6524` |
-| **شخصی‌سازی و تم‌ها** | تم‌های متعدد شامل پرشین دارک، پرشین لایت، سان‌ست، ماچا، نوردیک، ترنزیشن روان ۶۰۰ میلی‌ثانیه‌ای و فونت آراد | **Sarv UI Tokens** |
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    🌿 SARVESTAN ECOSYSTEM                   │
+├──────────────────────────────┬──────────────────────────────┤
+│ 💻 افزونه مرورگر دسکتاپ      │ 📱 اپلیکیشن نیتیو اندروید   │
+│ (Chrome / Edge / Brave)      │ (Android 8.0+ Native APK)    │
+├──────────────────────────────┼──────────────────────────────┤
+│ • تزریق لحظه‌ای داشبورد ۲.۰  │ • کارکرد ۱۰۰٪ مستقل و آفلاین │
+│ • پالت فرمان سریع (Ctrl+K)    │ • ۳ ویجت زنده هوم‌اسکرین     │
+│ • تحلیل ترم به ترم کارنامه   │ • ۱۲ تم رنگی آیکون لانچر     │
+│ • تقویم ماتریسی برنامه هفتگی │ • استوری و خروجی بدون کد شخص │
+│ • اتصال زنده به سشن بهستان   │ • بدون نیاز به VPN و پروکسی  │
+└──────────────────────────────┴──────────────────────────────┘
+```
 
 ---
 
-## 📥 راهنمای دانلود و نصب
+## ⚡ امکانات و قابلیت‌ها
 
-### ۱. دریافت فایل افزونه
-شما می‌توانید آخرین نسخه آماده افزونه را از یکی از دو مسیر زیر دریافت کنید:
-* **[دانلود مستقیم آخرین نسخه فشرده (sarvestan-extension.zip)](https://mjb4khshi.github.io/sarvestan/sarvestan-extension.zip)**
-* **[صفحه Releases در گیت‌هاب](https://github.com/mjb4khshi/sarvestan/releases)**
+| بخش | امکانات و ویژگی‌ها | پلتفرم |
+| :--- | :--- | :---: |
+| **میز کار تحصیلی (Overview)** | نمایش خلاصه وضعیت، معدل کل، واحدهای گذرانده، تراز مالی، کلاس‌های روز و دسترسی سریع | 💻 📱 |
+| **کارنامه و نمرات (Transcripts)** | ریزنمرات تمام ترم‌ها، محاسبه آنلاین معدل ترمی و تجمعی، فیلتر درس‌ها و درصد قبولی | 💻 📱 |
+| **برنامه هفتگی و امتحانات** | تقویم بصری ماتریسی، ساعت شروع و پایان کلاس‌ها، کارت ورود به جلسه و تاریخ آزمون‌ها | 💻 📱 |
+| **ویجت‌های زنده هوم‌اسکرین** | ۳ ویجت اختصاصی اندروید (کلاس بعدی، معدل تحصیلی و کامبو ترکیبی) با آپدیت خودکار | 📱 |
+| **تم‌ها و آیکون‌های داینامیک** | ۱۵ تم رنگی بر پایه Sarv UI در وب + ۱۲ پوسته اختصاصی آیکون لانچر در اندروید | 💻 📱 |
+| **امور مالی و شهریه (Finance)** | صورتحساب ریزتراز، بدهی و بستانکاری و ارجاع امن به درگاه‌های پرداخت شتاب | 💻 📱 |
+| **چارت و وضعیت دروس** | دسته‌بندی هوشمند دروس (پایه، تخصصی، عمومی، اختیاری) و بج‌های رنگی وضعیت | 💻 📱 |
+| **خروجی امن کارنامه و برنامه** | تولید تصاویر باکیفیت و استوری بدون افشای کد دانشجویی یا اطلاعات حساس | 📱 |
+| **پالت فرمان سریع (Search)** | جستجوی فوری در میان تمامی فرم‌ها، گزارش‌ها و دروس با میانبر `Ctrl+K` | 💻 |
 
-### ۲. نصب در مرورگر (Chrome / Edge / Brave / Opera)
-1. فایل زیپ دریافت‌شده (`sarvestan-extension.zip`) را در یک پوشه دلخواه **Unzip (Extract)** کنید.
-2. صفحه مدیریت افزونه‌ها را باز کنید:
-   * **از طریق رابط کاربری مرورگر (پیشنهادی و سریع):** کلیک روی آیکون پازل (**🧩 Extensions**) در بالای مرورگر ⬅️ انتخاب **Manage extensions** *(یا از منوی سه‌نقطه **⋮** ⬅️ Extensions ⬅️ Manage extensions)*
-   * **یا ورود آدرس مستقیم در نوار آدرس:**
-     * **گوگل کروم:** `chrome://extensions`
-     * **مایکروسافت اج:** `edge://extensions`
-     * **بریو:** `brave://extensions`
-     * **اپرا:** `opera://extensions`
-3. در صفحه بازشده، کلید **Developer mode** (حالت توسعه‌دهنده) را روشن کنید.
-4. دکمه **Load unpacked** را در بالای صفحه بزنید و فولدری که استخراج کردید (حاوی `manifest.json`) را انتخاب کنید.
-5. سامانه **[behestan.kntu.ac.ir](https://behestan.kntu.ac.ir/)** را باز کرده و لاگین کنید؛ سروستان فعال است!
+---
+
+## 📥 راهنمای دریافت و نصب
+
+### 📱 ۱. نصب اپلیکیشن اندروید (APK)
+1. فایل نصبی **[sarvestan.apk (۵٫۴ مگابایت)](https://mjb4khshi.github.io/sarvestan/sarvestan.apk)** را دریافت کنید.
+2. در صورت مشاهده هشدار امنیتی استاندارد اندروید، گزینه **Settings** را بزنید و مجوز **Allow from this source** را فعال کنید.
+3. برنامه را باز کرده و با اطلاعات دانشجویی وارد شوید. اطلاعات برنامه هفتگی شما ذخیره شده و پس از آن به‌صورت **کاملاً آفلاین** در دسترس است.
+4. با لمس طولانی روی صفحه اصلی گوشی (Home Screen)، ویجت‌های کلاسی و تحصیلی سروستان را به صفحه بیفزایید.
+
+### 💻 ۲. نصب افزونه دسکتاپ (Chrome / Edge / Brave / Opera)
+1. فایل فشرده **[sarvestan-extension.zip](https://mjb4khshi.github.io/sarvestan/sarvestan-extension.zip)** را دانلود و **Unzip** کنید.
+2. در مرورگر به آدرس افزونه‌ها بروید:
+   * **Chrome:** `chrome://extensions`
+   * **Edge:** `edge://extensions`
+   * **Brave:** `brave://extensions`
+3. کلید **Developer mode** را در بالای صفحه روشن کنید.
+4. دکمه **Load unpacked** را بزنید و پوشه استخراج‌شده را انتخاب نمایید.
+5. سامانه [behestan.kntu.ac.ir](https://behestan.kntu.ac.ir/) را باز کنید؛ داشبورد سروستان به‌صورت خودکار بارگذاری خواهد شد.
 
 ---
 
 ## 🔒 امنیت و حریم خصوصی
 
-* **پردازش کاملاً محلی (Client-side):** افزونه مستقیماً درون مرورگر شما اجرا می‌شود و هیچ سرور واسطه‌ای وجود ندارد.
-* **بدون ذخیره اطلاعات محرمانه:** نام کاربری، رمز عبور و اطلاعات مالی شما به هیچ سرور خارجی ارسال نمی‌شود.
-* **پرداخت شهریه در بستر امن:** عملیات پرداخت شهریه صرفاً از طریق ارجاع امن به درگاه‌های شاپرک رسمی خود بهستان انجام می‌گیرد.
+* **پردازش کاملاً محلی (Client-Side Only):** تمامی درخواست‌ها و پردازش‌ها مستقیماً در مرورگر یا دستگاه کاربر انجام می‌شوند و **هیچ سرور واسطه یا شخص ثالثی وجود ندارد**.
+* **عدم ارسال اطلاعات هویتی:** رمز عبور، شماره دانشجویی، کوکی‌ها و توکن‌های نشست در هیچ سروری خارج از دستگاه ذخیره یا مخابره نمی‌شوند.
+* **پرداخت در بستر رسمی:** کلیه امور پرداخت شهریه مستقیماً و از طریق پروتکل رسمی بهستان به درگاه‌های شاپرک هدایت می‌شوند.
+* **اشتراک‌گذاری هوشمند:** در خروجی‌های تصویری و استوری، شماره دانشجویی به صورت خودکار حذف می‌گردد تا حریم خصوصی دانشجو هنگام اشتراک‌گذاری در شبکه‌های اجتماعی حفظ شود.
 
 ---
 
-## 🛠 توسعه و بیلد محلی
+## 🛠 معماری و ساختار پروژه
 
+```text
+sarvestan/
+├── public/                     # مانیفست افزونه، اینترسپتور، فایل‌های نصبی (APK و ZIP)
+│   ├── favicon.svg             # آیکون وکتور رسمی سرو
+│   ├── sarvestan.apk           # بسته نصبی پروداکشن اندروید (v1.0)
+│   └── sarvestan-extension.zip # بسته نصبی افزونه دسکتاپ
+├── src/
+│   ├── components/             # لندینگ پیج، هدر، مودال‌ها و ویجت‌های مشترک
+│   ├── modules/                # ماژول‌های اصلی (Overview, Transcripts, Schedule, Finance, ...)
+│   └── services/               # پارسرهای ساختار بهستان، کش محلی و اتصال زنده
+├── sarvestan-android/          # پروژه اختصاصی اپلیکیشن اندروید (Capacitor + React)
+│   ├── android/app/src/main/   # کدهای نیتیو جاوا (ویجت‌های هوم‌اسکرین و پلاگین آیکون)
+│   └── src/screens/            # صفحات ویژه موبایل، مدیریت آیکون‌ها و پیش‌نمایش ویجت‌ها
+└── scripts/                    # اسکریپت‌های بسته‌بندی افزونه (pack-extension.ps1)
+```
+
+### اجرای پروژه در محیط توسعه (Local Setup):
 ```bash
 # نصب وابستگی‌ها
 npm install
 
-# اجرای نسخه دمو در محیط توسعه (Vite dev server)
+# اجرای وب‌سرور توسعه لندینگ و داشبورد
 npm run dev
 
-# بیلد نهایی پروژه
+# بیلد نسخه پروداکشن وب
 npm run build
 
-# بسته‌بندی خودکار افزونه برای انتشار و تسترها
+# بسته‌بندی خودکار افزونه
 npm run pack
 ```
 
-### ساختار پوشه‌های کلیدی:
-```text
-├── public/                 # مانیفست افزونه (manifest.json)، اسکریپت‌های محتوا و رهگیری بهستان
-├── src/
-│   ├── components/sarv/    # کامپوننت‌های رسمی Sarv UI (بج، دکمه، اینپوت، چک‌باکس و ...)
-│   ├── modules/            # ماژول‌های داشبورد (کارنامه، برنامه هفتگی، چارت دروس، مالی و ...)
-│   ├── services/           # سرویس‌های خواندن داده از بهستان و کش محلی
-│   └── App.jsx             # روت اصلی و لندینگ پیج
-├── scripts/                # اسکریپت‌های بسته‌بندی افزونه (pack-extension.ps1)
-└── docs/                   # بنر رسمی، اسکرین‌شات‌ها و مستندات
-```
+---
+
+## 🌐 پروژه‌های مرتبط و اکوسیستم آموزشی
+
+* 🌲 [**Sarv UI**](https://github.com/mjb4khshi/sarv-ui): دیزاین‌سیستم مدرن و بومی با پالت توکن‌های پیشرفته و تم‌های ایرانی.
+* 📚 [**MJ's KNTU Notes**](https://mjb4khshi.github.io/KNTU/): هاب جامع جزوات، یادداشت‌ها، منابع و گراف ارتباطات دروس دانشگاه صنعتی خواجه نصیرالدین طوسی.
 
 ---
 
 ## 🤝 قدردانی و تشکر
 
-* با تشکر ویژه از **اشکان جلالی** ([@ashkanjalaliQ](https://github.com/ashkanjalaliQ)) بابت ایده‌پردازی‌ها و همفکری‌های ارزشمند در مسیر بازطراحی سامانه‌های دانشگاهی.
-* طراحی و توسعه‌یافته بر پایه زبان طراحی [**Sarv UI**](https://github.com/mjb4khshi/sarv-ui).
+* با تشکر ویژه از **اشکان جلالی** ([@ashkanjalaliQ](https://github.com/ashkanjalaliQ)) بابت ایده‌پردازی‌ها، همفکری‌های سازنده و همراهی در مسیر بهبود تجربه کاربری سامانه‌های دانشگاهی.
 
 ---
 
 ## 📄 لایسنس
 
-این پروژه تحت مجوز [MIT](LICENSE) منتشر شده است.
+این پروژه تحت مجوز متن‌باز [MIT](LICENSE) منتشر شده است.
 
 ---
 
 <div align="center">
   <a href="https://github.com/mjb4khshi">
-    <img src="public/mjb-avatar.png" alt="MJB" width="56" height="56" style="border-radius: 50%;" />
+    <img src="public/mjb-avatar.png" alt="MJB" width="68" height="68" style="border-radius: 20px; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.25);" />
   </a>
   <br/>
-  <sub>
-    طراحی و توسعه با عشق و چای توسط
-    <a href="https://github.com/mjb4khshi"><strong>محمدجواد بخشی (@mjb4khshi)</strong></a>
-  </sub>
+  <br/>
+  <b>طراحی و مهندسی با عشق و چای توسط</b><br/>
+  <a href="https://github.com/mjb4khshi"><strong>محمدجواد بخشی (@mjb4khshi)</strong></a>
+  <br/>
+  <br/>
+  <a href="https://github.com/mjb4khshi">GitHub</a> •
+  <a href="https://mjb4khshi.github.io/KNTU/">KNTU Notes</a> •
+  <a href="https://github.com/mjb4khshi/sarv-ui">Sarv UI</a>
 </div>
