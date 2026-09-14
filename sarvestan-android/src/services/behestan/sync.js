@@ -124,7 +124,20 @@ export async function runFullSync({ force = false } = {}) {
       currentTerm = detectCurrentTermId(getSnapshot()?.courses || []) || currentTerm;
     }
 
-    // ── تاریخچهٔ ترم‌ها: از termId های موجود + چند ترم قبلی (بدون هاردکد تابستان) ──
+    // ── وضعیت دروس (فرم ۷۷) — فقط برای چارت/معدل، نه برنامه ──
+    try {
+      const r77 = await fetchViewReport('77', currentTerm);
+      if (r77?.waitlistCount > 0) {
+        addLocalNote(
+          `لیست انتظار: ${r77.waitlistCount} درس (${r77.waitlistUnits} واحد)`,
+          { title: 'در انتظار', color: 'warn' },
+        );
+      }
+    } catch (e) {
+      results.errors.push(`77: ${e?.message || e}`);
+    }
+
+    // ── تاریخچهٔ ترم‌ها ──
     const knownTerms = [
       ...new Set(
         (getSnapshot()?.courses || [])

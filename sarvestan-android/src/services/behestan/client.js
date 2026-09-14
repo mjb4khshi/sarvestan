@@ -20,6 +20,7 @@ import {
   parseReport88Registration,
   parseReport88Meta,
   parseReport428Exams,
+  parseReport77,
   examsFromRegistration,
 } from './parsers';
 import {
@@ -341,6 +342,32 @@ export async function fetchViewReport(formCode, term) {
     const parsed = parseReport428Exams(outpar, term);
     if (parsed.exams.length) {
       setExamsForTerm(parsed.termId || term || '4051', parsed.exams);
+    }
+    return { ...parsed, outpar };
+  }
+  if (String(formCode) === '77') {
+    // فقط وضعیت دروس — هرگز برنامهٔ هفتگی را بازنویسی نکن
+    const parsed = parseReport77(outpar, term);
+    if (parsed.courses.length) {
+      updatePart({
+        reg77: {
+          termId: parsed.termId || term || '4051',
+          byCode: Object.fromEntries(
+            parsed.courses.map((c) => [
+              String(c.code),
+              {
+                regStatus: c.regStatus,
+                name: c.name,
+                units: c.units,
+                statusRaw: c.statusRaw || '',
+              },
+            ]),
+          ),
+          waitlistUnits: parsed.waitlistUnits,
+          waitlistCount: parsed.waitlistCount,
+          enrolledUnits: parsed.enrolledUnits,
+        },
+      });
     }
     return { ...parsed, outpar };
   }

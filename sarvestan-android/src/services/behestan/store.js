@@ -149,8 +149,39 @@ export function mergeCourses(courses) {
       ...c,
     });
   }
-  updatePart({ courses: [...byKey.values()] });
-  enrichScheduleFromCourses([...byKey.values()]);
+  let list = [...byKey.values()];
+  list = applyReg77Status(list);
+  updatePart({ courses: list });
+  enrichScheduleFromCourses(list);
+}
+
+/**
+ * فقط وضعیت دروس ترم جاری را از فرم ۷۷ روی F1825 می‌گذارد
+ * — دست به schedule (برنامهٔ هفتگی) نمی‌زند
+ */
+export function applyReg77Status(courses) {
+  const reg77 = cache.reg77 || null;
+  const byCode = reg77?.byCode || {};
+  if (!Object.keys(byCode).length) return courses || [];
+
+  const currentTerm = reg77.termId || null;
+  return (courses || []).map((c) => {
+    const code = String(c?.code || '').trim();
+    const from77 = byCode[code];
+    if (!from77) return c;
+    // فقط ترم جاری / بدون نمره قطعی
+    if (currentTerm && c.termId && c.termId !== currentTerm) return c;
+    const hasGrade = Boolean(c.grade && c.grade !== 'ـ' && c.grade !== '-');
+    if (hasGrade && from77.regStatus !== 'dropped' && from77.regStatus !== 'waitlist') {
+      return c;
+    }
+    const regStatus = from77.regStatus || c.regStatus;
+    let status = c.status;
+    if (regStatus === 'dropped') status = 'حذف اضطراری';
+    else if (regStatus === 'waitlist') status = 'در انتظار';
+    else if (regStatus === 'registered') status = c.status || 'ثبت شده';
+    return { ...c, regStatus, status };
+  });
 }
 
 /** واحد و نام استاندارد F1825 را روی برنامهٔ هفتگی اعمال کن */

@@ -373,8 +373,10 @@ function courseState(c) {
   if (/انتظار|ليست\s*انتظار|لیست\s*انتظار/i.test(st)) return 'waitlist';
   if (/نپذیرفته|مشروط/i.test(st)) return 'failed';
   if (g !== null && g > 0) return 'failed';
+  // روی برنامهٔ ثبت‌نام یا برچسب ثبت‌شده → در حال اخذ
   if (c.onSchedule || c.isRegistration || reg === 'registered') return 'enrolled';
-  // بدون فرم ۷۷ و بدون برنامه — enrolled نکن
+  // ترم جاری بدون نمره و بدون وضعیت — enrolled (مثل قبل) مگر فرم ۷۷ چیز دیگری گفته باشد
+  if (!c.grade && c.termId && (c.termId === '4051' || c.isRegistration)) return 'enrolled';
   return 'unknown';
 }
 
@@ -458,11 +460,12 @@ export function getCurriculumView() {
 
   const currentTerm = detectCurrentTermId(all) || '4051';
 
+  // واحد اخذشدهٔ ترم جاری: فقط enrolled — حذف و انتظار حساب نمی‌شوند
   const enrolledCredits = list
     .filter((c) => {
+      if (c.termId !== currentTerm && !c.isRegistration) return false;
       const st = courseState(c);
-      if (st === 'dropped' || st === 'waitlist') return false;
-      return c.termId === currentTerm || c.isRegistration;
+      return st === 'enrolled';
     })
     .reduce((s, c) => s + (c.units || 0), 0);
 
