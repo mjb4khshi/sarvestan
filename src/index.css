@@ -56,12 +56,30 @@
   }
 
   /* Persian Dark explicit mapping */
-  [data-theme-mode="dark"],
   [datatheme="persian-dark"],
-  [data-theme="persian-dark"] {
+  [data-theme="persian-dark"],
+  [datatheme="persian-dark-sharp"],
+  [data-theme="persian-dark-sharp"] {
     --theme-color-base: #000000;
     --theme-color-base-content: #ffffff;
-    --theme-color-base-500: #222222;
+    --theme-color-base-500: #1a1a1a;
+    --theme-color-neutral: #94a3b8;
+  }
+
+  /* Sarv Signature Emerald Theme (Deep Organic Forest & Vibrant Emerald) */
+  [datatheme="sarv"],
+  [data-theme="sarv"],
+  [datatheme="emerald"],
+  [data-theme="emerald"] {
+    --theme-color-primary: #10b981;
+    --theme-color-secondary: #065f46;
+    --theme-color-accent: #84cc16;
+    --theme-color-success: #22c55e;
+    --theme-color-warn: #eab308;
+    --theme-color-danger: #f43f5e;
+    --theme-color-base: #051510;
+    --theme-color-base-500: #0e2920;
+    --theme-color-base-content: #ecfdf5;
     --theme-color-neutral: #94a3b8;
   }
 

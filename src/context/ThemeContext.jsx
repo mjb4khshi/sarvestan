@@ -2,6 +2,16 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 export const SARV_THEMES = [
   {
+    id: 'sarv',
+    name: 'Sarv Signature',
+    persianName: 'سَرو (امضای اختصاصی)',
+    icon: '🌿',
+    mode: 'dark',
+    primary: '#10b981',
+    base: '#051510',
+    description: 'تم اختصاصی و اصیل دیزاین‌سیستم سَرو با سبز زمردین و مشکی جنگلی عمیق'
+  },
+  {
     id: 'persian-dark',
     name: 'Persian Dark',
     persianName: 'پرشین دارک (اصیل)',
@@ -157,7 +167,7 @@ const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
   const [currentTheme, setCurrentTheme] = useState(() => {
-    return localStorage.getItem('sarvestan_theme') || 'persian-dark';
+    return localStorage.getItem('sarvestan_theme') || 'sarv';
   });
 
   useEffect(() => {

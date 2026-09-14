@@ -569,8 +569,8 @@ function MobileMockup({ theme, isSolo = false }) {
           </div>
         </header>
 
-        {/* Scrollable Main Screen Content (Live, Interactive & Scrollable) */}
-        <div className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-3 relative text-xs pb-24">
+        {/* Screen Content — overflow-hidden on mobile to prevent trapping page scroll; scrollable on desktop */}
+        <div className="flex-1 overflow-hidden lg:overflow-y-auto lg:overscroll-contain p-3 space-y-3 relative text-xs pb-24">
           {/* TAB 1: HOME SCREEN (Replicating sarvestan-android HomeScreen.jsx) */}
           {activeTab === 'home' && (
             <>
@@ -1298,6 +1298,25 @@ export default function LandingPage() {
 
   const showcaseThemes = [
     {
+      id: 'sarv',
+      name: 'سَرو (امضای اختصاصی)',
+      color: '#10b981',
+      mode: 'dark',
+      icon: '🌿',
+      primary: '#10b981',
+      primaryContent: '#ffffff',
+      accent: '#84cc16',
+      success: '#22c55e',
+      warn: '#eab308',
+      base: '#051510',
+      base500: '#0e2920',
+      cardBg: 'rgba(14, 41, 32, 0.88)',
+      cardBorder: 'rgba(16, 185, 129, 0.3)',
+      baseContent: '#ecfdf5',
+      neutral: '#a7f3d0',
+      neutralLight: '#d1fae5',
+    },
+    {
       id: 'persian-dark',
       name: 'پرشین دارک (تیره اصیل)',
       color: '#0066a4',
@@ -1538,16 +1557,16 @@ export default function LandingPage() {
 
           {/* Action CTAs */}
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-            {/* Theme Selector */}
+            {/* Theme Selector (Desktop only) */}
             <button
-              className="btn btn-sm btn-ghost p-1.5 sm:p-2 rounded-xl text-neutral hover:text-base-content border border-base-500/30 shrink-0"
+              className="btn btn-sm btn-ghost p-1.5 sm:p-2 rounded-xl text-neutral hover:text-base-content border border-base-500/30 hidden md:flex shrink-0"
               title="تغییر تم سایت"
               onClick={() => {
-                const nextTheme = currentTheme.includes('dark') ? 'persian-light' : 'persian-dark';
+                const nextTheme = currentTheme === 'sarv' || currentTheme.includes('dark') ? 'matcha' : 'sarv';
                 setTheme(nextTheme);
               }}
             >
-              {currentTheme.includes('dark') ? (
+              {currentTheme === 'sarv' || currentTheme.includes('dark') ? (
                 <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-accent" />
               ) : (
                 <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-warn" />
@@ -1566,27 +1585,27 @@ export default function LandingPage() {
               <span className="text-xs font-mono">GitHub</span>
             </a>
 
-            {/* Download Android APK */}
+            {/* Flagship: Download Android APK (Primary CTA) */}
             <a
               href="./sarvestan.apk"
               download
-              className="btn btn-sm btn-outline border-primary/40 text-primary hover:bg-primary hover:text-primary-content rounded-xl font-bold flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 text-xs sm:text-sm whitespace-nowrap shrink-0 transition-all"
-              title="دانلود فایل نصبی اپلیکیشن اندروید"
+              className="btn btn-sm btn-primary rounded-xl font-bold flex items-center gap-1 sm:gap-1.5 px-3 sm:px-4 shadow-md shadow-primary/30 text-xs sm:text-sm whitespace-nowrap shrink-0 transition-all hover:scale-105 active:scale-95"
+              title="دانلود فایل نصبی اپلیکیشن اندروید (APK)"
             >
               <Smartphone className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-              <span className="hidden sm:inline whitespace-nowrap">اپ اندروید (APK)</span>
-              <span className="sm:hidden whitespace-nowrap">اندروید</span>
+              <span>دانلود APK اندروید</span>
+              <span className="text-[10px] bg-black/20 text-white px-1.5 py-0.2 rounded font-mono font-bold hidden xs:inline">v1.0</span>
             </a>
 
-            {/* Download Extension ZIP */}
+            {/* Download Extension ZIP (Secondary) */}
             <a
               href="./sarvestan-extension.zip"
               download
-              className="btn btn-sm btn-primary rounded-xl font-bold flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 shadow-md shadow-primary/25 hover:shadow-lg hover:shadow-primary/30 text-xs sm:text-sm whitespace-nowrap shrink-0 transition-all"
+              className="btn btn-sm btn-ghost border border-base-500/40 text-base-content hover:bg-base-500/20 rounded-xl font-medium hidden sm:flex items-center gap-1.5 px-3 text-xs sm:text-sm whitespace-nowrap shrink-0 transition-all"
+              title="دانلود افزونه دسکتاپ برای کروم و اج"
             >
-              <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-              <span className="hidden sm:inline whitespace-nowrap">دریافت افزونه</span>
-              <span className="sm:hidden whitespace-nowrap">دانلود</span>
+              <Download className="w-3.5 h-3.5 shrink-0 text-neutral" />
+              <span>افزونه دسکتاپ</span>
             </a>
           </div>
         </div>
@@ -1633,31 +1652,36 @@ export default function LandingPage() {
           </motion.p>
 
 
-          {/* CTA Buttons */}
+          {/* Flagship CTA Buttons — Android App Primary */}
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-5"
           >
-            <a
-              href="./sarvestan-extension.zip"
-              download
-              className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-primary text-primary-content font-bold text-base shadow-xl shadow-primary/30 hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2.5"
-            >
-              <Download className="w-5 h-5" />
-              <span>دانلود افزونه دسکتاپ (ZIP)</span>
-              <span className="text-xs bg-white/20 px-2 py-0.5 rounded-md font-mono">Chrome / Edge</span>
-            </a>
-
+            {/* Primary Hero Button: Android APK */}
             <a
               href="./sarvestan.apk"
               download
-              className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-base-500/15 hover:bg-base-500/25 border border-base-500/30 text-base-content font-bold text-base hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2.5 shadow-lg"
+              className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-slate-950 font-black text-base sm:text-lg shadow-2xl shadow-emerald-500/40 hover:shadow-emerald-500/60 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 border border-emerald-300/30 group"
             >
-              <Smartphone className="w-5 h-5 text-accent" />
-              <span>دانلود اپلیکیشن اندروید (APK)</span>
-              <span className="text-xs bg-accent/20 text-accent px-2 py-0.5 rounded-md font-mono font-bold">v1.0</span>
+              <Smartphone className="w-6 h-6 shrink-0 group-hover:rotate-6 transition-transform text-slate-950" />
+              <div className="text-right">
+                <div className="leading-tight">دانلود مستقیم اپلیکیشن اندروید</div>
+                <div className="text-[11px] font-mono text-slate-900/80 font-bold">نسخه رسمی ۱.۰ • فایل نصبی APK (۵٫۴ مگابایت)</div>
+              </div>
+              <span className="text-xs bg-black/20 text-slate-950 px-2 py-0.5 rounded-lg font-mono font-bold mr-1">رایگان</span>
+            </a>
+
+            {/* Secondary Button: Desktop Extension ZIP */}
+            <a
+              href="./sarvestan-extension.zip"
+              download
+              className="w-full sm:w-auto px-6 py-4 rounded-2xl bg-base-500/20 hover:bg-base-500/30 border border-base-500/40 text-base-content font-bold text-base hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2.5 shadow-md"
+            >
+              <Download className="w-5 h-5 text-primary shrink-0" />
+              <span>دانلود افزونه دسکتاپ (ZIP)</span>
+              <span className="text-xs bg-base-500/30 px-2 py-0.5 rounded-md font-mono text-neutral">Chrome / Edge</span>
             </a>
           </motion.div>
 
@@ -1668,14 +1692,14 @@ export default function LandingPage() {
             transition={{ duration: 0.6, delay: 0.35 }}
             className="flex flex-wrap items-center justify-center gap-2.5 text-xs text-neutral mb-12"
           >
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-primary/15 border border-primary/30 text-primary font-bold shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+              <span>📱</span>
+              <span>محصول اصلی: اپلیکیشن اندروید (ویجت‌های زنده، آفلاین، بدون فیلترشکن)</span>
+            </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-base-500/20 border border-base-500/30 text-base-content font-medium shadow-sm">
               <span>💻</span>
-              <span>افزونه مرورگر دسکتاپ: بدون نیاز به VPN، هماهنگ با کروم، اج، بریو و اوپرا</span>
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/10 border border-accent/25 text-accent font-semibold shadow-sm">
-              <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-              <span>📱</span>
-              <span>اپلیکیشن اختصاصی اندروید: فایل APK مستقیم، ویجت‌های هوشمند و ورود خودکار</span>
+              <span>افزونه مرورگر دسکتاپ: هماهنگ با کروم، اج، بریو و اوپرا</span>
             </span>
           </motion.div>
 
@@ -1712,12 +1736,12 @@ export default function LandingPage() {
             className="mt-12 max-w-6xl mx-auto"
           >
             <div className="relative flex flex-col lg:flex-row items-center justify-center gap-5 lg:gap-6">
-              {/* Desktop Browser Mockup */}
-              <div className="w-full lg:w-[68%] xl:w-[70%]">
+              {/* Desktop Browser Mockup — Shown ONLY on Desktop (hidden on mobile) */}
+              <div className="hidden lg:block w-full lg:w-[68%] xl:w-[70%]">
                 <DesktopMockup theme={currentShowcaseTheme} />
               </div>
 
-              {/* Mobile Phone Mockup */}
+              {/* Mobile Phone Mockup — Primary Showcase: On mobile this is the sole hero mockup */}
               <div className="w-full sm:w-auto lg:w-[32%] xl:w-[30%] flex justify-center">
                 <MobileMockup theme={currentShowcaseTheme} />
               </div>
@@ -1725,8 +1749,9 @@ export default function LandingPage() {
 
             <div className="mt-4 text-center text-xs text-neutral flex flex-wrap items-center justify-center gap-2">
               <span className="w-2 h-2 rounded-full bg-success inline-block" />
-              <span>پیش‌نمایش زنده و تمام‌وکتور محیط افزونه دسکتاپ و اپلیکیشن موبایل سروستان</span>
-              <span className="opacity-40 hidden sm:inline">•</span>
+              <span className="hidden lg:inline">پیش‌نمایش زنده و تمام‌وکتور محیط افزونه دسکتاپ و اپلیکیشن موبایل سروستان</span>
+              <span className="lg:hidden">پیش‌نمایش زنده و تمام‌وکتور محیط اپلیکیشن اندروید سروستان</span>
+              <span className="opacity-40 hidden lg:inline">•</span>
               <a
                 href="#preview"
                 onClick={(e) => scrollToSection(e, '#preview')}
@@ -1782,9 +1807,9 @@ export default function LandingPage() {
       </AnimatePresence>
 
       {/* =========================================================
-          Interactive Multi-Theme Product Showcase (Sticky Pinned Scroll)
+          Interactive Multi-Theme Product Showcase (Sticky Pinned Scroll - Desktop Only)
           ========================================================= */}
-      <section id="preview" ref={showcaseRef} className="relative z-10" style={{ minHeight: '260vh' }}>
+      <section id="preview" ref={showcaseRef} className="relative z-10 hidden lg:block" style={{ minHeight: '260vh' }}>
         <div className="sticky top-20 z-20 py-4 max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-4">
             <span className="text-xs font-bold text-accent px-3.5 py-1 rounded-full bg-accent/10 border border-accent/25 mb-2 inline-block shadow-sm">
