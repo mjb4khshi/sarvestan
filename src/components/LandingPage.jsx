@@ -1637,7 +1637,7 @@ export default function LandingPage() {
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <span className="font-black text-base sm:text-xl tracking-tight text-base-content">سَروستان</span>
                 <span className="text-[9px] sm:text-[10px] font-mono px-1.5 sm:px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                  v1.0
+                  v1.0.1
                 </span>
               </div>
               <p className="text-[11px] text-neutral hidden sm:block whitespace-nowrap">
@@ -1743,6 +1743,17 @@ export default function LandingPage() {
               <span className="text-xs font-mono">GitHub</span>
             </a>
 
+            <a
+              href="https://github.com/mjb4khshi/sarvestan/releases/latest"
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-sm btn-ghost p-2 rounded-xl text-neutral hover:text-primary border border-base-500/30 hidden lg:flex items-center gap-1.5 shrink-0"
+              title="مشاهده انتشار نسخه جدید در گیت‌هاب"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-primary" />
+              <span className="text-xs font-mono">v1.0.1</span>
+            </a>
+
             {/* Flagship: Download Android APK (Theme Success Green) */}
             <a
               href="./sarvestan.apk"
@@ -1752,7 +1763,7 @@ export default function LandingPage() {
             >
               <Smartphone className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
               <span>دانلود APK اندروید</span>
-              <span className="text-[10px] bg-black/20 text-success-content px-1.5 py-0.2 rounded font-mono font-bold hidden xs:inline">v1.0</span>
+              <span className="text-[10px] bg-black/20 text-success-content px-1.5 py-0.2 rounded font-mono font-bold hidden xs:inline">v1.0.1</span>
             </a>
 
             {/* Download Extension ZIP (Theme Primary) */}
@@ -1826,7 +1837,7 @@ export default function LandingPage() {
               <Smartphone className="w-6 h-6 shrink-0 group-hover:rotate-6 transition-transform" />
               <div className="text-right">
                 <div className="leading-tight">دانلود مستقیم اپلیکیشن اندروید</div>
-                <div className="text-[11px] font-mono opacity-90 font-bold">نسخه رسمی ۱.۰ • فایل نصبی APK (۵٫۴ مگابایت)</div>
+                <div className="text-[11px] font-mono opacity-90 font-bold">نسخه رسمی ۱.۰.۱ • فایل نصبی APK (۵٫۰ مگابایت)</div>
               </div>
               <span className="text-xs bg-black/20 text-success-content px-2 py-0.5 rounded-lg font-mono font-bold mr-1">رایگان</span>
             </a>
@@ -2273,7 +2284,7 @@ export default function LandingPage() {
               </div>
               <div className="flex items-center gap-2 mb-2">
                 <h3 className="font-bold text-base text-base-content">اپلیکیشن اندروید و ویجت‌های زنده</h3>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-accent/20 text-accent font-mono">v1.0</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-accent/20 text-accent font-mono">v1.0.1</span>
               </div>
               <p className="text-xs sm:text-sm text-neutral leading-relaxed">
                 دسترسی سریع و آفلاین به برنامه کلاسی، ۳ نوع ویجت هوشمند هوم‌اسکرین (کلاس بعدی، معدل کل و کارت ترکیبی) و ۱۲ آیکون لانچر متنوع.
@@ -2358,7 +2369,7 @@ export default function LandingPage() {
             >
               <Smartphone className="w-4 h-4" />
               <span>نصب اپلیکیشن اندروید (APK مستقیم)</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-white/20 font-mono">v1.0</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-white/20 font-mono">v1.0.1</span>
             </button>
             <button
               type="button"
@@ -2386,17 +2397,29 @@ export default function LandingPage() {
                 <div className="flex-1">
                   <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
                     <h3 className="font-bold text-base text-base-content">دانلود مستقیم فایل نصبی sarvestan.apk</h3>
-                    <a
-                      href="./sarvestan.apk"
-                      download
-                      className="px-3 py-1.5 rounded-xl bg-primary text-primary-content text-xs font-bold hover:bg-primary/90 flex items-center gap-1.5 shadow-sm transition-all"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>دانلود sarvestan.apk (۵٫۴ مگابایت)</span>
-                    </a>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href="https://github.com/mjb4khshi/sarvestan/releases/latest"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1.5 rounded-xl border border-base-500/30 text-neutral hover:text-primary text-xs font-bold flex items-center gap-1 transition-all"
+                        title="مشاهده انتشار نسخه در گیت‌هاب"
+                      >
+                        <GithubIcon className="w-3.5 h-3.5" />
+                        <span>ریلیز گیت‌هاب (v1.0.1)</span>
+                      </a>
+                      <a
+                        href="./sarvestan.apk"
+                        download
+                        className="px-3 py-1.5 rounded-xl bg-primary text-primary-content text-xs font-bold hover:bg-primary/90 flex items-center gap-1.5 shadow-sm transition-all"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>دانلود sarvestan.apk (۵٫۰ مگابایت)</span>
+                      </a>
+                    </div>
                   </div>
                   <p className="text-xs sm:text-sm text-neutral leading-relaxed">
-                    فایل APK نسخه ۱.۰ را از دکمه بالا مستقیماً دریافت کنید. این اپلیکیشن نیتیو بوده و روی تمام گوشی‌های هوشمند اندروید (اندروید نسخه ۸ به بالا) بدون نیاز به گوگل‌پلی یا VPN به راحتی کار می‌کند.
+                    فایل APK نسخه ۱.۰.۱ را از دکمه بالا مستقیماً دریافت کنید. این اپلیکیشن نیتیو بوده و روی تمام گوشی‌های هوشمند اندروید (اندروید نسخه ۸ به بالا) بدون نیاز به گوگل‌پلی یا VPN به راحتی کار می‌کند.
                   </p>
                 </div>
               </div>
@@ -2449,14 +2472,26 @@ export default function LandingPage() {
                 <div className="flex-1">
                   <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
                     <h3 className="font-bold text-base text-base-content">دانلود فایل افزونه و استخراج (Unzip)</h3>
-                    <a
-                      href="./sarvestan-extension.zip"
-                      download
-                      className="px-3 py-1.5 rounded-xl bg-primary text-primary-content text-xs font-bold hover:bg-primary/90 flex items-center gap-1.5 shadow-sm transition-all"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>دانلود sarvestan-extension.zip</span>
-                    </a>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href="https://github.com/mjb4khshi/sarvestan/releases/latest"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1.5 rounded-xl border border-base-500/30 text-neutral hover:text-primary text-xs font-bold flex items-center gap-1 transition-all"
+                        title="مشاهده پکیج‌های انتشار در گیت‌هاب"
+                      >
+                        <GithubIcon className="w-3.5 h-3.5" />
+                        <span>پکیج‌های ریلیز (v1.0.1)</span>
+                      </a>
+                      <a
+                        href="./sarvestan-extension.zip"
+                        download
+                        className="px-3 py-1.5 rounded-xl bg-primary text-primary-content text-xs font-bold hover:bg-primary/90 flex items-center gap-1.5 shadow-sm transition-all"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>دانلود sarvestan-extension.zip</span>
+                      </a>
+                    </div>
                   </div>
                   <p className="text-xs sm:text-sm text-neutral leading-relaxed">
                     فایل فشرده <code className="bg-base-500/30 px-1.5 py-0.5 rounded text-primary font-mono text-xs">sarvestan-extension.zip</code> را از لینک بالا دانلود کرده و آن را درون یک پوشه مشخص در کامپیوتر خود Extract کنید.
@@ -2627,11 +2662,11 @@ export default function LandingPage() {
               },
               {
                 q: 'آیا سروستان روی گوشی موبایل هم کار می‌کند؟',
-                a: 'بله! نسخه رسمی ۱.۰ اپلیکیشن اندروید سروستان منتشر شده و فایل APK مستقیم آن در دسترس است. نسخه اندروید دارای قابلیت کارکرد کاملاً آفلاین برای برنامه کلاسی، ورود امن، ویجت‌های تعاملی صفحه اصلی گوشی (کلاس بعدی، معدل کل و کارت ترکیبی) و ۱۲ پالت رنگی آیکون لانچر اختصاصی است.'
+                a: 'بله! نسخه رسمی ۱.۰.۱ اپلیکیشن اندروید سروستان منتشر شده و فایل APK مستقیم آن در دسترس است. نسخه اندروید دارای قابلیت کارکرد کاملاً آفلاین برای برنامه کلاسی، ورود امن، ویجت‌های تعاملی صفحه اصلی گوشی (کلاس بعدی، معدل کل و کارت ترکیبی)، به‌روزرسانی هوشمند درون‌برنامه‌ای و ۱۲ پالت رنگی آیکون لانچر اختصاصی است.'
               },
               {
                 q: 'آیا این سامانه برای سایر دانشگاه‌هایی که از سامانه بهستان استفاده می‌کنند هم کاربرد دارد؟',
-                a: 'بله؛ معماری هسته سروستان اختصاصاً بر پایه پروتکل و ساختار مدرن سامانه بهستان مهندسی شده است. در نسخه ۱.۰ فرم‌ها و فیلدها با بهستان دانشگاه صنعتی خواجه نصیرالدین طوسی هماهنگ شده‌اند و در حال گسترش آن برای تمامی دانشگاه‌های دارای سامانه بهستان هستیم.'
+                a: 'بله؛ معماری هسته سروستان اختصاصاً بر پایه پروتکل و ساختار مدرن سامانه بهستان مهندسی شده است. در نسخه ۱.۰.۱ فرم‌ها و فیلدها با بهستان دانشگاه صنعتی خواجه نصیرالدین طوسی هماهنگ شده‌اند و در حال گسترش آن برای تمامی دانشگاه‌های دارای سامانه بهستان هستیم.'
               }
             ].map((faq, idx) => (
 
@@ -2789,6 +2824,17 @@ export default function LandingPage() {
               >
                 <GithubIcon className="w-4 h-4" />
                 <span>مخزن گیت‌هاب</span>
+              </a>
+              <span className="opacity-30">•</span>
+              <a
+                href="https://github.com/mjb4khshi/sarvestan/releases/latest"
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-accent font-bold transition-colors flex items-center gap-1.5"
+                title="دانلود و مشاهده جزییات انتشار v1.0.1 در گیت‌هاب"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-accent" />
+                <span>جدیدترین انتشار (v1.0.1)</span>
               </a>
               <span className="opacity-30">•</span>
               <a

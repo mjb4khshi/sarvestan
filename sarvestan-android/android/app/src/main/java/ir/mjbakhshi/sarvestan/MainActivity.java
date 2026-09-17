@@ -11,6 +11,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SarvestanWidgetPlugin.class);
         registerPlugin(SarvestanSharePlugin.class);
         registerPlugin(SarvestanIconPlugin.class);
+        registerPlugin(SarvestanInstallerPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

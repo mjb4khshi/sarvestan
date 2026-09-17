@@ -16,9 +16,15 @@ import NotificationsDrawer from './components/NotificationsDrawer';
 import LoginModal from './components/LoginModal';
 import NotAvailableModal from './components/NotAvailableModal';
 import BehestanReferralModal from './components/BehestanReferralModal';
+import ExtensionUpdateModal from './components/ExtensionUpdateModal';
 import LandingPage from './components/LandingPage';
 import { getDashboardTabForCode } from './services/behestanSearchIndex';
 import { REAL_WORKFLOW_REQUESTS, REAL_FINANCIAL_REPORT_2563, subscribeToData } from './services/behestanData';
+import {
+  checkForExtensionUpdate,
+  hasDismissedExtensionUpdate,
+  dismissExtensionUpdate,
+} from './services/updater';
 
 function DashboardContent() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -28,6 +34,27 @@ function DashboardContent() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [notAvailableItem, setNotAvailableItem] = useState(null);
   const [, setNotifyTick] = React.useState(0);
+  const [updateRelease, setUpdateRelease] = useState(null);
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+
+  React.useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await checkForExtensionUpdate();
+        if (!active) return;
+        if (res.hasUpdate && res.latestRelease) {
+          setUpdateRelease(res.latestRelease);
+          if (!hasDismissedExtensionUpdate(res.latestRelease.tagName)) {
+            setIsUpdateModalOpen(true);
+          }
+        }
+      } catch {}
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleTabChange = (tab) => {
     if (tab === 'requests' || tab === 'letters') {
@@ -76,6 +103,8 @@ function DashboardContent() {
         onToggleNotifications={() => setIsNotificationsOpen(!isNotificationsOpen)}
         onOpenLogin={() => setIsLoginOpen(true)}
         onSelectSearchResult={handleSelectSearchResult}
+        latestUpdateRelease={updateRelease}
+        onOpenUpdateModal={() => setIsUpdateModalOpen(true)}
       />
 
       <div className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 pt-4 pb-24 lg:pb-8 flex flex-col lg:flex-row gap-0 lg:gap-8">
@@ -178,6 +207,20 @@ function DashboardContent() {
         type={behestanReferralType}
         onClose={() => setBehestanReferralType(null)}
       />
+
+      {/* مودال اعلان به‌روزرسانی افزونه */}
+      <AnimatePresence>
+        {isUpdateModalOpen && updateRelease && (
+          <ExtensionUpdateModal
+            key="sarvestan-ext-update-modal"
+            release={updateRelease}
+            onClose={() => {
+              dismissExtensionUpdate(updateRelease.tagName);
+              setIsUpdateModalOpen(false);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

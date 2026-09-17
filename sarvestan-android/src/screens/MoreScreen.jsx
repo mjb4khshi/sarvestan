@@ -23,7 +23,11 @@ import {
   CalendarDays,
   TrendingUp,
   Loader2,
+  Rocket,
+  AlertCircle,
 } from 'lucide-react';
+import UpdateModal from '../components/UpdateModal';
+import { checkForUpdate, CURRENT_VERSION } from '../services/updater';
 import { getViewModel } from '../data/viewModel';
 import { useSarvestanData } from '../hooks/useSarvestanData';
 import { useTheme } from '../context/ThemeContext';
@@ -67,7 +71,30 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
     status: w.status || 'در جریان',
     color: i % 2 === 0 ? 'info' : 'warn',
   }));
-  const [cacheCleared, setCacheCleared] = useState(false);
+  const [updateState, setUpdateState] = useState({
+    checking: false,
+    checked: false,
+    hasUpdate: false,
+    latestRelease: null,
+    error: null,
+  });
+  const [updateModalOpen, setUpdateModalOpen] = useState(false);
+
+  const handleCheckUpdate = async (openModalIfUpdate = true) => {
+    if (updateState.checking) return;
+    setUpdateState((s) => ({ ...s, checking: true, error: null }));
+    const res = await checkForUpdate();
+    setUpdateState({
+      checking: false,
+      checked: true,
+      hasUpdate: res.hasUpdate,
+      latestRelease: res.latestRelease,
+      error: res.error,
+    });
+    if (res.hasUpdate && openModalIfUpdate && res.latestRelease) {
+      setUpdateModalOpen(true);
+    }
+  };
   const [chartModalOpen, setChartModalOpen] = useState(initialChartOpen);
   const [aboutModalOpen, setAboutModalOpen] = useState(false);
   const [referralModalOpen, setReferralModalOpen] = useState(false);
@@ -161,19 +188,6 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
     }
   };
 
-  const handleClearCache = () => {
-    try {
-      localStorage.removeItem('sarvestan_live_schedule');
-      localStorage.removeItem('sarvestan_live_courses');
-      localStorage.removeItem('sarvestan_live_reg77');
-    } catch {}
-    setCacheCleared(true);
-    setTimeout(() => setCacheCleared(false), 2000);
-    // همگام‌سازی مجدد
-    setTimeout(() => {
-      sync(true).catch(() => {});
-    }, 400);
-  };
 
   const handleCopyInvite = () => {
     navigator.clipboard?.writeText(
@@ -535,34 +549,107 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
         </div>
       </section>
 
-      {/* ۵. ابزارها و تازه‌سازی حافظه */}
+      {/* ۵. بررسی به‌روزرسانی و وضعیت نسخه */}
       <section className="space-y-1.5">
-        <h3 className="text-[12.5px] font-bold text-neutral px-1">تنظیمات داده</h3>
-        <div className="sarv-card overflow-hidden divide-y divide-base-500/30">
-          <button
-            type="button"
-            onClick={handleClearCache}
-            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 transition-colors"
-          >
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-[12.5px] font-bold text-neutral">نسخه و به‌روزرسانی</h3>
+          <span className="text-[11px] font-semibold text-neutral/70 font-mono">
+            v{CURRENT_VERSION}
+          </span>
+        </div>
+        <div className="sarv-card overflow-hidden">
+          <div className="p-3.5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <span className="w-9 h-9 rounded-xl bg-warn-soft text-warn grid place-items-center shrink-0">
-                <RefreshCw className={`w-4.5 h-4.5 ${cacheCleared ? 'animate-spin' : ''}`} />
+              <span
+                className={`w-9 h-9 rounded-xl grid place-items-center shrink-0 ${
+                  updateState.hasUpdate
+                    ? 'bg-primary-soft text-primary ring-2 ring-primary/30'
+                    : updateState.checking
+                    ? 'bg-base-500/40 text-primary'
+                    : updateState.checked
+                    ? 'bg-success-soft text-success'
+                    : 'bg-base-500/40 text-neutral'
+                }`}
+              >
+                {updateState.checking ? (
+                  <Loader2 className="w-4.5 h-4.5 animate-spin" />
+                ) : updateState.hasUpdate ? (
+                  <Rocket className="w-4.5 h-4.5 animate-pulse" />
+                ) : updateState.checked ? (
+                  <CheckCircle2 className="w-4.5 h-4.5" />
+                ) : (
+                  <Download className="w-4.5 h-4.5" />
+                )}
               </span>
+
               <div className="min-w-0">
-                <p className="text-[13.5px] font-bold text-base-content">همگام‌سازی و تازه‌سازی حافظه</p>
-                <p className="text-[10.5px] text-neutral mt-0.5">
-                  {cacheCleared
-                    ? 'حافظه موقت تازه شد ✓'
-                    : lastSyncFormatted
-                      ? `آخرین همگام‌سازی: ${lastSyncFormatted}`
-                      : 'پاک‌کردن کش محلی اطلاعات بهستان'}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-[13.5px] font-bold text-base-content">
+                    {updateState.hasUpdate
+                      ? `نسخه جدید ${updateState.latestRelease?.tagName} موجود است`
+                      : updateState.checking
+                      ? 'در حال بررسی گیت‌هاب...'
+                      : updateState.checked
+                      ? 'سروستان شما کاملاً به‌روز است'
+                      : 'بررسی به‌روزرسانی سروستان'}
+                  </p>
+                  {updateState.hasUpdate && (
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                        updateState.latestRelease?.isPrerelease
+                          ? 'bg-amber-500/15 text-amber-500 border border-amber-500/20'
+                          : 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/20'
+                      }`}
+                    >
+                      {updateState.latestRelease?.isPrerelease ? 'آزمایشی' : 'پایدار'}
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-[10.5px] text-neutral mt-0.5 truncate">
+                  {updateState.hasUpdate
+                    ? 'امکانات و تغییرات جدید برای دریافت آماده است'
+                    : updateState.checking
+                    ? 'اتصال به مخزن رسمی mjb4khshi/sarvestan...'
+                    : updateState.error
+                    ? `${updateState.error} — کلیک برای تلاش دوباره`
+                    : updateState.checked
+                    ? `نسخه ${CURRENT_VERSION} آخرین نگارش منتشرشده است ✓`
+                    : `نسخه کنونی شما: ${CURRENT_VERSION} · کلیک برای بررسی`}
                 </p>
               </div>
             </div>
-            <span className="text-[11px] font-bold text-primary px-2 py-0.5 rounded-md bg-primary-soft">
-              اجرا
-            </span>
-          </button>
+
+            {updateState.hasUpdate ? (
+              <button
+                type="button"
+                onClick={() => setUpdateModalOpen(true)}
+                className="shrink-0 px-3 py-1.5 rounded-xl bg-primary text-primary-content font-bold text-[11.5px] shadow-sm hover:brightness-110 active:scale-95 transition-all flex items-center gap-1.5"
+              >
+                <Rocket className="w-3.5 h-3.5" />
+                <span>به‌روزرسانی</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={updateState.checking}
+                onClick={() => handleCheckUpdate(true)}
+                className="shrink-0 px-3 py-1.5 rounded-xl bg-base-500/40 hover:bg-base-500/60 active:scale-95 text-base-content font-bold text-[11px] transition-all flex items-center gap-1.5 disabled:opacity-60"
+              >
+                {updateState.checking ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                    <span>بررسی...</span>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>{updateState.checked ? 'بررسی مجدد' : 'بررسی نسخه'}</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
       </section>
 
@@ -602,7 +689,7 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
           طراحی و توسعه توسط <span className="font-mono font-bold text-base-content">@mjb4khshi</span> با چای و حوصله بسیار ☕
         </p>
         <p className="text-[10px] text-neutral/60 font-mono">
-          نسخه ۱.۰ سروستان همراه · Sarv UI
+          نسخه {toFaDigits(CURRENT_VERSION)} سروستان همراه · Sarv UI
         </p>
       </div>
 
@@ -1007,7 +1094,7 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
                   <span>
                     طراحی و توسعه: <strong className="text-base-content font-mono font-bold">@mjb4khshi</strong>
                   </span>
-                  <span className="font-mono">v1.0.0 · 2026</span>
+                  <span className="font-mono">v{CURRENT_VERSION} · 2026</span>
                 </div>
               </div>
             </motion.div>
@@ -1229,6 +1316,17 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* مودال بررسی و دریافت به‌روزرسانی */}
+      <AnimatePresence>
+        {updateModalOpen && updateState.latestRelease && (
+          <UpdateModal
+            key="sarvestan-more-update-modal"
+            release={updateState.latestRelease}
+            onClose={() => setUpdateModalOpen(false)}
+          />
         )}
       </AnimatePresence>
     </div>

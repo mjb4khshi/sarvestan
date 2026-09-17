@@ -23,6 +23,8 @@ import {
 } from './services/loginFlow';
 import { isSessionAlive } from './services/behestan/session';
 import { hasLiveData } from './services/behestan/store';
+import UpdateModal from './components/UpdateModal';
+import { checkForUpdate, hasDismissedUpdate, dismissUpdate } from './services/updater';
 
 const TITLES = {
   schedule: 'برنامه هفتگی',
@@ -167,12 +169,54 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
+        <AutoUpdateGate />
         <LoginGate />
         <SsoCallbackBridge />
         <DataBootstrap />
         <Shell />
       </ThemeProvider>
     </ErrorBoundary>
+  );
+}
+
+/**
+ * بررسی مخفیانه و خودکار به‌روزرسانی هنگام ورود
+ * در صورت وجود نسخه جدید و عدم رد در نشست جاری، مودال به‌روزرسانی نمایش می‌یابد
+ */
+function AutoUpdateGate() {
+  const [updateRelease, setUpdateRelease] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await checkForUpdate();
+        if (!active) return;
+        if (res.hasUpdate && res.latestRelease) {
+          if (!hasDismissedUpdate(res.latestRelease.tagName)) {
+            setUpdateRelease(res.latestRelease);
+          }
+        }
+      } catch {}
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return (
+    <AnimatePresence>
+      {updateRelease && (
+        <UpdateModal
+          key="sarvestan-auto-update-modal"
+          release={updateRelease}
+          onClose={() => {
+            dismissUpdate(updateRelease.tagName);
+            setUpdateRelease(null);
+          }}
+        />
+      )}
+    </AnimatePresence>
   );
 }
 

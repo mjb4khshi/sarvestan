@@ -7,7 +7,8 @@ import {
   Check,
   ChevronDown,
   RefreshCw,
-  X
+  X,
+  Rocket,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { BEHESTAN_PROFILE } from '../services/behestanData';
@@ -18,7 +19,16 @@ import SarvInput from './sarv/SarvInput';
 import SarvAvatar from './SarvAvatar';
 import { toFaDigits } from '../utils/faDigits';
 
-export default function Header({ onOpenSearch, onNavigate, unreadNotificationsCount = 0, onToggleNotifications, onOpenLogin, onSelectSearchResult }) {
+export default function Header({
+  onOpenSearch,
+  onNavigate,
+  unreadNotificationsCount = 0,
+  onToggleNotifications,
+  onOpenLogin,
+  onSelectSearchResult,
+  latestUpdateRelease,
+  onOpenUpdateModal,
+}) {
   const { currentTheme, setTheme, themes, activeThemeMeta } = useTheme();
   const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -206,6 +216,19 @@ export default function Header({ onOpenSearch, onNavigate, unreadNotificationsCo
               )}
             </AnimatePresence>
           </div>
+
+          {/* Update Available Badge */}
+          {latestUpdateRelease && (
+            <button
+              type="button"
+              onClick={onOpenUpdateModal}
+              className="px-2.5 py-1.5 rounded-[var(--radius-button,0.75rem)] bg-primary-soft text-primary border border-primary/30 text-xs font-bold flex items-center gap-1.5 hover:bg-primary/25 active:scale-95 transition-all cursor-pointer shadow-sm shadow-primary/10 animate-pulse"
+              title="نسخه جدید افزونه در دسترس است"
+            >
+              <Rocket className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">آپدیت {latestUpdateRelease.tagName}</span>
+            </button>
+          )}
 
           {/* Notifications — only show if real count > 0 */}
           {unreadNotificationsCount > 0 && (
