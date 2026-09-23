@@ -759,64 +759,66 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
         </div>
       </section>
 
-      {/* بخش پاکسازی داده‌های برنامه */}
+      {/* مدیریت داده‌ها و بازنشانی */}
       <section className="space-y-1.5">
-        <div className="sarv-card p-3.5 flex items-center justify-between gap-3 bg-danger-soft/20 border border-danger/25">
-          <div className="flex items-center gap-3 min-w-0">
-            <span className="w-9 h-9 rounded-xl bg-danger/15 text-danger grid place-items-center shrink-0">
-              <Trash2 className="w-4.5 h-4.5" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[13px] font-bold text-base-content">
-                پاکسازی داده‌های برنامه
-              </p>
-              <p className="text-[10.5px] text-neutral mt-0.5 truncate">
-                حذف اطلاعات ذخیره‌شده، نمرات، نشست‌ها و بازنشانی کامل اپ
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setClearDataModalOpen(true)}
-            className="shrink-0 px-3 py-1.5 rounded-xl bg-danger text-danger-content font-bold text-[11px] shadow-sm hover:brightness-110 active:scale-95 transition-all flex items-center gap-1.5"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>پاکسازی</span>
-          </button>
-        </div>
-      </section>
-
-      {/* بخش بازنشانی برنامه به داده‌های بهستان */}
-      <section className="space-y-1.5">
-        <div className="sarv-card p-3.5 flex items-center justify-between gap-3 bg-warning-soft/20 border border-warning/25">
-          <div className="flex items-center gap-3 min-w-0">
-            <span className="w-9 h-9 rounded-xl bg-warning/15 text-warning grid place-items-center shrink-0">
-              <RotateCcw className="w-4.5 h-4.5" />
-            </span>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <p className="text-[13px] font-bold text-base-content">
-                  بازنشانی به داده‌های بهستان
+        <h3 className="text-[12.5px] font-bold text-neutral px-1">مدیریت داده‌ها و بازنشانی</h3>
+        <div className="sarv-card overflow-hidden divide-y divide-base-500/25">
+          {/* بازنشانی برنامه به داده‌های بهستان */}
+          <div className="p-3.5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl bg-accent-soft text-accent grid place-items-center shrink-0">
+                <RotateCcw className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-[13px] font-bold text-base-content">
+                    بازنشانی به داده‌های بهستان
+                  </p>
+                  {hasScheduleCustomizations() && (
+                    <span className="text-[9.5px] px-2 py-0.5 rounded-full font-bold bg-accent/15 text-accent border border-accent/25">
+                      دارای ویرایش دستی
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10.5px] text-neutral mt-0.5 truncate">
+                  بازگردانی تغییرات دستی برنامه هفتگی و امتحانات به اطلاعات رسمی بهستان
                 </p>
-                {hasScheduleCustomizations() && (
-                  <span className="text-[9.5px] px-1.5 py-0.5 rounded-full font-bold bg-warning/20 text-warning border border-warning/30">
-                    ویرایش‌شده
-                  </span>
-                )}
               </div>
-              <p className="text-[10.5px] text-neutral mt-0.5 truncate">
-                بازگردانی تغییرات دستی برنامه هفتگی و امتحانات به اطلاعات اصلی بهستان
-              </p>
             </div>
+            <button
+              type="button"
+              onClick={() => setResetModalOpen(true)}
+              className="shrink-0 px-3 py-1.5 rounded-xl bg-base-500/20 hover:bg-base-500/35 text-base-content font-bold text-[11px] border border-base-500/30 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-accent" />
+              <span>بازنشانی</span>
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setResetModalOpen(true)}
-            className="shrink-0 px-3 py-1.5 rounded-xl bg-warning/20 text-warning hover:bg-warning/30 border border-warning/30 font-bold text-[11px] shadow-sm active:scale-95 transition-all flex items-center gap-1.5"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>بازنشانی</span>
-          </button>
+
+          {/* پاکسازی کامل داده‌های برنامه */}
+          <div className="p-3.5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl bg-danger-soft text-danger grid place-items-center shrink-0">
+                <Trash2 className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-bold text-base-content">
+                  پاکسازی کامل داده‌های برنامه
+                </p>
+                <p className="text-[10.5px] text-neutral mt-0.5 truncate">
+                  خروج از حساب، حذف نشست‌ها، نمرات و راه‌اندازی اولیه اپلیکیشن
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setClearDataModalOpen(true)}
+              className="shrink-0 px-3 py-1.5 rounded-xl bg-danger-soft text-danger hover:bg-danger/20 border border-danger/30 font-bold text-[11px] active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>پاکسازی</span>
+            </button>
+          </div>
         </div>
       </section>
 
@@ -1565,64 +1567,74 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
         {/* مودال تایید بازنشانی برنامه به بهستان */}
         {resetModalOpen && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
             onClick={() => setResetModalOpen(false)}
           >
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              transition={{ type: 'spring', damping: 26, stiffness: 350 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm sarv-card p-5 space-y-4 border border-warning/30 shadow-2xl"
+              className="w-full max-w-sm sarv-card p-5 space-y-4 border border-accent/30 shadow-2xl overflow-hidden"
             >
-              <div className="flex items-center gap-3">
-                <span className="w-10 h-10 rounded-2xl bg-warning/15 text-warning grid place-items-center shrink-0">
+              <div className="flex items-start gap-3">
+                <span className="w-10 h-10 rounded-2xl bg-accent-soft text-accent grid place-items-center shrink-0 border border-accent/25">
                   <RotateCcw className="w-5 h-5" />
                 </span>
                 <div className="min-w-0">
-                  <h3 className="text-[14px] font-bold text-base-content">
+                  <h3 className="text-[15px] font-black text-base-content">
                     بازنشانی به داده‌های بهستان
                   </h3>
                   <p className="text-[11px] text-neutral mt-0.5">
-                    بازگردانی برنامه و امتحانات به وضعیت اولیه
+                    بازیابی نسخه همگام‌شده از سامانه دانشگاه
                   </p>
                 </div>
               </div>
 
-              <div className="p-3 rounded-2xl bg-warning-soft/30 border border-warning/20 text-[11.5px] text-base-content leading-relaxed">
-                آیا از بازنشانی برنامه هفتگی و زمان امتحانات به اطلاعات رسمی دریافت شده از سامانه بهستان مطمئن هستید؟ تمام ویرایش‌ها و کلاس‌های اضافه شده لغو خواهند شد.
+              <div className="p-3.5 rounded-2xl bg-accent-soft/30 border border-accent/20 space-y-1.5 text-[11.5px] text-base-content leading-relaxed">
+                <p className="font-bold flex items-center gap-1.5 text-accent">
+                  <Info className="w-3.5 h-3.5 shrink-0" />
+                  <span>لغو کلیه تغییرات و دروس دستی</span>
+                </p>
+                <p className="opacity-90">
+                  آیا از بازنشانی برنامه هفتگی و زمان امتحانات به اطلاعات رسمی بهستان مطمئن هستید؟ تمام ویرایش‌ها و کلاس‌های اضافه شده لغو خواهند شد.
+                </p>
               </div>
 
               <div className="flex items-center gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setResetModalOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl bg-base-500/20 hover:bg-base-500/35 text-base-content text-[12px] font-bold transition active:scale-95"
+                  className="flex-1 py-2.5 rounded-xl bg-base-500/20 hover:bg-base-500/35 text-base-content text-[12px] font-bold transition active:scale-95 cursor-pointer"
                 >
                   انصراف
                 </button>
                 <button
                   type="button"
                   onClick={handleResetToBehestan}
-                  className="flex-1 py-2.5 rounded-xl bg-warning text-black text-[12px] font-bold hover:brightness-110 transition active:scale-95 flex items-center justify-center gap-1.5 shadow-sm"
+                  className="flex-1 py-2.5 rounded-xl bg-accent text-accent-content text-[12px] font-bold hover:brightness-110 transition active:scale-95 flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
                 >
                   <RotateCcw className="w-4 h-4" />
-                  بله، بازنشانی شود
+                  <span>تایید بازنشانی</span>
                 </button>
               </div>
             </motion.div>
           </div>
         )}
 
-        {/* اعلان پیام بازنشانی */}
+        {/* اعلان پیام بازنشانی به سبک شناور سرو */}
         {resetToast && (
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="fixed top-5 left-4 right-4 z-50 mx-auto max-w-sm p-3.5 rounded-2xl bg-base-100/95 backdrop-blur-md border border-success/30 shadow-lg text-[12px] text-success font-medium flex items-center gap-2"
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+            className="fixed bottom-20 left-4 right-4 z-[90] mx-auto max-w-sm p-3.5 rounded-2xl bg-base/95 backdrop-blur-md border border-success/35 shadow-2xl text-[12px] text-base-content font-bold flex items-center gap-2.5"
           >
-            <CheckCircle2 className="w-4.5 h-4.5 shrink-0" />
+            <span className="w-7 h-7 rounded-xl bg-success text-success-content grid place-items-center shrink-0 shadow-xs">
+              <CheckCircle2 className="w-4 h-4" />
+            </span>
             <span className="flex-1">{resetToast}</span>
           </motion.div>
         )}
