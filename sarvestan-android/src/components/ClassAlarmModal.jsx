@@ -14,8 +14,9 @@ import {
   CalendarCheck,
   Settings,
   Layers,
-  BookOpen,
   Check,
+  UtensilsCrossed,
+  ExternalLink,
 } from 'lucide-react';
 import {
   isNativeAlarms,
@@ -32,6 +33,11 @@ import {
   getReminderSettings,
   saveReminderSettings,
   collectWeeklySlots,
+  getSamadReminderSettings,
+  saveSamadReminderSettings,
+  updateSamadReminder,
+  testSamadNotification,
+  SAMAD_URL,
 } from '../services/classAlarms';
 import { toFaDigits } from '../utils/faDigits';
 import SarvCheckbox from './SarvCheckbox';
@@ -43,10 +49,20 @@ const LEAD_TIME_OPTIONS = [
   { value: 20, label: '۲۰ دقیقه قبل' },
 ];
 
+const SAMAD_TIME_PRESETS = [
+  { value: '10:00', label: 'صبح' },
+  { value: '12:00', label: 'ظهر' },
+  { value: '14:00', label: 'بعدازظهر' },
+  { value: '18:00', label: 'عصر' },
+  { value: '21:00', label: 'شب' },
+];
+
 export default function ClassAlarmModal({ isOpen, onClose }) {
   const [leadMinutes, setLeadMinutes] = useState(10);
   const [notifyAtStart, setNotifyAtStart] = useState(true);
-  const [busyAction, setBusyAction] = useState(null); // 'reminders' | 'clock' | 'test' | 'cancel' | null
+  const [samadEnabled, setSamadEnabled] = useState(false);
+  const [samadTime, setSamadTime] = useState('14:00');
+  const [busyAction, setBusyAction] = useState(null); // 'reminders' | 'clock' | 'test' | 'cancel' | 'samad' | 'samad-test' | null
   const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error' | 'info', text: string, showSettings?: boolean }
   const [coursesList, setCoursesList] = useState([]);
 
@@ -55,6 +71,13 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
       const settings = getReminderSettings();
       setLeadMinutes(settings.leadMinutes || 10);
       setNotifyAtStart(settings.notifyAtStart !== false);
+
+      const samadSettings = getSamadReminderSettings();
+      setSamadEnabled(Boolean(samadSettings.enabled));
+      const sh = String(samadSettings.hour ?? 14).padStart(2, '0');
+      const sm = String(samadSettings.minute ?? 0).padStart(2, '0');
+      setSamadTime(`${sh}:${sm}`);
+
       setFeedback(null);
 
       // دریافت لیست دروس و جلسات با اطلاعات کامل (نام، روز، ساعت دقیق)
@@ -92,6 +115,7 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
         daysAhead: 7,
         leadMinutes,
         notifyAtStart,
+        includeSamad: samadEnabled,
       });
 
       if (!res.ok) {
@@ -100,10 +124,91 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
         const count = res.scheduled || 0;
         showMsg(
           count > 0
-            ? `${toFaDigits(count)} یادآور هوشمند برای کلاس‌های هفته تنظیم شد.`
+            ? `${toFaDigits(count)} یادآور هوشمند برای کلاس‌های هفته${samadEnabled ? ' و سامانه سماد' : ''} تنظیم شد.`
             : res.message || 'جلسه‌ای برای یادآوری یافت نشد.',
           'success',
         );
+      }
+    } catch (e) {
+      showMsg(String(e?.message || e), 'error');
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const handleToggleSamad = async (nextState) => {
+    setSamadEnabled(nextState);
+    const [hStr, mStr] = samadTime.split(':');
+    const hour = parseInt(hStr, 10) || 14;
+    const minute = parseInt(mStr, 10) || 0;
+
+    if (nextState) {
+      const notifPerm = await requestNotificationPermission();
+      if (notifPerm && notifPerm.granted === false) {
+        showMsg('دسترسی نوتیفیکیشن داده نشد. لطفاً در تنظیمات گوشی اجازه دهید.', 'error', true);
+      }
+      const exact = await checkExactPermission();
+      if (exact && exact.ok === false) {
+        await requestExactPermission();
+      }
+    }
+
+    setBusyAction('samad');
+    try {
+      const res = await updateSamadReminder({
+        enabled: nextState,
+        hour,
+        minute,
+      });
+
+      if (!res.ok) {
+        showMsg(res.error || 'خطا در ثبت یادآور سماد', 'error');
+      } else if (nextState) {
+        showMsg(`یادآور سماد فعال شد؛ هر چهارشنبه ساعت ${toFaDigits(samadTime)} نوتیفیکیشن ورود به سماد ارسال می‌شود.`, 'success');
+      } else {
+        showMsg('یادآور رزرو غذای سماد غیرفعال شد.', 'info');
+      }
+    } catch (e) {
+      showMsg(String(e?.message || e), 'error');
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const handleChangeSamadTime = async (newTimeStr) => {
+    if (!newTimeStr) return;
+    setSamadTime(newTimeStr);
+    const [hStr, mStr] = newTimeStr.split(':');
+    const hour = parseInt(hStr, 10) || 14;
+    const minute = parseInt(mStr, 10) || 0;
+    saveSamadReminderSettings({
+      enabled: samadEnabled,
+      hour,
+      minute,
+    });
+    if (samadEnabled) {
+      await updateSamadReminder({
+        enabled: true,
+        hour,
+        minute,
+      });
+      showMsg(`ساعت یادآوری سماد به ${toFaDigits(newTimeStr)} در روزهای چهارشنبه تغییر یافت.`, 'success');
+    }
+  };
+
+  const handleTestSamadNotification = async () => {
+    if (busyAction) return;
+    setBusyAction('samad-test');
+    setFeedback(null);
+    try {
+      await requestNotificationPermission();
+      const res = await testSamadNotification();
+      if (res.ok) {
+        showMsg('اعلان تستی سماد ارسال شد! با کلیک روی آن وارد سامانه سماد خواهید شد.', 'success');
+      } else if (res.disabled) {
+        showMsg(res.error || 'اعلان‌های برنامه در تنظیمات گوشی غیرفعال است.', 'error', true);
+      } else {
+        showMsg(res.error || 'خطا در ارسال نوتیفیکیشن آزمایشی سماد', 'error');
       }
     } catch (e) {
       showMsg(String(e?.message || e), 'error');
@@ -167,7 +272,9 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
       const res = await cancelAllReminders();
       if (res.ok) {
         saveReminderSettings({ enabled: false });
-        showMsg('تمام یادآورهای فعال کلاس‌ها لغو شدند.', 'info');
+        saveSamadReminderSettings({ enabled: false, hour: 14, minute: 0 });
+        setSamadEnabled(false);
+        showMsg('تمام یادآورهای فعال کلاس‌ها و سماد لغو شدند.', 'info');
       } else {
         showMsg(res.error || 'خطا در لغو یادآورها', 'error');
       }
@@ -346,9 +453,164 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
                     تست نوتیفیکیشن (ارسال آنی)
                   </button>
                 </div>
+
+                {/* لغو و پاکسازی یادآورهای هوشمند */}
+                <div className="pt-0.5 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleCancelAll}
+                    disabled={Boolean(busyAction)}
+                    className="flex items-center gap-1.5 py-1 px-2.5 text-[11px] font-bold rounded-lg text-danger hover:bg-danger-soft transition disabled:opacity-50"
+                  >
+                    {busyAction === 'cancel' ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-3.5 h-3.5" />
+                    )}
+                    لغو و پاکسازی یادآورهای فعال
+                  </button>
+                </div>
               </div>
 
-              {/* بخش ۲: ساعت زنگ‌دار گوشی (Clock App) */}
+              {/* بخش ۲: یادآور هفتگی رزرو غذای سماد */}
+              <div className="sarv-card bg-base-500/10 border border-base-500/30 p-3.5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <UtensilsCrossed className="w-4 h-4 text-warning" />
+                    <span className="text-[13px] font-bold text-base-content">
+                      یادآور رزرو غذای سلف (سامانه سماد)
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-warning/10 text-warning border border-warning/20">
+                    چهارشنبه‌ها
+                  </span>
+                </div>
+
+                <p className="text-[11.5px] text-neutral leading-relaxed">
+                  هر چهارشنبه اعلان یادآوری جهت رزرو غذای هفته آینده سلف با امکان ورود مستقیم به سامانه سماد با یک لمس دریافت کنید.
+                </p>
+
+                {/* ردیف سوییچ اختصاصی فعالسازی */}
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-base border border-base-500/25">
+                  <div className="flex flex-col min-w-0 pr-1">
+                    <span className="text-[12.5px] font-bold text-base-content">
+                      یادآوری رزرو غذای چهارشنبه‌ها
+                    </span>
+                    <span className="text-[11px] text-neutral mt-0.5">
+                      {samadEnabled
+                        ? `فعال — ارسال هر چهارشنبه ساعت ${toFaDigits(samadTime)}`
+                        : 'غیرفعال'}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    role="switch"
+                    dir="ltr"
+                    aria-checked={samadEnabled}
+                    onClick={() => handleToggleSamad(!samadEnabled)}
+                    disabled={busyAction === 'samad'}
+                    className={`w-12 h-6.5 p-0.5 rounded-full transition-colors flex items-center shrink-0 cursor-pointer ${
+                      samadEnabled ? 'bg-primary justify-end' : 'bg-base-500/40 justify-start'
+                    }`}
+                  >
+                    <motion.span
+                      layout
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                      className="w-5.5 h-5.5 rounded-full bg-white shadow-md pointer-events-none"
+                    />
+                  </button>
+                </div>
+
+                {/* تنظیم ساعت و پیش‌نمایش در صورت فعال بودن سوییچ */}
+                {samadEnabled && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="space-y-3 pt-1"
+                  >
+                    <div>
+                      <label className="text-[11px] font-bold text-neutral block mb-1.5">
+                        ساعت ارسال اعلان در روز چهارشنبه:
+                      </label>
+
+                      {/* پری‌ست‌های محبوب ساعت */}
+                      <div className="grid grid-cols-5 gap-1.5 mb-2">
+                        {SAMAD_TIME_PRESETS.map((preset) => {
+                          const isSelected = samadTime === preset.value;
+                          return (
+                            <button
+                              key={preset.value}
+                              type="button"
+                              onClick={() => handleChangeSamadTime(preset.value)}
+                              className={`py-1.5 px-1 rounded-xl text-[11px] text-center border transition-all ${
+                                isSelected
+                                  ? 'bg-warning text-warning-content border-warning font-bold shadow-sm'
+                                  : 'bg-base text-base-content border-base-500/30 hover:border-warning/40'
+                              }`}
+                            >
+                              <span className="block font-bold">{toFaDigits(preset.value)}</span>
+                              <span className="text-[9px] block opacity-80">{preset.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* فیلد ساعت دلخواه */}
+                      <div className="flex items-center gap-2 p-2 rounded-xl bg-base border border-base-500/25">
+                        <Clock className="w-4 h-4 text-warning shrink-0 mr-1" />
+                        <span className="text-[11.5px] text-neutral font-medium">ساعت دلخواه:</span>
+                        <input
+                          type="time"
+                          value={samadTime}
+                          onChange={(e) => handleChangeSamadTime(e.target.value)}
+                          className="flex-1 bg-transparent border-0 text-base-content text-[13px] font-mono font-bold text-center focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* پیش‌نمایش نوتیفیکیشن سماد */}
+                    <div className="p-2.5 rounded-xl bg-base border border-base-500/25 space-y-1">
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-warning">
+                        <span>🍽️ یادآوری رزرو غذای سماد</span>
+                      </div>
+                      <p className="text-[11px] text-neutral leading-relaxed">
+                        فرصت رزرو غذای هفته آینده سلف رو به اتمامه! برای ورود به سامانه سماد کلیک کنید.
+                      </p>
+                    </div>
+
+                    {/* دکمه‌های تست و ورود به سماد */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleTestSamadNotification}
+                        disabled={Boolean(busyAction)}
+                        className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-base text-base-content border border-base-500/30 text-[11.5px] font-bold hover:bg-base-500/20 transition active:scale-95 disabled:opacity-50"
+                      >
+                        {busyAction === 'samad-test' ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Volume2 className="w-3.5 h-3.5 text-warning" />
+                        )}
+                        تست اعلان سماد (ارسال آنی)
+                      </button>
+
+                      <a
+                        href={SAMAD_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-warning/15 hover:bg-warning/25 text-warning border border-warning/25 text-[11.5px] font-bold transition active:scale-95"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        ورود به سامانه سماد
+                      </a>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+
+              {/* بخش ۳: ساعت زنگ‌دار گوشی (Clock App) */}
               <div className="sarv-card bg-base-500/10 border border-base-500/30 p-3.5 space-y-3">
                 <div className="flex items-center gap-2">
                   <AlarmClock className="w-4 h-4 text-info" />
@@ -413,23 +675,6 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
                     </p>
                   )}
                 </div>
-              </div>
-
-              {/* لغو کلیه یادآورها */}
-              <div className="pt-1 flex justify-end">
-                <button
-                  type="button"
-                  onClick={handleCancelAll}
-                  disabled={Boolean(busyAction)}
-                  className="flex items-center gap-1.5 py-1.5 px-3 text-[11px] font-medium rounded-xl text-danger hover:bg-danger-soft/40 transition disabled:opacity-50"
-                >
-                  {busyAction === 'cancel' ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Trash2 className="w-3.5 h-3.5" />
-                  )}
-                  لغو و غیرفعال‌سازی همه یادآورها
-                </button>
               </div>
             </div>
           </motion.div>

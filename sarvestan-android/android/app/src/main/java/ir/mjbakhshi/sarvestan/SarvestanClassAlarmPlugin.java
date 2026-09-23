@@ -95,11 +95,14 @@ public class SarvestanClassAlarmPlugin extends Plugin {
         return null;
     }
 
-    private PendingIntent reminderPi(Context ctx, int id, String title, String body) {
+    private PendingIntent reminderPi(Context ctx, int id, String title, String body, String url) {
         Intent i = new Intent(ctx, ClassReminderReceiver.class);
         i.putExtra(ClassReminderReceiver.EXTRA_TITLE, title);
         i.putExtra(ClassReminderReceiver.EXTRA_BODY, body);
         i.putExtra(ClassReminderReceiver.EXTRA_NOTIF_ID, id);
+        if (url != null && !url.trim().isEmpty()) {
+            i.putExtra(ClassReminderReceiver.EXTRA_URL, url);
+        }
         int flags = PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE;
         return PendingIntent.getBroadcast(ctx, id, i, flags);
     }
@@ -209,12 +212,13 @@ public class SarvestanClassAlarmPlugin extends Plugin {
                 int id = o.optInt("id", REQ_BASE + i);
                 String title = o.optString("title", "یادآوری کلاس");
                 String body = o.optString("body", "");
+                String url = o.optString("url", null);
                 long at = o.optLong("triggerAtMs", 0);
                 if (at <= now) {
                     skipped++;
                     continue;
                 }
-                PendingIntent pi = reminderPi(ctx, id, title, body);
+                PendingIntent pi = reminderPi(ctx, id, title, body, url);
                 if (canExact(am)) {
                     am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
                 } else {
@@ -244,7 +248,7 @@ public class SarvestanClassAlarmPlugin extends Plugin {
             try {
                 for (int i = 0; i < ids.length(); i++) {
                     int id = ids.getInt(i);
-                    am.cancel(reminderPi(ctx, id, "", ""));
+                    am.cancel(reminderPi(ctx, id, "", "", null));
                     cancelled++;
                 }
             } catch (Exception ignore) {}
@@ -452,15 +456,17 @@ public class SarvestanClassAlarmPlugin extends Plugin {
 
         String title = call.getString("title", "🔔 آزمایش یادآور کلاس سروستان");
         String body = call.getString("body", "اعلان‌ها و صدای زنگ یادآوری کلاس‌ها با موفقیت فعال و آماده به کار است.");
+        String url = call.getString("url", null);
+        int notifId = call.getInt("id", 99999);
 
         NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm != null) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 NotificationChannel ch = new NotificationChannel(
                         ClassReminderReceiver.CHANNEL_ID,
-                        "یادآوری کلاس‌ها",
+                        "یادآوری کلاس‌ها و رزرو غذا",
                         NotificationManager.IMPORTANCE_HIGH);
-                ch.setDescription("اعلان‌های هوشمند پیش از شروع و هنگام آغاز کلاس‌های سروستان");
+                ch.setDescription("اعلان‌های هوشمند پیش از شروع کلاس‌ها و یادآوری رزرو غذای سماد");
                 ch.enableVibration(true);
                 ch.setVibrationPattern(new long[]{0, 250, 200, 250});
                 ch.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
@@ -472,11 +478,19 @@ public class SarvestanClassAlarmPlugin extends Plugin {
                 iconRes = android.R.drawable.ic_lock_idle_alarm;
             }
 
-            Intent open = ctx.getPackageManager().getLaunchIntentForPackage(ctx.getPackageName());
+            Intent open;
+            if (url != null && !url.trim().isEmpty()) {
+                open = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            } else {
+                open = ctx.getPackageManager().getLaunchIntentForPackage(ctx.getPackageName());
+                if (open == null) open = new Intent();
+            }
+
             PendingIntent pi = PendingIntent.getActivity(
                     ctx,
-                    99999,
-                    open != null ? open : new Intent(),
+                    notifId,
+                    open,
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
             NotificationCompat.Builder b = new NotificationCompat.Builder(ctx, ClassReminderReceiver.CHANNEL_ID)
@@ -491,7 +505,7 @@ public class SarvestanClassAlarmPlugin extends Plugin {
                     .setContentIntent(pi);
 
             try {
-                nm.notify(99999, b.build());
+                nm.notify(notifId, b.build());
             } catch (SecurityException e) {
                 JSObject ret = new JSObject();
                 ret.put("ok", false);
@@ -507,7 +521,10 @@ public class SarvestanClassAlarmPlugin extends Plugin {
             Intent i = new Intent(ctx, ClassReminderReceiver.class);
             i.putExtra(ClassReminderReceiver.EXTRA_TITLE, title);
             i.putExtra(ClassReminderReceiver.EXTRA_BODY, body);
-            i.putExtra(ClassReminderReceiver.EXTRA_NOTIF_ID, 99999);
+            i.putExtra(ClassReminderReceiver.EXTRA_NOTIF_ID, notifId);
+            if (url != null && !url.trim().isEmpty()) {
+                i.putExtra(ClassReminderReceiver.EXTRA_URL, url);
+            }
             ctx.sendBroadcast(i);
         } catch (Exception ignore) {}
 

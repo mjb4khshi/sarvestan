@@ -12,6 +12,10 @@ import { parseClassTime, getScheduleMatrix } from '../data/viewModel';
 const SETTINGS_KEY = 'sarvestan_class_reminders_settings';
 const SCHEDULED_IDS_KEY = 'sarvestan_class_reminders_ids';
 
+export const SAMAD_SETTINGS_KEY = 'sarvestan_samad_reminder_settings';
+export const SAMAD_REMINDER_ID = 19999;
+export const SAMAD_URL = 'https://samad.app/login';
+
 export const DAY_CAL = {
   شنبه: 7, // Calendar.SATURDAY
   یکشنبه: 1,
@@ -307,18 +311,31 @@ export function buildReminderItems({ daysAhead = 7, leadMinutes = 10, notifyAtSt
 /**
  * زمان‌بندی یادآوری کلاس‌ها در سیستم
  */
-export async function scheduleClassReminders({ daysAhead = 7, leadMinutes = 10, notifyAtStart = true } = {}) {
+export async function scheduleClassReminders({
+  daysAhead = 7,
+  leadMinutes = 10,
+  notifyAtStart = true,
+  includeSamad = null,
+} = {}) {
   const p = plugins().ClassAlarms;
   if (!p?.scheduleReminders) {
     return { ok: false, error: 'پلاگین ClassAlarms در این دستگاه در دسترس نیست', code: 'no-plugin' };
   }
 
   const items = buildReminderItems({ daysAhead, leadMinutes, notifyAtStart });
+
+  // اضافه کردن یادآور هفتگی سماد در صورت فعال بودن
+  const samadSettings = getSamadReminderSettings();
+  const shouldAddSamad = includeSamad !== null ? Boolean(includeSamad) : samadSettings.enabled;
+  if (shouldAddSamad) {
+    items.push(buildSamadReminderItem(samadSettings.hour, samadSettings.minute));
+  }
+
   if (!items.length) {
     return {
       ok: true,
       scheduled: 0,
-      message: 'هیچ کلاس پیش‌رویی در ۷ روز آینده برای یادآوری یافت نشد.',
+      message: 'هیچ کلاس یا یادآوری پیش‌رویی برای تنظیم یافت نشد.',
     };
   }
 
@@ -338,6 +355,7 @@ export async function scheduleClassReminders({ daysAhead = 7, leadMinutes = 10, 
       triggerAtMs: x.triggerAtMs,
       title: x.title,
       body: x.body,
+      url: x.url || null,
     }));
 
     const res = await p.scheduleReminders({ items: payload });
@@ -356,17 +374,21 @@ export async function scheduleClassReminders({ daysAhead = 7, leadMinutes = 10, 
 }
 
 /**
- * لغو تمام یادآورهای کلاس‌ها
+ * لغو تمام یادآورهای کلاس‌ها و سامانه سماد
  */
 export async function cancelAllReminders() {
   const p = plugins().ClassAlarms;
   try {
+    const cancelIds = new Set([SAMAD_REMINDER_ID]);
     const oldIdsRaw = localStorage.getItem(SCHEDULED_IDS_KEY);
     if (oldIdsRaw) {
       const oldIds = JSON.parse(oldIdsRaw);
-      if (Array.isArray(oldIds) && oldIds.length && p?.cancelReminders) {
-        await p.cancelReminders({ ids: oldIds });
+      if (Array.isArray(oldIds) && oldIds.length) {
+        oldIds.forEach((id) => cancelIds.add(id));
       }
+    }
+    if (p?.cancelReminders) {
+      await p.cancelReminders({ ids: Array.from(cancelIds) });
     }
     localStorage.removeItem(SCHEDULED_IDS_KEY);
     return { ok: true };
@@ -595,3 +617,150 @@ export function saveReminderSettings(settings) {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   } catch {}
 }
+
+/**
+ * محاسبه زمان فرا رسیدن چهارشنبه آینده بر اساس ساعت و دقیقه انتخابی
+ */
+export function getNextWednesdayTimestamp(hour = 14, minute = 0) {
+  const now = new Date();
+  const target = new Date(now);
+  target.setHours(hour, minute, 0, 0);
+
+  // JS: 0=یکشنبه, 1=دوشنبه, 2=سه‌شنبه, 3=چهارشنبه, 4=پنجشنبه, 5=جمعه, 6=شنبه
+  const currentDay = now.getDay();
+  let daysUntilWednesday = (3 - currentDay + 7) % 7;
+
+  // اگر امروز چهارشنبه است و ساعت انتخابی قبلاً سپری شده، برای چهارشنبه آینده (۷ روز بعد) زمان‌بندی شود
+  if (daysUntilWednesday === 0 && target.getTime() <= now.getTime()) {
+    daysUntilWednesday = 7;
+  }
+
+  target.setDate(now.getDate() + daysUntilWednesday);
+  return target.getTime();
+}
+
+/**
+ * ساخت آبجکت نوتیفیکیشن یادآوری رزرو غذای سماد
+ */
+export function buildSamadReminderItem(hour = 14, minute = 0) {
+  const triggerAtMs = getNextWednesdayTimestamp(hour, minute);
+  return {
+    id: SAMAD_REMINDER_ID,
+    triggerAtMs,
+    title: '🍽️ یادآوری رزرو غذای سماد',
+    body: 'فرصت رزرو غذای هفته آینده سلف رو به اتمامه! برای ورود به سامانه سماد کلیک کنید.',
+    url: SAMAD_URL,
+    kind: 'samad',
+  };
+}
+
+/**
+ * دریافت تنظیمات یادآور سماد از حافظه محلی
+ */
+export function getSamadReminderSettings() {
+  try {
+    const raw = localStorage.getItem(SAMAD_SETTINGS_KEY);
+    if (!raw) {
+      return {
+        enabled: false,
+        hour: 14,
+        minute: 0,
+      };
+    }
+    const parsed = JSON.parse(raw);
+    return {
+      enabled: Boolean(parsed.enabled),
+      hour: Number.isInteger(parsed.hour) ? parsed.hour : 14,
+      minute: Number.isInteger(parsed.minute) ? parsed.minute : 0,
+    };
+  } catch {
+    return { enabled: false, hour: 14, minute: 0 };
+  }
+}
+
+/**
+ * ذخیره تنظیمات یادآور سماد در حافظه محلی
+ */
+export function saveSamadReminderSettings(settings) {
+  try {
+    localStorage.setItem(SAMAD_SETTINGS_KEY, JSON.stringify(settings));
+  } catch {}
+}
+
+/**
+ * بروزرسانی یا لغو اختصاصی یادآور سماد در سیستم
+ */
+export async function updateSamadReminder({ enabled, hour = 14, minute = 0 } = {}) {
+  saveSamadReminderSettings({ enabled, hour, minute });
+  const p = plugins().ClassAlarms;
+  if (!p?.scheduleReminders) {
+    return { ok: true, saved: true };
+  }
+
+  if (!enabled) {
+    try {
+      if (p.cancelReminders) {
+        await p.cancelReminders({ ids: [SAMAD_REMINDER_ID] });
+      }
+    } catch {}
+    return { ok: true, enabled: false };
+  }
+
+  const item = buildSamadReminderItem(hour, minute);
+  try {
+    const res = await p.scheduleReminders({
+      items: [
+        {
+          id: item.id,
+          triggerAtMs: item.triggerAtMs,
+          title: item.title,
+          body: item.body,
+          url: item.url,
+        },
+      ],
+    });
+    return { ok: true, enabled: true, triggerAtMs: item.triggerAtMs, ...res };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
+
+/**
+ * ارسال اعلان تستی زنده سماد (کلیک روی آن سامانه سماد را باز می‌کند)
+ */
+export async function testSamadNotification() {
+  const p = plugins().ClassAlarms;
+  const item = buildSamadReminderItem();
+  if (!p?.testNotification) {
+    if (typeof Notification !== 'undefined') {
+      try {
+        if (Notification.permission !== 'granted') {
+          await Notification.requestPermission();
+        }
+        const n = new Notification(item.title, {
+          body: item.body,
+          icon: '/favicon.ico',
+        });
+        n.onclick = () => {
+          window.open(SAMAD_URL, '_blank');
+        };
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: String(e?.message || e) };
+      }
+    }
+    return { ok: false, error: 'پلاگین در دسترس نیست' };
+  }
+
+  try {
+    return await p.testNotification({
+      id: SAMAD_REMINDER_ID,
+      title: item.title,
+      body: item.body,
+      url: item.url,
+    });
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
+
