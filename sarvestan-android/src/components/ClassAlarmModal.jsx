@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
   BellRing,
+  BellOff,
   AlarmClock,
   Clock,
   CheckCircle2,
@@ -39,6 +40,10 @@ import {
   saveSamadReminderSettings,
   updateSamadReminder,
   testSamadNotification,
+  checkDndPermission,
+  requestDndPermission,
+  getDndDuringClass,
+  setDndDuringClass,
   SAMAD_URL,
 } from '../services/classAlarms';
 import { toFaDigits } from '../utils/faDigits';
@@ -55,11 +60,12 @@ const LEAD_TIME_OPTIONS = [
 export default function ClassAlarmModal({ isOpen, onClose }) {
   const [leadMinutes, setLeadMinutes] = useState(10);
   const [notifyAtStart, setNotifyAtStart] = useState(true);
+  const [dndEnabled, setDndEnabled] = useState(false);
   const [samadEnabled, setSamadEnabled] = useState(false);
   const [samadTime, setSamadTime] = useState('14:00');
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [notifGranted, setNotifGranted] = useState(true);
-  const [busyAction, setBusyAction] = useState(null); // 'reminders' | 'clock' | 'test' | 'cancel' | 'samad' | 'samad-test' | 'perm' | null
+  const [busyAction, setBusyAction] = useState(null); // 'reminders' | 'clock' | 'test' | 'cancel' | 'samad' | 'samad-test' | 'perm' | 'dnd' | null
   const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error' | 'info', text: string, showSettings?: boolean }
   const [coursesList, setCoursesList] = useState([]);
 
@@ -68,6 +74,7 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
       const settings = getReminderSettings();
       setLeadMinutes(settings.leadMinutes || 10);
       setNotifyAtStart(settings.notifyAtStart !== false);
+      setDndEnabled(Boolean(settings.dndDuringClass));
 
       const samadSettings = getSamadReminderSettings();
       setSamadEnabled(Boolean(samadSettings.enabled));
@@ -136,16 +143,26 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
         await requestExactPermission();
       }
 
+      if (dndEnabled) {
+        const dndPerm = await checkDndPermission();
+        if (dndPerm && dndPerm.granted === false) {
+          showMsg('برای بی‌صدا شدن خودکار گوشی حین کلاس، دسترسی «مزاحم نشوید» را در تنظیمات فعال کنید.', 'info', true);
+          await requestDndPermission();
+        }
+      }
+
       saveReminderSettings({
         enabled: true,
         leadMinutes,
         notifyAtStart,
+        dndDuringClass: dndEnabled,
       });
 
       const res = await scheduleClassReminders({
         daysAhead: 7,
         leadMinutes,
         notifyAtStart,
+        dndDuringClass: dndEnabled,
         includeSamad: samadEnabled,
       });
 
@@ -155,13 +172,37 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
         const count = res.scheduled || 0;
         showMsg(
           count > 0
-            ? `${toFaDigits(count)} یادآور هوشمند برای کلاس‌های هفته${samadEnabled ? ' و سامانه سماد' : ''} تنظیم شد.`
+            ? `${toFaDigits(count)} یادآور هوشمند برای کلاس‌های هفته${samadEnabled ? ' و سامانه سماد' : ''}${dndEnabled ? ' (همراه با حالت مزاحم نشوید)' : ''} تنظیم شد.`
             : res.message || 'جلسه‌ای برای یادآوری یافت نشد.',
           'success',
         );
       }
     } catch (e) {
       showMsg(String(e?.message || e), 'error');
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const handleToggleDnd = async (nextState) => {
+    setDndEnabled(nextState);
+    if (nextState) {
+      const perm = await checkDndPermission();
+      if (perm && perm.granted === false) {
+        showMsg('برای بی‌صدا شدن خودکار گوشی حین کلاس، لطفاً در صفحه تنظیمات باز شده دسترسی «مزاحم نشوید» را برای سروستان فعال کنید.', 'info', true);
+        await requestDndPermission();
+      }
+    }
+    setBusyAction('dnd');
+    try {
+      await setDndDuringClass(nextState);
+      if (nextState) {
+        showMsg('حالت مزاحم نشوید حین کلاس فعال شد؛ صدای گوشی در ساعات برگزاری کلاس‌ها به‌صورت هوشمند سایلنت می‌شود.', 'success');
+      } else {
+        showMsg('حالت مزاحم نشوید حین کلاس غیرفعال شد.', 'info');
+      }
+    } catch (e) {
+      showMsg('خطا در تغییر وضعیت: ' + String(e?.message || e), 'error');
     } finally {
       setBusyAction(null);
     }
@@ -504,6 +545,44 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
                     description="ارسال نوتیفیکیشن دقیقاً در ساعت آغاز جلسه"
                     variant="primary"
                   />
+                </div>
+
+                {/* سوییچ حالت مزاحم نشوید حین کلاس */}
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-base border border-base-500/25">
+                  <div className="flex flex-col min-w-0 pr-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[12.5px] font-bold text-base-content flex items-center gap-1.5">
+                        <BellOff className="w-3.5 h-3.5 text-primary" />
+                        حالت مزاحم نشوید حین کلاس
+                      </span>
+                      <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-full bg-primary/15 text-primary">
+                        سایلنت خودکار
+                      </span>
+                    </div>
+                    <span className="text-[10.5px] text-neutral mt-0.5">
+                      {dndEnabled
+                        ? 'فعال — بی‌صدا کردن خودکار زنگ و اعلان‌ها در زمان کلاس و بازگردانی پس از پایان'
+                        : 'غیرفعال — خاموش بودن سایلنت خودکار'}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    role="switch"
+                    dir="ltr"
+                    aria-checked={dndEnabled}
+                    onClick={() => handleToggleDnd(!dndEnabled)}
+                    disabled={busyAction === 'dnd'}
+                    className={`w-12 h-6.5 p-0.5 rounded-full transition-colors flex items-center shrink-0 cursor-pointer ${
+                      dndEnabled ? 'bg-primary justify-end' : 'bg-base-500/40 justify-start'
+                    }`}
+                  >
+                    <motion.span
+                      layout
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                      className="w-5.5 h-5.5 rounded-full bg-white shadow-md block"
+                    />
+                  </button>
                 </div>
 
                 {/* دکمه‌های اقدام بخش نوتیفیکیشن */}

@@ -28,6 +28,7 @@ import {
   AlertTriangle,
   Trash2,
   BellRing,
+  BellOff,
   RotateCcw,
 } from 'lucide-react';
 import UpdateModal from '../components/UpdateModal';
@@ -41,7 +42,13 @@ import {
 } from '../services/behestan';
 import { clearSsoCookies } from '../services/behestan/ssoLoginNative';
 import { clearSavedCreds } from '../services/loginFlow';
-import { cancelAllReminders } from '../services/classAlarms';
+import {
+  cancelAllReminders,
+  getDndDuringClass,
+  setDndDuringClass,
+  checkDndPermission,
+  requestDndPermission,
+} from '../services/classAlarms';
 import { isNativeCapacitor } from '../services/androidWidget';
 import { getViewModel } from '../data/viewModel';
 import { useSarvestanData } from '../hooks/useSarvestanData';
@@ -73,7 +80,43 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
   const [resetModalOpen, setResetModalOpen] = useState(false);
   const [resetToast, setResetToast] = useState('');
   const [alarmModalOpen, setAlarmModalOpen] = useState(false);
+  const [dndEnabled, setDndEnabled] = useState(() => getDndDuringClass());
+  const [dndToggling, setDndToggling] = useState(false);
   const { currentIconId, currentIcon, setAppIcon, icons: appIcons } = useAppIcon();
+
+  // همگام‌سازی وضعیت حالت مزاحم نشوید با تغییر در مودال‌ها یا بازگشت به صفحه
+  useEffect(() => {
+    const handleSyncDnd = () => setDndEnabled(getDndDuringClass());
+    window.addEventListener('focus', handleSyncDnd);
+    return () => window.removeEventListener('focus', handleSyncDnd);
+  }, []);
+
+  const handleToggleDnd = async (nextState) => {
+    setDndEnabled(nextState);
+    setDndToggling(true);
+    if (nextState) {
+      const perm = await checkDndPermission();
+      if (perm && perm.granted === false) {
+        setResetToast('لطفاً در صفحه باز شده، دسترسی «مزاحم نشوید» را برای سروستان فعال کنید.');
+        setTimeout(() => setResetToast(''), 4500);
+        await requestDndPermission();
+      }
+    }
+    try {
+      await setDndDuringClass(nextState);
+      setResetToast(
+        nextState
+          ? 'حالت مزاحم نشوید حین کلاس فعال شد (سایلنت خودکار در ساعات کلاس)'
+          : 'حالت مزاحم نشوید حین کلاس غیرفعال شد.'
+      );
+      setTimeout(() => setResetToast(''), 3500);
+    } catch (e) {
+      setResetToast('خطا در تغییر وضعیت: ' + String(e?.message || e));
+      setTimeout(() => setResetToast(''), 3500);
+    } finally {
+      setDndToggling(false);
+    }
+  };
 
   const handleResetToBehestan = () => {
     try {
@@ -649,6 +692,79 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               <span className="text-[11px] font-bold text-primary">تغییر</span>
+              <ChevronLeft className="w-4 h-4 text-neutral" />
+            </div>
+          </button>
+        </div>
+      </section>
+
+      {/* یادآورها و تمرکز (مزاحم نشوید) */}
+      <section className="space-y-1.5">
+        <h3 className="text-[12.5px] font-bold text-neutral px-1">یادآورها و تمرکز کلاسی</h3>
+        <div className="sarv-card overflow-hidden divide-y divide-base-500/25">
+          {/* سوییچ حالت مزاحم نشوید حین کلاس */}
+          <div className="p-3.5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <span
+                className={`w-9 h-9 rounded-xl grid place-items-center shrink-0 transition-colors ${
+                  dndEnabled ? 'bg-primary-soft text-primary' : 'bg-base-500/30 text-neutral'
+                }`}
+              >
+                <BellOff className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-[13px] font-bold text-base-content">
+                    حالت مزاحم نشوید حین کلاس
+                  </p>
+                  <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-full bg-primary-soft text-primary">
+                    سایلنت خودکار
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-neutral mt-0.5 truncate">
+                  بی‌صدا کردن خودکار زنگ و اعلان‌ها در زمان برگزاری کلاس‌ها
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              role="switch"
+              dir="ltr"
+              aria-checked={dndEnabled}
+              onClick={() => handleToggleDnd(!dndEnabled)}
+              disabled={dndToggling}
+              className={`w-12 h-6.5 p-0.5 rounded-full transition-colors flex items-center shrink-0 cursor-pointer ${
+                dndEnabled ? 'bg-primary justify-end' : 'bg-base-500/40 justify-start'
+              }`}
+            >
+              <motion.span
+                layout
+                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                className="w-5.5 h-5.5 rounded-full bg-white shadow-md block"
+              />
+            </button>
+          </div>
+
+          {/* باز کردن مودال تنظیمات اعلان‌ها و آلارم کلاس‌ها */}
+          <button
+            type="button"
+            onClick={() => setAlarmModalOpen(true)}
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 transition-colors cursor-pointer group"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl bg-primary-soft text-primary grid place-items-center shrink-0 transition-transform group-hover:scale-105">
+                <BellRing className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-bold text-base-content">تنظیمات یادآور و آلارم کلاس‌ها</p>
+                <p className="text-[10.5px] text-neutral mt-0.5 truncate">
+                  زمان پیش‌آگاهی، اعلان شروع جلسه، رزرو غذای سماد و ساعت زنگ‌دار
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-[11px] font-bold text-primary">تنظیم</span>
               <ChevronLeft className="w-4 h-4 text-neutral" />
             </div>
           </button>
@@ -1642,7 +1758,10 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
       {/* مودال تنظیم یادآور و آلارم کلاس‌ها */}
       <ClassAlarmModal
         isOpen={alarmModalOpen}
-        onClose={() => setAlarmModalOpen(false)}
+        onClose={() => {
+          setAlarmModalOpen(false);
+          setDndEnabled(getDndDuringClass());
+        }}
       />
     </div>
   );

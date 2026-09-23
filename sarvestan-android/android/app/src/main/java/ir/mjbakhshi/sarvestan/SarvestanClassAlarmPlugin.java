@@ -122,13 +122,16 @@ public class SarvestanClassAlarmPlugin extends Plugin {
         return null;
     }
 
-    private PendingIntent reminderPi(Context ctx, int id, String title, String body, String url) {
+    private PendingIntent reminderPi(Context ctx, int id, String title, String body, String url, String dndMode) {
         Intent i = new Intent(ctx, ClassReminderReceiver.class);
         i.putExtra(ClassReminderReceiver.EXTRA_TITLE, title);
         i.putExtra(ClassReminderReceiver.EXTRA_BODY, body);
         i.putExtra(ClassReminderReceiver.EXTRA_NOTIF_ID, id);
         if (url != null && !url.trim().isEmpty()) {
             i.putExtra(ClassReminderReceiver.EXTRA_URL, url);
+        }
+        if (dndMode != null && !dndMode.trim().isEmpty()) {
+            i.putExtra(ClassReminderReceiver.EXTRA_DND_MODE, dndMode);
         }
         int flags = PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE;
         return PendingIntent.getBroadcast(ctx, id, i, flags);
@@ -240,12 +243,13 @@ public class SarvestanClassAlarmPlugin extends Plugin {
                 String title = o.optString("title", "یادآوری کلاس");
                 String body = o.optString("body", "");
                 String url = o.optString("url", null);
+                String dndMode = o.optString("dndMode", null);
                 long at = o.optLong("triggerAtMs", 0);
                 if (at <= now) {
                     skipped++;
                     continue;
                 }
-                PendingIntent pi = reminderPi(ctx, id, title, body, url);
+                PendingIntent pi = reminderPi(ctx, id, title, body, url, dndMode);
                 if (canExact(am)) {
                     am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
                 } else {
@@ -275,7 +279,7 @@ public class SarvestanClassAlarmPlugin extends Plugin {
             try {
                 for (int i = 0; i < ids.length(); i++) {
                     int id = ids.getInt(i);
-                    am.cancel(reminderPi(ctx, id, "", "", null));
+                    am.cancel(reminderPi(ctx, id, "", "", null, null));
                     cancelled++;
                 }
             } catch (Exception ignore) {}
@@ -464,6 +468,40 @@ public class SarvestanClassAlarmPlugin extends Plugin {
         } catch (Exception e) {
             call.reject("خطا در باز کردن تنظیمات: " + e.getMessage());
         }
+    }
+
+    /** بررسی مجوز حالت مزاحم نشوید (Do Not Disturb / Zen Mode) */
+    @PluginMethod
+    public void checkDndPermission(PluginCall call) {
+        Context ctx = getContext();
+        boolean granted = false;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+            granted = nm != null && nm.isNotificationPolicyAccessGranted();
+        } else {
+            granted = true;
+        }
+        JSObject ret = new JSObject();
+        ret.put("granted", granted);
+        call.resolve(ret);
+    }
+
+    /** هدایت کاربر به صفحه فعال‌سازی دسترسی حالت مزاحم نشوید در تنظیمات اندروید */
+    @PluginMethod
+    public void requestDndPermission(PluginCall call) {
+        Context ctx = getContext();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                Intent intent = new Intent(android.provider.Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                ctx.startActivity(intent);
+            } catch (Exception e) {
+                Log.e("SarvestanClassAlarms", "Error opening DND settings: " + e.getMessage());
+            }
+        }
+        JSObject ret = new JSObject();
+        ret.put("ok", true);
+        call.resolve(ret);
     }
 
     /** ارسال اعلان تستی فوری برای اطمینان از عملکرد مجوز و صدا */

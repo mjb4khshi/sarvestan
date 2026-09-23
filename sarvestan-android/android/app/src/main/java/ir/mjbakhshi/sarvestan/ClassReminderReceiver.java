@@ -19,6 +19,7 @@ public class ClassReminderReceiver extends BroadcastReceiver {
     public static final String EXTRA_BODY = "body";
     public static final String EXTRA_NOTIF_ID = "notifId";
     public static final String EXTRA_URL = "url";
+    public static final String EXTRA_DND_MODE = "dnd_mode";
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -28,13 +29,24 @@ public class ClassReminderReceiver extends BroadcastReceiver {
         String body = intent.getStringExtra(EXTRA_BODY);
         int notifId = intent.getIntExtra(EXTRA_NOTIF_ID, 0);
         String url = intent.getStringExtra(EXTRA_URL);
-
-        if (title == null) title = "سروستان";
-        if (body == null) body = "";
+        String dndMode = intent.getStringExtra(EXTRA_DND_MODE);
 
         NotificationManager nm =
                 (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm == null) return;
+
+        // اعمال حالت مزاحم نشوید (سایلنت خودکار) در صورت درخواست
+        if (dndMode != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                if (nm.isNotificationPolicyAccessGranted()) {
+                    if ("start".equalsIgnoreCase(dndMode)) {
+                        nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY);
+                    } else if ("end".equalsIgnoreCase(dndMode)) {
+                        nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
+                    }
+                }
+            } catch (Exception ignore) {}
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel ch = new NotificationChannel(

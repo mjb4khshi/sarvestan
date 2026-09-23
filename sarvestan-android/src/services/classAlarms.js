@@ -254,9 +254,14 @@ function pad(n) {
 }
 
 /**
- * ساخت لیست نوتیف‌ها: برای هر جلسه، تا ۷ روز آینده
+ * ساخت لیست نوتیف‌ها: برای هر جلسه، تا ۷ روز آینده (شامل اعلان‌های پیش‌آگاهی، شروع و حالت مزاحم نشوید)
  */
-export function buildReminderItems({ daysAhead = 7, leadMinutes = 10, notifyAtStart = true } = {}) {
+export function buildReminderItems({
+  daysAhead = 7,
+  leadMinutes = 10,
+  notifyAtStart = true,
+  dndDuringClass = false,
+} = {}) {
   const slots = collectWeeklySlots();
   const items = [];
   let id = 17001;
@@ -280,6 +285,12 @@ export function buildReminderItems({ daysAhead = 7, leadMinutes = 10, notifyAtSt
         const startAt = when.getTime();
         const preAt = startAt - leadMinutes * 60_000;
 
+        const whenEnd = new Date(when);
+        const eh = slot.endHour ?? (slot.hour + 1);
+        const em = slot.endMinute ?? (slot.minute + 30);
+        whenEnd.setHours(eh, em, 0, 0);
+        const endAt = whenEnd.getTime();
+
         if (leadMinutes > 0 && preAt > Date.now()) {
           items.push({
             id: id++,
@@ -295,9 +306,33 @@ export function buildReminderItems({ daysAhead = 7, leadMinutes = 10, notifyAtSt
             id: id++,
             triggerAtMs: startAt,
             title: `🔔 شروع کلاس ${slot.title || slot.label}`,
-            body: `کلاس «${slot.title || slot.label}» هم‌اکنون آغاز شد${hall}`,
+            body: `کلاس «${slot.title || slot.label}» هم‌اکنون آغاز شد${hall}${dndDuringClass ? ' (حالت مزاحم نشوید فعال شد)' : ''}`,
             kind: 'start',
+            dndMode: dndDuringClass ? 'start' : null,
             slotKey: `${dayFa}-${pad(slot.hour)}:${pad(slot.minute)}`,
+          });
+        } else if (dndDuringClass && startAt > Date.now()) {
+          items.push({
+            id: id++,
+            triggerAtMs: startAt,
+            title: `🔇 سایلنت کلاس ${slot.title || slot.label}`,
+            body: `کلاس «${slot.title || slot.label}» آغاز شد — حالت مزاحم نشوید فعال شد.`,
+            kind: 'dnd_start',
+            dndMode: 'start',
+            slotKey: `${dayFa}-${pad(slot.hour)}:${pad(slot.minute)}`,
+          });
+        }
+
+        // زمان بازگردانی صدا پس از اتمام کلاس
+        if (dndDuringClass && endAt > Date.now()) {
+          items.push({
+            id: id++,
+            triggerAtMs: endAt,
+            title: `🔊 پایان کلاس ${slot.title || slot.label}`,
+            body: `کلاس «${slot.title || slot.label}» به پایان رسید — صدای گوشی به حالت عادی بازگشت.`,
+            kind: 'dnd_end',
+            dndMode: 'end',
+            slotKey: `${dayFa}-${pad(eh)}:${pad(em)}`,
           });
         }
       }
@@ -315,6 +350,7 @@ export async function scheduleClassReminders({
   daysAhead = 7,
   leadMinutes = 10,
   notifyAtStart = true,
+  dndDuringClass = null,
   includeSamad = null,
 } = {}) {
   const p = plugins().ClassAlarms;
@@ -322,7 +358,16 @@ export async function scheduleClassReminders({
     return { ok: false, error: 'پلاگین ClassAlarms در این دستگاه در دسترس نیست', code: 'no-plugin' };
   }
 
-  const items = buildReminderItems({ daysAhead, leadMinutes, notifyAtStart });
+  const currentSettings = getReminderSettings();
+  const effectiveDnd =
+    dndDuringClass !== null ? Boolean(dndDuringClass) : Boolean(currentSettings.dndDuringClass);
+
+  const items = buildReminderItems({
+    daysAhead,
+    leadMinutes,
+    notifyAtStart,
+    dndDuringClass: effectiveDnd,
+  });
 
   // اضافه کردن یادآور هفتگی سماد در صورت فعال بودن
   const samadSettings = getSamadReminderSettings();
@@ -356,6 +401,7 @@ export async function scheduleClassReminders({
       title: x.title,
       body: x.body,
       url: x.url || null,
+      dndMode: x.dndMode || null,
     }));
 
     const res = await p.scheduleReminders({ items: payload });
@@ -614,16 +660,26 @@ export function getReminderSettings() {
         enabled: false,
         leadMinutes: 10,
         notifyAtStart: true,
+        dndDuringClass: false,
         lastScheduledCount: 0,
         lastScheduledAt: null,
       };
     }
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    return {
+      enabled: Boolean(parsed.enabled),
+      leadMinutes: parsed.leadMinutes ?? 10,
+      notifyAtStart: parsed.notifyAtStart !== false,
+      dndDuringClass: Boolean(parsed.dndDuringClass),
+      lastScheduledCount: parsed.lastScheduledCount ?? 0,
+      lastScheduledAt: parsed.lastScheduledAt ?? null,
+    };
   } catch {
     return {
       enabled: false,
       leadMinutes: 10,
       notifyAtStart: true,
+      dndDuringClass: false,
       lastScheduledCount: 0,
       lastScheduledAt: null,
     };
@@ -634,6 +690,65 @@ export function saveReminderSettings(settings) {
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   } catch {}
+}
+
+/**
+ * بررسی دسترسی تغییر وضعیت Do Not Disturb (مزاحم نشوید)
+ */
+export async function checkDndPermission() {
+  const p = plugins().ClassAlarms;
+  if (!p?.checkDndPermission) return { granted: true };
+  try {
+    return await p.checkDndPermission();
+  } catch {
+    return { granted: true };
+  }
+}
+
+/**
+ * هدایت به صفحه دسترسی حالت مزاحم نشوید در تنظیمات اندروید
+ */
+export async function requestDndPermission() {
+  const p = plugins().ClassAlarms;
+  if (!p?.requestDndPermission) return { ok: false };
+  try {
+    return await p.requestDndPermission();
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
+
+/**
+ * دریافت وضعیت فعال بودن حالت مزاحم نشوید حین کلاس
+ */
+export function getDndDuringClass() {
+  return Boolean(getReminderSettings().dndDuringClass);
+}
+
+/**
+ * فعال یا غیرفعال‌سازی حالت مزاحم نشوید حین کلاس
+ */
+export async function setDndDuringClass(enabled) {
+  const s = getReminderSettings();
+  s.dndDuringClass = Boolean(enabled);
+  saveReminderSettings(s);
+
+  let permissionResult = { granted: true };
+  if (enabled) {
+    permissionResult = await checkDndPermission();
+    if (permissionResult && permissionResult.granted === false) {
+      await requestDndPermission();
+    }
+  }
+
+  // به‌روزرسانی زمان‌بندی یادآورها در سیستم
+  const res = await scheduleClassReminders({
+    leadMinutes: s.leadMinutes,
+    notifyAtStart: s.notifyAtStart,
+    dndDuringClass: Boolean(enabled),
+  });
+
+  return { ok: true, enabled: Boolean(enabled), permissionGranted: permissionResult.granted, ...res };
 }
 
 /**
