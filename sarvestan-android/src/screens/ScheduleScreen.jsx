@@ -24,7 +24,7 @@ import {
   Edit3,
 } from 'lucide-react';
 import { isNativeAlarms, hasClassAlarmPlugin, exportExamToCalendar } from '../services/classAlarms';
-import { getScheduleMatrix, getExamsView, parseClassTime } from '../data/viewModel';
+import { getScheduleMatrix, getExamsView, parseClassTime, getToneForCourse } from '../data/viewModel';
 import { toFaDigits } from '../utils/faDigits';
 import ClassAlarmModal from '../components/ClassAlarmModal';
 import CourseEditModal from '../components/CourseEditModal';
@@ -79,6 +79,7 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
 
   // وضعیت‌های مربوط به ویرایش دروس و امتحانات
   const [editingCourse, setEditingCourse] = useState(null);
+  const [defaultDayForModal, setDefaultDayForModal] = useState('شنبه');
   const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
   const [editingExam, setEditingExam] = useState(null);
   const [isExamModalOpen, setIsExamModalOpen] = useState(false);
@@ -111,8 +112,11 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
   };
 
   // مدیریت باز کردن ویرایش و افزودن درس
-  const handleOpenAddCourse = () => {
+  const handleOpenAddCourse = (day = null) => {
     setEditingCourse(null);
+    const chosenDay =
+      day || (selectedDayIndex !== null && days[selectedDayIndex] ? days[selectedDayIndex] : 'شنبه');
+    setDefaultDayForModal(chosenDay);
     setIsCourseModalOpen(true);
   };
 
@@ -373,9 +377,11 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
             </button>
 
             {days.map((day, idx) => {
-              const dayClassesCount = Object.keys(cells).filter((k) => {
-                const parts = String(k).split('-').map(Number);
-                return parts.length >= 2 && parts[1] === idx;
+              const allSched = getCurrentTermSchedule() || [];
+              const dayClassesCount = allSched.filter((c) => {
+                const sList = c.daySlots || [];
+                if (sList.length) return sList.some((s) => s.day === day);
+                return Array.isArray(c.days) && c.days.includes(day);
               }).length;
               const isSelected = selectedDayIndex === idx;
               return (
@@ -383,7 +389,7 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                   key={day}
                   type="button"
                   onClick={() => setSelectedDayIndex(isSelected ? null : idx)}
-                  className={`relative px-3 py-1.5 rounded-xl text-[11px] whitespace-nowrap flex items-center gap-1.5 transition-colors select-none ${
+                  className={`relative px-3 py-1.5 rounded-xl text-[11px] whitespace-nowrap flex items-center gap-1.5 transition-colors select-none cursor-pointer ${
                     isSelected
                       ? 'text-primary-content font-bold'
                       : 'bg-base-500/20 text-neutral hover:bg-base-500/40 font-medium'
@@ -416,27 +422,55 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
             {days.map((day, di) => {
               if (selectedDayIndex !== null && selectedDayIndex !== di) return null;
 
-              const dayCells = Object.entries(cells)
-                .filter(([k]) => k.endsWith(`-${di}`))
-                .map(([k, v]) => {
-                  const slotIndex = parseInt(k, 10);
+              const allSched = getCurrentTermSchedule() || [];
+              const dayCourses = allSched
+                .filter((c) => {
+                  const sList = c.daySlots || [];
+                  if (sList.length) return sList.some((s) => s.day === day);
+                  return Array.isArray(c.days) && c.days.includes(day);
+                })
+                .map((c) => {
+                  const specificSlot = (c.daySlots || []).find((s) => s.day === day);
+                  const time = specificSlot?.time || c.time || c.classTimeRaw || '';
+                  const room =
+                    specificSlot?.hall && specificSlot.hall !== 'ـ'
+                      ? specificSlot.hall
+                      : c.hall || 'ـ';
                   return {
-                    slotIndex,
-                    slot: slots[slotIndex],
-                    ...v,
+                    id: c.id || c.code,
+                    code: c.code,
+                    title: c.name || c.title || 'درس',
+                    professor: c.professor || 'ـ',
+                    time,
+                    room,
+                    color: getToneForCourse(c, allSched),
+                    course: c,
                   };
                 })
                 .sort((a, b) => {
-                  const ta = parseClassTime(a.time).startHour ?? a.slotIndex;
-                  const tb = parseClassTime(b.time).startHour ?? b.slotIndex;
+                  const ta = parseClassTime(a.time).startHour ?? 999;
+                  const tb = parseClassTime(b.time).startHour ?? 999;
                   return ta - tb;
                 });
 
-              if (!dayCells.length) {
+              if (!dayCourses.length) {
                 if (selectedDayIndex === di) {
                   return (
-                    <div key={day} className="sarv-card p-6 text-center text-neutral text-xs">
-                      هیچ کلاسی در روز {day} ثبت نشده است.
+                    <div key={day} className="sarv-card p-6 text-center space-y-3">
+                      <p className="text-[13.5px] font-bold text-base-content">
+                        هیچ کلاسی در روز {day} ثبت نشده است.
+                      </p>
+                      <p className="text-[11.5px] text-neutral max-w-xs mx-auto">
+                        می‌توانید کلاس جبرانی یا درس دلخواه خود را برای روز {day} اضافه کنید.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAddCourse(day)}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary text-primary-content text-[12px] font-bold shadow-xs hover:brightness-110 active:scale-95 transition cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>افزودن درس به {day}</span>
+                      </button>
                     </div>
                   );
                 }
@@ -450,13 +484,15 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                       <span className="w-2 h-2 rounded-full bg-primary" />
                       {day}
                     </h3>
-                    <span className="text-[11px] text-neutral">{toFaDigits(dayCells.length)} درس</span>
+                    <span className="text-[11px] text-neutral">
+                      {toFaDigits(dayCourses.length)} درس
+                    </span>
                   </div>
 
                   <div className="space-y-2.5">
-                    {dayCells.map((c, ci) => (
+                    {dayCourses.map((c, ci) => (
                       <motion.article
-                        key={`${day}-${c.title}-${ci}`}
+                        key={`${day}-${c.title}-${c.id || ci}`}
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: ci * 0.04 }}
@@ -479,8 +515,8 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                           <div className="flex items-center gap-1.5 shrink-0">
                             <button
                               type="button"
-                              onClick={() => handleOpenEditCourse(c)}
-                              className="p-1.5 rounded-lg bg-base-500/20 hover:bg-base-500/35 text-neutral hover:text-base-content transition active:scale-90"
+                              onClick={() => handleOpenEditCourse(c.course || c)}
+                              className="p-1.5 rounded-lg bg-base-500/20 hover:bg-base-500/35 text-neutral hover:text-base-content transition active:scale-90 cursor-pointer"
                               title="ویرایش این درس"
                             >
                               <Pencil className="w-3.5 h-3.5" />
@@ -498,11 +534,13 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                         <div className="mt-3 pt-2.5 border-t border-base-500/30 flex items-center justify-between text-[11.5px] text-base-content/90">
                           <div className="flex items-center gap-1.5 text-neutral font-medium">
                             <Clock className="w-3.5 h-3.5 text-primary" />
-                            <span className="font-mono text-base-content font-bold">{toFaDigits(c.slot)}</span>
+                            <span className="font-mono text-base-content font-bold">
+                              {toFaDigits(c.time || '—')}
+                            </span>
                           </div>
                           <div className="flex items-center gap-1.5 text-neutral">
                             <MapPin className="w-3.5 h-3.5 text-neutral" />
-                            <span>{toFaDigits(c.room)}</span>
+                            <span>{toFaDigits(c.room || '—')}</span>
                           </div>
                         </div>
                       </motion.article>
@@ -790,6 +828,7 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
       <CourseEditModal
         isOpen={isCourseModalOpen}
         course={editingCourse}
+        defaultDay={defaultDayForModal}
         onClose={() => {
           setIsCourseModalOpen(false);
           setEditingCourse(null);

@@ -28,6 +28,7 @@ function parseStartAndEnd(timeStr) {
 export default function CourseEditModal({
   isOpen,
   course = null,
+  defaultDay = 'شنبه',
   onClose,
   onSave,
   onDelete,
@@ -104,10 +105,10 @@ export default function CourseEditModal({
         setUnits(3);
         setCode('');
         setGroup('01');
-        setSlots([{ day: 'شنبه', start: '13:30', end: '15:00', hall: '' }]);
+        setSlots([{ day: defaultDay || 'شنبه', start: '13:30', end: '15:00', hall: '' }]);
       }
     }
-  }, [isOpen, course]);
+  }, [isOpen, course, defaultDay]);
 
   const handleAddSlot = () => {
     const last = slots[slots.length - 1];

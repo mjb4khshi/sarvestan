@@ -129,7 +129,7 @@ function parseHour(raw) {
   return parseInt(m[1], 10) + parseInt(m[2], 10) / 60;
 }
 
-const EMPTY_WEEK = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه'].map((day) => ({
+const EMPTY_WEEK = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه'].map((day) => ({
   day,
   count: 0,
 }));
@@ -166,8 +166,15 @@ const EMPTY_SUMMARY = {
 };
 
 const EMPTY_MATRIX = {
-  days: ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه'],
-  slots: [],
+  days: ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه'],
+  slots: [
+    '۰۷:۳۰ – ۰۹:۰۰',
+    '۰۹:۰۰ – ۱۰:۳۰',
+    '۱۰:۳۰ – ۱۲:۰۰',
+    '۱۳:۳۰ – ۱۵:۰۰',
+    '۱۵:۰۰ – ۱۶:۳۰',
+    '۱۶:۳۰ – ۱۸:۰۰',
+  ],
   cells: {},
 };
 
@@ -255,7 +262,7 @@ function buildViewModel() {
     };
   });
 
-  const days = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه'];
+  const days = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه'];
   const week = days.map((d) => ({
     day: d,
     count: allCourses.filter((c) => Array.isArray(c.days) && c.days.includes(d)).length,
@@ -768,13 +775,26 @@ function parseRange(raw) {
     .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
     .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
   const m = s.match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
-  if (!m) return null;
-  const t1 = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
-  const t2 = parseInt(m[3], 10) * 60 + parseInt(m[4], 10);
-  return {
-    start: Math.min(t1, t2),
-    end: Math.max(t1, t2),
-  };
+  if (m) {
+    const t1 = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+    const t2 = parseInt(m[3], 10) * 60 + parseInt(m[4], 10);
+    return {
+      start: Math.min(t1, t2),
+      end: Math.max(t1, t2),
+    };
+  }
+  const single = s.match(/(\d{1,2}):(\d{2})/);
+  if (single) {
+    const t = parseInt(single[1], 10) * 60 + parseInt(single[2], 10);
+    return { start: t, end: t + 90 };
+  }
+  return null;
+}
+
+function rangeOverlap(s1, e1, s2, e2) {
+  const start = Math.max(s1, s2);
+  const end = Math.min(e1, e2);
+  return Math.max(0, end - start);
 }
 
 function fmtSlot(mins) {
@@ -793,6 +813,18 @@ function courseSlots(c) {
   return [];
 }
 
+const CANONICAL_SLOTS_DEF = [
+  { id: 'early', start: 420, end: 510, label: '۰۷:۰۰ – ۰۸:۳۰', optional: true },
+  { id: 'slot-1', start: 450, end: 540, label: '۰۷:۳۰ – ۰۹:۰۰', optional: false },
+  { id: 'slot-2', start: 540, end: 630, label: '۰۹:۰۰ – ۱۰:۳۰', optional: false },
+  { id: 'slot-3', start: 630, end: 720, label: '۱۰:۳۰ – ۱۲:۰۰', optional: false },
+  { id: 'lunch', start: 720, end: 810, label: '۱۲:۰۰ – ۱۳:۳۰', optional: true },
+  { id: 'slot-4', start: 810, end: 900, label: '۱۳:۳۰ – ۱۵:۰۰', optional: false },
+  { id: 'slot-5', start: 900, end: 990, label: '۱۵:۰۰ – ۱۶:۳۰', optional: false },
+  { id: 'slot-6', start: 990, end: 1080, label: '۱۶:۳۰ – ۱۸:۰۰', optional: false },
+  { id: 'evening', start: 1080, end: 1170, label: '۱۸:۰۰ – ۱۹:۳۰', optional: true },
+];
+
 export function getScheduleMatrix() {
   if (!hasLiveData()) return EMPTY_MATRIX;
   const snap = getSnapshot();
@@ -800,41 +832,40 @@ export function getScheduleMatrix() {
   const courses = getCurrentTermSchedule(currentTerm);
   if (!courses.length) return EMPTY_MATRIX;
 
-  const baseDays = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه'];
-  const hasThu = courses.some((c) => courseSlots(c).some((s) => s.day === 'پنجشنبه'));
+  const baseDays = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه'];
   const hasFri = courses.some((c) => courseSlots(c).some((s) => s.day === 'جمعه'));
   const days = [...baseDays];
-  if (hasThu) days.push('پنجشنبه');
   if (hasFri) days.push('جمعه');
 
-  const rawRanges = [];
+  // بررسی نیاز به اسلات‌های اختیاری بر اساس کلاس‌های موجود
+  const allSlotRanges = [];
   for (const c of courses) {
     for (const s of courseSlots(c)) {
       const r = parseRange(s.time);
-      if (!r) continue;
-      rawRanges.push(r);
+      if (r) allSlotRanges.push(r);
     }
   }
-  if (!rawRanges.length) return EMPTY_MATRIX;
 
-  // دسته‌بندی بازه‌های زمانی با شباهت شروع و پایان
-  const ranges = [];
-  rawRanges.forEach((r) => {
-    const existing = ranges.find(
-      (x) => Math.abs(x.start - r.start) <= 20 && Math.abs(x.end - r.end) <= 30
-    );
-    if (existing) {
-      existing.start = Math.min(existing.start, r.start);
-      existing.end = Math.max(existing.end, r.end);
-    } else {
-      ranges.push({ start: r.start, end: r.end });
-    }
+  const isEarlyActive = allSlotRanges.some(
+    (r) => r.start < 450 && rangeOverlap(r.start, r.end, 420, 510) >= 35,
+  );
+  const isLunchActive = allSlotRanges.some(
+    (r) => rangeOverlap(r.start, r.end, 720, 810) >= 45,
+  );
+  const isEveningActive = allSlotRanges.some(
+    (r) => r.end > 1080 && rangeOverlap(r.start, r.end, 1080, 1170) >= 35,
+  );
+
+  const activeSlots = CANONICAL_SLOTS_DEF.filter((sd) => {
+    if (sd.id === 'early') return isEarlyActive;
+    if (sd.id === 'lunch') return isLunchActive;
+    if (sd.id === 'evening') return isEveningActive;
+    return true;
   });
 
-  ranges.sort((a, b) => a.start - b.start || a.end - b.end);
-  const slots = ranges.map((r) => `${fmtSlot(r.start)}–${fmtSlot(r.end)}`);
-
+  const slots = activeSlots.map((sd) => sd.label);
   const cells = {};
+
   courses.forEach((c, ci) => {
     const tone = COURSE_TONES[ci % COURSE_TONES.length];
     for (const s of courseSlots(c)) {
@@ -843,18 +874,23 @@ export function getScheduleMatrix() {
       const r = parseRange(s.time);
       if (!r) continue;
 
-      // نزدیک‌ترین اسلات بر اساس زمان شروع
-      let bestSi = 0;
-      let minDiff = Infinity;
-      ranges.forEach((rng, idx) => {
-        const diff = Math.abs(rng.start - r.start);
-        if (diff < minDiff) {
-          minDiff = diff;
-          bestSi = idx;
-        }
-      });
+      const overlaps = activeSlots.map((sd, idx) => ({
+        idx,
+        overlap: rangeOverlap(r.start, r.end, sd.start, sd.end),
+        startDiff: Math.abs(sd.start - r.start),
+      }));
 
-      const key = `${bestSi}-${di}`;
+      // نگاشت به اسلات‌هایی با همپوشانی معنادار (حداقل ۳۵ دقیقه)
+      let matched = overlaps.filter((x) => x.overlap >= 35);
+      if (matched.length === 0) {
+        const best = overlaps.reduce((max, cur) => {
+          if (cur.overlap > max.overlap) return cur;
+          if (cur.overlap === max.overlap && cur.startDiff < max.startDiff) return cur;
+          return max;
+        }, overlaps[0]);
+        matched = [best];
+      }
+
       const item = {
         id: c.id || c.code || `course_${ci}`,
         code: c.code,
@@ -866,23 +902,29 @@ export function getScheduleMatrix() {
         course: c,
       };
 
-      if (!cells[key]) {
-        cells[key] = {
-          ...item,
-          items: [item],
-          hasConflict: false,
-        };
-      } else {
-        const existingItems = cells[key].items || [cells[key]];
-        const isDuplicate = existingItems.some(
-          (x) => (x.id && x.id === item.id) || (x.code && x.code === item.code && x.title === item.title)
-        );
-        if (!isDuplicate) {
+      for (const m of matched) {
+        const key = `${m.idx}-${di}`;
+        if (!cells[key]) {
           cells[key] = {
-            ...cells[key],
-            items: [...existingItems, item],
-            hasConflict: true,
+            ...item,
+            items: [item],
+            hasConflict: false,
           };
+        } else {
+          const existingItems = cells[key].items || [cells[key]];
+          const isDuplicate = existingItems.some(
+            (x) =>
+              (x.id && item.id && String(x.id) === String(item.id)) ||
+              (x.code && item.code && String(x.code) === String(item.code) && x.title === item.title) ||
+              (x.title === item.title && x.professor === item.professor),
+          );
+          if (!isDuplicate) {
+            cells[key] = {
+              ...cells[key],
+              items: [...existingItems, item],
+              hasConflict: true,
+            };
+          }
         }
       }
     }
