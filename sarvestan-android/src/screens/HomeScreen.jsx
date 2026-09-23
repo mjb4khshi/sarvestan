@@ -30,7 +30,7 @@ export function getGpaStatusBadge(gpaRaw) {
   if (num >= 19) {
     return {
       label: 'ممتاز',
-      chip: 'bg-amber-500/15 text-amber-600 dark:text-amber-300 font-black',
+      chip: 'bg-warn-soft text-warn font-black',
     };
   }
   if (num >= 17) {
@@ -55,6 +55,9 @@ const statusMeta = {
   done: { label: 'پایان یافته', chip: 'bg-base-500/30 text-neutral font-normal' },
 };
 
+// نحوه نمایش کارت مشخصات: 'row' (عکس مربعی لبه گرد در راست) | 'centered' (مرکزچین دایره‌ای قبلی برای بازگشت آسان)
+const PROFILE_CARD_LAYOUT = 'row';
+
 export default function HomeScreen({ onNavigate }) {
   const { live, isSessionAlive } = useSarvestanData();
   const vm = getViewModel();
@@ -70,86 +73,168 @@ export default function HomeScreen({ onNavigate }) {
   const todayIdx = Math.max(0, WEEK.findIndex((d) => d.day === dayNameMap[new Date().getDay()]));
   const gpaStatus = getGpaStatusBadge(SUMMARY.gpa || STUDENT.gpa || vm.grades?.cumulativeGpa);
 
+  // وضعیت بدهکاری شهریه: در صورت بدهی رنگ اخطار (warn)، در صورت تسویه یا بستانکاری رنگ سبز (success)
+  const isDebtor =
+    (SUMMARY.debtToman > 0) ||
+    (SUMMARY.unpaidRial > 0) ||
+    (SUMMARY.unpaid && SUMMARY.unpaid !== '۰' && SUMMARY.unpaid !== '0');
+
+  const tuitionTone = isDebtor
+    ? {
+        card: 'bg-warn-soft border-warn-soft hover:border-warn',
+        text: 'text-warn',
+      }
+    : {
+        card: 'bg-success-soft border-success-soft hover:border-success',
+        text: 'text-success',
+      };
+
   return (
     <div className="px-4 pt-3.5 space-y-3.5 mobile-pad-bottom">
       
-      {/* هیرو کارت هویت دانشجو — عکس در مرکز، مشخصات و باکس‌ها در زیر آن */}
-      <section className="sarv-card p-5 border border-base-500 flex flex-col items-center text-center relative overflow-hidden">
-        
-        {/* تصویر آواتار در مرکز بالا */}
-        <div className="relative">
-          {STUDENT.photo ? (
-            <img
-              src={STUDENT.photo}
-              alt=""
-              className="w-20 h-20 rounded-full object-cover shadow-lg border-4 border-base"
-            />
-          ) : (
-            <div className="w-20 h-20 rounded-full bg-primary text-primary-content font-black text-3xl grid place-items-center shadow-lg border-4 border-base">
-              {STUDENT.fullName.slice(0, 1)}
+      {/* هیرو کارت هویت دانشجو */}
+      <section className="sarv-card p-4 sm:p-5 border border-base-500 relative overflow-hidden">
+        {PROFILE_CARD_LAYOUT === 'row' ? (
+          /* دیزاین جدید: عکس مربعی لبه‌گرد در سمت راست + مشخصات در ادامه سمت چپ */
+          <div className="w-full flex items-stretch gap-3.5">
+            {/* تصویر آواتار مربعی با گوشه‌های گرد */}
+            <div className="relative shrink-0 w-[90px] h-[90px] sm:w-[96px] sm:h-[96px]">
+              {STUDENT.photo ? (
+                <img
+                  src={STUDENT.photo}
+                  alt=""
+                  className="w-full h-full rounded-2xl object-cover shadow-md border-2 border-base"
+                />
+              ) : (
+                <div className="w-full h-full rounded-2xl bg-primary text-primary-content font-black text-2xl grid place-items-center shadow-md border-2 border-base">
+                  {STUDENT.fullName ? STUDENT.fullName.slice(0, 1) : 'س'}
+                </div>
+              )}
+              {/* نشانگر آنلاین / فعال بودن */}
+              <span
+                className={`absolute -bottom-1 -left-1 w-4 h-4 rounded-full ring-2 ring-base ${
+                  live ? 'bg-success' : 'bg-neutral'
+                }`}
+                title={live ? 'متصل به بهستان' : 'حالت نمونه'}
+              />
             </div>
-          )}
-          {/* نشانگر آنلاین / فعال بودن — با توکن success */}
-          <span
-            className={`absolute bottom-1 right-1 w-4 h-4 rounded-full ring-2 ring-base ${
-              live ? 'bg-success' : 'bg-neutral'
-            }`}
-            title={live ? 'متصل به بهستان' : 'حالت نمونه'}
-          />
-        </div>
 
-        {/* نام و مشخصات — فقط از دیتای زنده */}
-        {STUDENT.fullName ? (
-          <h2 className="text-[19px] font-black text-base-content mt-3 leading-tight">
-            {STUDENT.fullName}
-          </h2>
+            {/* مشخصات: نام هم‌تراز با بالای تصویر و بج‌ها هم‌تراز با پایین تصویر */}
+            <div className="flex-1 min-w-0 text-right flex flex-col justify-between py-0.5">
+              <div>
+                {STUDENT.fullName ? (
+                  <h2 className="text-[17px] font-black text-base-content leading-snug truncate">
+                    {STUDENT.fullName}
+                  </h2>
+                ) : (
+                  <h2 className="text-[17px] font-black text-neutral leading-snug">
+                    {live ? 'در حال دریافت اطلاعات…' : 'بدون اتصال'}
+                  </h2>
+                )}
+                <p className="text-[11.5px] text-neutral font-medium mt-0.5 truncate">
+                  {STUDENT.studentId ? (
+                    <>
+                      <span className="font-mono text-base-content font-bold">{toFaDigits(STUDENT.studentId)}</span>
+                      {STUDENT.major ? ' · ' : ''}
+                    </>
+                  ) : null}
+                  {STUDENT.major ? <span>{STUDENT.major}</span> : null}
+                </p>
+                {STUDENT.college && STUDENT.college !== STUDENT.major ? (
+                  <p className="text-[10.5px] text-neutral/80 mt-0.5 truncate">{STUDENT.college}</p>
+                ) : null}
+              </div>
+
+              {/* بج‌های اطلاعاتی — هم‌تراز با لبهٔ پایینی تصویر */}
+              <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-secondary-soft text-secondary">
+                  {toFaDigits(TERM_LABEL)}
+                </span>
+                {gpaStatus && (
+                  <span className={`text-[10px] px-2 py-0.5 rounded-lg ${gpaStatus.chip}`}>
+                    {gpaStatus.label}
+                  </span>
+                )}
+                {(SUMMARY.droppedCount > 0 || SUMMARY.waitlistCount > 0) && (
+                  <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-lg bg-warn-soft text-warn">
+                    {SUMMARY.droppedCount > 0 ? `حذف: ${toFaDigits(SUMMARY.droppedCount)}` : ''}
+                    {SUMMARY.droppedCount > 0 && SUMMARY.waitlistCount > 0 ? ' · ' : ''}
+                    {SUMMARY.waitlistCount > 0 ? `انتظار: ${toFaDigits(SUMMARY.waitlistCount)}` : ''}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
         ) : (
-          <h2 className="text-[19px] font-black text-base-content mt-3 leading-tight text-neutral">
-            {live ? 'در حال دریافت اطلاعات…' : 'بدون اتصال'}
-          </h2>
+          /* دیزاین قبلی: عکس دایره‌ای مرکزچین */
+          <div className="flex flex-col items-center text-center">
+            <div className="relative">
+              {STUDENT.photo ? (
+                <img
+                  src={STUDENT.photo}
+                  alt=""
+                  className="w-20 h-20 rounded-full object-cover shadow-lg border-4 border-base"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-full bg-primary text-primary-content font-black text-3xl grid place-items-center shadow-lg border-4 border-base">
+                  {STUDENT.fullName.slice(0, 1)}
+                </div>
+              )}
+              <span
+                className={`absolute bottom-1 right-1 w-4 h-4 rounded-full ring-2 ring-base ${
+                  live ? 'bg-success' : 'bg-neutral'
+                }`}
+                title={live ? 'متصل به بهستان' : 'حالت نمونه'}
+              />
+            </div>
+
+            {STUDENT.fullName ? (
+              <h2 className="text-[19px] font-black text-base-content mt-3 leading-tight">
+                {STUDENT.fullName}
+              </h2>
+            ) : (
+              <h2 className="text-[19px] font-black text-base-content mt-3 leading-tight text-neutral">
+                {live ? 'در حال دریافت اطلاعات…' : 'بدون اتصال'}
+              </h2>
+            )}
+            <p className="text-[12px] text-neutral font-medium mt-0.5">
+              {STUDENT.studentId ? (
+                <>
+                  <span className="font-mono text-base-content font-bold">{STUDENT.studentId}</span>
+                  {STUDENT.major ? ' · ' : ''}
+                </>
+              ) : null}
+              {STUDENT.major ? <span>{STUDENT.major}</span> : null}
+            </p>
+            {STUDENT.college ? (
+              <p className="text-[11px] text-neutral mt-0.5">{STUDENT.college}</p>
+            ) : null}
+
+            <div className="mt-3 flex items-center justify-center gap-2 flex-wrap">
+              <span className="text-[10.5px] font-black px-2.5 py-1 rounded-xl bg-secondary-soft text-secondary">
+                {toFaDigits(TERM_LABEL)}
+              </span>
+              <span className="text-[10.5px] font-bold px-2.5 py-1 rounded-xl bg-primary-soft text-primary">
+                {STUDENT.major || STUDENT.college}
+              </span>
+              {gpaStatus && (
+                <span className={`text-[10.5px] px-2.5 py-1 rounded-xl ${gpaStatus.chip}`}>
+                  {gpaStatus.label}
+                </span>
+              )}
+              {(SUMMARY.droppedCount > 0 || SUMMARY.waitlistCount > 0) && (
+                <span className="text-[10px] font-bold px-2.5 py-1 rounded-xl bg-warn-soft text-warn">
+                  {SUMMARY.droppedCount > 0 ? `حذف اضطراری: ${toFaDigits(SUMMARY.droppedCount)}` : ''}
+                  {SUMMARY.droppedCount > 0 && SUMMARY.waitlistCount > 0 ? ' · ' : ''}
+                  {SUMMARY.waitlistCount > 0 ? `در انتظار: ${toFaDigits(SUMMARY.waitlistCount)}` : ''}
+                </span>
+              )}
+            </div>
+          </div>
         )}
-        <p className="text-[12px] text-neutral font-medium mt-0.5">
-          {STUDENT.studentId ? (
-            <>
-              <span className="font-mono text-base-content font-bold">{STUDENT.studentId}</span>
-              {STUDENT.major ? ' · ' : ''}
-            </>
-          ) : null}
-          {STUDENT.major ? <span>{STUDENT.major}</span> : null}
-        </p>
-        {STUDENT.college ? (
-          <p className="text-[11px] text-neutral mt-0.5">{STUDENT.college}</p>
-        ) : null}
 
-        {/* بج‌های اطلاعاتی ترم و وضعیت تحصیلی با استایل سافت بدون بوردر */}
-        <div className="mt-3 flex items-center justify-center gap-2 flex-wrap">
-          <span className="text-[10.5px] font-black px-2.5 py-1 rounded-xl bg-secondary-soft text-secondary">
-            {toFaDigits(TERM_LABEL)}
-          </span>
-          <span className="text-[10.5px] font-bold px-2.5 py-1 rounded-xl bg-primary-soft text-primary">
-            {STUDENT.major || STUDENT.college}
-          </span>
-          {gpaStatus && (
-            <span className={`text-[10.5px] px-2.5 py-1 rounded-xl ${gpaStatus.chip}`}>
-              {gpaStatus.label}
-            </span>
-          )}
-          {(SUMMARY.droppedCount > 0 || SUMMARY.waitlistCount > 0) && (
-            <span className="text-[10px] font-bold px-2.5 py-1 rounded-xl bg-warn-soft text-warn">
-              {SUMMARY.droppedCount > 0 ? `حذف اضطراری: ${toFaDigits(SUMMARY.droppedCount)}` : ''}
-              {SUMMARY.droppedCount > 0 && SUMMARY.waitlistCount > 0 ? ' · ' : ''}
-              {SUMMARY.waitlistCount > 0 ? `در انتظار: ${toFaDigits(SUMMARY.waitlistCount)}` : ''}
-            </span>
-          )}
-        </div>
-
-        {/* ردیف آمار سه‌گانه بنتو تعاملی:
-            - معدل: آبی (primary) -> انتقال به کارنامه و محاسبه‌گر معدل
-            - واحدها و چارت: بنفش (accent) -> باز شدن چارت و سرفصل دروس
-            - مالی و شهریه: سبز (success) -> انتقال به امور مالی و رسید
-        */}
-        <div className="mt-4 w-full grid grid-cols-3 gap-2 pt-3 border-t border-base-500/40">
-          {/* معدل کل — کلیک برای رفتن به کارنامه و معدل */}
+        {/* ردیف آمار سه‌گانه بنتو تعاملی */}
+        <div className="mt-3.5 w-full grid grid-cols-3 gap-2 pt-3 border-t border-base-500/40">
           <button
             type="button"
             onClick={() => onNavigate('grades')}
@@ -162,7 +247,6 @@ export default function HomeScreen({ onNavigate }) {
             </p>
           </button>
 
-          {/* واحدهای اخذ شده — کلیک برای باز شدن چارت و سرفصل دروس */}
           <button
             type="button"
             onClick={() => onNavigate('chart')}
@@ -175,22 +259,21 @@ export default function HomeScreen({ onNavigate }) {
             </p>
           </button>
 
-          {/* وضعیت مالی — کلیک برای رفتن به امور مالی */}
           <button
             type="button"
             onClick={() => onNavigate('finance')}
-            className="rounded-2xl p-2.5 text-center bg-success-soft border border-success-soft hover:border-success active:scale-95 transition-all outline-none cursor-pointer"
-            title="مشاهده وضعیت مالی و رسید"
+            className={`rounded-2xl p-2.5 text-center ${tuitionTone.card} border active:scale-95 transition-all outline-none cursor-pointer`}
+            title="مشاهده وضعیت شهریه و امور مالی"
           >
-            <p className="text-[10.5px] text-success font-bold">وضعیت مالی</p>
-            <p className="text-[13px] font-black text-success mt-0.5 truncate font-mono">
+            <p className={`text-[10.5px] ${tuitionTone.text} font-bold`}>شهریه</p>
+            <p className={`text-[13px] font-black ${tuitionTone.text} mt-0.5 truncate font-mono`}>
               {toFaDigits(SUMMARY.unpaid)} <span className="text-[9.5px] font-sans">ت</span>
             </p>
           </button>
         </div>
       </section>
 
-      {!live && !isSessionAlive && (
+      {!live && (
         <button
           type="button"
           onClick={() => {
@@ -199,7 +282,7 @@ export default function HomeScreen({ onNavigate }) {
           className="w-full sarv-card p-3.5 flex items-center justify-center gap-2 border border-primary/30 bg-primary-soft text-primary font-bold text-[13px] active:scale-[0.98] transition-all"
         >
           <LogIn className="w-4 h-4" />
-          ورود به بهستان برای داده‌های واقعی
+          ورود زندهٔ بهستان
         </button>
       )}
 
@@ -217,18 +300,22 @@ export default function HomeScreen({ onNavigate }) {
               <span className="text-[11px] font-black text-primary">
                 {NEXT?.status === 'now'
                   ? 'کلاس در جریان'
+                  : NEXT?.isUpcomingDay
+                  ? `کلاس بعدی (${NEXT.dayLabel})`
                   : NEXT
                   ? 'کلاس بعدی شما'
                   : TODAY_CLASSES.length > 0
                   ? 'کلاس‌های امروز'
-                  : 'برنامه امروز'}
+                  : 'برنامه آموزشی'}
               </span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary text-primary-content font-bold font-mono">
                 {toFaDigits(
-                  NEXT?.time ||
-                    (TODAY_CLASSES.length > 0 && !NEXT
-                      ? 'پایان کلاس‌ها'
-                      : SUMMARY.nextClassIn || '—'),
+                  NEXT?.isUpcomingDay
+                    ? `${NEXT.dayLabel} ${NEXT.time}`
+                    : NEXT?.time ||
+                      (TODAY_CLASSES.length > 0 && !NEXT
+                        ? 'پایان کلاس‌ها'
+                        : SUMMARY.nextClassIn || '—'),
                 )}
               </span>
             </div>

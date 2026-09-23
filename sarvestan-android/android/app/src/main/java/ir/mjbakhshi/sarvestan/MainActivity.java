@@ -7,7 +7,9 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(SsoLoginPlugin.class);
         registerPlugin(SsoWebViewPlugin.class);
+        registerPlugin(SarvestanClassAlarmPlugin.class);
         registerPlugin(SarvestanWidgetPlugin.class);
         registerPlugin(SarvestanSharePlugin.class);
         registerPlugin(SarvestanIconPlugin.class);

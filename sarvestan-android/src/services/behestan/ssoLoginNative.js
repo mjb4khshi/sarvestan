@@ -36,20 +36,79 @@ export function hasSsoWebViewPlugin() {
   return Boolean(plugins().SsoWebView);
 }
 
-/** تلاش اول: WebView واقعی بهستان */
-export async function loginViaSsoWebView() {
-  const p = plugins().SsoWebView;
+export function hasSsoLoginPlugin() {
+  return Boolean(plugins().SsoLogin);
+}
+
+/** کوکی‌های Keycloak/Sso را برای درخواست‌های IIS بهستان حذف کن */
+export function cookieForHost(jar, url) {
+  const raw = String(jar || '');
+  try {
+    const host = new URL(url).hostname || '';
+    if (host.includes('behestan')) return stripKeycloakCookies(raw);
+  } catch {}
+  return raw;
+}
+
+/** اگر فقط کوکی‌های بهستان را برای IIS بفرستیم، نشست کاری سالم می‌ماند */
+export function stripKeycloakCookies(jar) {
+  return String(jar || '')
+    .split(';')
+    .map((s) => s.trim())
+    .filter((s) => s && !/^(KC_|KEYCLOAK_|AUTH_SESSION_ID=|KC_RESTART=|JSESSIONID=|OAuth_Token_Request_State=)/i.test(s))
+    .join('; ');
+}
+
+/** ورود مستقیم نیتیو جاوا (بدون وب‌ویو، دقیقا مانند وب با curl) */
+export async function loginViaJavaSso(username, password) {
+  const p = plugins().SsoLogin;
   if (!p?.login) {
-    return { ok: false, error: 'پلاگین WebView در دسترس نیست', code: 'no-plugin' };
+    return { ok: false, error: 'پلاگین SsoLogin در دسترس نیست', code: 'no-plugin' };
   }
   try {
-    const res = await p.login({});
+    const res = await p.login({
+      username: String(username || '').trim(),
+      password: String(password || ''),
+    });
     if (res?.ok && res.sid && res.ticket) {
       return {
         ok: true,
         sid: res.sid,
         ticket: res.ticket,
-        studentId: res.studentId || null,
+        cookies: res.cookies || '',
+        studentId: res.studentId || String(username || '').trim(),
+        userId: res.userId || undefined,
+        source: 'native_java',
+      };
+    }
+    return { ok: false, error: res?.error || 'نشست ساخته نشد' };
+  } catch (e) {
+    return {
+      ok: false,
+      error: String(e?.message || e?.error || e || 'خطای ورود بومی'),
+    };
+  }
+}
+
+/** ورود با WebView واقعی بهستان */
+export async function loginViaSsoWebView(credentials = {}) {
+  const p = plugins().SsoWebView;
+  if (!p?.login) {
+    return { ok: false, error: 'پلاگین WebView در دسترس نیست', code: 'no-plugin' };
+  }
+  try {
+    const res = await p.login({
+      username: credentials?.username ? String(credentials.username).trim() : '',
+      password: credentials?.password ? String(credentials.password) : '',
+    });
+    if (res?.ok && res.sid && res.ticket) {
+      return {
+        ok: true,
+        sid: res.sid,
+        ticket: res.ticket,
+        cookies: res.cookies || '',
+        studentId: res.studentId || (credentials?.username ? String(credentials.username).trim() : null),
+        userId: res.userId || undefined,
         source: 'webview',
       };
     }
@@ -63,7 +122,7 @@ export async function loginViaSsoWebView() {
   }
 }
 
-/* ── Fallback با CapacitorHttp (همان منطق قبلی، ساده‌تر) ── */
+/* ── Fallback با CapacitorHttp ── */
 
 function bodyText(res) {
   const d = res?.data;
@@ -85,36 +144,53 @@ function headerVal(res, name) {
   return undefined;
 }
 
-function mergeCookies(jar, setCookies) {
+export function mergeCookies(jar, setCookies) {
   const map = new Map();
-  const add = (pair) => {
+  const addOne = (pair) => {
+    if (!pair) return;
     const p = String(pair).split(';')[0].trim();
     const i = p.indexOf('=');
-    if (i > 0) map.set(p.slice(0, i), p);
+    if (i > 0) {
+      const name = p.slice(0, i).trim();
+      if (name) map.set(name, p);
+    }
   };
+
   String(jar || '')
     .split(';')
     .map((s) => s.trim())
     .filter(Boolean)
-    .forEach(add);
-  let list = setCookies == null ? [] : Array.isArray(setCookies) ? setCookies : [setCookies];
-  for (const c of list) add(c);
+    .forEach(addOne);
+
+  if (setCookies == null) return [...map.values()].join('; ');
+
+  const list = Array.isArray(setCookies) ? setCookies : [setCookies];
+  for (const item of list) {
+    if (!item) continue;
+    // در اندروید هدرهای Set-Cookie با کاما متصل می‌شوند
+    const parts = String(item).split(/(?:,\s*)(?=[A-Za-z0-9_.-]+=)/);
+    for (const part of parts) {
+      addOne(part);
+    }
+  }
   return [...map.values()].join('; ');
 }
 
 async function httpGet(url, cookie = '') {
   const h = http();
+  if (!h) throw new Error('CapacitorHttp در دسترس نیست');
+  const sendCookie = cookieForHost(cookie, url);
   const res = await h.get({
     url,
     headers: {
       'User-Agent': UA,
-      Accept: 'text/html,application/json,*/*',
-      ...(cookie ? { Cookie: cookie } : {}),
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      ...(sendCookie ? { Cookie: sendCookie } : {}),
     },
-    connectTimeout: 25000,
-    readTimeout: 30000,
+    connectTimeout: 20000,
+    readTimeout: 25000,
     responseType: 'text',
-    disableRedirect: true,
+    disableRedirects: true,
   });
   return {
     status: Number(res.status || 0),
@@ -126,21 +202,23 @@ async function httpGet(url, cookie = '') {
 
 async function httpPostForm(url, { body, cookie = '', referer }) {
   const h = http();
+  if (!h) throw new Error('CapacitorHttp در دسترس نیست');
+  const sendCookie = cookieForHost(cookie, url);
   const res = await h.post({
     url,
     data: body,
     headers: {
       'User-Agent': UA,
-      Accept: 'text/html,application/json,*/*',
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       'Content-Type': 'application/x-www-form-urlencoded',
       ...(referer ? { Referer: referer } : {}),
       Origin: SSO_ORIGIN,
-      ...(cookie ? { Cookie: cookie } : {}),
+      ...(sendCookie ? { Cookie: sendCookie } : {}),
     },
-    connectTimeout: 25000,
-    readTimeout: 30000,
+    connectTimeout: 20000,
+    readTimeout: 25000,
     responseType: 'text',
-    disableRedirect: true,
+    disableRedirects: true,
   });
   return {
     status: Number(res.status || 0),
@@ -177,7 +255,7 @@ function extractHiddenFields(html) {
   return out;
 }
 
-/** تلاش دوم: همان فرم Keycloak با CapacitorHttp */
+/** تلاش دوم: فرم Keycloak با پروتکل نیتیو */
 export async function loginViaNativeSso(username, password) {
   if (!http()) {
     return { ok: false, error: 'CapacitorHttp در دسترس نیست' };
@@ -198,10 +276,26 @@ export async function loginViaNativeSso(username, password) {
   let html = '';
   let status = 0;
   for (let i = 0; i < 8; i++) {
-    const r = await httpGet(current, jar);
+    let r;
+    try {
+      r = await httpGet(current, jar);
+    } catch (err) {
+      return {
+        ok: false,
+        error: `خطای اتصال به سرور SSO: ${err?.message || err}`,
+      };
+    }
     jar = r.cookie;
     status = r.status;
     html = r.body;
+
+    if (r.status === 0) {
+      return {
+        ok: false,
+        error: 'اتصال به سامانه SSO برقرار نشد (کد ۰). اینترنت و VPN را بررسی کنید.',
+      };
+    }
+
     if (r.status >= 300 && r.status < 400 && r.location) {
       current = new URL(r.location, current).toString();
       continue;
@@ -211,9 +305,13 @@ export async function loginViaNativeSso(username, password) {
 
   const action = findFormAction(html);
   if (!action) {
+    const kcFeedback = html.match(/class=["'][^"']*kc-feedback-text[^"']*["'][^>]*>([\s\S]*?)<\//i)?.[1]?.trim();
+    if (kcFeedback) {
+      return { ok: false, error: `پیام سامانه احراز هویت: ${decodeHtml(kcFeedback)}` };
+    }
     return {
       ok: false,
-      error: 'فرم SSO پیدا نشد — اینترنت/VPN را عوض کن',
+      error: `فرم SSO در پاسخ سرور یافت نشد (کد ${status})`,
     };
   }
 
@@ -236,53 +334,105 @@ export async function loginViaNativeSso(username, password) {
   let finalUrl = loginUrl;
   let loginBody = '';
   let loginCookie = jar;
+  let code = null;
+
   for (let i = 0; i < 10; i++) {
-    const r = await httpPostForm(finalUrl, {
-      body: params.toString(),
-      cookie: loginCookie,
-      referer: current,
-    });
+    let r;
+    try {
+      r = await httpPostForm(finalUrl, {
+        body: params.toString(),
+        cookie: loginCookie,
+        referer: current,
+      });
+    } catch (err) {
+      return { ok: false, error: `خطای ارسال فرم SSO: ${err?.message || err}` };
+    }
     loginCookie = r.cookie;
     loginBody = r.body;
+
     if (r.status >= 300 && r.status < 400 && r.location) {
       finalUrl = new URL(r.location, finalUrl).toString();
-      const g = await httpGet(finalUrl, loginCookie);
-      loginCookie = g.cookie;
-      loginBody = g.body;
-      if (g.location) {
-        finalUrl = new URL(g.location, finalUrl).toString();
-        continue;
+      try {
+        code = new URL(finalUrl).searchParams.get('code');
+      } catch {}
+      if (code) break;
+
+      let g;
+      try {
+        g = await httpGet(finalUrl, loginCookie);
+      } catch {}
+      if (g) {
+        loginCookie = g.cookie;
+        loginBody = g.body;
+        if (g.location) {
+          finalUrl = new URL(g.location, finalUrl).toString();
+          try {
+            code = new URL(finalUrl).searchParams.get('code');
+          } catch {}
+          if (code) break;
+          continue;
+        }
       }
       break;
     }
     break;
   }
 
-  let code = null;
-  try {
-    code = new URL(finalUrl).searchParams.get('code');
-  } catch {}
   if (!code) {
-    const m = String(loginBody || '').match(/code=([A-Za-z0-9._~%-]+)/);
+    try {
+      code = new URL(finalUrl).searchParams.get('code');
+    } catch {}
+  }
+  if (!code) {
+    const m = String(loginBody || '').match(/[?&]code=([A-Za-z0-9._~%-]+)/);
     if (m) code = decodeURIComponent(m[1]);
   }
   if (!code) {
     const err =
-      loginBody.match(/kc-feedback-text[^>]*>\s*([^<]+)/i)?.[1]?.trim() || '';
-    return { ok: false, error: err || 'ورود SSO ناموفق — رمز/کاربری یا شبکه' };
+      loginBody.match(/kc-feedback-text[^>]*>\s*([^<]+)/i)?.[1]?.trim() ||
+      (loginBody.includes('Invalid username or password') ? 'نام کاربری یا کلمه عبور نادرست است.' : '');
+    return { ok: false, error: err || 'ورود ناموفق — نام کاربری یا رمز را بررسی کنید.' };
   }
 
-  let behestanCookie = loginCookie;
+  // GET دقیق URL برگشتی (مثل مرورگر: /browser/fa/?state=..&session_state=..&iss=..&code=..)
+  // بازسازی دستی index.html?code= نشست کاری نمی‌سازد (خطای 50216)
+  let behestanCookie = '';
+  const returnUrl =
+    code && finalUrl && finalUrl.includes('code=')
+      ? finalUrl
+      : `${BEHESTAN}/browser/fa/?state=${state}&code=${encodeURIComponent(code)}`;
   try {
-    let u = `${BEHESTAN}/index.html?state=${state}&code=${encodeURIComponent(code)}`;
-    for (let i = 0; i < 5; i++) {
-      const r = await httpGet(u, behestanCookie);
-      behestanCookie = r.cookie;
+    let u = returnUrl;
+    for (let i = 0; i < 3; i++) {
+      const r = await httpGet(u, loginCookie);
+      // فقط کوکی‌های بهستان را نگه دار — کوکی‌های Keycloak به IIS نفرست
+      behestanCookie = mergeCookies(behestanCookie, headerVal(r, 'set-cookie'));
       if (r.status >= 300 && r.status < 400 && r.location) {
         u = new URL(r.location, u).toString();
         continue;
       }
       break;
+    }
+  } catch {}
+
+  // گرم کردن نشست وب (loginapi act 00)
+  try {
+    const h = http();
+    const warm = await h.post({
+      url: `${BEHESTAN}/frm/loginapi/loginapi.svc/`,
+      data: { r: {}, rp: {}, act: '00' },
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Referer: `${BEHESTAN}/browser/fa/`,
+        ...(cookieForHost(behestanCookie, BEHESTAN) ? { Cookie: cookieForHost(behestanCookie, BEHESTAN) } : {}),
+      },
+      connectTimeout: 15000,
+      readTimeout: 20000,
+      responseType: 'json',
+    });
+    if (warm?.headers) {
+      behestanCookie = mergeCookies(behestanCookie, headerVal(warm, 'set-cookie'));
     }
   } catch {}
 
@@ -299,12 +449,16 @@ export async function loginViaNativeSso(username, password) {
       Accept: 'application/json',
       Referer: `${BEHESTAN}/`,
       Origin: BEHESTAN,
-      ...(behestanCookie ? { Cookie: behestanCookie } : {}),
+      ...(cookieForHost(behestanCookie, OAUTH_VERIFY) ? { Cookie: cookieForHost(behestanCookie, OAUTH_VERIFY) } : {}),
     },
     connectTimeout: 25000,
     readTimeout: 30000,
     responseType: 'json',
   });
+
+  if (verify?.headers) {
+    behestanCookie = mergeCookies(behestanCookie, headerVal(verify, 'set-cookie'));
+  }
 
   let data = verify.data;
   if (typeof data === 'string') {
@@ -318,12 +472,12 @@ export async function loginViaNativeSso(username, password) {
     try {
       data = JSON.parse(bodyText(verify));
     } catch {
-      return { ok: false, error: 'پاسخ oauth2 نامعتبر بود' };
+      return { ok: false, error: 'پاسخ oauth2 بهستان نامعتبر بود' };
     }
   }
 
   const sid = data?.oaut?.rp?.sid;
-  const ticket = data?.t;
+  let ticket = data?.t;
   if (!sid || !ticket) {
     const errs = data?.msg?.errors;
     return {
@@ -332,29 +486,105 @@ export async function loginViaNativeSso(username, password) {
     };
   }
 
+  // فعال‌سازی نشست کاری + شناسه دانشجو (sys nav 11130) — مثل loginViaCentralSso روی وب
+  let studentId = /^\d{6,}$/.test(String(username).trim()) ? String(username).trim() : null;
+  let userId;
+  try {
+    const navRes = await h.post({
+      url: `${BEHESTAN}/frm/sys/sys.svc/`,
+      data: {
+        r: { fid: '11130', ft: '0', subfrm: '' },
+        act: 'nav',
+        rp: {
+          sp: '{"BrnNo":"0","BrnLimit":"0","UsrType":"0","TrmType":"2"}',
+          loc: 'fa',
+          ut: '0',
+          b: '0',
+          sid,
+        },
+        t: ticket,
+      },
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Referer: `${BEHESTAN}/browser/fa/`,
+        Origin: BEHESTAN,
+        ...(cookieForHost(behestanCookie, BEHESTAN) ? { Cookie: cookieForHost(behestanCookie, BEHESTAN) } : {}),
+      },
+      connectTimeout: 15000,
+      readTimeout: 20000,
+      responseType: 'json',
+    });
+    if (navRes?.headers) {
+      behestanCookie = mergeCookies(behestanCookie, headerVal(navRes, 'set-cookie'));
+    }
+    let navData = navRes?.data;
+    if (typeof navData === 'string') {
+      try {
+        navData = JSON.parse(navData);
+      } catch {
+        navData = null;
+      }
+    }
+    if (navData?.t) ticket = navData.t;
+    if (navData?.outpar?.std) studentId = String(navData.outpar.std);
+    if (navData?.outpar?.u) userId = String(navData.outpar.u);
+  } catch {}
+
+  // فقط کوکی‌های بهستان را بفرست (بدون KC_/KEYCLOAK_)
   return {
     ok: true,
     sid,
     ticket,
-    cookies: behestanCookie,
-    studentId: null,
+    cookies: stripKeycloakCookies(behestanCookie),
+    studentId,
+    userId,
     source: 'http',
   };
 }
 
-/** ورود یکپارچه اندروید */
-export async function loginAndroid(username, password) {
-  // ۱) WebView (بهترین)
-  if (hasSsoWebViewPlugin()) {
-    const wv = await loginViaSsoWebView();
-    if (wv.ok) return wv;
-    // اگر WebView کاربر را بست بدون نشست، fallback نکن و همان خطا را بده
-    if (wv.code === 'no-plugin') {
-      // ادامه به http
-    } else {
-      return wv;
+/** پاک کردن کوکی‌های SSO/بهستان تا تلاش دوم مثل اول تمیز باشد */
+export async function clearSsoCookies() {
+  try {
+    const h = http();
+    if (h?.clearCookies) {
+      await h.clearCookies({ url: 'https://sso.kntu.ac.ir' });
+      await h.clearCookies({ url: 'https://behestan.kntu.ac.ir' });
+      return true;
     }
+  } catch {}
+  return false;
+}
+
+/** ورود یکپارچه اندروید — فقط با رمز، WebView خودکار باز نمی‌شود */
+export async function loginAndroid(username, password) {
+  if (username && password) {
+    // کوکی‌های نشست قبلی Keycloak نباید فرم/ریدایرکت تلاش دوم را خراب کنند
+    await clearSsoCookies();
+
+    // ۱) ورود مستقیم از طریق لایهٔ بومی Java (بدون باز شدن وب‌ویو، دقیقاً مشابه مکانیزم curl در وب)
+    if (hasSsoLoginPlugin()) {
+      const javaRes = await loginViaJavaSso(username, password);
+      if (javaRes.ok) return javaRes;
+
+      // اگر خطای مشخصی مانند نام کاربری یا رمز اشتباه بود، فوراً برگردان
+      if (
+        javaRes.error &&
+        (javaRes.error.includes('نادرست') ||
+          javaRes.error.includes('اشتباه') ||
+          javaRes.error.includes('Invalid'))
+      ) {
+        return javaRes;
+      }
+      console.warn('[SsoLogin] Java login failed, trying fallback:', javaRes.error);
+    }
+
+    // ۲) فال‌بک با پروتکل نیتیو جاوااسکریپت (CapacitorHttp)
+    const httpRes = await loginViaNativeSso(username, password);
+    // WebView خودکار باز نکن — کاربر باید خودش «وب‌ویو» را انتخاب کند
+    return httpRes;
   }
-  // ۲) CapacitorHttp
-  return loginViaNativeSso(username, password);
+
+  // بدون رمز: فقط وقتی کاربر صریحاً روش وب‌ویو را زده (doLogin متد webview)
+  return { ok: false, error: 'نام کاربری و رمز عبور را وارد کنید.' };
 }

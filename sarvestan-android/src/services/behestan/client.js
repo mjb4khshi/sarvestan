@@ -10,6 +10,7 @@ import {
   getStudentId,
   getUserId,
   isSessionAlive,
+  updateTicket,
 } from './session';
 import {
   parseF1825,
@@ -55,7 +56,9 @@ const URLS = {
 
 function parseJsonSafe(text) {
   try {
-    return JSON.parse(text);
+    const data = JSON.parse(text);
+    if (data?.t) updateTicket(data.t);
+    return data;
   } catch {
     return null;
   }
@@ -72,8 +75,8 @@ export function extractBehestanError(data) {
 }
 
 /** باز کردن فرم با nav — قبل از هر svc فرم‌محور لازم است (توالی مرورگر) */
-async function navForm(fid, { cmpId = null, fop = null } = {}) {
-  const r = { fid, ft: '0', subfrm: '' };
+async function navForm(fid, { cmpId = null, fop = null, ft = '0' } = {}) {
+  const r = { fid: String(fid), ft: String(ft), subfrm: '' };
   if (cmpId) r.CmpId = cmpId;
   const rp = {
     sp: '{"TrmType":"2","BrnNo":"0","BrnLimit":"0","UsrType":"0"}',
@@ -90,13 +93,13 @@ async function navForm(fid, { cmpId = null, fop = null } = {}) {
   return data;
 }
 
-/** شناسهٔ AUW از کش پروفایل — از B1 گزارش ۸۸ می‌آید */
+/** شناسهٔ AUW از کش پروفایل — از B1 گزارش ۸۸ یا شماره دانشجویی نشست می‌آید */
 function getAuwId() {
   try {
     const p = JSON.parse(localStorage.getItem('sarvestan_live_profile') || 'null');
-    return p?.auwId || '';
+    return p?.auwId || getStudentId() || '';
   } catch {
-    return '';
+    return getStudentId() || '';
   }
 }
 
@@ -122,7 +125,7 @@ export function canSync() {
 }
 
 /** گزارش ۸۸ — ثبت‌نام ترم جاری: برنامه + امتحانات + متادیتای دانشجو (AUW/نام/دانشکده) */
-export async function fetchRegistration88(term = '4051') {
+export async function fetchRegistration88(term = null) {
   const res = await fetchViewReport('88', term);
   if (res?.error) return res;
   const meta = parseReport88Meta(res.outpar);
@@ -153,17 +156,38 @@ export async function fetchStudentTotals() {
     return { error: 'شناسهٔ AUW نیست — گزارش ۸۸ اول زده شود', courses: [], finance: null, transcripts: [], profile: null };
   }
 
-  await navForm('11147');
-  await enqueuePost(URLS.f1825rr, {
-    r: { ATxW: auwId },
-    act: 'RR',
-    rp: { ...RP_BASE(), ct: '', c: '110379' },
-    t,
-  });
+  try {
+    await navForm('11147');
+  } catch (e) {
+    console.warn('[client] nav 11147 warning:', e?.message || e);
+  }
+
+  try {
+    await enqueuePost(URLS.f1825rr, {
+      r: { ATxW: auwId },
+      act: 'RR',
+      rp: {
+        ...RP_BASE(),
+        ct: '',
+        c: '110379',
+        b: '0',
+        sp: '{"TrmType":"2","BrnNo":"0","BrnLimit":"0","UsrType":"0"}',
+      },
+      t,
+    });
+  } catch (e) {
+    console.warn('[client] F1825 RR step warning:', e?.message || e);
+  }
+
   const txt = await enqueuePost(URLS.f1825, {
     r: { AUWo: auwId },
     act: '20',
-    rp: { ...RP_BASE(), ct: '', c: '110381' },
+    rp: {
+      ...RP_BASE(),
+      ct: '',
+      c: '110381',
+      sp: '{"TrmType":"2","UsrType":"0"}',
+    },
     t,
   });
   const data = parseJsonSafe(txt);
@@ -200,7 +224,11 @@ export async function fetchPersonal() {
     rp: { ...RP_BASE(), f: '11141', ct: '', c: '110383' },
     t,
   };
-  await navForm('11141');
+  try {
+    await navForm('11141');
+  } catch (e) {
+    console.warn('[client] nav 11141 warning:', e?.message || e);
+  }
   const txt = await enqueuePost(URLS.f1809, body);
   const data = parseJsonSafe(txt);
   if (!data) return null;

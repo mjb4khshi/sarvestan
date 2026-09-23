@@ -77,23 +77,17 @@ export default function BottomNav({ active, onChange }) {
       aria-label="ناوبری اصلی برنامه"
     >
       <div className="mx-auto max-w-[420px] px-3 pb-2.5 pt-0 pointer-events-auto">
-        <div className="relative rounded-[22px] bg-base/95 backdrop-blur-2xl border border-base-500/70 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.45)] px-2 py-1 flex items-center justify-between">
-          <div className="flex items-center flex-1 gap-1">
-            {TABS_RIGHT.map((t) => (
-              <NavTabItem key={t.id} {...t} active={active} onChange={onChange} />
-            ))}
-          </div>
+        <div className="relative rounded-[22px] bg-base/95 backdrop-blur-2xl border border-base-500/70 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.45)] px-2 py-1 grid grid-cols-5 gap-1 items-center">
+          {TABS_RIGHT.map((t) => (
+            <NavTabItem key={t.id} {...t} active={active} onChange={onChange} />
+          ))}
 
-          {/* میز کار — دقیقاً مثل بقیه آیتم‌ها */}
-          <div className="w-[58px] shrink-0 flex justify-center">
-            <NavTabItem {...TABS_CENTER} active={active} onChange={onChange} />
-          </div>
+          {/* میز کار — دقیقاً هم‌عرض بقیه آیتم‌ها */}
+          <NavTabItem {...TABS_CENTER} active={active} onChange={onChange} />
 
-          <div className="flex items-center flex-1 gap-1">
-            {TABS_LEFT.map((t) => (
-              <NavTabItem key={t.id} {...t} active={active} onChange={onChange} />
-            ))}
-          </div>
+          {TABS_LEFT.map((t) => (
+            <NavTabItem key={t.id} {...t} active={active} onChange={onChange} />
+          ))}
         </div>
       </div>
     </nav>

@@ -28,6 +28,79 @@ function todayPersianDay() {
   return map[day] || null;
 }
 
+const JS_DAY_TO_PERSIAN = {
+  6: 'شنبه',
+  0: 'یکشنبه',
+  1: 'دوشنبه',
+  2: 'سه‌شنبه',
+  3: 'چهارشنبه',
+  4: 'پنجشنبه',
+  5: 'جمعه',
+};
+
+export function getPersianDayForOffset(offsetDays = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return JS_DAY_TO_PERSIAN[d.getDay()] || null;
+}
+
+export const COURSE_TONES = ['primary', 'info', 'success', 'secondary', 'accent', 'warn', 'danger'];
+
+function cleanCourseCode(code) {
+  if (!code) return '';
+  return String(code)
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/_\d+$/, '')
+    .replace(/\s+/g, '')
+    .trim();
+}
+
+function cleanCourseName(name) {
+  if (!name) return '';
+  return String(name)
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧۸۹'.indexOf(d)))
+    .replace(/[ي]/g, 'ی')
+    .replace(/[ك]/g, 'ک')
+    .replace(/‌/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function getToneForCourse(courseOrNameOrCode, allCourses = []) {
+  if (!courseOrNameOrCode) return COURSE_TONES[0];
+  const raw = typeof courseOrNameOrCode === 'object' ? courseOrNameOrCode : { name: courseOrNameOrCode };
+  const cCode = cleanCourseCode(raw.code);
+  const cName = cleanCourseName(raw.name || raw.course || raw.title || '');
+
+  // تطبیق با ترتیب دروس ترم جاری تا رنگ درس در تمام بخش‌ها (جدول هفتگی، نمای روزانه، امتحانات) کاملاً یکسان باشد
+  if (Array.isArray(allCourses) && allCourses.length > 0) {
+    const idx = allCourses.findIndex((sc) => {
+      const scCode = cleanCourseCode(sc.code);
+      const scName = cleanCourseName(sc.name || sc.course || sc.title || '');
+      if (cCode && scCode && cCode === scCode) return true;
+      if (cName && scName && (cName === scName || cName.includes(scName) || scName.includes(cName))) return true;
+      return false;
+    });
+    if (idx >= 0) {
+      return COURSE_TONES[idx % COURSE_TONES.length];
+    }
+  }
+
+  const s = cCode || cName || String(courseOrNameOrCode);
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) {
+    hash = (hash << 5) - hash + s.charCodeAt(i);
+    hash |= 0;
+  }
+  return COURSE_TONES[Math.abs(hash) % COURSE_TONES.length];
+}
+
+export function getCourseTone(nameOrCode, fallbackIndex = 0) {
+  return getToneForCourse(nameOrCode);
+}
+
 export function parseClassTime(raw) {
   if (!raw) return { startHour: null, endHour: null };
   const s = String(raw)
@@ -167,7 +240,6 @@ function buildViewModel() {
         }
       }
     }
-    const tones = ['primary', 'info', 'secondary', 'success'];
     return {
       id: c.id || c.code || `c${i}`,
       title: c.name,
@@ -179,7 +251,7 @@ function buildViewModel() {
       status,
       startHour,
       endHour,
-      color: tones[i % tones.length],
+      color: getToneForCourse(c, allCourses),
     };
   });
 
@@ -206,10 +278,47 @@ function buildViewModel() {
     }, 0),
   );
 
-  const nextClass =
+  let nextClass =
     todayClasses.find((c) => c.status === 'now') ||
     todayClasses.find((c) => c.status === 'next') ||
     null;
+
+  // اگر هیچ کلاسی برای ادامه امروز نمانده باشد، روزهای آینده را بررسی می‌کنیم تا واقعاً کلاس بعدی نمایش داده شود
+  if (!nextClass) {
+    for (let offset = 1; offset <= 7; offset++) {
+      const targetDay = getPersianDayForOffset(offset);
+      if (!targetDay) continue;
+      const upcomingCourses = getTodayClasses(targetDay) || [];
+      if (!upcomingCourses.length) continue;
+
+      const sortedUpcoming = [...upcomingCourses].sort((a, b) => {
+        const ta = parseClassTime(a.time || a.classTimeRaw).startHour ?? 999;
+        const tb = parseClassTime(b.time || b.classTimeRaw).startHour ?? 999;
+        return ta - tb;
+      });
+
+      const first = sortedUpcoming[0];
+      const { startHour, endHour } = parseClassTime(first.time || first.classTimeRaw);
+      const dayLabel = offset === 1 ? 'فردا' : (offset === 2 ? 'پس‌فردا' : targetDay);
+      nextClass = {
+        id: first.id || first.code || `upcoming_${offset}`,
+        title: first.name,
+        code: first.code ? faDigits(first.code) : '',
+        time: first.time || first.classTimeRaw || 'ـ',
+        room: first.hall || 'ـ',
+        professor: first.professor,
+        units: first.units,
+        status: 'upcoming',
+        startHour,
+        endHour,
+        color: getToneForCourse(first, allCourses),
+        isUpcomingDay: true,
+        offsetDays: offset,
+        dayLabel,
+      };
+      break;
+    }
+  }
 
   const workflows = snap.workflows || snap.announcements || [];
   const localNotes = getLocalNotes().map((n) => ({
@@ -351,7 +460,12 @@ function buildViewModel() {
       gpa: sum.gpa && sum.gpa !== 'ـ' ? faDigits(sum.gpa) : 'ـ',
       credits: faNum(enrolledUnits || 0),
       unpaid: faNum(sum.unpaidRial != null ? sum.unpaid : 0),
-      nextClassIn: nextClass?.time || '—',
+      unpaidRial: sum.unpaidRial || 0,
+      debtToman: fin?.totalDebtToman ?? (sum.unpaidRial ? Math.floor(sum.unpaidRial / 10) : 0),
+      isPaid: (sum.unpaidRial || 0) <= 0 || (fin?.totalDebtRial || 0) <= 0,
+      nextClassIn: nextClass?.isUpcomingDay
+        ? `${nextClass.dayLabel} ${nextClass.time}`
+        : nextClass?.time || '—',
       droppedCount: droppedCourses.length,
       waitlistCount: waitlistCourses.length,
     },
@@ -379,10 +493,7 @@ function buildViewModel() {
     termsData: buildTermsFromLive(snap),
     curriculum: getCurriculumView(),
     exams: getExamsView(),
-    nextClass:
-      todayClasses.find((c) => c.status === 'next' || c.status === 'now') ||
-      todayClasses[0] ||
-      null,
+    nextClass,
   };
 }
 
@@ -718,7 +829,7 @@ export function getScheduleMatrix() {
         room: s.hall || 'ـ',
         professor: c.professor || 'ـ',
         time: s.time,
-        color: tones[ci % tones.length],
+        color: COURSE_TONES[ci % COURSE_TONES.length],
       };
       if (cells[key] && cells[key].title !== cell.title) {
         cells[key] = { ...cell, title: `${cells[key].title} · ${cell.title}` };
@@ -798,6 +909,8 @@ export function getExamsView() {
   try {
     if (!hasLiveData()) return [];
     const snap = getSnapshot();
+    const currentTerm = detectCurrentTermId(snap.courses || []) || '4051';
+    const allCourses = getCurrentTermSchedule(currentTerm) || [];
     const examsMap = snap.exams || {};
     const list =
       (Array.isArray(examsMap['4051']) && examsMap['4051'].length ? examsMap['4051'] : null) ||
@@ -812,7 +925,7 @@ export function getExamsView() {
 
     return list
       .filter((e) => e && typeof e === 'object')
-      .map((e) => {
+      .map((e, idx) => {
         const latin = toLatinDigits(e.examDate || '');
         const dm = latin.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
         let daysLeft = null;
@@ -832,12 +945,9 @@ export function getExamsView() {
           room: e.hall || e.room || 'ـ',
           seat: '—',
           daysLeft: daysLeft ?? 0,
-          color:
-            daysLeft != null && daysLeft <= 3
-              ? 'danger'
-              : daysLeft != null && daysLeft <= 7
-                ? 'warn'
-                : 'primary',
+          color: getToneForCourse(e, allCourses),
+          isUrgent: daysLeft != null && daysLeft <= 7,
+          isCritical: daysLeft != null && daysLeft <= 3,
         };
       })
       .filter((e) => e.course)

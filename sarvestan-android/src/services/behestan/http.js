@@ -21,7 +21,11 @@ export function delay(ms) {
 function getCapacitorHttp() {
   try {
     const C = globalThis.Capacitor;
-    if (C?.Plugins?.CapacitorHttp) return C.Plugins.CapacitorHttp;
+    // فقط روی پلتفرم نیتیو موبایل (اندروید/iOS) از CapacitorHttp استفاده کن؛
+    // روی مرورگر وب، CapacitorHttp یک شبیه‌ساز است که fetch خام بدون CORS می‌زند!
+    if (C?.isNativePlatform?.() && C?.Plugins?.CapacitorHttp) {
+      return C.Plugins.CapacitorHttp;
+    }
   } catch {}
   return null;
 }
@@ -29,7 +33,8 @@ function getCapacitorHttp() {
 /** آیا باید از پراکسی لوکال استفاده کنیم؟ */
 export function shouldUseLocalProxy() {
   try {
-    if (getCapacitorHttp()) return false;
+    const C = globalThis.Capacitor;
+    if (C?.isNativePlatform?.()) return false;
     const h = location.hostname;
     // داخل بهستان/SSO: مستقیم
     if (h.endsWith('kntu.ac.ir') || h.includes('behestan') || h.includes('sso.kntu')) return false;
@@ -42,47 +47,54 @@ export function shouldUseLocalProxy() {
 
 async function rawPost(url, bodyObj) {
   const body = typeof bodyObj === 'string' ? bodyObj : JSON.stringify(bodyObj);
+  let cookie = '';
+  let sid = '';
+  try {
+    const raw = localStorage.getItem('sarvestan_mobile_session');
+    const parsed = raw ? JSON.parse(raw) : null;
+    cookie = parsed?.cookies || '';
+    sid = parsed?.sid || '';
+  } catch {}
+
+  let fullCookie = cookie;
+  if (sid && !fullCookie.includes('ASP.NET_SessionId')) {
+    fullCookie = fullCookie ? `${fullCookie}; ASP.NET_SessionId=${sid}` : `ASP.NET_SessionId=${sid}`;
+  }
+
   const http = getCapacitorHttp();
   if (http?.post) {
     const target = url.startsWith('/') ? `${BEHESTAN_ORIGIN}${url}` : url;
-    // کوکی نشست اگر هست بفرست (بستان گاهی لازمش دارد)
-    let cookie = '';
-    try {
-      const raw = localStorage.getItem('sarvestan_mobile_session');
-      cookie = raw ? JSON.parse(raw)?.cookies || '' : '';
-    } catch {}
+    let postData = bodyObj;
+    if (typeof bodyObj === 'string') {
+      try {
+        postData = JSON.parse(bodyObj);
+      } catch {
+        postData = bodyObj;
+      }
+    }
     const res = await http.post({
       url: target,
-      data: typeof bodyObj === 'string' ? bodyObj : bodyObj,
+      data: postData,
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json, text/plain, */*',
-        ...(cookie ? { Cookie: cookie } : {}),
+        ...(fullCookie ? { Cookie: fullCookie } : {}),
       },
-      connectTimeout: 15000,
-      readTimeout: 25000,
+      connectTimeout: 20000,
+      readTimeout: 30000,
     });
+    if (res.status >= 400) {
+      if (res.status === 403) {
+        throw new Error('HTTP 403: نشست بهستان منقضی شده یا دسترسی مجاز نیست.');
+      }
+      throw new Error(`HTTP ${res.status}`);
+    }
     return typeof res.data === 'string' ? res.data : JSON.stringify(res.data ?? '');
   }
 
   let finalUrl = url;
   if (shouldUseLocalProxy() && url.startsWith('https://behestan.kntu.ac.ir')) {
     finalUrl = url.replace('https://behestan.kntu.ac.ir', '/behestan-api');
-  }
-
-  // Preflight محلی از پراکسی (بدون رفتن به بهستان)
-  if (finalUrl.startsWith('/behestan-api')) {
-    try {
-      await fetch(finalUrl, {
-        method: 'OPTIONS',
-        mode: 'cors',
-        headers: {
-          Origin: location.origin,
-          'Access-Control-Request-Method': 'POST',
-          'Access-Control-Request-Headers': 'content-type,accept',
-        },
-      });
-    } catch {}
   }
 
   let resp;
@@ -94,6 +106,8 @@ async function rawPost(url, bodyObj) {
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json, text/plain, */*',
+        ...(fullCookie ? { 'X-Behestan-Cookie': fullCookie } : {}),
+        ...(sid ? { 'X-Behestan-Sid': sid } : {}),
       },
       body,
       credentials: 'omit',
@@ -110,8 +124,11 @@ async function rawPost(url, bodyObj) {
     try {
       detail = (await resp.text()).slice(0, 180);
     } catch {}
-    // فقط خطای شبکه/HTTP را بده؛ جزئیات HTML را کوتاه کن
-    throw new Error(`HTTP ${resp.status} ${detail.replace(/\s+/g, ' ').slice(0, 120)}`);
+    if (resp.status === 403) {
+      throw new Error('HTTP 403: نشست بهستان منقضی شده یا دسترسی مجاز نیست.');
+    }
+    const cleanDetail = detail.includes('<html') ? '' : detail.replace(/\s+/g, ' ').slice(0, 120);
+    throw new Error(`HTTP ${resp.status}${cleanDetail ? ' ' + cleanDetail : ''}`);
   }
   return resp.text();
 }

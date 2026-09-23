@@ -15,9 +15,31 @@ import { updateAndroidWidget, isNativeCapacitor } from '../services/androidWidge
  * بعد از دیتا، ویجت اندروید را به‌روز کن
  */
 export default function DataBootstrap() {
-  const { live, isSessionAlive, sync, syncMeta } = useSarvestanData();
+  const { live, isSessionAlive, sync, syncMeta, applyManualSession } = useSarvestanData();
   useSyncExternalStore(subscribeLogin, getLoginSnapshot, getLoginSnapshot);
   const triesRef = useRef(0);
+
+  useEffect(() => {
+    if (!isNativeCapacitor()) {
+      fetch('/__sarvestan/session')
+        .then((r) => r.json())
+        .then((s) => {
+          if (s?.sid && s?.ticket) {
+            const cur = JSON.parse(localStorage.getItem('sarvestan_mobile_session') || '{}');
+            if (cur?.sid !== s.sid || cur?.ticket !== s.ticket) {
+              console.log('[bootstrap] Loaded server session into localStorage:', s.sid);
+              applyManualSession({
+                sid: s.sid,
+                ticket: s.ticket,
+                studentId: s.studentId || undefined,
+                cookies: s.cookies || undefined,
+              });
+            }
+          }
+        })
+        .catch(() => {});
+    }
+  }, [applyManualSession]);
 
   useEffect(() => {
     if (live || hasLiveData()) {

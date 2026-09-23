@@ -17,12 +17,14 @@ function loadManual() {
 export function saveManualSession(partial) {
   const cur = loadManual() || {};
   const clean = { ...partial };
+  delete clean.expired;
   for (const k of ['studentId', 'userId', 'cookies']) {
     if (clean[k] === null || clean[k] === 'null' || clean[k] === undefined || clean[k] === '') {
       delete clean[k];
     }
   }
   const next = { ...cur, ...clean };
+  delete next.expired;
   localStorage.setItem(MANUAL_KEY, JSON.stringify(next));
   return next;
 }
@@ -80,6 +82,15 @@ export function getTicket() {
   return normalizeTicket(loadManual()?.ticket || null);
 }
 
+export function updateTicket(newTicket) {
+  if (!newTicket) return;
+  const cur = loadManual() || {};
+  const norm = normalizeTicket(newTicket);
+  if (cur.ticket !== norm) {
+    saveManualSession({ ticket: norm });
+  }
+}
+
 export function getStudentId() {
   return loadManual()?.studentId || null;
 }
@@ -88,7 +99,19 @@ export function getUserId() {
   return loadManual()?.userId || null;
 }
 
+export function invalidateSession() {
+  try {
+    const cur = loadManual() || {};
+    if (cur.sid) {
+      cur.expired = true;
+      localStorage.setItem(MANUAL_KEY, JSON.stringify(cur));
+    }
+  } catch {}
+}
+
 export function isSessionAlive() {
+  const m = loadManual();
+  if (m?.expired) return false;
   const sid = getSid();
   const t = getTicket();
   return Boolean(sid && t && String(t).length > 10);

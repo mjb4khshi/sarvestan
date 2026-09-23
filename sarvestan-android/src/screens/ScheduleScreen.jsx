@@ -15,9 +15,12 @@ import {
   Timer,
   AlertCircle,
   Hash,
+  BellRing,
 } from 'lucide-react';
+import { isNativeAlarms, hasClassAlarmPlugin } from '../services/classAlarms';
 import { getScheduleMatrix, getExamsView, parseClassTime } from '../data/viewModel';
 import { toFaDigits } from '../utils/faDigits';
+import ClassAlarmModal from '../components/ClassAlarmModal';
 
 const edge = {
   primary: 'border-r-primary bg-primary-soft text-primary',
@@ -27,6 +30,16 @@ const edge = {
   danger: 'border-r-danger bg-danger-soft text-danger',
   accent: 'border-r-accent bg-accent-soft text-accent',
   secondary: 'border-r-secondary bg-secondary-soft text-secondary',
+};
+
+const borderEdge = {
+  primary: 'border-r-primary',
+  success: 'border-r-success',
+  info: 'border-r-info',
+  warn: 'border-r-warn',
+  danger: 'border-r-danger',
+  accent: 'border-r-accent',
+  secondary: 'border-r-secondary',
 };
 
 const cellTone = {
@@ -42,6 +55,7 @@ const cellTone = {
 export default function ScheduleScreen({ initialView = 'cards', onViewChange }) {
   const [activeTab, setActiveTab] = useState(initialView);
   const [selectedDayIndex, setSelectedDayIndex] = useState(null); // null = همه روزها
+  const [isAlarmModalOpen, setIsAlarmModalOpen] = useState(false);
   const { days, slots, cells } = getScheduleMatrix();
   const EXAMS_DATA = getExamsView();
 
@@ -52,30 +66,43 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
 
   // محاسبه آمار برنامه
   const totalClasses = Object.keys(cells).length;
+  const canAlarms = isNativeAlarms() && hasClassAlarmPlugin();
 
   return (
     <div className="px-4 pt-4 space-y-4 mobile-pad-bottom">
       {/* هدر بالایی با کنترل تب قطعه‌ای سرو (sarv-seg) */}
       <div className="sarv-card p-3 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="w-8 h-8 rounded-xl bg-primary/15 text-primary grid place-items-center">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="w-8 h-8 rounded-xl bg-primary/15 text-primary grid place-items-center shrink-0">
               <CalendarCheck className="w-4 h-4" />
             </span>
-            <div>
-              <h2 className="text-[14px] font-bold text-base-content">
+            <div className="min-w-0">
+              <h2 className="text-[14px] font-bold text-base-content truncate">
                 {activeTab === 'exams' ? 'برنامه امتحانات پایان‌ترم' : 'برنامه آموزشی نیمسال'}
               </h2>
-              <p className="text-[11px] text-neutral">
+              <p className="text-[11px] text-neutral truncate">
                 {activeTab === 'exams'
                   ? `${toFaDigits(EXAMS_DATA.length)} نوبت امتحان نهایی ثبت‌شده`
                   : `${toFaDigits(totalClasses)} جلسه کلاس در طول هفته`}
               </p>
             </div>
           </div>
-          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-mono">
-            {activeTab === 'exams' ? 'گزارش ۴۲۸' : 'گزارش ۷۸'}
-          </span>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {activeTab !== 'exams' && canAlarms && (
+              <button
+                type="button"
+                onClick={() => setIsAlarmModalOpen(true)}
+                className="w-8 h-8 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 grid place-items-center transition active:scale-95 shrink-0"
+                title="تنظیم آلارم و یادآور کلاس‌ها"
+              >
+                <BellRing className="w-4 h-4" />
+              </button>
+            )}
+            <span className="text-[11px] font-semibold px-2.5 py-1 rounded-xl bg-primary/10 text-primary border border-primary/20 font-mono whitespace-nowrap shrink-0">
+              {activeTab === 'exams' ? 'گزارش ۴۲۸' : 'گزارش ۷۸'}
+            </span>
+          </div>
         </div>
 
         {/* سوییچر ۳گانه بین روزانه، ماتریس هفتگی و امتحانات */}
@@ -146,6 +173,23 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
             </span>
           </button>
         </div>
+
+        {/* نوار ظریف دسترسی سریع به یادآور و آلارم کلاس‌ها */}
+        {activeTab !== 'exams' && canAlarms && (
+          <div className="flex items-center justify-between px-1 pt-1 text-[11.5px] border-t border-base-content/5">
+            <div className="flex items-center gap-1.5 text-neutral font-medium">
+              <BellRing className="w-3.5 h-3.5 text-primary" />
+              <span>یادآور هوشمند و آلارم کلاس‌ها</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAlarmModalOpen(true)}
+              className="text-[11px] font-bold text-primary hover:underline px-1 py-0.5 rounded-lg active:scale-95 transition"
+            >
+              تنظیم یادآورها ←
+            </button>
+          </div>
+        )}
       </div>
 
       {/* محتوای نمای کارتی (روزانه) */}
@@ -267,8 +311,9 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: ci * 0.04 }}
-                        className="sarv-card p-4 hover:border-primary/40 transition-colors border-r-4"
-                        style={{ borderRightColor: `var(--theme-color-${c.color || 'primary'})` }}
+                        className={`sarv-card p-4 hover:border-primary/40 transition-colors border-r-4 ${
+                          borderEdge[c.color] || 'border-r-primary'
+                        }`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
@@ -443,15 +488,15 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
           {/* لیست کارت‌های امتحانات با روزشمار */}
           <div className="space-y-3">
             {EXAMS_DATA.map((exam, idx) => {
-              const isUrgent = exam.daysLeft <= 14;
+              const borderCls = borderEdge[exam.color] || 'border-r-primary';
+              const toneCls = cellTone[exam.color] || cellTone.primary;
               return (
                 <motion.article
                   key={exam.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
-                  className="sarv-card p-4 hover:border-primary/40 transition-all border-r-4"
-                  style={{ borderRightColor: `var(--theme-color-${exam.color || 'primary'})` }}
+                  className={`sarv-card p-4 hover:border-primary/40 transition-all border-r-4 ${borderCls}`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
@@ -466,7 +511,7 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
 
                       <div className="mt-1 flex items-center gap-2 text-[11.5px] text-neutral">
                         <span className="flex items-center gap-1">
-                          <User className="w-3 h-3 text-primary/80" />
+                          <User className="w-3 h-3 text-neutral/70" />
                           {exam.instructor}
                         </span>
                         <span className="text-neutral/40">·</span>
@@ -480,9 +525,11 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                     <div className="shrink-0 text-left">
                       <span
                         className={`text-[10.5px] font-black px-2.5 py-1 rounded-xl font-mono flex items-center gap-1 shadow-xs ${
-                          isUrgent
-                            ? 'bg-warn-soft text-warn'
-                            : 'bg-primary-soft text-primary'
+                          exam.isCritical
+                            ? 'bg-danger-soft text-danger border border-danger/25'
+                            : exam.isUrgent
+                            ? 'bg-warn-soft text-warn border border-warn/25'
+                            : `${toneCls} border`
                         }`}
                       >
                         <Clock className="w-3 h-3" />
@@ -525,6 +572,12 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
           </div>
         </motion.div>
       )}
+
+      {/* مودال یادآور و آلارم کلاس‌ها */}
+      <ClassAlarmModal
+        isOpen={isAlarmModalOpen}
+        onClose={() => setIsAlarmModalOpen(false)}
+      />
     </div>
   );
 }

@@ -20,6 +20,30 @@ export default function FinanceScreen({ onNavigate }) {
     const x = Number(n || 0);
     return Number.isFinite(x) ? x.toLocaleString('fa-IR') : '۰';
   };
+
+  const isDebtor =
+    !FINANCE.isPaid ||
+    (FINANCE.debtToman > 0) ||
+    (FINANCE.balance && FINANCE.balance !== '۰' && FINANCE.balance !== '0');
+
+  const statusTone = isDebtor
+    ? {
+        cardBorder: 'border-danger-soft',
+        iconBg: 'bg-danger text-danger-content',
+        text: 'text-danger',
+        label: FINANCE.balanceLabel || 'بدهی جاری',
+        badge: 'bg-danger-soft text-danger border-danger-soft',
+        badgeText: 'بدهکار',
+      }
+    : {
+        cardBorder: 'border-success-soft',
+        iconBg: 'bg-success text-success-content',
+        text: 'text-success',
+        label: 'تسویه حساب',
+        badge: 'bg-success-soft text-success border-success-soft',
+        badgeText: 'تسویه کامل',
+      };
+
   return (
     <div className="px-4 pt-4 space-y-4 mobile-pad-bottom">
       {/* ۱. چاپگر و رسید رسمی مالی سرو — در بالاترین موقعیت با انیمیشن چاپ */}
@@ -57,15 +81,15 @@ export default function FinanceScreen({ onNavigate }) {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.08 }}
-        className="sarv-card p-5 relative overflow-hidden border border-success-soft"
+        className={`sarv-card p-5 relative overflow-hidden border ${statusTone.cardBorder}`}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="w-11 h-11 rounded-2xl bg-success text-success-content grid place-items-center shadow-md">
+            <span className={`w-11 h-11 rounded-2xl ${statusTone.iconBg} grid place-items-center shadow-md`}>
               <Wallet className="w-5 h-5" />
             </span>
             <div>
-              <p className="text-[11.5px] text-success font-bold">{FINANCE.balanceLabel}</p>
+              <p className={`text-[11.5px] font-bold ${statusTone.text}`}>{statusTone.label}</p>
               <h2 className="text-[26px] font-black text-base-content mt-0.5 font-mono">
                 {FINANCE.balance}{' '}
                 <span className="text-[12px] text-neutral font-sans font-bold">{FINANCE.currency}</span>
@@ -73,8 +97,8 @@ export default function FinanceScreen({ onNavigate }) {
             </div>
           </div>
 
-          <span className="text-[10.5px] font-black px-2.5 py-1 rounded-xl bg-success-soft text-success border border-success-soft">
-            وضعیت مالی
+          <span className={`text-[10.5px] font-black px-2.5 py-1 rounded-xl border ${statusTone.badge}`}>
+            {statusTone.badgeText}
           </span>
         </div>
 

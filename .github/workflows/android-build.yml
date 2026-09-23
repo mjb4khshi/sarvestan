@@ -1,0 +1,71 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: ["main", "master"]
+    paths:
+      - 'sarvestan-android/**'
+      - '.github/workflows/android-build.yml'
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: sarvestan-android/package-lock.json
+
+      - name: Install dependencies
+        working-directory: sarvestan-android
+        run: npm ci || npm install
+
+      - name: Build Web Bundle
+        working-directory: sarvestan-android
+        run: npm run build
+
+      - name: Sync Capacitor Android
+        working-directory: sarvestan-android
+        run: npx cap sync android
+
+      - name: Grant execute permission for gradlew
+        working-directory: sarvestan-android/android
+        run: chmod +x gradlew
+
+      - name: Build Android Debug APK
+        working-directory: sarvestan-android/android
+        run: ./gradlew assembleDebug
+
+      - name: Upload Debug APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sarvestan-debug-apk
+          path: sarvestan-android/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Attach APK to GitHub Release (if release)
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: sarvestan-android/android/app/build/outputs/apk/debug/app-debug.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

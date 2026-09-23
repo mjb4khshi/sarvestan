@@ -25,9 +25,14 @@ import {
   Loader2,
   Rocket,
   AlertCircle,
+  AlertTriangle,
+  Trash2,
 } from 'lucide-react';
 import UpdateModal from '../components/UpdateModal';
 import { checkForUpdate, CURRENT_VERSION } from '../services/updater';
+import { clearLiveData, clearSession } from '../services/behestan';
+import { clearSsoCookies } from '../services/behestan/ssoLoginNative';
+import { cancelAllReminders } from '../services/classAlarms';
 import { getViewModel } from '../data/viewModel';
 import { useSarvestanData } from '../hooks/useSarvestanData';
 import { useTheme } from '../context/ThemeContext';
@@ -53,7 +58,37 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
   const lastSyncFormatted = formatLastSync(lastSyncTime);
   const [iconModalOpen, setIconModalOpen] = useState(false);
   const [iconToast, setIconToast] = useState('');
+  const [clearDataModalOpen, setClearDataModalOpen] = useState(false);
+  const [clearingData, setClearingData] = useState(false);
   const { currentIconId, currentIcon, setAppIcon, icons: appIcons } = useAppIcon();
+
+  const handleExecuteClearData = async () => {
+    setClearingData(true);
+    try {
+      try {
+        await cancelAllReminders();
+      } catch {}
+      try {
+        clearLiveData();
+      } catch {}
+      try {
+        clearSession();
+      } catch {}
+      try {
+        await clearSsoCookies();
+      } catch {}
+      try {
+        localStorage.clear();
+      } catch {}
+      setTimeout(() => {
+        window.location.reload();
+      }, 250);
+    } catch (e) {
+      console.error('[clear data error]', e);
+      setClearingData(false);
+      setClearDataModalOpen(false);
+    }
+  };
   // چارت: فقط از دیتای زنده — بدون mock
   const CURRICULUM = vm.curriculum;
   const STUDENT = vm.student || {
@@ -650,6 +685,33 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
               </button>
             )}
           </div>
+        </div>
+      </section>
+
+      {/* بخش پاکسازی داده‌های برنامه */}
+      <section className="space-y-1.5">
+        <div className="sarv-card p-3.5 flex items-center justify-between gap-3 bg-danger-soft/20 border border-danger/25">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="w-9 h-9 rounded-xl bg-danger/15 text-danger grid place-items-center shrink-0">
+              <Trash2 className="w-4.5 h-4.5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[13px] font-bold text-base-content">
+                پاکسازی داده‌های برنامه
+              </p>
+              <p className="text-[10.5px] text-neutral mt-0.5 truncate">
+                حذف اطلاعات ذخیره‌شده، نمرات، نشست‌ها و بازنشانی کامل اپ
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setClearDataModalOpen(true)}
+            className="shrink-0 px-3 py-1.5 rounded-xl bg-danger text-danger-content font-bold text-[11px] shadow-sm hover:brightness-110 active:scale-95 transition-all flex items-center gap-1.5"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>پاکسازی</span>
+          </button>
         </div>
       </section>
 
@@ -1327,6 +1389,72 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
             release={updateState.latestRelease}
             onClose={() => setUpdateModalOpen(false)}
           />
+        )}
+      </AnimatePresence>
+
+      {/* مودال تایید پاکسازی داده‌ها */}
+      <AnimatePresence>
+        {clearDataModalOpen && (
+          <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !clearingData && setClearDataModalOpen(false)}
+              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+              className="relative z-10 w-full max-w-sm rounded-t-3xl sm:rounded-3xl bg-base border border-danger/30 p-5 shadow-2xl flex flex-col space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-danger-soft text-danger grid place-items-center shrink-0 border border-danger/25">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-[15px] font-black text-base-content">
+                    تایید پاکسازی داده‌ها
+                  </h3>
+                  <p className="text-[11.5px] text-neutral mt-1 leading-relaxed">
+                    آیا از پاکسازی تمام اطلاعات ذخیره‌شده (مشخصات، نمرات، کارنامه، شهریه و نشست بهستان) اطمینان دارید؟
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-danger-soft/40 border border-danger/20 text-[11px] text-danger font-medium leading-relaxed">
+                ⚠️ پس از تایید، کلیه داده‌های دستگاه حذف شده و برنامه مانند روز اول آماده ورود مجدد خواهد شد.
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  disabled={clearingData}
+                  onClick={() => setClearDataModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-base-500/20 hover:bg-base-500/35 text-base-content text-[12px] font-bold transition active:scale-95 disabled:opacity-50"
+                >
+                  انصراف
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecuteClearData}
+                  disabled={clearingData}
+                  className="flex-1 py-2.5 rounded-xl bg-danger text-danger-content text-[12px] font-bold hover:brightness-110 transition active:scale-95 flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                >
+                  {clearingData ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                  بله، پاکسازی کامل
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

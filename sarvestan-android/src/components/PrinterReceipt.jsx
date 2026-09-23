@@ -88,7 +88,7 @@ export default function PrinterReceipt({
 
           <div className="flex justify-between items-center py-1 text-[12px] font-bold">
             <span>مانده بدهی:</span>
-            <span className="font-mono text-warn text-[13px]">
+            <span className={`font-mono text-[13px] ${debtToman > 0 ? 'text-danger font-black' : 'text-success'}`}>
               {fmt(debtToman)} تومان
             </span>
           </div>
@@ -96,7 +96,7 @@ export default function PrinterReceipt({
           <div className="text-center py-1 bg-base-500/20 rounded-lg">
             <span
               className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                isPaid ? 'text-success bg-success-soft' : 'text-warn bg-warn-soft'
+                isPaid ? 'text-success bg-success-soft' : 'text-danger bg-danger-soft'
               }`}
             >
               {isPaid ? 'تسویه کامل' : 'در انتظار تسویه در بهستان'}

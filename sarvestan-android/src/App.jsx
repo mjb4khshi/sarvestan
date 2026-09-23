@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ThemeProvider } from './context/ThemeContext';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -33,6 +33,8 @@ const TITLES = {
   more: 'خدمات و تنظیمات',
 };
 
+const TABS_ORDER = ['schedule', 'grades', 'home', 'finance', 'more'];
+
 function SsoCallbackBridge() {
   useEffect(() => {
     const code = extractSsoCodeFromUrl();
@@ -56,7 +58,9 @@ function Shell() {
   const [tab, setTab] = useState('home');
   const [scheduleDefaultView, setScheduleDefaultView] = useState('cards');
   const [chartAutoOpen, setChartAutoOpen] = useState(false);
+  const [slideDir, setSlideDir] = useState(0);
   const showBack = tab !== 'home';
+  const pointerStartRef = useRef(null);
 
   useEffect(() => {
     const qs = new URLSearchParams(window.location.search);
@@ -68,24 +72,83 @@ function Shell() {
     }
   }, []);
 
+  const changeTabWithDirection = (targetTab, explicitDir = null) => {
+    const currentIndex = TABS_ORDER.indexOf(tab);
+    const nextIndex = TABS_ORDER.indexOf(targetTab);
+    if (explicitDir !== null) {
+      setSlideDir(explicitDir);
+    } else if (currentIndex >= 0 && nextIndex >= 0) {
+      setSlideDir(nextIndex > currentIndex ? 1 : -1);
+    }
+    setTab(targetTab);
+  };
+
   const handleNavigate = (targetTab, options = {}) => {
     if (targetTab === 'timetable') {
       setScheduleDefaultView('matrix');
-      setTab('schedule');
+      changeTabWithDirection('schedule');
     } else if (targetTab === 'schedule') {
       if (options.view) setScheduleDefaultView(options.view);
-      setTab('schedule');
+      changeTabWithDirection('schedule');
     } else if (targetTab === 'chart') {
       setChartAutoOpen(true);
-      setTab('more');
+      changeTabWithDirection('more');
     } else {
       if (targetTab === 'more' && options.openChart) {
         setChartAutoOpen(true);
       } else {
         setChartAutoOpen(false);
       }
-      setTab(targetTab);
+      changeTabWithDirection(targetTab);
     }
+  };
+
+  // جلوگیری از تداخل با اسکرول افقی جدول‌ها، ورودی‌های متنی، دکمه‌ها و لینک‌ها
+  const isNoSwipeElement = (target) => {
+    if (!target || typeof target.closest !== 'function') return false;
+    return Boolean(
+      target.closest(
+        'input, textarea, select, [data-no-swipe], .no-swipe, .overflow-x-auto, table, [role="slider"], button, a'
+      )
+    );
+  };
+
+  const handlePointerDown = (e) => {
+    if (e.button !== undefined && e.button !== 0) return;
+    if (isNoSwipeElement(e.target)) return;
+    pointerStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      time: Date.now(),
+    };
+  };
+
+  const handlePointerUp = (e) => {
+    if (!pointerStartRef.current) return;
+    const { x: startX, y: startY, time: startTime } = pointerStartRef.current;
+    pointerStartRef.current = null;
+
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    const elapsed = Date.now() - startTime;
+
+    if (elapsed > 450) return;
+    if (Math.abs(dx) < 35 || Math.abs(dx) <= Math.abs(dy) * 1.3) return;
+
+    const currentIndex = TABS_ORDER.indexOf(tab);
+    if (currentIndex < 0) return;
+
+    // کشیدن به راست (dx > 0) -> تب بعدی سمت چپ (افزایش اندیس)
+    // کشیدن به چپ (dx < 0) -> تب قبلی سمت راست (کاهش اندیس)
+    if (dx > 0 && currentIndex < TABS_ORDER.length - 1) {
+      changeTabWithDirection(TABS_ORDER[currentIndex + 1], 1);
+    } else if (dx < 0 && currentIndex > 0) {
+      changeTabWithDirection(TABS_ORDER[currentIndex - 1], -1);
+    }
+  };
+
+  const handlePointerCancel = () => {
+    pointerStartRef.current = null;
   };
 
   return (
@@ -93,39 +156,46 @@ function Shell() {
       <div className="mobile-shell min-h-screen relative flex flex-col justify-between">
         <TopBar
           title={TITLES[tab] || null}
-          onBack={showBack ? () => setTab('home') : undefined}
+          onBack={showBack ? () => changeTabWithDirection('home') : undefined}
           onNavigate={handleNavigate}
         />
 
-        <AnimatePresence mode="wait">
-          <motion.main
-            key={tab}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="flex-1 min-w-0"
-          >
-            {tab === 'home' && <HomeScreen onNavigate={handleNavigate} />}
-            {tab === 'schedule' && (
-              <ScheduleScreen
-                initialView={scheduleDefaultView}
-                onViewChange={setScheduleDefaultView}
-              />
-            )}
-            {tab === 'grades' && <GradesScreen onNavigate={handleNavigate} />}
-            {tab === 'finance' && <FinanceScreen onNavigate={handleNavigate} />}
-            {tab === 'more' && (
-              <MoreScreen
-                key={`more-${chartAutoOpen}`}
-                onNavigate={handleNavigate}
-                initialChartOpen={chartAutoOpen}
-              />
-            )}
-          </motion.main>
-        </AnimatePresence>
+        <div
+          className="flex-1 flex flex-col min-w-0 overflow-x-hidden touch-pan-y select-none"
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+        >
+          <AnimatePresence mode="wait">
+            <motion.main
+              key={tab}
+              initial={{ opacity: 0, x: slideDir * 8 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -slideDir * 8 }}
+              transition={{ duration: 0.12, ease: 'easeOut' }}
+              className="flex-1 min-w-0"
+            >
+              {tab === 'home' && <HomeScreen onNavigate={handleNavigate} />}
+              {tab === 'schedule' && (
+                <ScheduleScreen
+                  initialView={scheduleDefaultView}
+                  onViewChange={setScheduleDefaultView}
+                />
+              )}
+              {tab === 'grades' && <GradesScreen onNavigate={handleNavigate} />}
+              {tab === 'finance' && <FinanceScreen onNavigate={handleNavigate} />}
+              {tab === 'more' && (
+                <MoreScreen
+                  key={`more-${chartAutoOpen}`}
+                  onNavigate={handleNavigate}
+                  initialChartOpen={chartAutoOpen}
+                />
+              )}
+            </motion.main>
+          </AnimatePresence>
+        </div>
 
-        <BottomNav active={tab} onChange={setTab} />
+        <BottomNav active={tab} onChange={changeTabWithDirection} />
       </div>
     </div>
   );

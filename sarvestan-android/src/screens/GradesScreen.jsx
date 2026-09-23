@@ -249,7 +249,7 @@ export default function GradesScreen({ onNavigate }) {
                 getGpaStatusBadge(activeTerm.gpa)?.label === 'مشروط'
                   ? 'text-danger'
                   : getGpaStatusBadge(activeTerm.gpa)?.label === 'ممتاز'
-                  ? 'text-amber-600 dark:text-amber-400'
+                  ? 'text-warn'
                   : getGpaStatusBadge(activeTerm.gpa)?.label === 'معدل الف'
                   ? 'text-success'
                   : 'text-neutral'

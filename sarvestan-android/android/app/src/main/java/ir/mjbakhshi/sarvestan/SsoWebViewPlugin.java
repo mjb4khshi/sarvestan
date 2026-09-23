@@ -42,6 +42,8 @@ public class SsoWebViewPlugin extends Plugin {
     private boolean resolved = false;
     private View overlayRoot;
     private String capturedCode;
+    private String inputUsername = "";
+    private String inputPassword = "";
 
     @PluginMethod
     public void login(PluginCall call) {
@@ -53,6 +55,8 @@ public class SsoWebViewPlugin extends Plugin {
         pendingCall = call;
         resolved = false;
         capturedCode = null;
+        inputUsername = call.getString("username", "");
+        inputPassword = call.getString("password", "");
 
         activity.runOnUiThread(() -> {
             try {
@@ -140,9 +144,38 @@ public class SsoWebViewPlugin extends Plugin {
                     }
 
                     @Override
+                    public void onReceivedSslError(WebView view, android.webkit.SslErrorHandler handler, android.net.http.SslError error) {
+                        handler.proceed();
+                    }
+
+                    @Override
                     public void onPageFinished(WebView view, String url) {
                         super.onPageFinished(view, url);
                         bar.setVisibility(View.GONE);
+                        if (url != null && url.contains("sso.kntu.ac.ir") && !inputUsername.isEmpty() && !inputPassword.isEmpty()) {
+                            String autoFillJs =
+                                "(function(){" +
+                                "  try {" +
+                                "    var u = document.querySelector('input[name=\"username\"], #username');" +
+                                "    var p = document.querySelector('input[name=\"password\"], #password');" +
+                                "    var btn = document.querySelector('input[name=\"login\"], #kc-login, button[type=\"submit\"], input[type=\"submit\"]');" +
+                                "    if (u && p && !window.__sarvAutoFilled) {" +
+                                "      window.__sarvAutoFilled = true;" +
+                                "      u.value = " + jsonStr(inputUsername) + ";" +
+                                "      u.dispatchEvent(new Event('input', { bubbles: true }));" +
+                                "      u.dispatchEvent(new Event('change', { bubbles: true }));" +
+                                "      p.value = " + jsonStr(inputPassword) + ";" +
+                                "      p.dispatchEvent(new Event('input', { bubbles: true }));" +
+                                "      p.dispatchEvent(new Event('change', { bubbles: true }));" +
+                                "      var hasCaptcha = document.querySelector('.g-recaptcha, #captcha, [name*=\"captcha\"], img[src*=\"captcha\"]');" +
+                                "      if (btn && !hasCaptcha) {" +
+                                "        setTimeout(function(){ try { btn.click(); } catch(e){} }, 350);" +
+                                "      }" +
+                                "    }" +
+                                "  } catch(e) {}" +
+                                "})()";
+                            view.evaluateJavascript(autoFillJs, null);
+                        }
                         onUrlSettled(view, url);
                     }
                 });
@@ -322,6 +355,12 @@ public class SsoWebViewPlugin extends Plugin {
             ret.put("sid", sid);
             ret.put("ticket", ticket);
             ret.put("studentId", studentId == null ? "" : studentId);
+            try {
+                String behCookies = CookieManager.getInstance().getCookie("https://behestan.kntu.ac.ir");
+                ret.put("cookies", behCookies != null ? behCookies : "");
+            } catch (Exception ignore) {
+                ret.put("cookies", "");
+            }
             call.resolve(ret);
         }
     }

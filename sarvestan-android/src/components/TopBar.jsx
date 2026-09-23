@@ -54,49 +54,45 @@ export default function TopBar({ title, onBack }) {
         }}
       >
         <div className="mx-auto max-w-[430px] h-14 flex items-center justify-between gap-2 px-3">
-          {/* سمت راست: عنوان یا دکمه بازگشت */}
+          {/* سمت راست: هویت ثابت سروستان و دکمه بازگشت بدون پرش هدر */}
           <div className="flex items-center gap-2.5 shrink-0 min-w-0">
-            {onBack ? (
-              <button
-                type="button"
-                onClick={onBack}
-                className="w-9 h-9 rounded-xl grid place-items-center text-neutral hover:text-base-content bg-base-500/20 hover:bg-base-500/40 active:scale-95 transition-all outline-none"
-                aria-label="بازگشت به میز کار"
-              >
-                <ChevronLeft className="w-5 h-5 rotate-180" />
-              </button>
-            ) : (
-              <div className="flex items-center gap-2.5">
-                  <div className="relative w-7 h-7 flex items-center justify-center">
-                    <svg
-                      viewBox="0 0 1080 1080"
-                      className="w-full h-full drop-shadow-sm transition-colors duration-300"
-                      style={{ fill: currentIcon?.leaf || 'var(--color-primary, #0066a4)' }}
-                      aria-label="سروستان"
-                    >
-                      <path d="M540,167.08 C540,167.08 213.25,912.92 540,912.92 C866.75,912.92 540,167.08 540,167.08 Z" />
-                    </svg>
-                  </div>
-                <div className="flex flex-col leading-tight min-w-0">
-                  <h1 className="text-[14px] font-bold text-base-content flex items-center gap-1">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0">
+              {onBack ? (
+                <button
+                  type="button"
+                  onClick={onBack}
+                  className="w-8 h-8 rounded-xl grid place-items-center text-neutral hover:text-base-content bg-base-500/20 hover:bg-base-500/40 active:scale-95 transition-all outline-none"
+                  aria-label="بازگشت به میز کار"
+                >
+                  <ChevronLeft className="w-4.5 h-4.5 rotate-180" />
+                </button>
+              ) : (
+                <svg
+                  viewBox="0 0 1080 1080"
+                  className="w-7 h-7 drop-shadow-sm transition-colors duration-300"
+                  style={{ fill: currentIcon?.leaf || 'var(--color-primary, #0066a4)' }}
+                  aria-label="سروستان"
+                >
+                  <path d="M540,167.08 C540,167.08 213.25,912.92 540,912.92 C866.75,912.92 540,167.08 540,167.08 Z" />
+                </svg>
+              )}
+            </div>
+
+            <div className="flex flex-col leading-tight min-w-0">
+              <h1 className="text-[14px] font-bold text-base-content flex items-center gap-1 truncate">
+                {title || (
+                  <>
                     سروستان
                     <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-secondary-soft text-secondary">
                       همراه
                     </span>
-                  </h1>
-                  <span className="text-[10px] text-neutral truncate">
-                    دانشگاه صنعتی خواجه نصیر طوسی
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {onBack && title && (
-              <div className="flex flex-col leading-tight min-w-0">
-                <h1 className="text-[14px] font-bold text-base-content truncate">{title}</h1>
-                <span className="text-[10px] text-neutral truncate">سامانه هوشمند دانشجویی</span>
-              </div>
-            )}
+                  </>
+                )}
+              </h1>
+              <span className="text-[10px] text-neutral truncate">
+                {title ? 'سامانه هوشمند دانشجویی' : 'دانشگاه صنعتی خواجه نصیر طوسی'}
+              </span>
+            </div>
           </div>
 
           {/* سمت چپ: ابزارهای سریع (تم و اعلانات) */}

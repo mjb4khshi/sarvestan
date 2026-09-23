@@ -1,7 +1,7 @@
 @import "tailwindcss";
-@import "./sarv-themes.css";
 @plugin "sarv-ui";
 @import "sarv-ui/sarv.css";
+@import "./sarv-themes.css";
 
 @font-face {
   font-family: 'Arad';
@@ -250,6 +250,14 @@
   .border-danger { border-color: var(--theme-color-danger) !important; }
   .bg-danger-soft { background-color: color-mix(in oklab, var(--theme-color-danger) 14%, transparent) !important; }
   .border-danger-soft { border-color: color-mix(in oklab, var(--theme-color-danger) 32%, transparent) !important; }
+
+  .text-primary-content { color: var(--theme-color-primary-content, #ffffff) !important; }
+  .text-secondary-content { color: var(--theme-color-secondary-content, #ffffff) !important; }
+  .text-accent-content { color: var(--theme-color-accent-content, #ffffff) !important; }
+  .text-success-content { color: var(--theme-color-success-content, #ffffff) !important; }
+  .text-warn-content { color: var(--theme-color-warn-content, #ffffff) !important; }
+  .text-danger-content { color: var(--theme-color-danger-content, #ffffff) !important; }
+  .text-info-content { color: var(--theme-color-info-content, #ffffff) !important; }
 
   /* حذف فلش‌ها و بالا پایین پیش‌فرض مرورگر در فیلدهای عددی */
   input[type="number"]::-webkit-inner-spin-button,

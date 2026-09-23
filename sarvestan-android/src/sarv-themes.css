@@ -68,6 +68,8 @@
 }
 
 /* 2. Persian Light (روشن) */
+html[datatheme="persian-light"],
+html[data-theme="persian-light"],
 [datatheme="persian-light"],
 [data-theme="persian-light"] {
   --theme-color-primary: #0066a4;
@@ -388,7 +390,7 @@
   --theme-color-secondary: #f97316;
   --theme-color-accent: #e11d48;
   --theme-color-success: #16a34a;
-  --theme-color-warn: #eab308;
+  --theme-color-warn: #b45309;
   --theme-color-danger: #dc2626;
   --theme-color-info: #0284c7;
   --theme-color-neutral: #78716c;
@@ -401,7 +403,7 @@
   --theme-color-secondary-content: #ffffff;
   --theme-color-accent-content: #ffffff;
   --theme-color-success-content: #ffffff;
-  --theme-color-warn-content: #000000;
+  --theme-color-warn-content: #ffffff;
   --theme-color-danger-content: #ffffff;
   --theme-color-info-content: #ffffff;
   --theme-color-neutral-content: #ffffff;
@@ -450,7 +452,7 @@
   --theme-color-secondary: #475569;
   --theme-color-accent: #0ea5e9;
   --theme-color-success: #059669;
-  --theme-color-warn: #d97706;
+  --theme-color-warn: #b45309;
   --theme-color-danger: #e11d48;
   --theme-color-info: #2563eb;
   --theme-color-neutral: #64748b;
@@ -463,7 +465,7 @@
   --theme-color-secondary-content: #ffffff;
   --theme-color-accent-content: #ffffff;
   --theme-color-success-content: #ffffff;
-  --theme-color-warn-content: #000000;
+  --theme-color-warn-content: #ffffff;
   --theme-color-danger-content: #ffffff;
   --theme-color-info-content: #ffffff;
   --theme-color-neutral-content: #ffffff;

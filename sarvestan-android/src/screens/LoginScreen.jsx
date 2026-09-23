@@ -1,9 +1,10 @@
-import { useEffect, useRef, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { motion } from 'framer-motion';
-import { LogIn, Loader2, X, CheckCircle2 } from 'lucide-react';
+import { LogIn, Loader2, X, CheckCircle2, KeyRound, Globe, ShieldCheck } from 'lucide-react';
+import SarvCheckbox from '../components/SarvCheckbox';
 import { applyManualSession, isSessionAlive } from '../services/behestan/session';
 import { runFullSync, resetSyncState } from '../services/behestan/sync';
-import { isNativeCapacitor, loginAndroid, loginViaSsoWebView } from '../services/behestan/ssoLoginNative';
+import { isNativeCapacitor, loginAndroid, loginViaSsoWebView, loginViaNativeSso } from '../services/behestan/ssoLoginNative';
 import {
   subscribeLogin,
   getLoginSnapshot,
@@ -14,6 +15,9 @@ import {
   setLoginDone,
   setLoginUsername,
   setLoginPassword,
+  setLoginRemember,
+  commitCredsOnSuccess,
+  loadSavedCreds,
 } from '../services/loginFlow';
 
 function parseUidFromCookies(cookies) {
@@ -27,8 +31,8 @@ function parseUidFromCookies(cookies) {
 }
 
 const STEPS = [
-  'ورود SSO دانشگاه…',
-  'دریافت گزارش ۸۸ (برنامه و امتحانات)…',
+  'ورود به سامانه دانشگاه…',
+  'دریافت برنامه و امتحانات (گزارش ۸۸)…',
   'دریافت کارنامه و وضعیت دروس…',
   'دیتا آماده شد — در حال نمایش…',
 ];
@@ -38,12 +42,21 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /** حداقل زمان نمایش هر تیک */
 const MIN_STEP_MS = 700;
 
-/** ورود: اپ → فقط WebView بومی؛ وب → سرور Vite با فرم */
-async function doSsoLogin(username, password) {
-  if (isNativeCapacitor()) {
-    // روی اندروید فرم ما بی‌فایده است — WebView خودش SSO را نشان می‌دهد
-    return loginViaSsoWebView();
+/** احراز هویت: بسته به متد انتخابی */
+async function doLogin(username, password, method) {
+  if (method === 'webview') {
+    if (isNativeCapacitor()) {
+      return loginViaSsoWebView({ username, password });
+    }
+    throw new Error('ورود وب‌ویو تنها روی اپلیکیشن اندروید در دسترس است. لطفاً از ورود مرکزی استفاده کنید.');
   }
+
+  // ورود روی اندروید (تلاش هوشمند نیتیو با فال‌بک وب‌ویو)
+  if (isNativeCapacitor()) {
+    return loginAndroid(username, password);
+  }
+
+  // روی وب
   const r = await fetch('/__sarvestan/sso-login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -59,6 +72,17 @@ async function doSsoLogin(username, password) {
 export default function LoginScreen({ onSuccess, asModal = false }) {
   const flow = useSyncExternalStore(subscribeLogin, getLoginSnapshot, getLoginSnapshot);
   const busyRef = useRef(false);
+  const [method, setMethod] = useState('sso'); // 'sso' | 'webview'
+
+  // پر کردن نام کاربری/رمز ذخیره‌شده — ورود دوم بدون تایپ
+  useEffect(() => {
+    const saved = loadSavedCreds();
+    if (saved) {
+      if (!getLoginSnapshot().username) setLoginUsername(saved.username);
+      if (!getLoginSnapshot().password) setLoginPassword(saved.password);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const busy = flow.busy || busyRef.current;
   const done = flow.done;
@@ -66,6 +90,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
   const username = flow.username;
   const password = flow.password;
   const error = flow.error;
+  const remember = flow.remember !== false;
 
   const handleDismiss = () => {
     if (busy) return;
@@ -75,10 +100,9 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
 
   const handleLogin = async () => {
     if (busyRef.current) return;
-    const native = isNativeCapacitor();
     const u = String(username || '').trim();
     const p = password;
-    if (!native && (!u || !p)) {
+    if (method === 'sso' && (!u || !p)) {
       failLoginFlow(-1, 'نام کاربری و رمز عبور الزامی است.');
       return;
     }
@@ -90,18 +114,20 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
       setLoginStep(0);
       const t0 = Date.now();
 
-      const j = await doSsoLogin(u, p);
+      const j = await doLogin(u, p, method);
       if (!j?.ok || !j?.sid || !j?.ticket) {
         busyRef.current = false;
         failLoginFlow(-1, 'ورود ناموفق: ' + (j?.error || 'نامشخص'));
         return;
       }
 
+      commitCredsOnSuccess(u, p);
+
       applyManualSession({
         sid: j.sid,
         ticket: j.ticket,
         studentId: j.studentId || undefined,
-        userId: parseUidFromCookies(j.cookies) || undefined,
+        userId: j.userId || parseUidFromCookies(j.cookies) || undefined,
         cookies: j.cookies || undefined,
       });
 
@@ -115,63 +141,24 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
       if (wait0 > 0) await sleep(wait0);
 
       setLoginStep(1);
-      const t1 = Date.now();
       resetSyncState();
-      await sleep(80);
-
-      const syncPromise = (async () => {
-        let res = await runFullSync({ force: true });
-        if (!res?.ok) {
-          await sleep(900);
-          resetSyncState();
-          res = await runFullSync({ force: true });
-        }
-        if (!res?.ok) {
-          await sleep(1200);
-          resetSyncState();
-          res = await runFullSync({ force: true });
-        }
-        return res;
-      })();
-
-      const wait1 = MIN_STEP_MS - (Date.now() - t1);
-      if (wait1 > 0) await sleep(wait1);
+      await sleep(350);
 
       setLoginStep(2);
-      const t2 = Date.now();
+      // تلاش برای سنک اولیه — صبر تا اتمام سنک جهت نمایش داده‌ها بلافاصله پس از بستن مودال
+      try {
+        await Promise.race([
+          runFullSync({ force: true }),
+          sleep(8000),
+        ]);
+      } catch {}
 
-      const res = await Promise.race([
-        syncPromise,
-        sleep(50000).then(() => ({ ok: false, reason: 'timeout' })),
-      ]);
-
-      const wait2 = MIN_STEP_MS - (Date.now() - t2);
-      if (wait2 > 0) await sleep(wait2);
-
-      if (res?.ok) {
-        setLoginStep(3);
-        setLoginDone(true);
-        busyRef.current = false;
-        await sleep(500);
-        closeLoginModal();
-        onSuccess?.();
-      } else if (isSessionAlive()) {
-        setLoginStep(3);
-        setLoginDone(true);
-        busyRef.current = false;
-        await sleep(400);
-        closeLoginModal();
-        setTimeout(async () => {
-          try {
-            resetSyncState();
-            await runFullSync({ force: true });
-          } catch {}
-        }, 300);
-        onSuccess?.();
-      } else {
-        busyRef.current = false;
-        failLoginFlow(3, 'ورود ناموفق. رمز یا اتصال را چک کن.');
-      }
+      setLoginStep(3);
+      setLoginDone(true);
+      busyRef.current = false;
+      await sleep(400);
+      closeLoginModal();
+      onSuccess?.();
     } catch (e) {
       busyRef.current = false;
       failLoginFlow(-1, 'خطای شبکه: ' + String(e?.message || e));
@@ -192,14 +179,48 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
         />
         <h1 className="text-[20px] font-black text-base-content">سروستان</h1>
         <p className="text-[11.5px] text-neutral text-center">
-          {native
-            ? 'ورود زنده به بهستان — داده‌ها محلی پردازش می‌شوند'
-            : 'ورود زنده به بهستان — داده‌ها محلی پردازش می‌شوند'}
+          ورود زنده به بهستان — داده‌ها محلی پردازش می‌شوند
         </p>
       </div>
 
-      {!native && (
+      {native && (
+        <div className="grid grid-cols-2 p-1 bg-base-500/20 rounded-2xl border border-white/5 text-[12px] font-medium">
+          <button
+            type="button"
+            onClick={() => setMethod('sso')}
+            disabled={busy}
+            className={`py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+              method === 'sso'
+                ? 'bg-primary text-white shadow-md font-bold'
+                : 'text-neutral hover:text-base-content'
+            }`}
+          >
+            <KeyRound className="w-3.5 h-3.5" />
+            <span>ورود مرکزی (SSO)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMethod('webview')}
+            disabled={busy}
+            className={`py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+              method === 'webview'
+                ? 'bg-primary text-white shadow-md font-bold'
+                : 'text-neutral hover:text-base-content'
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5" />
+            <span>وب‌ویو بهستان</span>
+          </button>
+        </div>
+      )}
+
+      {method === 'sso' && (
         <div className="space-y-2.5 pt-1">
+          <div className="flex items-center gap-1.5 px-1 text-[11px] text-primary/90 font-medium">
+            <ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0" />
+            <span>احراز هویت مرکزی دانشگاه (sso.kntu.ac.ir — بدون کپچا)</span>
+          </div>
+
           <div className="input-wrap input-primary w-full">
             <div className="input-box">
               <span className="input-icon-left">
@@ -220,7 +241,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
                 className="input"
               />
               <label htmlFor="sarv-login-user" className="input-label-placeholder">
-                نام کاربری (کد ملی)
+                نام کاربری (کد ملی / شماره دانشجویی)
               </label>
             </div>
           </div>
@@ -251,24 +272,32 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
               </label>
             </div>
           </div>
+
+          <div className="pt-1 px-1">
+            <SarvCheckbox
+              checked={remember}
+              disabled={busy}
+              onChange={(checked) => setLoginRemember(checked)}
+              label="مرا به خاطر بسپار"
+              description="ورود سریع بدون تایپ مجدد رمز"
+              variant="primary"
+            />
+          </div>
         </div>
       )}
 
-      {native && (
+      {method === 'webview' && (
         <div className="rounded-2xl bg-primary-soft border border-primary-soft p-3.5 space-y-2">
-          <p className="text-[12px] font-bold text-primary">راهنمای ورود</p>
+          <p className="text-[12px] font-bold text-primary">راهنمای ورود با وب‌ویو</p>
           <ol className="text-[11.5px] text-neutral leading-relaxed list-decimal pr-4 space-y-1.5">
             <li>
               روی دکمهٔ <strong className="text-base-content">«ورود با سامانهٔ دانشگاه»</strong> بزن
             </li>
             <li>
-              اگر پنجرهٔ ورود بهستان باز شد، روی{' '}
-              <strong className="text-base-content">دکمهٔ ورود مرکزی دانشگاه</strong> کلیک کن
+              پنجرهٔ سامانه دانشگاه باز می‌شود و اطلاعات خود را وارد کن
             </li>
             <li>
-              رمز را در سامانهٔ رسمی وارد کن و{' '}
-              <strong className="text-base-content">صبر کن تا همگام‌سازی تمام شود</strong> —
-              پنجره خودکار بسته می‌شود
+              پس از ورود موفق، نشست به صورت خودکار شناسایی و همگام‌سازی می‌شود
             </li>
           </ol>
         </div>
@@ -293,15 +322,15 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
             <Loader2 className="w-4 h-4 animate-spin" />
             در حال ورود و همگام‌سازی…
           </>
-        ) : native ? (
+        ) : method === 'webview' ? (
           <>
-            <LogIn className="w-4 h-4" />
+            <Globe className="w-4 h-4" />
             ورود با سامانهٔ دانشگاه
           </>
         ) : (
           <>
             <LogIn className="w-4 h-4" />
-            ورود و گرفتن دیتای زنده
+            ورود و دریافت دیتای زنده
           </>
         )}
       </motion.button>
@@ -337,9 +366,21 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
       )}
 
       {error && (
-        <p className="text-[11.5px] text-danger bg-danger-soft border border-danger-soft rounded-xl px-3 py-2 leading-relaxed">
-          {error}
-        </p>
+        <div className="space-y-2">
+          <p className="text-[11.5px] text-danger bg-danger-soft border border-danger-soft rounded-xl px-3 py-2 leading-relaxed">
+            {error}
+          </p>
+          {native && method !== 'webview' && (
+            <button
+              type="button"
+              onClick={() => setMethod('webview')}
+              className="w-full py-2 px-3 text-[12px] font-bold text-primary bg-primary-soft hover:bg-primary/20 border border-primary/25 rounded-xl transition flex items-center justify-center gap-1.5"
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>تغییر روش ورود: وب‌ویو مستقیم دانشگاه</span>
+            </button>
+          )}
+        </div>
       )}
 
       {busy && !done && (

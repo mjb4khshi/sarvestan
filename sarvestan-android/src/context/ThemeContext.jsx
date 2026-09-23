@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 export const SARV_THEMES = [
   {
     id: 'persian-dark',
-    name: 'Iranian Dark',
+    name: 'Persian Dark',
     persianName: 'ایرانی تاریک',
     icon: '🌙',
     mode: 'dark',
@@ -12,7 +12,7 @@ export const SARV_THEMES = [
   },
   {
     id: 'persian-light',
-    name: 'Iranian Light',
+    name: 'Persian Light',
     persianName: 'ایرانی روشن',
     icon: '☀️',
     mode: 'light',

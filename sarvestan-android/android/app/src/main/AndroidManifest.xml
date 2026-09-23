@@ -7,7 +7,8 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/AppTheme">
+        android:theme="@style/AppTheme"
+        android:usesCleartextTraffic="true">
 
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation"
@@ -226,6 +227,14 @@
                 android:resource="@xml/sarvestan_widget_class_info" />
         </receiver>
 
+        <receiver
+            android:name=".ClassReminderReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="ir.mjbakhshi.sarvestan.CLASS_REMINDER" />
+            </intent-filter>
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -241,4 +250,34 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- یادآوری کلاس -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <!-- ساخت آلارم در اپ ساعت -->
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <uses-permission android:name="android.permission.SET_ALARM" />
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.SET_ALARM" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SHOW_ALARMS" />
+        </intent>
+        <package android:name="com.miui.deskclock" />
+        <package android:name="com.google.android.deskclock" />
+        <package android:name="com.sec.android.app.clockpackage" />
+        <package android:name="com.android.deskclock" />
+        <package android:name="com.huawei.deskclock" />
+        <package android:name="com.honor.deskclock" />
+        <package android:name="com.coloros.alarm" />
+        <package android:name="com.oppo.alarm" />
+        <package android:name="com.heytap.clock" />
+        <package android:name="com.oneplus.deskclock" />
+        <package android:name="com.vivo.alarmclock" />
+        <package android:name="com.android.bbkclock" />
+    </queries>
 </manifest>

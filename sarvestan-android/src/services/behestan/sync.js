@@ -14,7 +14,7 @@ import {
 } from './client';
 import { markSyncStatus, getSnapshot, addLocalNote } from './store';
 import { detectCurrentTermId, termIdToLabel } from './parsers';
-import { isSessionAlive, saveManualSession, getStudentId } from './session';
+import { isSessionAlive, saveManualSession, getStudentId, invalidateSession } from './session';
 
 let running = false;
 let lastRunAt = 0;
@@ -30,7 +30,25 @@ export function resetSyncState() {
 }
 
 function isSessionError(text) {
-  return /نشست|session|50216|کاری شما به پایان/i.test(String(text || ''));
+  return /نشست|session|50216|پایان رسيده|پایان رسیده|403|forbidden|access is denied/i.test(String(text || ''));
+}
+
+export function getPrecedingTerms(term, count = 5) {
+  const m = String(term || '').match(/^(\d{3})(\d)$/);
+  if (!m) return ['4042', '4041', '4032', '4031'];
+  let year = parseInt(m[1], 10);
+  let sem = parseInt(m[2], 10);
+  const terms = [];
+  for (let i = 0; i < count; i++) {
+    if (sem === 1) {
+      year -= 1;
+      sem = 2;
+    } else {
+      sem -= 1;
+    }
+    terms.push(`${year}${sem}`);
+  }
+  return terms;
 }
 
 export async function runFullSync({ force = false } = {}) {
@@ -38,6 +56,22 @@ export async function runFullSync({ force = false } = {}) {
   if (!force && Date.now() - lastRunAt < COOLDOWN_MS) {
     return { ok: false, reason: 'cooldown' };
   }
+
+  // روی وب، آخرین نشست ثبت شده در سرور را قبل از سنک بارگذاری کن
+  if (!globalThis.Capacitor?.isNativePlatform?.()) {
+    try {
+      const s = await fetch('/__sarvestan/session').then((r) => r.json());
+      if (s?.sid && s?.ticket) {
+        saveManualSession({
+          sid: s.sid,
+          ticket: s.ticket,
+          studentId: s.studentId || undefined,
+          cookies: s.cookies || undefined,
+        });
+      }
+    } catch {}
+  }
+
   if (!canSync() || !isSessionAlive()) {
     markSyncStatus('no-session');
     return { ok: false, reason: 'no-session' };
@@ -45,7 +79,7 @@ export async function runFullSync({ force = false } = {}) {
 
   running = true;
   lastRunAt = Date.now();
-  markSyncStatus('syncing');
+  markSyncStatus('syncing', { error: undefined });
 
   // اسنپ‌شات قبل از سنک — برای اعلان تغییرات
   const beforeCourses = (getSnapshot()?.courses || []).map((c) => ({
@@ -69,44 +103,97 @@ export async function runFullSync({ force = false } = {}) {
   };
 
   try {
-    // ── گام اول: گزارش ۸۸ (ثبت‌نام) — مثل افزونهٔ قدیم ──
-    let currentTerm = detectCurrentTermId(getSnapshot()?.courses || []) || '4051';
+    // ── گام اول: نام و مشخصات دانشجو از ثبت‌نام (گزارش ۸۸) ──
+    let currentTerm = detectCurrentTermId(getSnapshot()?.courses || []) || '4042';
     let sessionDead = false;
+
     try {
-      const probe = await fetchRegistration88(currentTerm);
-      if (probe?.error && isSessionError(probe.error)) {
-        sessionDead = true;
-        results.errors.push(probe.error);
-      } else if (probe?.courses?.length) {
-        results.schedule += probe.courses.length;
+      const r88 = await fetchRegistration88(null);
+      if (r88?.error) {
+        if (isSessionError(r88.error)) sessionDead = true;
+        results.errors.push(`۸۸: ${r88.error}`);
+      } else if (r88?.meta?.fullName) {
+        results.profile = true;
         markSyncStatus('live', { phase: 'registration', lastResults: results });
-      } else if (probe?.error) {
-        results.errors.push(`۸۸: ${probe.error}`);
+      }
+      if (r88?.courses?.length) {
+        results.schedule += r88.courses.length;
       }
     } catch (e) {
-      results.errors.push(`۸۸: ${e?.message || e}`);
+      console.warn('[sync] r88 error:', e?.message || e);
       if (isSessionError(e?.message)) sessionDead = true;
+      results.errors.push(`۸۸: ${e?.message || e}`);
     }
 
     if (sessionDead) {
+      invalidateSession();
       markSyncStatus('error', {
         lastResults: results,
-        error: 'نشست بهستان به پایان رسیده. دوباره وارد شو و کلیدهای تازه را بگذار.',
+        error: 'نشست بهستان به پایان رسیده است. لطفاً دکمهٔ «ورود زندهٔ بهستان» را بزنید.',
       });
       return { ok: false, reason: 'session-expired', results };
     }
 
-    // ── جامع دانشجو (اگر studentId باشد) ──
+    // ── گام دوم: عکس پرسنلی دانشجو (فرم F1809) ──
+    try {
+      const pData = await fetchPersonal();
+      if (pData?.error && isSessionError(pData.error)) {
+        sessionDead = true;
+      } else if (pData?.photo) {
+        results.profile = true;
+        markSyncStatus('live', { phase: 'profile', lastResults: results });
+      }
+    } catch (e) {
+      console.warn('[sync] F1809 photo error:', e?.message || e);
+      if (isSessionError(e?.message)) sessionDead = true;
+    }
+
+    if (sessionDead) {
+      invalidateSession();
+      markSyncStatus('error', {
+        lastResults: results,
+        error: 'نشست بهستان به پایان رسیده است. لطفاً دکمهٔ «ورود زندهٔ بهستان» را بزنید.',
+      });
+      return { ok: false, reason: 'session-expired', results };
+    }
+
+    // ── گام سوم: برنامه هفتگی (گزارش ۷۸) برای ۴۰۴۲ و جاری ──
+    for (const t of ['4042', currentTerm]) {
+      if (sessionDead) break;
+      try {
+        const p78 = await fetchViewReport('78', t);
+        if (p78?.error && isSessionError(p78.error)) {
+          sessionDead = true;
+          break;
+        }
+        if (p78?.courses?.length) {
+          results.schedule += p78.courses.length;
+          markSyncStatus('live', { phase: 'schedule', lastResults: results });
+        }
+      } catch (e) {
+        console.warn(`[sync] p78 (${t}) error:`, e?.message || e);
+        if (isSessionError(e?.message)) {
+          sessionDead = true;
+          break;
+        }
+      }
+    }
+
+    if (sessionDead) {
+      invalidateSession();
+      markSyncStatus('error', {
+        lastResults: results,
+        error: 'نشست بهستان به پایان رسیده است. لطفاً دکمهٔ «ورود زندهٔ بهستان» را بزنید.',
+      });
+      return { ok: false, reason: 'session-expired', results };
+    }
+
+    // ── جامع دانشجو (F1825) — نمرات، معدل، واحدها، شهریه ──
     try {
       const totals = await fetchStudentTotals();
       if (totals?.error && isSessionError(totals.error)) {
-        markSyncStatus('error', {
-          lastResults: results,
-          error: totals.error,
-        });
-        return { ok: false, reason: 'session-expired', results };
-      }
-      if (totals?.error) {
+        sessionDead = true;
+      } else if (totals?.error) {
         results.errors.push(totals.error);
       } else if (totals) {
         results.courses = totals.courses?.length || 0;
@@ -115,10 +202,21 @@ export async function runFullSync({ force = false } = {}) {
         markSyncStatus('live', { phase: 'core', lastResults: results });
       }
     } catch (e) {
+      console.warn('[sync] F1825 error:', e?.message || e);
+      if (isSessionError(e?.message)) sessionDead = true;
       results.errors.push(`F1825: ${e?.message || e}`);
     }
 
-    if (results.courses || results.schedule || results.finance) {
+    if (sessionDead) {
+      invalidateSession();
+      markSyncStatus('error', {
+        lastResults: results,
+        error: 'نشست بهستان به پایان رسیده است. لطفاً دکمهٔ «ورود زندهٔ بهستان» را بزنید.',
+      });
+      return { ok: false, reason: 'session-expired', results };
+    }
+
+    if (results.courses || results.schedule || results.finance || results.profile) {
       markSyncStatus('live', { phase: 'ready', lastResults: results });
       // ترم جاری را از دیتای تازه دوباره تشخیص بده
       currentTerm = detectCurrentTermId(getSnapshot()?.courses || []) || currentTerm;
@@ -146,17 +244,14 @@ export async function runFullSync({ force = false } = {}) {
       ),
     ].sort().reverse();
 
-    // ترم‌های محتمل قبلی: کم کردن ۱ از شمارهٔ ترم (1←2 سال قبل، 2←1، 3 و 4 تابستان)
-    const extraTerms = [];
-    const base = parseInt(currentTerm, 10);
-    if (Number.isFinite(base)) {
-      for (const delta of [1, 10, 11, 20, 21]) {
-        const t = String(base - delta);
-        if (/^\d{4}$/.test(t)) extraTerms.push(t);
-      }
-    }
     const historyTerms = [
-      ...new Set([...knownTerms.filter((t) => t !== currentTerm), ...extraTerms]),
+      ...new Set([
+        ...knownTerms.filter((t) => t !== currentTerm),
+        ...getPrecedingTerms(currentTerm, 5),
+        '4042',
+        '4041',
+        '4032',
+      ]),
     ].slice(0, 6);
 
     // تاریخچه + وضعیت دروس
@@ -227,12 +322,6 @@ export async function runFullSync({ force = false } = {}) {
     await delay(150);
 
     try {
-      await fetchPersonal();
-    } catch (e) {
-      results.errors.push(`F1809: ${e?.message || e}`);
-    }
-
-    try {
       const wf = await fetchWorkflows();
       results.workflows = wf?.length || 0;
     } catch (e) {
@@ -257,10 +346,11 @@ export async function runFullSync({ force = false } = {}) {
       } catch {}
       markSyncStatus('live', { lastResults: results, error: undefined });
     } else {
-      const errText =
-        results.errors.find((e) => isSessionError(e)) ||
-        results.errors[0] ||
-        'پاسخ خالی از بهستان';
+      let errText = results.errors[0] || 'پاسخ خالی از بهستان';
+      if (results.errors.some((e) => isSessionError(e))) {
+        invalidateSession();
+        errText = 'نشست بهستان به پایان رسیده است. لطفاً دکمهٔ «ورود زندهٔ بهستان» را بزنید.';
+      }
       markSyncStatus('error', { lastResults: results, error: errText });
     }
 

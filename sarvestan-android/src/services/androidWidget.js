@@ -16,7 +16,7 @@ export async function updateAndroidWidget(vm) {
     } catch {}
     await p.update({
       nextTitle: next?.title || '',
-      nextTime: next?.time || '',
+      nextTime: next?.isUpcomingDay ? `${next.dayLabel} ${next.time}` : next?.time || '',
       nextRoom: next?.room || '',
       examTitle: exam?.course || '',
       examDays: exam?.daysLeft ?? -1,
