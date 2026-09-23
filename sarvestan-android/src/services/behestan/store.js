@@ -19,6 +19,8 @@ const KEYS = {
   RAW_SCHEDULE: 'sarvestan_raw_behestan_schedule',
   RAW_EXAMS: 'sarvestan_raw_behestan_exams',
   SCHEDULE_CUSTOMIZED: 'sarvestan_schedule_customized',
+  DELETED_COURSES: 'sarvestan_schedule_deleted_courses',
+  DELETED_EXAMS: 'sarvestan_schedule_deleted_exams',
 };
 
 function read(key, fallback) {
@@ -156,17 +158,53 @@ export function updatePart(partial) {
 }
 
 export function setScheduleForTerm(termId, courses, source = '') {
-  const schedule = { ...(cache.schedule || {}) };
-  schedule[termId] = courses;
-
-  // اگر نسخه خام بهستان هنوز ست نشده یا سورس سنک رسمی بهستان است، نسخه خام را هم ذخیره کن
+  // همیشه نسخه خام سنک شده از بهستان را ذخیره کن
   try {
     const rawSched = read(KEYS.RAW_SCHEDULE, null) || {};
-    if (!rawSched[termId] || source === 'f1825' || source === 'live' || source === 'sync') {
-      rawSched[termId] = JSON.parse(JSON.stringify(courses));
-      persist(KEYS.RAW_SCHEDULE, rawSched);
-    }
+    rawSched[termId] = JSON.parse(JSON.stringify(courses));
+    persist(KEYS.RAW_SCHEDULE, rawSched);
   } catch {}
+
+  let finalCourses = courses;
+
+  // اگر کاربر ویرایش‌های دستی داشته، درس‌های ویرایش‌شده و اضافه‌شده دستی را روی دیتای جدید بهستان نگه دار
+  if (hasScheduleCustomizations()) {
+    const currentList = Array.isArray(cache.schedule?.[termId]) ? cache.schedule[termId] : [];
+    const deletedList = read(KEYS.DELETED_COURSES, []) || [];
+
+    const isDeleted = (c) => {
+      if (!c) return false;
+      return deletedList.some((d) => {
+        if (c.id && d.id && c.id === d.id) return true;
+        if (c.code && d.code && String(c.code) === String(d.code)) return true;
+        if (c.name && d.name && c.name === d.name) return true;
+        return false;
+      });
+    };
+
+    const mergedFromBehestan = courses
+      .filter((c) => !isDeleted(c))
+      .map((bc) => {
+        const userEdited = currentList.find(
+          (uc) =>
+            uc &&
+            uc.customEdited &&
+            ((uc.id && bc.id && uc.id === bc.id) ||
+              (uc.code && bc.code && String(uc.code) === String(bc.code)) ||
+              (uc.name && bc.name && uc.name === bc.name))
+        );
+        return userEdited ? { ...bc, ...userEdited } : bc;
+      });
+
+    const customAddedCourses = currentList.filter(
+      (c) => c && (c.customAdded || String(c.id || '').startsWith('custom_c_'))
+    );
+
+    finalCourses = [...mergedFromBehestan, ...customAddedCourses];
+  }
+
+  const schedule = { ...(cache.schedule || {}) };
+  schedule[termId] = finalCourses;
 
   updatePart({
     schedule,
@@ -180,16 +218,51 @@ export function setScheduleForTerm(termId, courses, source = '') {
 }
 
 export function setExamsForTerm(termId, exams) {
-  const map = { ...(cache.exams || {}) };
-  map[termId] = exams;
-
   try {
     const rawExams = read(KEYS.RAW_EXAMS, null) || {};
-    if (!rawExams[termId]) {
-      rawExams[termId] = JSON.parse(JSON.stringify(exams));
-      persist(KEYS.RAW_EXAMS, rawExams);
-    }
+    rawExams[termId] = JSON.parse(JSON.stringify(exams));
+    persist(KEYS.RAW_EXAMS, rawExams);
   } catch {}
+
+  let finalExams = exams;
+
+  if (hasScheduleCustomizations()) {
+    const currentList = Array.isArray(cache.exams?.[termId]) ? cache.exams[termId] : [];
+    const deletedList = read(KEYS.DELETED_EXAMS, []) || [];
+
+    const isDeleted = (e) => {
+      if (!e) return false;
+      return deletedList.some((d) => {
+        if (e.id && d.id && e.id === d.id) return true;
+        if (e.code && d.code && String(e.code) === String(d.code)) return true;
+        if ((e.name || e.course) && (d.name || d.course) && (e.name || e.course) === (d.name || d.course)) return true;
+        return false;
+      });
+    };
+
+    const mergedFromBehestan = exams
+      .filter((e) => !isDeleted(e))
+      .map((be) => {
+        const userEdited = currentList.find(
+          (ue) =>
+            ue &&
+            ue.customEdited &&
+            ((ue.id && be.id && ue.id === be.id) ||
+              (ue.code && be.code && String(ue.code) === String(be.code)) ||
+              ((ue.name || ue.course) && (be.name || be.course) && (ue.name || ue.course) === (be.name || be.course)))
+        );
+        return userEdited ? { ...be, ...userEdited } : be;
+      });
+
+    const customAddedExams = currentList.filter(
+      (e) => e && (e.customAdded || String(e.id || '').startsWith('custom_ex_'))
+    );
+
+    finalExams = [...mergedFromBehestan, ...customAddedExams];
+  }
+
+  const map = { ...(cache.exams || {}) };
+  map[termId] = finalExams;
 
   updatePart({ exams: map });
 }
@@ -250,6 +323,7 @@ export function updateScheduleCourse(termId, courseIdentifier, updatedCourse) {
       ...list[idx],
       ...updatedCourse,
       id: list[idx].id || updatedCourse.id || `course_${Date.now()}`,
+      customEdited: true,
     };
     schedule[targetTerm] = list;
     try {
@@ -270,6 +344,7 @@ export function addScheduleCourse(termId, newCourse) {
   const courseWithId = {
     ...newCourse,
     id: newCourse.id || `custom_c_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    customAdded: true,
   };
   list.push(courseWithId);
   schedule[targetTerm] = list;
@@ -289,15 +364,25 @@ export function deleteScheduleCourse(termId, courseIdentifier) {
 
   const filtered = list.filter((c, i) => {
     if (!c) return false;
+    let match = false;
     if (courseIdentifier && typeof courseIdentifier === 'object') {
-      if (courseIdentifier.id && c.id && c.id === courseIdentifier.id) return false;
+      if (courseIdentifier.id && c.id && c.id === courseIdentifier.id) match = true;
       if (courseIdentifier.code && c.code && String(c.code) === String(courseIdentifier.code)) {
-        if (!courseIdentifier.name || c.name === courseIdentifier.name) return false;
+        if (!courseIdentifier.name || c.name === courseIdentifier.name) match = true;
       }
     }
-    if (c.id && c.id === courseIdentifier) return false;
-    if (c.code && String(c.code) === String(courseIdentifier)) return false;
-    if (i === courseIdentifier) return false;
+    if (c.id && c.id === courseIdentifier) match = true;
+    if (c.code && String(c.code) === String(courseIdentifier)) match = true;
+    if (i === courseIdentifier) match = true;
+
+    if (match) {
+      try {
+        const deleted = read(KEYS.DELETED_COURSES, []) || [];
+        deleted.push({ id: c.id, code: c.code, name: c.name || c.title });
+        persist(KEYS.DELETED_COURSES, deleted);
+      } catch {}
+      return false;
+    }
     return true;
   });
 
@@ -332,6 +417,7 @@ export function updateExamInStore(termId, examIdentifier, updatedExam) {
       ...list[idx],
       ...updatedExam,
       id: list[idx].id || updatedExam.id || `exam_${Date.now()}`,
+      customEdited: true,
     };
     examsMap[targetTerm] = list;
     try {
@@ -352,6 +438,7 @@ export function addExamToStore(termId, newExam) {
   const examWithId = {
     ...newExam,
     id: newExam.id || `custom_ex_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    customAdded: true,
   };
   list.push(examWithId);
   examsMap[targetTerm] = list;
@@ -371,13 +458,23 @@ export function deleteExamFromStore(termId, examIdentifier) {
 
   const filtered = list.filter((e, i) => {
     if (!e) return false;
+    let match = false;
     if (examIdentifier && typeof examIdentifier === 'object') {
-      if (examIdentifier.id && e.id && e.id === examIdentifier.id) return false;
-      if (examIdentifier.code && e.code && String(e.code) === String(examIdentifier.code)) return false;
+      if (examIdentifier.id && e.id && e.id === examIdentifier.id) match = true;
+      if (examIdentifier.code && e.code && String(e.code) === String(examIdentifier.code)) match = true;
     }
-    if (e.id && e.id === examIdentifier) return false;
-    if (e.code && String(e.code) === String(examIdentifier)) return false;
-    if (i === examIdentifier) return false;
+    if (e.id && e.id === examIdentifier) match = true;
+    if (e.code && String(e.code) === String(examIdentifier)) match = true;
+    if (i === examIdentifier) match = true;
+
+    if (match) {
+      try {
+        const deleted = read(KEYS.DELETED_EXAMS, []) || [];
+        deleted.push({ id: e.id, code: e.code, name: e.name || e.course });
+        persist(KEYS.DELETED_EXAMS, deleted);
+      } catch {}
+      return false;
+    }
     return true;
   });
 
@@ -399,6 +496,8 @@ export function resetScheduleAndExamsToBehestan() {
 
   try {
     localStorage.removeItem(KEYS.SCHEDULE_CUSTOMIZED);
+    localStorage.removeItem(KEYS.DELETED_COURSES);
+    localStorage.removeItem(KEYS.DELETED_EXAMS);
   } catch {}
 
   if (Object.keys(updates).length) {
@@ -490,7 +589,7 @@ export function enrichScheduleFromCourses(courses) {
     }
 
     for (const course of schedule[termId]) {
-      if (!course || !course.code) continue;
+      if (!course || !course.code || course.customEdited) continue;
       const hit = byCode[String(course.code)];
       if (!hit) continue;
       if (hit.units > 0 && course.units !== hit.units) {

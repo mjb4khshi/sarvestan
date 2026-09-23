@@ -13,8 +13,9 @@ import {
   Calendar,
 } from 'lucide-react';
 import { toFaDigits } from '../utils/faDigits';
+import SarvTimePickerModal from './SarvTimePickerModal';
 
-const DAYS_OF_WEEK = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه'];
+const DAYS_OF_WEEK = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'];
 
 function parseStartAndEnd(timeStr) {
   if (!timeStr) return { start: '08:00', end: '10:00' };
@@ -44,6 +45,12 @@ export default function CourseEditModal({
   ]);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [timePickerState, setTimePickerState] = useState({
+    isOpen: false,
+    slotIndex: 0,
+    field: 'start',
+    currentTime: '13:30',
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -180,7 +187,8 @@ export default function CourseEditModal({
   };
 
   return (
-    <AnimatePresence>
+    <>
+      <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[85] flex items-end sm:items-center justify-center p-0 sm:p-4">
           <motion.div
@@ -385,29 +393,47 @@ export default function CourseEditModal({
                         })}
                       </div>
 
-                      {/* بازه ساعتی شروع و پایان */}
-                      <div className="grid grid-cols-2 gap-2 pt-1">
+                      {/* بازه ساعتی شروع و پایان با سلکتور حرفه‌ای چرخشی */}
+                      <div className="grid grid-cols-2 gap-2.5 pt-1">
                         <div>
-                          <label className="text-[10px] text-neutral font-medium block mb-0.5">
+                          <label className="text-[10px] text-neutral font-medium block mb-1">
                             ساعت شروع:
                           </label>
-                          <input
-                            type="time"
-                            value={slot.start}
-                            onChange={(e) => handleUpdateSlot(sIdx, 'start', e.target.value)}
-                            className="w-full px-2 py-1.5 rounded-xl bg-base border border-base-500/30 font-mono text-[12px] font-bold text-center text-base-content outline-none focus:border-primary transition"
-                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setTimePickerState({
+                                isOpen: true,
+                                slotIndex: sIdx,
+                                field: 'start',
+                                currentTime: slot.start || '13:30',
+                              })
+                            }
+                            className="w-full px-2.5 py-2 rounded-xl bg-base border border-base-500/30 hover:border-primary/50 text-[12.5px] font-bold font-mono text-base-content flex items-center justify-center gap-1.5 transition active:scale-95 shadow-2xs"
+                          >
+                            <Clock className="w-3.5 h-3.5 text-primary" />
+                            <span>{toFaDigits(slot.start || '۱۳:۳۰')}</span>
+                          </button>
                         </div>
                         <div>
-                          <label className="text-[10px] text-neutral font-medium block mb-0.5">
+                          <label className="text-[10px] text-neutral font-medium block mb-1">
                             ساعت پایان:
                           </label>
-                          <input
-                            type="time"
-                            value={slot.end}
-                            onChange={(e) => handleUpdateSlot(sIdx, 'end', e.target.value)}
-                            className="w-full px-2 py-1.5 rounded-xl bg-base border border-base-500/30 font-mono text-[12px] font-bold text-center text-base-content outline-none focus:border-primary transition"
-                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setTimePickerState({
+                                isOpen: true,
+                                slotIndex: sIdx,
+                                field: 'end',
+                                currentTime: slot.end || '15:00',
+                              })
+                            }
+                            className="w-full px-2.5 py-2 rounded-xl bg-base border border-base-500/30 hover:border-primary/50 text-[12.5px] font-bold font-mono text-base-content flex items-center justify-center gap-1.5 transition active:scale-95 shadow-2xs"
+                          >
+                            <Clock className="w-3.5 h-3.5 text-primary" />
+                            <span>{toFaDigits(slot.end || '۱۵:۰۰')}</span>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -453,5 +479,17 @@ export default function CourseEditModal({
         </div>
       )}
     </AnimatePresence>
+
+    {/* مودال چرخشی انتخاب زمان */}
+    <SarvTimePickerModal
+      isOpen={timePickerState.isOpen}
+      initialTime={timePickerState.currentTime}
+      onClose={() => setTimePickerState((prev) => ({ ...prev, isOpen: false }))}
+      onConfirm={(newTime) => {
+        handleUpdateSlot(timePickerState.slotIndex, timePickerState.field, newTime);
+        setTimePickerState((prev) => ({ ...prev, isOpen: false }));
+      }}
+    />
+  </>
   );
 }

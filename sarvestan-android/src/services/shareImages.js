@@ -400,9 +400,21 @@ export async function renderScheduleImage({ theme } = {}) {
 
       const list = [];
       const base = `${r}-${c}`;
-      if (cells[base]) list.push(cells[base]);
+      if (cells[base]) {
+        if (Array.isArray(cells[base].items) && cells[base].items.length) {
+          list.push(...cells[base].items);
+        } else {
+          list.push(cells[base]);
+        }
+      }
       for (let n = 2; n < 8; n++) {
-        if (cells[`${base}-${n}`]) list.push(cells[`${base}-${n}`]);
+        if (cells[`${base}-${n}`]) {
+          if (Array.isArray(cells[`${base}-${n}`].items)) {
+            list.push(...cells[`${base}-${n}`].items);
+          } else {
+            list.push(cells[`${base}-${n}`]);
+          }
+        }
       }
 
       // خانه خالی — کادر ملایم با حاشیه ظریف

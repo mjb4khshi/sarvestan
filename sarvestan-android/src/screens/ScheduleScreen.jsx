@@ -117,6 +117,7 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
   };
 
   const handleOpenEditCourse = (cardCourse) => {
+    if (!cardCourse) return;
     const fullList = getCurrentTermSchedule();
     const hit = fullList.find(
       (item) =>
@@ -124,10 +125,13 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
         ((cardCourse.id && item.id === cardCourse.id) ||
           (cardCourse.code && String(item.code) === String(cardCourse.code)) ||
           item.name === cardCourse.title ||
-          item.title === cardCourse.title)
+          item.title === cardCourse.title ||
+          item.name === cardCourse.name)
     );
     if (hit) {
       setEditingCourse(hit);
+    } else if (cardCourse.daySlots || cardCourse.days) {
+      setEditingCourse(cardCourse);
     } else {
       setEditingCourse({
         id: cardCourse.id || `temp_${Date.now()}`,
@@ -560,30 +564,47 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                       </td>
                       {days.map((_, di) => {
                         const cell = cells[`${si}-${di}`];
-                        return (
-                          <td key={di} className="p-1 align-top">
-                            {cell ? (
-                              <div
-                                onClick={() => handleOpenEditCourse(cell)}
-                                className={`rounded-xl border p-2 text-right transition-all hover:scale-[1.02] cursor-pointer hover:ring-2 hover:ring-primary/40 ${
-                                  cellTone[cell.color] || cellTone.primary
-                                }`}
-                                title="برای مشاهده و ویرایش درس کلیک کنید"
-                              >
-                                <p className="text-[11px] font-bold leading-tight truncate">
-                                  {cell.title}
-                                </p>
-                                <p className="text-[10px] opacity-80 mt-1 flex items-center gap-1">
-                                  <MapPin className="w-2.5 h-2.5 shrink-0" />
-                                  {toFaDigits(cell.room)}
-                                </p>
-                                <p className="text-[9px] opacity-75 truncate mt-0.5">
-                                  {cell.professor}
-                                </p>
-                              </div>
-                            ) : (
+                        if (!cell) {
+                          return (
+                            <td key={di} className="p-1 align-top">
                               <div className="h-12 rounded-xl bg-transparent" />
+                            </td>
+                          );
+                        }
+
+                        const items = Array.isArray(cell.items) && cell.items.length ? cell.items : [cell];
+                        const hasConflict = items.length > 1;
+
+                        return (
+                          <td key={di} className="p-1 align-top min-w-[110px]">
+                            {hasConflict && (
+                              <div className="mb-1.5 px-2 py-0.5 rounded-lg bg-danger/15 border border-danger/30 text-[9.5px] font-bold text-danger flex items-center justify-between">
+                                <span>⚠️ تداخل ({toFaDigits(items.length)})</span>
+                              </div>
                             )}
+                            <div className="space-y-1.5">
+                              {items.map((item, idx) => (
+                                <div
+                                  key={item.id || idx}
+                                  onClick={() => handleOpenEditCourse(item.course || item)}
+                                  className={`rounded-xl border p-2 text-right transition-all hover:scale-[1.02] cursor-pointer hover:ring-2 hover:ring-primary/40 shadow-xs ${
+                                    cellTone[item.color] || cellTone.primary
+                                  }`}
+                                  title="برای مشاهده و ویرایش درس کلیک کنید"
+                                >
+                                  <p className="text-[11px] font-bold leading-tight line-clamp-2">
+                                    {item.title}
+                                  </p>
+                                  <p className="text-[10px] opacity-80 mt-1 flex items-center gap-1">
+                                    <MapPin className="w-2.5 h-2.5 shrink-0" />
+                                    <span className="truncate">{toFaDigits(item.room)}</span>
+                                  </p>
+                                  <p className="text-[9px] opacity-75 truncate mt-0.5">
+                                    {item.professor}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
                           </td>
                         );
                       })}

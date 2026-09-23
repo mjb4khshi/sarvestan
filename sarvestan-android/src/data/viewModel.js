@@ -800,43 +800,90 @@ export function getScheduleMatrix() {
   const courses = getCurrentTermSchedule(currentTerm);
   if (!courses.length) return EMPTY_MATRIX;
 
-  const days = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه'];
-  const tones = ['primary', 'info', 'success', 'secondary', 'accent', 'warn', 'danger'];
+  const baseDays = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه'];
+  const hasThu = courses.some((c) => courseSlots(c).some((s) => s.day === 'پنجشنبه'));
+  const hasFri = courses.some((c) => courseSlots(c).some((s) => s.day === 'جمعه'));
+  const days = [...baseDays];
+  if (hasThu) days.push('پنجشنبه');
+  if (hasFri) days.push('جمعه');
 
-  const ranges = [];
+  const rawRanges = [];
   for (const c of courses) {
     for (const s of courseSlots(c)) {
       const r = parseRange(s.time);
       if (!r) continue;
-      const near = ranges.find((x) => Math.abs(x.start - r.start) <= 15);
-      if (near) near.end = Math.max(near.end, r.end);
-      else ranges.push({ start: r.start, end: r.end });
+      rawRanges.push(r);
     }
   }
-  if (!ranges.length) return EMPTY_MATRIX;
-  ranges.sort((a, b) => a.start - b.start);
+  if (!rawRanges.length) return EMPTY_MATRIX;
+
+  // دسته‌بندی بازه‌های زمانی با شباهت شروع و پایان
+  const ranges = [];
+  rawRanges.forEach((r) => {
+    const existing = ranges.find(
+      (x) => Math.abs(x.start - r.start) <= 20 && Math.abs(x.end - r.end) <= 30
+    );
+    if (existing) {
+      existing.start = Math.min(existing.start, r.start);
+      existing.end = Math.max(existing.end, r.end);
+    } else {
+      ranges.push({ start: r.start, end: r.end });
+    }
+  });
+
+  ranges.sort((a, b) => a.start - b.start || a.end - b.end);
   const slots = ranges.map((r) => `${fmtSlot(r.start)}–${fmtSlot(r.end)}`);
 
   const cells = {};
   courses.forEach((c, ci) => {
+    const tone = COURSE_TONES[ci % COURSE_TONES.length];
     for (const s of courseSlots(c)) {
       const di = days.indexOf(s.day);
       if (di < 0) continue;
       const r = parseRange(s.time);
-      let si = ranges.findIndex((x) => r && r.start >= x.start - 1 && r.start < x.end - 1);
-      if (si < 0) si = 0;
-      const key = `${si}-${di}`;
-      const cell = {
-        title: c.name,
-        room: s.hall || 'ـ',
+      if (!r) continue;
+
+      // نزدیک‌ترین اسلات بر اساس زمان شروع
+      let bestSi = 0;
+      let minDiff = Infinity;
+      ranges.forEach((rng, idx) => {
+        const diff = Math.abs(rng.start - r.start);
+        if (diff < minDiff) {
+          minDiff = diff;
+          bestSi = idx;
+        }
+      });
+
+      const key = `${bestSi}-${di}`;
+      const item = {
+        id: c.id || c.code || `course_${ci}`,
+        code: c.code,
+        title: c.name || c.title || 'درس',
+        room: s.hall || c.hall || 'ـ',
         professor: c.professor || 'ـ',
-        time: s.time,
-        color: COURSE_TONES[ci % COURSE_TONES.length],
+        time: s.time || c.time || '',
+        color: tone,
+        course: c,
       };
-      if (cells[key] && cells[key].title !== cell.title) {
-        cells[key] = { ...cell, title: `${cells[key].title} · ${cell.title}` };
+
+      if (!cells[key]) {
+        cells[key] = {
+          ...item,
+          items: [item],
+          hasConflict: false,
+        };
       } else {
-        cells[key] = cell;
+        const existingItems = cells[key].items || [cells[key]];
+        const isDuplicate = existingItems.some(
+          (x) => (x.id && x.id === item.id) || (x.code && x.code === item.code && x.title === item.title)
+        );
+        if (!isDuplicate) {
+          cells[key] = {
+            ...cells[key],
+            items: [...existingItems, item],
+            hasConflict: true,
+          };
+        }
       }
     }
   });

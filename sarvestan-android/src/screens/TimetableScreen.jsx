@@ -60,26 +60,35 @@ export default function TimetableScreen() {
                     </td>
                     {days.map((_, di) => {
                       const cell = cells[`${si}-${di}`];
-                      return (
-                        <td key={di} className="p-1.5 border-b border-base-500/25 align-top">
-                          {cell ? (
-                            <div
-                              className={`rounded-[var(--radius-card,0.875rem)] border px-2 py-2 text-right ${
-                                cellTone[cell.color] || cellTone.primary
-                              }`}
-                            >
-                              <p className="text-[11px] font-bold leading-tight text-base-content truncate">
-                                {cell.title}
-                              </p>
-                              <p className="text-[10px] text-neutral mt-1 flex items-center gap-1">
-                                <MapPin className="w-3 h-3 shrink-0" />
-                                {cell.room}
-                              </p>
-                              <p className="text-[9px] text-neutral/90 truncate">{cell.professor}</p>
-                            </div>
-                          ) : (
+                      if (!cell) {
+                        return (
+                          <td key={di} className="p-1.5 border-b border-base-500/25 align-top">
                             <div className="h-10 rounded-[var(--radius-button,0.75rem)] bg-transparent" />
-                          )}
+                          </td>
+                        );
+                      }
+                      const items = Array.isArray(cell.items) && cell.items.length ? cell.items : [cell];
+                      return (
+                        <td key={di} className="p-1.5 border-b border-base-500/25 align-top min-w-[110px]">
+                          <div className="space-y-1.5">
+                            {items.map((item, idx) => (
+                              <div
+                                key={item.id || idx}
+                                className={`rounded-[var(--radius-card,0.875rem)] border px-2 py-2 text-right ${
+                                  cellTone[item.color] || cellTone.primary
+                                }`}
+                              >
+                                <p className="text-[11px] font-bold leading-tight text-base-content line-clamp-2">
+                                  {item.title}
+                                </p>
+                                <p className="text-[10px] text-neutral mt-1 flex items-center gap-1">
+                                  <MapPin className="w-3 h-3 shrink-0" />
+                                  <span className="truncate">{item.room}</span>
+                                </p>
+                                <p className="text-[9px] text-neutral/90 truncate">{item.professor}</p>
+                              </div>
+                            ))}
+                          </div>
                         </td>
                       );
                     })}
