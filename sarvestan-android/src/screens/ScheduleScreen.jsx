@@ -122,27 +122,41 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
 
   const handleOpenEditCourse = (cardCourse) => {
     if (!cardCourse) return;
-    const fullList = getCurrentTermSchedule();
-    const hit = fullList.find(
-      (item) =>
-        item &&
-        ((cardCourse.id && item.id === cardCourse.id) ||
-          (cardCourse.code && String(item.code) === String(cardCourse.code)) ||
-          item.name === cardCourse.title ||
-          item.title === cardCourse.title ||
-          item.name === cardCourse.name)
-    );
+    const fullList = getCurrentTermSchedule() || [];
+
+    const targetId = cardCourse.id ? String(cardCourse.id).trim() : null;
+    const targetCode = cardCourse.code ? String(cardCourse.code).trim() : null;
+    const targetName = (cardCourse.name || cardCourse.title || '').trim();
+
+    // تطابق دقیق با لیست دروس فقط بر اساس شناسه‌ها و مقادیر معتبر و غیرخالی
+    const hit = fullList.find((item) => {
+      if (!item) return false;
+      const itemId = item.id ? String(item.id).trim() : null;
+      const itemCode = item.code ? String(item.code).trim() : null;
+      const itemName = (item.name || item.title || '').trim();
+
+      // ۱. تطابق با کد درس
+      if (targetCode && itemCode && targetCode === itemCode) return true;
+      // ۲. تطابق با شناسه
+      if (targetId && itemId && targetId === itemId) return true;
+      // ۳. تطابق با نام درس
+      if (targetName && itemName && targetName === itemName) return true;
+
+      return false;
+    });
+
     if (hit) {
       setEditingCourse(hit);
     } else if (cardCourse.daySlots || cardCourse.days) {
       setEditingCourse(cardCourse);
     } else {
       setEditingCourse({
-        id: cardCourse.id || `temp_${Date.now()}`,
-        name: cardCourse.title || cardCourse.name,
-        professor: cardCourse.professor,
-        hall: cardCourse.room || cardCourse.hall,
-        time: cardCourse.time || cardCourse.slot,
+        id: targetId || `temp_${Date.now()}`,
+        name: targetName,
+        code: targetCode || '',
+        professor: cardCourse.professor || '',
+        hall: cardCourse.room || cardCourse.hall || '',
+        time: cardCourse.time || cardCourse.slot || '',
         days: cardCourse.day ? [cardCourse.day] : [],
       });
     }

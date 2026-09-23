@@ -749,6 +749,8 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
     <SarvTimePickerModal
       isOpen={timePickerOpen}
       initialTime={samadTime}
+      title="تنظیم ساعت یادآوری سماد"
+      subtitle="ارسال اعلان رزرو در روزهای چهارشنبه"
       onClose={() => setTimePickerOpen(false)}
       onConfirm={(newTime) => handleChangeSamadTime(newTime)}
     />

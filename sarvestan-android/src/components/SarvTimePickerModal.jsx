@@ -146,6 +146,8 @@ function WheelColumn({ items, selectedValue, onSelect, label }) {
 export default function SarvTimePickerModal({
   isOpen,
   initialTime = '14:00',
+  title = 'تنظیم ساعت',
+  subtitle = 'ساعت و دقیقه مورد نظر را مشخص کنید',
   onClose,
   onConfirm,
 }) {
@@ -180,7 +182,7 @@ export default function SarvTimePickerModal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[95] flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -200,15 +202,15 @@ export default function SarvTimePickerModal({
             {/* هدر مودال */}
             <div className="flex items-center justify-between pb-3 border-b border-base-500/30">
               <div className="flex items-center gap-2.5">
-                <span className="w-8 h-8 rounded-xl bg-warning/20 text-warning grid place-items-center shrink-0">
+                <span className="w-8 h-8 rounded-xl bg-primary/15 text-primary grid place-items-center shrink-0">
                   <Clock className="w-4 h-4" />
                 </span>
                 <div>
                   <h3 className="text-[14px] font-black text-base-content">
-                    تنظیم ساعت یادآوری سماد
+                    {title}
                   </h3>
                   <p className="text-[10.5px] text-neutral">
-                    ارسال اعلان در روزهای چهارشنبه
+                    {subtitle}
                   </p>
                 </div>
               </div>

@@ -485,6 +485,8 @@ export default function CourseEditModal({
     <SarvTimePickerModal
       isOpen={timePickerState.isOpen}
       initialTime={timePickerState.currentTime}
+      title={timePickerState.field === 'start' ? 'ساعت شروع کلاس' : 'ساعت پایان کلاس'}
+      subtitle="ساعت و دقیقه برگزاری کلاس را مشخص کنید"
       onClose={() => setTimePickerState((prev) => ({ ...prev, isOpen: false }))}
       onConfirm={(newTime) => {
         handleUpdateSlot(timePickerState.slotIndex, timePickerState.field, newTime);

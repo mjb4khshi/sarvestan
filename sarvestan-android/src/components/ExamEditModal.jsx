@@ -425,6 +425,8 @@ export default function ExamEditModal({
     <SarvTimePickerModal
       isOpen={timePickerState.isOpen}
       initialTime={timePickerState.currentTime}
+      title={timePickerState.field === 'start' ? 'ساعت شروع امتحان' : 'ساعت پایان امتحان'}
+      subtitle="ساعت و دقیقه برگزاری نوبت آزمون را مشخص کنید"
       onClose={() => setTimePickerState((prev) => ({ ...prev, isOpen: false }))}
       onConfirm={(newTime) => {
         const { start, end } = parseExamTime(examTime);
