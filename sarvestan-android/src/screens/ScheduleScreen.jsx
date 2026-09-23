@@ -535,13 +535,6 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
-                            <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                                cellTone[c.color] || cellTone.primary
-                              }`}
-                            >
-                              حضوری
-                            </span>
                           </div>
                         </div>
 

@@ -165,14 +165,15 @@ export default function ExamEditModal({
               </button>
             </div>
 
-            {/* بدنه اسکرول‌پذیر فرم */}
-            <form onSubmit={handleSubmit} className="overflow-y-auto py-3 space-y-3.5 flex-1 pr-0.5">
-              {errorMsg && (
-                <div className="p-3 rounded-xl bg-danger-soft text-danger text-[11.5px] font-bold border border-danger/30 flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 shrink-0" />
-                  <span>{errorMsg}</span>
-                </div>
-              )}
+            {/* بدنه اسکرول‌پذیر فرم با فوتر شناور ثابت */}
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="overflow-y-auto py-3 space-y-3.5 flex-1 pr-0.5">
+                {errorMsg && (
+                  <div className="p-3 rounded-xl bg-danger-soft text-danger text-[11.5px] font-bold border border-danger/30 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>{errorMsg}</span>
+                  </div>
+                )}
 
               {/* نام درس */}
               <div>
@@ -371,13 +372,15 @@ export default function ExamEditModal({
                 </div>
               </div>
 
-              {/* اکشن‌های پایین فرم */}
-              <div className="pt-3 border-t border-base-500/30 flex items-center gap-2">
+                </div>
+
+              {/* اکشن‌های پایین فرم — به صورت شناور و چسبیده در پایین مودال */}
+              <div className="shrink-0 pt-3 border-t border-base-500/30 flex items-center gap-2 bg-base">
                 {isEditing && (
                   <button
                     type="button"
                     onClick={handleDelete}
-                    className={`px-3 py-2.5 rounded-xl text-[11.5px] font-bold flex items-center justify-center gap-1.5 transition active:scale-95 ${
+                    className={`px-3 py-2.5 rounded-xl text-[11.5px] font-bold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer ${
                       confirmDelete
                         ? 'bg-danger text-danger-content font-black shadow-sm'
                         : 'bg-danger-soft text-danger hover:bg-danger/20 border border-danger/20'
@@ -391,14 +394,14 @@ export default function ExamEditModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="flex-1 py-2.5 rounded-xl bg-base-500/20 hover:bg-base-500/35 text-base-content text-[12px] font-bold transition active:scale-95"
+                  className="flex-1 py-2.5 rounded-xl bg-base-500/20 hover:bg-base-500/35 text-base-content text-[12px] font-bold transition active:scale-95 cursor-pointer"
                 >
                   انصراف
                 </button>
 
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-primary text-primary-content text-[12px] font-bold hover:brightness-110 transition active:scale-95 flex items-center justify-center gap-1.5 shadow-sm"
+                  className="flex-1 py-2.5 rounded-xl bg-primary text-primary-content text-[12px] font-bold hover:brightness-110 transition active:scale-95 flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
                   <span>{isEditing ? 'ذخیره تغییرات' : 'ثبت نوبت امتحان'}</span>

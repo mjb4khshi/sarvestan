@@ -770,13 +770,13 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
                 <RotateCcw className="w-4.5 h-4.5" />
               </span>
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <p className="text-[13px] font-bold text-base-content">
                     بازنشانی به داده‌های بهستان
                   </p>
                   {hasScheduleCustomizations() && (
-                    <span className="text-[9.5px] px-2 py-0.5 rounded-full font-bold bg-accent/15 text-accent border border-accent/25">
-                      دارای ویرایش دستی
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold bg-accent/15 text-accent border border-accent/25 shrink-0 whitespace-nowrap">
+                      ویرایش‌شده
                     </span>
                   )}
                 </div>
