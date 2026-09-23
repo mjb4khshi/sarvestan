@@ -16,6 +16,9 @@ const KEYS = {
   SYNC_META: 'sarvestan_live_sync_meta',
   LOCAL_NOTES: 'sarvestan_local_notes',
   REG77: 'sarvestan_live_reg77',
+  RAW_SCHEDULE: 'sarvestan_raw_behestan_schedule',
+  RAW_EXAMS: 'sarvestan_raw_behestan_exams',
+  SCHEDULE_CUSTOMIZED: 'sarvestan_schedule_customized',
 };
 
 function read(key, fallback) {
@@ -155,6 +158,16 @@ export function updatePart(partial) {
 export function setScheduleForTerm(termId, courses, source = '') {
   const schedule = { ...(cache.schedule || {}) };
   schedule[termId] = courses;
+
+  // اگر نسخه خام بهستان هنوز ست نشده یا سورس سنک رسمی بهستان است، نسخه خام را هم ذخیره کن
+  try {
+    const rawSched = read(KEYS.RAW_SCHEDULE, null) || {};
+    if (!rawSched[termId] || source === 'f1825' || source === 'live' || source === 'sync') {
+      rawSched[termId] = JSON.parse(JSON.stringify(courses));
+      persist(KEYS.RAW_SCHEDULE, rawSched);
+    }
+  } catch {}
+
   updatePart({
     schedule,
     syncMeta: {
@@ -169,7 +182,229 @@ export function setScheduleForTerm(termId, courses, source = '') {
 export function setExamsForTerm(termId, exams) {
   const map = { ...(cache.exams || {}) };
   map[termId] = exams;
+
+  try {
+    const rawExams = read(KEYS.RAW_EXAMS, null) || {};
+    if (!rawExams[termId]) {
+      rawExams[termId] = JSON.parse(JSON.stringify(exams));
+      persist(KEYS.RAW_EXAMS, rawExams);
+    }
+  } catch {}
+
   updatePart({ exams: map });
+}
+
+export function hasScheduleCustomizations() {
+  try {
+    return localStorage.getItem(KEYS.SCHEDULE_CUSTOMIZED) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export function backupBehestanRawDataIfNeeded() {
+  try {
+    const rawSched = read(KEYS.RAW_SCHEDULE, null);
+    if (!rawSched && cache.schedule && Object.keys(cache.schedule).length) {
+      persist(KEYS.RAW_SCHEDULE, JSON.parse(JSON.stringify(cache.schedule)));
+    }
+    const rawEx = read(KEYS.RAW_EXAMS, null);
+    if (!rawEx && cache.exams && Object.keys(cache.exams).length) {
+      persist(KEYS.RAW_EXAMS, JSON.parse(JSON.stringify(cache.exams)));
+    }
+  } catch {}
+}
+
+export function resolveCurrentTermId() {
+  const s = cache.schedule || {};
+  const sKeys = Object.keys(s).filter((k) => Array.isArray(s[k]) && s[k].length);
+  if (sKeys.length) return sKeys.sort().reverse()[0];
+  const courses = cache.courses || [];
+  const cKeys = [...new Set(courses.map((c) => String(c?.termId || '').trim()).filter(Boolean))].sort();
+  if (cKeys.length) return cKeys[cKeys.length - 1];
+  return '4051';
+}
+
+export function updateScheduleCourse(termId, courseIdentifier, updatedCourse) {
+  backupBehestanRawDataIfNeeded();
+  const targetTerm = termId || resolveCurrentTermId();
+  const schedule = { ...(cache.schedule || {}) };
+  const list = [...(schedule[targetTerm] || [])];
+
+  const idx = list.findIndex((c, i) => {
+    if (!c) return false;
+    if (courseIdentifier && typeof courseIdentifier === 'object') {
+      if (courseIdentifier.id && c.id && c.id === courseIdentifier.id) return true;
+      if (courseIdentifier.code && c.code && String(c.code) === String(courseIdentifier.code)) {
+        if (!courseIdentifier.name || c.name === courseIdentifier.name) return true;
+      }
+    }
+    if (c.id && c.id === courseIdentifier) return true;
+    if (c.code && String(c.code) === String(courseIdentifier)) return true;
+    if (i === courseIdentifier) return true;
+    return false;
+  });
+
+  if (idx >= 0) {
+    list[idx] = {
+      ...list[idx],
+      ...updatedCourse,
+      id: list[idx].id || updatedCourse.id || `course_${Date.now()}`,
+    };
+    schedule[targetTerm] = list;
+    try {
+      localStorage.setItem(KEYS.SCHEDULE_CUSTOMIZED, 'true');
+    } catch {}
+    updatePart({ schedule });
+    return true;
+  }
+  return false;
+}
+
+export function addScheduleCourse(termId, newCourse) {
+  backupBehestanRawDataIfNeeded();
+  const targetTerm = termId || resolveCurrentTermId();
+  const schedule = { ...(cache.schedule || {}) };
+  const list = [...(schedule[targetTerm] || [])];
+
+  const courseWithId = {
+    ...newCourse,
+    id: newCourse.id || `custom_c_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+  };
+  list.push(courseWithId);
+  schedule[targetTerm] = list;
+
+  try {
+    localStorage.setItem(KEYS.SCHEDULE_CUSTOMIZED, 'true');
+  } catch {}
+  updatePart({ schedule });
+  return courseWithId;
+}
+
+export function deleteScheduleCourse(termId, courseIdentifier) {
+  backupBehestanRawDataIfNeeded();
+  const targetTerm = termId || resolveCurrentTermId();
+  const schedule = { ...(cache.schedule || {}) };
+  const list = [...(schedule[targetTerm] || [])];
+
+  const filtered = list.filter((c, i) => {
+    if (!c) return false;
+    if (courseIdentifier && typeof courseIdentifier === 'object') {
+      if (courseIdentifier.id && c.id && c.id === courseIdentifier.id) return false;
+      if (courseIdentifier.code && c.code && String(c.code) === String(courseIdentifier.code)) {
+        if (!courseIdentifier.name || c.name === courseIdentifier.name) return false;
+      }
+    }
+    if (c.id && c.id === courseIdentifier) return false;
+    if (c.code && String(c.code) === String(courseIdentifier)) return false;
+    if (i === courseIdentifier) return false;
+    return true;
+  });
+
+  schedule[targetTerm] = filtered;
+  try {
+    localStorage.setItem(KEYS.SCHEDULE_CUSTOMIZED, 'true');
+  } catch {}
+  updatePart({ schedule });
+  return true;
+}
+
+export function updateExamInStore(termId, examIdentifier, updatedExam) {
+  backupBehestanRawDataIfNeeded();
+  const targetTerm = termId || resolveCurrentTermId();
+  const examsMap = { ...(cache.exams || {}) };
+  const list = [...(examsMap[targetTerm] || [])];
+
+  const idx = list.findIndex((e, i) => {
+    if (!e) return false;
+    if (examIdentifier && typeof examIdentifier === 'object') {
+      if (examIdentifier.id && e.id && e.id === examIdentifier.id) return true;
+      if (examIdentifier.code && e.code && String(e.code) === String(examIdentifier.code)) return true;
+    }
+    if (e.id && e.id === examIdentifier) return true;
+    if (e.code && String(e.code) === String(examIdentifier)) return true;
+    if (i === examIdentifier) return true;
+    return false;
+  });
+
+  if (idx >= 0) {
+    list[idx] = {
+      ...list[idx],
+      ...updatedExam,
+      id: list[idx].id || updatedExam.id || `exam_${Date.now()}`,
+    };
+    examsMap[targetTerm] = list;
+    try {
+      localStorage.setItem(KEYS.SCHEDULE_CUSTOMIZED, 'true');
+    } catch {}
+    updatePart({ exams: examsMap });
+    return true;
+  }
+  return false;
+}
+
+export function addExamToStore(termId, newExam) {
+  backupBehestanRawDataIfNeeded();
+  const targetTerm = termId || resolveCurrentTermId();
+  const examsMap = { ...(cache.exams || {}) };
+  const list = [...(examsMap[targetTerm] || [])];
+
+  const examWithId = {
+    ...newExam,
+    id: newExam.id || `custom_ex_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+  };
+  list.push(examWithId);
+  examsMap[targetTerm] = list;
+
+  try {
+    localStorage.setItem(KEYS.SCHEDULE_CUSTOMIZED, 'true');
+  } catch {}
+  updatePart({ exams: examsMap });
+  return examWithId;
+}
+
+export function deleteExamFromStore(termId, examIdentifier) {
+  backupBehestanRawDataIfNeeded();
+  const targetTerm = termId || resolveCurrentTermId();
+  const examsMap = { ...(cache.exams || {}) };
+  const list = [...(examsMap[targetTerm] || [])];
+
+  const filtered = list.filter((e, i) => {
+    if (!e) return false;
+    if (examIdentifier && typeof examIdentifier === 'object') {
+      if (examIdentifier.id && e.id && e.id === examIdentifier.id) return false;
+      if (examIdentifier.code && e.code && String(e.code) === String(examIdentifier.code)) return false;
+    }
+    if (e.id && e.id === examIdentifier) return false;
+    if (e.code && String(e.code) === String(examIdentifier)) return false;
+    if (i === examIdentifier) return false;
+    return true;
+  });
+
+  examsMap[targetTerm] = filtered;
+  try {
+    localStorage.setItem(KEYS.SCHEDULE_CUSTOMIZED, 'true');
+  } catch {}
+  updatePart({ exams: examsMap });
+  return true;
+}
+
+export function resetScheduleAndExamsToBehestan() {
+  const rawSched = read(KEYS.RAW_SCHEDULE, null);
+  const rawEx = read(KEYS.RAW_EXAMS, null);
+
+  const updates = {};
+  if (rawSched) updates.schedule = JSON.parse(JSON.stringify(rawSched));
+  if (rawEx) updates.exams = JSON.parse(JSON.stringify(rawEx));
+
+  try {
+    localStorage.removeItem(KEYS.SCHEDULE_CUSTOMIZED);
+  } catch {}
+
+  if (Object.keys(updates).length) {
+    updatePart(updates);
+  }
+  return true;
 }
 
 export function mergeCourses(courses) {
@@ -320,6 +555,8 @@ export function clearLiveData() {
     announcements: [],
     curriculumStats: null,
     syncMeta: { lastSyncAt: null, sources: [], status: 'idle' },
+    localNotes: [],
+    reg77: null,
   };
   Object.values(KEYS).forEach((k) => {
     try {

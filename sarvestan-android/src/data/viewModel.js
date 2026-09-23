@@ -795,7 +795,9 @@ function courseSlots(c) {
 
 export function getScheduleMatrix() {
   if (!hasLiveData()) return EMPTY_MATRIX;
-  const courses = getCurrentTermSchedule('4051');
+  const snap = getSnapshot();
+  const currentTerm = detectCurrentTermId(snap?.courses || []) || '4051';
+  const courses = getCurrentTermSchedule(currentTerm);
   if (!courses.length) return EMPTY_MATRIX;
 
   const days = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه'];

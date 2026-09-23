@@ -28,13 +28,21 @@ import {
   AlertTriangle,
   Trash2,
   BellRing,
+  RotateCcw,
 } from 'lucide-react';
 import UpdateModal from '../components/UpdateModal';
 import ClassAlarmModal from '../components/ClassAlarmModal';
 import { checkForUpdate, CURRENT_VERSION } from '../services/updater';
-import { clearLiveData, clearSession } from '../services/behestan';
+import {
+  clearLiveData,
+  clearSession,
+  resetScheduleAndExamsToBehestan,
+  hasScheduleCustomizations,
+} from '../services/behestan';
 import { clearSsoCookies } from '../services/behestan/ssoLoginNative';
+import { clearSavedCreds } from '../services/loginFlow';
 import { cancelAllReminders } from '../services/classAlarms';
+import { isNativeCapacitor } from '../services/androidWidget';
 import { getViewModel } from '../data/viewModel';
 import { useSarvestanData } from '../hooks/useSarvestanData';
 import { useTheme } from '../context/ThemeContext';
@@ -62,8 +70,22 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
   const [iconToast, setIconToast] = useState('');
   const [clearDataModalOpen, setClearDataModalOpen] = useState(false);
   const [clearingData, setClearingData] = useState(false);
+  const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [resetToast, setResetToast] = useState('');
   const [alarmModalOpen, setAlarmModalOpen] = useState(false);
   const { currentIconId, currentIcon, setAppIcon, icons: appIcons } = useAppIcon();
+
+  const handleResetToBehestan = () => {
+    try {
+      resetScheduleAndExamsToBehestan();
+      setResetToast('برنامه هفتگی و تاریخ امتحانات به نسخه رسمی بهستان بازگردانده شد.');
+      setTimeout(() => setResetToast(''), 4000);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setResetModalOpen(false);
+    }
+  };
 
   const handleExecuteClearData = async () => {
     setClearingData(true);
@@ -78,14 +100,33 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
         clearSession();
       } catch {}
       try {
+        clearSavedCreds();
+      } catch {}
+      try {
         await clearSsoCookies();
+      } catch {}
+      try {
+        if (!isNativeCapacitor()) {
+          await fetch('/__sarvestan/session', { method: 'DELETE' });
+        }
       } catch {}
       try {
         localStorage.clear();
       } catch {}
+      try {
+        sessionStorage.clear();
+      } catch {}
+      try {
+        sessionStorage.setItem('sarvestan_manual_logout', '1');
+      } catch {}
+
       setTimeout(() => {
-        window.location.reload();
-      }, 250);
+        try {
+          window.location.replace(window.location.origin + window.location.pathname + '?login=1');
+        } catch {
+          window.location.reload();
+        }
+      }, 300);
     } catch (e) {
       console.error('[clear data error]', e);
       setClearingData(false);
@@ -741,6 +782,40 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span>پاکسازی</span>
+          </button>
+        </div>
+      </section>
+
+      {/* بخش بازنشانی برنامه به داده‌های بهستان */}
+      <section className="space-y-1.5">
+        <div className="sarv-card p-3.5 flex items-center justify-between gap-3 bg-warning-soft/20 border border-warning/25">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="w-9 h-9 rounded-xl bg-warning/15 text-warning grid place-items-center shrink-0">
+              <RotateCcw className="w-4.5 h-4.5" />
+            </span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <p className="text-[13px] font-bold text-base-content">
+                  بازنشانی به داده‌های بهستان
+                </p>
+                {hasScheduleCustomizations() && (
+                  <span className="text-[9.5px] px-1.5 py-0.5 rounded-full font-bold bg-warning/20 text-warning border border-warning/30">
+                    ویرایش‌شده
+                  </span>
+                )}
+              </div>
+              <p className="text-[10.5px] text-neutral mt-0.5 truncate">
+                بازگردانی تغییرات دستی برنامه هفتگی و امتحانات به اطلاعات اصلی بهستان
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setResetModalOpen(true)}
+            className="shrink-0 px-3 py-1.5 rounded-xl bg-warning/20 text-warning hover:bg-warning/30 border border-warning/30 font-bold text-[11px] shadow-sm active:scale-95 transition-all flex items-center gap-1.5"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>بازنشانی</span>
           </button>
         </div>
       </section>
@@ -1485,6 +1560,71 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
               </div>
             </motion.div>
           </div>
+        )}
+
+        {/* مودال تایید بازنشانی برنامه به بهستان */}
+        {resetModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setResetModalOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm sarv-card p-5 space-y-4 border border-warning/30 shadow-2xl"
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-10 h-10 rounded-2xl bg-warning/15 text-warning grid place-items-center shrink-0">
+                  <RotateCcw className="w-5 h-5" />
+                </span>
+                <div className="min-w-0">
+                  <h3 className="text-[14px] font-bold text-base-content">
+                    بازنشانی به داده‌های بهستان
+                  </h3>
+                  <p className="text-[11px] text-neutral mt-0.5">
+                    بازگردانی برنامه و امتحانات به وضعیت اولیه
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-warning-soft/30 border border-warning/20 text-[11.5px] text-base-content leading-relaxed">
+                آیا از بازنشانی برنامه هفتگی و زمان امتحانات به اطلاعات رسمی دریافت شده از سامانه بهستان مطمئن هستید؟ تمام ویرایش‌ها و کلاس‌های اضافه شده لغو خواهند شد.
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setResetModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-base-500/20 hover:bg-base-500/35 text-base-content text-[12px] font-bold transition active:scale-95"
+                >
+                  انصراف
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetToBehestan}
+                  className="flex-1 py-2.5 rounded-xl bg-warning text-black text-[12px] font-bold hover:brightness-110 transition active:scale-95 flex items-center justify-center gap-1.5 shadow-sm"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  بله، بازنشانی شود
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* اعلان پیام بازنشانی */}
+        {resetToast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-5 left-4 right-4 z-50 mx-auto max-w-sm p-3.5 rounded-2xl bg-base-100/95 backdrop-blur-md border border-success/30 shadow-lg text-[12px] text-success font-medium flex items-center gap-2"
+          >
+            <CheckCircle2 className="w-4.5 h-4.5 shrink-0" />
+            <span className="flex-1">{resetToast}</span>
+          </motion.div>
         )}
       </AnimatePresence>
       {/* مودال تنظیم یادآور و آلارم کلاس‌ها */}

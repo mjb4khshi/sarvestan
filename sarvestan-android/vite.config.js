@@ -12,6 +12,15 @@ function sessionPlugin() {
     name: 'sarvestan-session',
     configureServer(server) {
       server.middlewares.use('/__sarvestan/session', (req, res) => {
+        if (req.method === 'DELETE' || (req.method === 'POST' && req.url.includes('clear'))) {
+          try {
+            if (fs.existsSync(FILE)) fs.unlinkSync(FILE)
+          } catch {}
+          res.setHeader('Content-Type', 'application/json; charset=utf-8')
+          res.setHeader('Access-Control-Allow-Origin', '*')
+          res.end(JSON.stringify({ ok: true }))
+          return
+        }
         if (req.method !== 'GET') {
           res.statusCode = 405
           res.end('GET only')

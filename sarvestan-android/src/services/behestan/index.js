@@ -9,6 +9,15 @@ export {
   getTodayClasses,
   clearLiveData,
   markSyncStatus,
+  updateScheduleCourse,
+  addScheduleCourse,
+  deleteScheduleCourse,
+  updateExamInStore,
+  addExamToStore,
+  deleteExamFromStore,
+  resetScheduleAndExamsToBehestan,
+  hasScheduleCustomizations,
+  resolveCurrentTermId,
 } from './store';
 export {
   getSid,

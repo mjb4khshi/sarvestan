@@ -21,6 +21,14 @@ export default function DataBootstrap() {
 
   useEffect(() => {
     if (!isNativeCapacitor()) {
+      try {
+        if (
+          sessionStorage.getItem('sarvestan_manual_logout') === '1' ||
+          new URLSearchParams(window.location.search).get('login') === '1'
+        ) {
+          return;
+        }
+      } catch {}
       fetch('/__sarvestan/session')
         .then((r) => r.json())
         .then((s) => {

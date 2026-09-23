@@ -19,11 +19,26 @@ import {
   CalendarPlus,
   Loader2,
   CheckCircle2,
+  Plus,
+  Pencil,
+  Edit3,
 } from 'lucide-react';
 import { isNativeAlarms, hasClassAlarmPlugin, exportExamToCalendar } from '../services/classAlarms';
 import { getScheduleMatrix, getExamsView, parseClassTime } from '../data/viewModel';
 import { toFaDigits } from '../utils/faDigits';
 import ClassAlarmModal from '../components/ClassAlarmModal';
+import CourseEditModal from '../components/CourseEditModal';
+import ExamEditModal from '../components/ExamEditModal';
+import {
+  getCurrentTermSchedule,
+  updateScheduleCourse,
+  addScheduleCourse,
+  deleteScheduleCourse,
+  updateExamInStore,
+  addExamToStore,
+  deleteExamFromStore,
+  resolveCurrentTermId,
+} from '../services/behestan';
 
 const edge = {
   primary: 'border-r-primary bg-primary-soft text-primary',
@@ -61,6 +76,13 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
   const [isAlarmModalOpen, setIsAlarmModalOpen] = useState(false);
   const [exportingExamId, setExportingExamId] = useState(null);
   const [calendarFeedback, setCalendarFeedback] = useState('');
+
+  // وضعیت‌های مربوط به ویرایش دروس و امتحانات
+  const [editingCourse, setEditingCourse] = useState(null);
+  const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
+  const [editingExam, setEditingExam] = useState(null);
+  const [isExamModalOpen, setIsExamModalOpen] = useState(false);
+
   const { days, slots, cells } = getScheduleMatrix();
   const EXAMS_DATA = getExamsView();
 
@@ -69,19 +91,99 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
     if (onViewChange) onViewChange(view);
   };
 
+  const showToast = (msg) => {
+    setCalendarFeedback(msg);
+    setTimeout(() => setCalendarFeedback(''), 4000);
+  };
+
   const handleExportExam = async (exam) => {
     try {
       setExportingExamId(exam.id);
       const res = await exportExamToCalendar(exam);
       if (res?.ok) {
-        setCalendarFeedback(`امتحان «${exam.course}» در تقویم باز شد.`);
-        setTimeout(() => setCalendarFeedback(''), 4000);
+        showToast(`امتحان «${exam.course}» در تقویم باز شد.`);
       }
     } catch (e) {
       console.error(e);
     } finally {
       setExportingExamId(null);
     }
+  };
+
+  // مدیریت باز کردن ویرایش و افزودن درس
+  const handleOpenAddCourse = () => {
+    setEditingCourse(null);
+    setIsCourseModalOpen(true);
+  };
+
+  const handleOpenEditCourse = (cardCourse) => {
+    const fullList = getCurrentTermSchedule();
+    const hit = fullList.find(
+      (item) =>
+        item &&
+        ((cardCourse.id && item.id === cardCourse.id) ||
+          (cardCourse.code && String(item.code) === String(cardCourse.code)) ||
+          item.name === cardCourse.title ||
+          item.title === cardCourse.title)
+    );
+    if (hit) {
+      setEditingCourse(hit);
+    } else {
+      setEditingCourse({
+        id: cardCourse.id || `temp_${Date.now()}`,
+        name: cardCourse.title || cardCourse.name,
+        professor: cardCourse.professor,
+        hall: cardCourse.room || cardCourse.hall,
+        time: cardCourse.time || cardCourse.slot,
+        days: cardCourse.day ? [cardCourse.day] : [],
+      });
+    }
+    setIsCourseModalOpen(true);
+  };
+
+  const handleSaveCourse = (courseData) => {
+    const currentTerm = resolveCurrentTermId();
+    if (editingCourse && (editingCourse.id || editingCourse.code)) {
+      updateScheduleCourse(currentTerm, editingCourse.id || editingCourse.code, courseData);
+      showToast(`اطلاعات درس «${courseData.name}» به‌روزرسانی شد.`);
+    } else {
+      addScheduleCourse(currentTerm, courseData);
+      showToast(`درس «${courseData.name}» به برنامه اضافه شد.`);
+    }
+  };
+
+  const handleDeleteCourse = (identifier) => {
+    const currentTerm = resolveCurrentTermId();
+    deleteScheduleCourse(currentTerm, identifier);
+    showToast('درس با موفقیت از برنامه حذف شد.');
+  };
+
+  // مدیریت باز کردن ویرایش و افزودن امتحان
+  const handleOpenAddExam = () => {
+    setEditingExam(null);
+    setIsExamModalOpen(true);
+  };
+
+  const handleOpenEditExam = (exam) => {
+    setEditingExam(exam);
+    setIsExamModalOpen(true);
+  };
+
+  const handleSaveExam = (examData) => {
+    const currentTerm = resolveCurrentTermId();
+    if (editingExam && (editingExam.id || editingExam.code)) {
+      updateExamInStore(currentTerm, editingExam.id || editingExam.code, examData);
+      showToast(`نوبت امتحان «${examData.course}» اصلاح شد.`);
+    } else {
+      addExamToStore(currentTerm, examData);
+      showToast(`نوبت امتحان «${examData.course}» به لیست اضافه شد.`);
+    }
+  };
+
+  const handleDeleteExam = (identifier) => {
+    const currentTerm = resolveCurrentTermId();
+    deleteExamFromStore(currentTerm, identifier);
+    showToast('نوبت امتحان با موفقیت حذف شد.');
   };
 
   // محاسبه آمار برنامه
@@ -109,11 +211,35 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={activeTab === 'exams' ? handleOpenAddExam : handleOpenAddCourse}
+              className="px-2.5 py-1.5 rounded-xl bg-primary text-primary-content text-[11px] font-bold flex items-center gap-1 shadow-xs hover:brightness-110 active:scale-95 transition cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>{activeTab === 'exams' ? 'افزودن امتحان' : 'افزودن درس'}</span>
+            </button>
+
             <span className="text-[11px] font-semibold px-2.5 py-1 rounded-xl bg-primary/10 text-primary border border-primary/20 font-mono whitespace-nowrap shrink-0">
               {activeTab === 'exams' ? 'گزارش ۴۲۸' : 'گزارش ۷۸'}
             </span>
           </div>
         </div>
+
+        {/* پیام تایید و فیدبک عملیات */}
+        <AnimatePresence>
+          {calendarFeedback && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="p-2.5 rounded-xl bg-success-soft text-success text-[11.5px] font-bold border border-success/30 flex items-center gap-2"
+            >
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>{calendarFeedback}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* سوییچر ۳گانه بین روزانه، ماتریس هفتگی و امتحانات */}
         <div className="sarv-seg w-full">
@@ -346,13 +472,23 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                               </span>
                             </div>
                           </div>
-                          <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                              cellTone[c.color] || cellTone.primary
-                            }`}
-                          >
-                            حضوری
-                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditCourse(c)}
+                              className="p-1.5 rounded-lg bg-base-500/20 hover:bg-base-500/35 text-neutral hover:text-base-content transition active:scale-90"
+                              title="ویرایش این درس"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                cellTone[c.color] || cellTone.primary
+                              }`}
+                            >
+                              حضوری
+                            </span>
+                          </div>
                         </div>
 
                         <div className="mt-3 pt-2.5 border-t border-base-500/30 flex items-center justify-between text-[11.5px] text-base-content/90">
@@ -428,9 +564,11 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                           <td key={di} className="p-1 align-top">
                             {cell ? (
                               <div
-                                className={`rounded-xl border p-2 text-right transition-all hover:scale-[1.02] ${
+                                onClick={() => handleOpenEditCourse(cell)}
+                                className={`rounded-xl border p-2 text-right transition-all hover:scale-[1.02] cursor-pointer hover:ring-2 hover:ring-primary/40 ${
                                   cellTone[cell.color] || cellTone.primary
                                 }`}
+                                title="برای مشاهده و ویرایش درس کلیک کنید"
                               >
                                 <p className="text-[11px] font-bold leading-tight truncate">
                                   {cell.title}
@@ -540,8 +678,16 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                       </div>
                     </div>
 
-                    {/* بج روزشمار */}
-                    <div className="shrink-0 text-left">
+                    {/* بج روزشمار و دکمه ویرایش */}
+                    <div className="shrink-0 flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditExam(exam)}
+                        className="p-1.5 rounded-xl bg-base-500/20 hover:bg-base-500/35 text-neutral hover:text-base-content transition active:scale-90"
+                        title="ویرایش نوبت امتحان"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
                       <span
                         className={`text-[10.5px] font-black px-2.5 py-1 rounded-xl font-mono flex items-center gap-1 shadow-xs ${
                           exam.isCritical
@@ -617,6 +763,30 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
       <ClassAlarmModal
         isOpen={isAlarmModalOpen}
         onClose={() => setIsAlarmModalOpen(false)}
+      />
+
+      {/* مودال ویرایش و افزودن درس به برنامه هفتگی */}
+      <CourseEditModal
+        isOpen={isCourseModalOpen}
+        course={editingCourse}
+        onClose={() => {
+          setIsCourseModalOpen(false);
+          setEditingCourse(null);
+        }}
+        onSave={handleSaveCourse}
+        onDelete={handleDeleteCourse}
+      />
+
+      {/* مودال ویرایش و افزودن نوبت امتحان */}
+      <ExamEditModal
+        isOpen={isExamModalOpen}
+        exam={editingExam}
+        onClose={() => {
+          setIsExamModalOpen(false);
+          setEditingExam(null);
+        }}
+        onSave={handleSaveExam}
+        onDelete={handleDeleteExam}
       />
     </div>
   );
