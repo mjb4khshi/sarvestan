@@ -44,6 +44,9 @@ public class SsoWebViewPlugin extends Plugin {
     private String capturedCode;
     private String inputUsername = "";
     private String inputPassword = "";
+    private boolean allowAutoSubmit = true;
+    private boolean autoSubmitted = false;
+    private int autoFillCount = 0;
 
     @PluginMethod
     public void login(PluginCall call) {
@@ -57,9 +60,22 @@ public class SsoWebViewPlugin extends Plugin {
         capturedCode = null;
         inputUsername = call.getString("username", "");
         inputPassword = call.getString("password", "");
+        // فقط وقتی رمز هم آمده و صریحاً مجاز باشیم submit خودکار می‌زنیم
+        allowAutoSubmit = call.getBoolean("allowAutoSubmit", !inputPassword.isEmpty())
+            && !inputPassword.isEmpty();
+        autoSubmitted = false;
+        autoFillCount = 0;
 
         activity.runOnUiThread(() -> {
             try {
+                // نشست WebView کهنه نباید فرم/ریدایرکت تلاش را خراب کند
+                try {
+                    CookieManager cm = CookieManager.getInstance();
+                    cm.setAcceptCookie(true);
+                    cm.removeAllCookies(null);
+                    cm.flush();
+                } catch (Exception ignore) {}
+
                 activity.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
 
                 LinearLayout column = new LinearLayout(activity);
@@ -152,29 +168,53 @@ public class SsoWebViewPlugin extends Plugin {
                     public void onPageFinished(WebView view, String url) {
                         super.onPageFinished(view, url);
                         bar.setVisibility(View.GONE);
-                        if (url != null && url.contains("sso.kntu.ac.ir") && !inputUsername.isEmpty() && !inputPassword.isEmpty()) {
+                        if (url != null && url.contains("sso.kntu.ac.ir") && !inputUsername.isEmpty()) {
+                            // فقط یک بار auto-fill/submit — بعد از رمز اشتباه دوباره نکوب
+                            if (autoFillCount >= 2) {
+                                onUrlSettled(view, url);
+                                return;
+                            }
+                            // صفحهٔ خطای Keycloak؟ دیگر submit نزن
+                            boolean hasError =
+                                url.contains("error=") ||
+                                (view.getContentDescription() != null &&
+                                    String.valueOf(view.getContentDescription()).contains("invalid"));
                             String autoFillJs =
                                 "(function(){" +
                                 "  try {" +
+                                "    var err = document.querySelector('.kc-feedback-text, .alert-error, #input-error');" +
                                 "    var u = document.querySelector('input[name=\"username\"], #username');" +
                                 "    var p = document.querySelector('input[name=\"password\"], #password');" +
                                 "    var btn = document.querySelector('input[name=\"login\"], #kc-login, button[type=\"submit\"], input[type=\"submit\"]');" +
-                                "    if (u && p && !window.__sarvAutoFilled) {" +
-                                "      window.__sarvAutoFilled = true;" +
+                                "    if (u && " + jsonStr(inputUsername) + " && u.value !== " + jsonStr(inputUsername) + ") {" +
                                 "      u.value = " + jsonStr(inputUsername) + ";" +
                                 "      u.dispatchEvent(new Event('input', { bubbles: true }));" +
                                 "      u.dispatchEvent(new Event('change', { bubbles: true }));" +
+                                "    }" +
+                                "    if (p && " + jsonStr(inputPassword) + ") {" +
                                 "      p.value = " + jsonStr(inputPassword) + ";" +
                                 "      p.dispatchEvent(new Event('input', { bubbles: true }));" +
                                 "      p.dispatchEvent(new Event('change', { bubbles: true }));" +
-                                "      var hasCaptcha = document.querySelector('.g-recaptcha, #captcha, [name*=\"captcha\"], img[src*=\"captcha\"]');" +
-                                "      if (btn && !hasCaptcha) {" +
-                                "        setTimeout(function(){ try { btn.click(); } catch(e){} }, 350);" +
-                                "      }" +
                                 "    }" +
-                                "  } catch(e) {}" +
+                                "    var hasCaptcha = document.querySelector('.g-recaptcha, #captcha, [name*=\"captcha\"], img[src*=\"captcha\"]');" +
+                                "    var canSubmit = " + (allowAutoSubmit ? "true" : "false") + " && btn && !hasCaptcha && !err && !window.__sarvAutoSubmitted;" +
+                                "    if (canSubmit) {" +
+                                "      window.__sarvAutoSubmitted = true;" +
+                                "      setTimeout(function(){ try { btn.click(); } catch(e){} }, 400);" +
+                                "    }" +
+                                "    return canSubmit ? 'submitted' : (err ? 'error' : 'filled');" +
+                                "  } catch(e) { return 'fail'; }" +
                                 "})()";
-                            view.evaluateJavascript(autoFillJs, null);
+                            view.evaluateJavascript(autoFillJs, result -> {
+                                String r = result == null ? "" : result.replace("\"", "");
+                                if ("submitted".equals(r)) {
+                                    autoSubmitted = true;
+                                } else if ("error".equals(r)) {
+                                    // رمز اشتباه — دیگر submit خودکار نزن؛ بگذار کاربر اصلاح کند
+                                    allowAutoSubmit = false;
+                                }
+                                autoFillCount++;
+                            });
                         }
                         onUrlSettled(view, url);
                     }
@@ -371,7 +411,24 @@ public class SsoWebViewPlugin extends Plugin {
         PluginCall call = pendingCall;
         pendingCall = null;
         closeUi();
-        if (call != null) call.reject(msg);
+        if (call != null) {
+            String m = msg == null ? "خطای ورود" : msg;
+            String code = m.contains("انصراف") ? "cancelled" : "webview-error";
+            call.reject(m, code);
+        }
+    }
+
+    /** پاک کردن کوکی‌های WebView — برای تلاش تازهٔ ورود */
+    @PluginMethod
+    public void clearCookies(PluginCall call) {
+        try {
+            CookieManager cm = CookieManager.getInstance();
+            cm.removeAllCookies(null);
+            cm.flush();
+            call.resolve();
+        } catch (Exception e) {
+            call.reject(String.valueOf(e.getMessage()));
+        }
     }
 
     private void closeUi() {

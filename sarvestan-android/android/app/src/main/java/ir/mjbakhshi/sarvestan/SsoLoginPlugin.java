@@ -332,9 +332,21 @@ public class SsoLoginPlugin extends Plugin {
                     if (postRes != null && postRes.body != null) {
                         Matcher mFb = Pattern.compile("class=[\"'][^\"']*kc-feedback-text[^\"']*[\"'][^>]*>([\\s\\S]*?)<\\/", Pattern.CASE_INSENSITIVE).matcher(postRes.body);
                         if (mFb.find()) err = decodeHtml(mFb.group(1).trim());
-                        else if (postRes.body.contains("Invalid username or password")) err = "نام کاربری یا کلمه عبور نادرست است.";
+                        else if (postRes.body.contains("Invalid username or password") ||
+                                 postRes.body.contains("invalid username or password")) {
+                            err = "نام کاربری یا رمز عبور اشتباه است.";
+                        } else if (postRes.body.contains("کاربری") && (postRes.body.contains("نادرست") || postRes.body.contains("اشتباه"))) {
+                            err = "نام کاربری یا رمز عبور اشتباه است.";
+                        }
                     }
-                    call.reject(err.isEmpty() ? "ورود ناموفق — نام کاربری یا کلمه عبور نادرست است." : err);
+                    String finalErr = err.isEmpty() ? "نام کاربری یا رمز عبور اشتباه است." : err;
+                    // پیام خطای احراز هویت را با کلید مشخص برگردان تا JS آن را تشخیص دهد
+                    JSObject fail = new JSObject();
+                    fail.put("ok", false);
+                    fail.put("error", finalErr);
+                    fail.put("code", "bad-credentials");
+                    // Capacitor reject هم برای سازگاری با catch در JS
+                    call.reject(finalErr, "bad-credentials", fail);
                     return;
                 }
 

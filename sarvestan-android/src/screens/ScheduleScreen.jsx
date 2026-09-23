@@ -16,8 +16,11 @@ import {
   AlertCircle,
   Hash,
   BellRing,
+  CalendarPlus,
+  Loader2,
+  CheckCircle2,
 } from 'lucide-react';
-import { isNativeAlarms, hasClassAlarmPlugin } from '../services/classAlarms';
+import { isNativeAlarms, hasClassAlarmPlugin, exportExamToCalendar } from '../services/classAlarms';
 import { getScheduleMatrix, getExamsView, parseClassTime } from '../data/viewModel';
 import { toFaDigits } from '../utils/faDigits';
 import ClassAlarmModal from '../components/ClassAlarmModal';
@@ -56,12 +59,29 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
   const [activeTab, setActiveTab] = useState(initialView);
   const [selectedDayIndex, setSelectedDayIndex] = useState(null); // null = همه روزها
   const [isAlarmModalOpen, setIsAlarmModalOpen] = useState(false);
+  const [exportingExamId, setExportingExamId] = useState(null);
+  const [calendarFeedback, setCalendarFeedback] = useState('');
   const { days, slots, cells } = getScheduleMatrix();
   const EXAMS_DATA = getExamsView();
 
   const handleTabChange = (view) => {
     setActiveTab(view);
     if (onViewChange) onViewChange(view);
+  };
+
+  const handleExportExam = async (exam) => {
+    try {
+      setExportingExamId(exam.id);
+      const res = await exportExamToCalendar(exam);
+      if (res?.ok) {
+        setCalendarFeedback(`امتحان «${exam.course}» در تقویم باز شد.`);
+        setTimeout(() => setCalendarFeedback(''), 4000);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setExportingExamId(null);
+    }
   };
 
   // محاسبه آمار برنامه
@@ -89,16 +109,6 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            {activeTab !== 'exams' && canAlarms && (
-              <button
-                type="button"
-                onClick={() => setIsAlarmModalOpen(true)}
-                className="w-8 h-8 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 grid place-items-center transition active:scale-95 shrink-0"
-                title="تنظیم آلارم و یادآور کلاس‌ها"
-              >
-                <BellRing className="w-4 h-4" />
-              </button>
-            )}
             <span className="text-[11px] font-semibold px-2.5 py-1 rounded-xl bg-primary/10 text-primary border border-primary/20 font-mono whitespace-nowrap shrink-0">
               {activeTab === 'exams' ? 'گزارش ۴۲۸' : 'گزارش ۷۸'}
             </span>
@@ -174,19 +184,28 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
           </button>
         </div>
 
-        {/* نوار ظریف دسترسی سریع به یادآور و آلارم کلاس‌ها */}
+        {/* نوار دسترسی ویژه به یادآور و آلارم کلاس‌ها و سماد */}
         {activeTab !== 'exams' && canAlarms && (
-          <div className="flex items-center justify-between px-1 pt-1 text-[11.5px] border-t border-base-content/5">
-            <div className="flex items-center gap-1.5 text-neutral font-medium">
-              <BellRing className="w-3.5 h-3.5 text-primary" />
-              <span>یادآور هوشمند و آلارم کلاس‌ها</span>
+          <div className="flex items-center justify-between p-2.5 rounded-2xl bg-primary-soft/60 border border-primary/25 shadow-2xs">
+            <div className="flex items-center gap-2.5 min-w-0 pr-0.5">
+              <span className="w-8 h-8 rounded-xl bg-primary text-primary-content grid place-items-center shrink-0 shadow-xs">
+                <BellRing className="w-4 h-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[12px] font-bold text-base-content truncate">
+                  یادآور هوشمند کلاس‌ها و سامانه سماد
+                </p>
+                <p className="text-[10px] text-neutral truncate">
+                  اعلان شروع کلاس، آلارم ساعت گوشی و رزرو غذای سماد
+                </p>
+              </div>
             </div>
             <button
               type="button"
               onClick={() => setIsAlarmModalOpen(true)}
-              className="text-[11px] font-bold text-primary hover:underline px-1 py-0.5 rounded-lg active:scale-95 transition"
+              className="px-3 py-1.5 rounded-xl bg-primary text-primary-content text-[11.5px] font-bold shrink-0 shadow-xs hover:bg-primary/90 active:scale-95 transition"
             >
-              تنظیم یادآورها ←
+              تنظیمات
             </button>
           </div>
         )}
@@ -557,6 +576,27 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                       <span className="text-neutral/40">·</span>
                       <span className="text-primary font-mono font-bold">شماره صندلی: {toFaDigits(exam.seat)}</span>
                     </div>
+                  </div>
+
+                  {/* دکمه افزودن این امتحان به تقویم رسمی گوشی */}
+                  <div className="mt-3 pt-2.5 border-t border-base-500/25 flex items-center justify-between">
+                    <span className="text-[11px] text-neutral">
+                      ثبت موعد این آزمون در تقویم رسمی دستگاه
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleExportExam(exam)}
+                      disabled={exportingExamId === exam.id}
+                      className="px-2.5 py-1.5 rounded-xl bg-primary-soft hover:bg-primary/20 text-primary text-[11px] font-bold border border-primary/25 flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50"
+                      title="افزودن به تقویم گوشی"
+                    >
+                      {exportingExamId === exam.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <CalendarPlus className="w-3.5 h-3.5" />
+                      )}
+                      <span>افزودن به تقویم</span>
+                    </button>
                   </div>
                 </motion.article>
               );

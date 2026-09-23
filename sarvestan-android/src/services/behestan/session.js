@@ -14,19 +14,25 @@ function loadManual() {
   }
 }
 
-export function saveManualSession(partial) {
-  const cur = loadManual() || {};
+export function saveManualSession(partial, { replace = false } = {}) {
+  const cur = replace ? {} : loadManual() || {};
   const clean = { ...partial };
   delete clean.expired;
   for (const k of ['studentId', 'userId', 'cookies']) {
     if (clean[k] === null || clean[k] === 'null' || clean[k] === undefined || clean[k] === '') {
       delete clean[k];
+      if (replace) delete cur[k];
     }
   }
   const next = { ...cur, ...clean };
   delete next.expired;
   localStorage.setItem(MANUAL_KEY, JSON.stringify(next));
   return next;
+}
+
+/** ورود تازه: نشست قبلی را کامل جایگزین کن تا کوکی/کش خراب نماند */
+export function beginFreshLoginSession() {
+  clearSession();
 }
 
 /** alias برای ورود از UI */

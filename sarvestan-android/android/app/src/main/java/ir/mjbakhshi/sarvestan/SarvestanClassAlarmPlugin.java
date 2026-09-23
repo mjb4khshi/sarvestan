@@ -55,7 +55,34 @@ public class SarvestanClassAlarmPlugin extends Plugin {
     private PluginCall pendingPermissionCall;
 
     @PluginMethod
+    public void checkNotificationPermission(PluginCall call) {
+        Context ctx = getContext();
+        boolean systemEnabled = NotificationManagerCompat.from(ctx).areNotificationsEnabled();
+        boolean runtimeGranted = true;
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            runtimeGranted = getPermissionState("notifications") == PermissionState.GRANTED;
+        }
+        boolean ok = systemEnabled && runtimeGranted;
+        JSObject ret = new JSObject();
+        ret.put("granted", ok);
+        ret.put("systemEnabled", systemEnabled);
+        ret.put("runtimeGranted", runtimeGranted);
+        call.resolve(ret);
+    }
+
+    @PluginMethod
     public void requestNotificationPermission(PluginCall call) {
+        Context ctx = getContext();
+        boolean systemEnabled = NotificationManagerCompat.from(ctx).areNotificationsEnabled();
+        if (!systemEnabled) {
+            JSObject ret = new JSObject();
+            ret.put("granted", false);
+            ret.put("systemEnabled", false);
+            ret.put("blockedInSettings", true);
+            call.resolve(ret);
+            return;
+        }
+
         if (android.os.Build.VERSION.SDK_INT < 33) {
             JSObject ret = new JSObject();
             ret.put("granted", true);
@@ -532,5 +559,48 @@ public class SarvestanClassAlarmPlugin extends Plugin {
         ret.put("ok", true);
         ret.put("message", "اعلان تستی ارسال شد");
         call.resolve(ret);
+    }
+
+    /** افزودن رویداد امتحان یا برنامه به تقویم رسمی دستگاه */
+    @PluginMethod
+    public void exportToCalendar(PluginCall call) {
+        Context ctx = getContext();
+        String title = call.getString("title", "امتحان سروستان");
+        String description = call.getString("description", "");
+        String location = call.getString("location", "");
+        long startMs = call.getLong("startMs", 0L);
+        long endMs = call.getLong("endMs", 0L);
+
+        try {
+            Intent intent = new Intent(Intent.ACTION_INSERT)
+                    .setData(android.provider.CalendarContract.Events.CONTENT_URI)
+                    .putExtra(android.provider.CalendarContract.Events.TITLE, title)
+                    .putExtra(android.provider.CalendarContract.Events.DESCRIPTION, description)
+                    .putExtra(android.provider.CalendarContract.Events.EVENT_LOCATION, location);
+
+            if (startMs > 0) {
+                intent.putExtra(android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME, startMs);
+            }
+            if (endMs > 0) {
+                intent.putExtra(android.provider.CalendarContract.EXTRA_EVENT_END_TIME, endMs);
+            } else if (startMs > 0) {
+                intent.putExtra(android.provider.CalendarContract.EXTRA_EVENT_END_TIME, startMs + 2 * 3600 * 1000L);
+            }
+
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+            Activity act = getActivity();
+            if (act != null && !act.isFinishing()) {
+                act.startActivity(intent);
+            } else {
+                ctx.startActivity(intent);
+            }
+
+            JSObject ret = new JSObject();
+            ret.put("ok", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("خطا در باز کردن تقویم: " + e.getMessage());
+        }
     }
 }

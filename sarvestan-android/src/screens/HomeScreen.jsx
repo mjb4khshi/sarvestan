@@ -321,7 +321,7 @@ export default function HomeScreen({ onNavigate }) {
             </div>
             <h4 className="text-[14px] font-bold text-base-content truncate mt-0.5">
               {vm.nextClass
-                ? `${vm.nextClass.title}${vm.nextClass.room && vm.nextClass.room !== 'ـ' ? ` · ${vm.nextClass.room}` : ''}`
+                ? `${vm.nextClass.title}${vm.nextClass.room && vm.nextClass.room !== 'ـ' ? ` · ${toFaDigits(vm.nextClass.room)}` : ''}`
                 : TODAY_CLASSES.length > 0
                 ? 'تمام کلاس‌های امروز برگزار شده‌اند'
                 : 'امروز کلاسی ثبت نشده'}

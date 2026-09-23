@@ -245,7 +245,7 @@ function buildViewModel() {
       title: c.name,
       code: c.code ? faDigits(c.code) : '',
       time: c.time || c.classTimeRaw || 'ـ',
-      room: c.hall || 'ـ',
+      room: c.hall ? faDigits(c.hall) : 'ـ',
       professor: c.professor,
       units: c.units,
       status,
@@ -305,7 +305,7 @@ function buildViewModel() {
         title: first.name,
         code: first.code ? faDigits(first.code) : '',
         time: first.time || first.classTimeRaw || 'ـ',
-        room: first.hall || 'ـ',
+        room: first.hall ? faDigits(first.hall) : 'ـ',
         professor: first.professor,
         units: first.units,
         status: 'upcoming',
@@ -872,7 +872,7 @@ function gregToPersianParts(gy, gm, gd) {
   }
 }
 
-function jalaliToDate(jy, jm, jd) {
+export function jalaliToDate(jy, jm, jd) {
   const gyBase = jy + (jm >= 7 ? 622 : 621);
   const probe = (dayOfYear) => {
     const t = new Date(Date.UTC(gyBase, 0, 1, 12) + (dayOfYear - 1) * 86400000);

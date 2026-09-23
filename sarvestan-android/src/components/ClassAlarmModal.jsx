@@ -7,6 +7,7 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   Loader2,
   Trash2,
   Sparkles,
@@ -28,6 +29,7 @@ import {
   testClassNotification,
   openNotificationSettings,
   requestNotificationPermission,
+  checkNotificationPermission,
   checkExactPermission,
   requestExactPermission,
   getReminderSettings,
@@ -41,6 +43,7 @@ import {
 } from '../services/classAlarms';
 import { toFaDigits } from '../utils/faDigits';
 import SarvCheckbox from './SarvCheckbox';
+import SarvTimePickerModal from './SarvTimePickerModal';
 
 const LEAD_TIME_OPTIONS = [
   { value: 5, label: '۵ دقیقه قبل' },
@@ -49,20 +52,14 @@ const LEAD_TIME_OPTIONS = [
   { value: 20, label: '۲۰ دقیقه قبل' },
 ];
 
-const SAMAD_TIME_PRESETS = [
-  { value: '10:00', label: 'صبح' },
-  { value: '12:00', label: 'ظهر' },
-  { value: '14:00', label: 'بعدازظهر' },
-  { value: '18:00', label: 'عصر' },
-  { value: '21:00', label: 'شب' },
-];
-
 export default function ClassAlarmModal({ isOpen, onClose }) {
   const [leadMinutes, setLeadMinutes] = useState(10);
   const [notifyAtStart, setNotifyAtStart] = useState(true);
   const [samadEnabled, setSamadEnabled] = useState(false);
   const [samadTime, setSamadTime] = useState('14:00');
-  const [busyAction, setBusyAction] = useState(null); // 'reminders' | 'clock' | 'test' | 'cancel' | 'samad' | 'samad-test' | null
+  const [timePickerOpen, setTimePickerOpen] = useState(false);
+  const [notifGranted, setNotifGranted] = useState(true);
+  const [busyAction, setBusyAction] = useState(null); // 'reminders' | 'clock' | 'test' | 'cancel' | 'samad' | 'samad-test' | 'perm' | null
   const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error' | 'info', text: string, showSettings?: boolean }
   const [coursesList, setCoursesList] = useState([]);
 
@@ -80,14 +77,48 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
 
       setFeedback(null);
 
+      // بررسی وضعیت دسترسی اعلان‌ها
+      const checkPerm = async () => {
+        try {
+          const res = await checkNotificationPermission();
+          setNotifGranted(res?.granted !== false);
+        } catch {}
+      };
+      checkPerm();
+      window.addEventListener('focus', checkPerm);
+
       // دریافت لیست دروس و جلسات با اطلاعات کامل (نام، روز، ساعت دقیق)
       const slots = collectWeeklySlots();
       setCoursesList(slots);
+
+      return () => {
+        window.removeEventListener('focus', checkPerm);
+      };
     }
   }, [isOpen]);
 
   const showMsg = (text, type = 'success', showSettings = false) => {
     setFeedback({ text, type, showSettings });
+  };
+
+  const handleRequestPermission = async () => {
+    if (busyAction) return;
+    setBusyAction('perm');
+    setFeedback(null);
+    try {
+      const res = await requestNotificationPermission();
+      if (res?.granted) {
+        setNotifGranted(true);
+        showMsg('دسترسی نوتیفیکیشن با موفقیت تأیید و فعال شد.', 'success');
+      } else {
+        await openNotificationSettings();
+        showMsg('لطفاً در صفحه تنظیمات باز شده، دسترسی اعلان (Notifications) را برای سروستان فعال کنید.', 'error', true);
+      }
+    } catch {
+      await openNotificationSettings();
+    } finally {
+      setBusyAction(null);
+    }
   };
 
   const handleApplyReminders = async () => {
@@ -287,8 +318,9 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
 
 
   return (
-    <AnimatePresence>
-      {isOpen && (
+    <>
+      <AnimatePresence>
+        {isOpen && (
         <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4">
           {/* پس‌زمینه تیره با بلر ملایم و انیمیشن محو خروج */}
           <motion.div
@@ -335,14 +367,14 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
               </button>
             </div>
 
-            {/* بدنه اسکرول‌شونده */}
-            <div className="p-4 space-y-4 overflow-y-auto">
-              {/* پیام وضعیت و فیدبک */}
+            {/* پیام وضعیت و فیدبک شناور/ثابت بالای مودال — همیشه در دید حتی هنگام اسکرول */}
+            <AnimatePresence>
               {feedback && (
                 <motion.div
-                  initial={{ opacity: 0, y: -6 }}
+                  initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={`p-3 rounded-2xl flex items-start gap-2.5 text-[12px] font-medium border ${
+                  exit={{ opacity: 0, y: -8 }}
+                  className={`p-3 mx-4 mt-3 rounded-2xl flex items-start gap-2.5 text-[12px] font-medium border shadow-md shrink-0 ${
                     feedback.type === 'error'
                       ? 'bg-danger-soft text-danger border-danger/25'
                       : feedback.type === 'info'
@@ -367,6 +399,57 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
                         باز کردن تنظیمات اعلان در گوشی
                       </button>
                     )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* بدنه اسکرول‌شونده */}
+            <div className="p-4 space-y-4 overflow-y-auto">
+
+              {/* اخطار عدم اعطای مجوز نوتیفیکیشن با دکمه مستقیم اعطای دسترسی */}
+              {!notifGranted && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-3.5 rounded-2xl bg-danger-soft text-danger border border-danger/30 space-y-2.5 shadow-xs"
+                >
+                  <div className="flex items-start gap-2.5">
+                    <span className="w-8 h-8 rounded-xl bg-danger/15 text-danger grid place-items-center shrink-0 mt-0.5">
+                      <AlertTriangle className="w-4 h-4 text-danger" />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-[13px] font-black text-danger leading-tight">
+                        دسترسی ارسال اعلان غیرفعال است!
+                      </h4>
+                      <p className="text-[11.5px] text-danger/85 leading-relaxed mt-1">
+                        برای دریافت اعلان‌های هوشمند پیش از شروع کلاس‌ها و یادآور رزرو غذای سماد در روزهای چهارشنبه، لازم است مجوز نوتیفیکیشن داده شود.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-0.5">
+                    <button
+                      type="button"
+                      onClick={handleRequestPermission}
+                      disabled={busyAction === 'perm'}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-danger text-white text-[11.5px] font-bold shadow-xs hover:bg-danger/90 active:scale-95 transition disabled:opacity-50"
+                    >
+                      {busyAction === 'perm' ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <BellRing className="w-3.5 h-3.5" />
+                      )}
+                      اعطای دسترسی اعلان
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openNotificationSettings}
+                      className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-base text-base-content border border-base-500/30 text-[11.5px] font-bold hover:bg-base-500/20 active:scale-95 transition"
+                    >
+                      <Settings className="w-3.5 h-3.5" />
+                      تنظیمات گوشی
+                    </button>
                   </div>
                 </motion.div>
               )}
@@ -455,17 +538,17 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
                 </div>
 
                 {/* لغو و پاکسازی یادآورهای هوشمند */}
-                <div className="pt-0.5 flex justify-end">
+                <div className="pt-1">
                   <button
                     type="button"
                     onClick={handleCancelAll}
                     disabled={Boolean(busyAction)}
-                    className="flex items-center gap-1.5 py-1 px-2.5 text-[11px] font-bold rounded-lg text-danger hover:bg-danger-soft transition disabled:opacity-50"
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-danger-soft text-danger hover:bg-danger/20 border border-danger/20 text-[12px] font-bold shadow-2xs active:scale-95 transition disabled:opacity-50"
                   >
                     {busyAction === 'cancel' ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4" />
                     )}
                     لغو و پاکسازی یادآورهای فعال
                   </button>
@@ -530,44 +613,30 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
                     exit={{ opacity: 0, height: 0 }}
                     className="space-y-3 pt-1"
                   >
-                    <div>
-                      <label className="text-[11px] font-bold text-neutral block mb-1.5">
-                        ساعت ارسال اعلان در روز چهارشنبه:
-                      </label>
-
-                      {/* پری‌ست‌های محبوب ساعت */}
-                      <div className="grid grid-cols-5 gap-1.5 mb-2">
-                        {SAMAD_TIME_PRESETS.map((preset) => {
-                          const isSelected = samadTime === preset.value;
-                          return (
-                            <button
-                              key={preset.value}
-                              type="button"
-                              onClick={() => handleChangeSamadTime(preset.value)}
-                              className={`py-1.5 px-1 rounded-xl text-[11px] text-center border transition-all ${
-                                isSelected
-                                  ? 'bg-warning text-warning-content border-warning font-bold shadow-sm'
-                                  : 'bg-base text-base-content border-base-500/30 hover:border-warning/40'
-                              }`}
-                            >
-                              <span className="block font-bold">{toFaDigits(preset.value)}</span>
-                              <span className="text-[9px] block opacity-80">{preset.label}</span>
-                            </button>
-                          );
-                        })}
+                    {/* ردیف باز کردن مودال چرخشی تنظیم ساعت */}
+                    <div className="p-3 rounded-2xl bg-base border border-base-500/25 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-8 h-8 rounded-xl bg-warning/15 text-warning grid place-items-center shrink-0">
+                          <Clock className="w-4 h-4" />
+                        </span>
+                        <div>
+                          <span className="text-[12.5px] font-bold text-base-content block">
+                            ساعت ارسال اعلان
+                          </span>
+                          <span className="text-[11px] text-neutral mt-0.5">
+                            چهارشنبه‌ها ساعت {toFaDigits(samadTime)}
+                          </span>
+                        </div>
                       </div>
 
-                      {/* فیلد ساعت دلخواه */}
-                      <div className="flex items-center gap-2 p-2 rounded-xl bg-base border border-base-500/25">
-                        <Clock className="w-4 h-4 text-warning shrink-0 mr-1" />
-                        <span className="text-[11.5px] text-neutral font-medium">ساعت دلخواه:</span>
-                        <input
-                          type="time"
-                          value={samadTime}
-                          onChange={(e) => handleChangeSamadTime(e.target.value)}
-                          className="flex-1 bg-transparent border-0 text-base-content text-[13px] font-mono font-bold text-center focus:outline-none"
-                        />
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setTimePickerOpen(true)}
+                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-warning/15 hover:bg-warning/25 text-warning border border-warning/30 text-[12px] font-bold transition active:scale-95 shadow-2xs cursor-pointer"
+                      >
+                        <span className="font-mono text-[13px] font-black" dir="ltr">{toFaDigits(samadTime)}</span>
+                        <span className="text-[10.5px] px-1.5 py-0.5 rounded-md bg-warning/20 text-warning font-semibold">تغییر ساعت</span>
+                      </button>
                     </div>
 
                     {/* پیش‌نمایش نوتیفیکیشن سماد */}
@@ -647,12 +716,6 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
                               <span className="font-mono font-bold text-primary">
                                 ساعت {toFaDigits(c.time || `${c.hour}:${c.minute}`)}
                               </span>
-                              {c.room && (
-                                <>
-                                  <span>·</span>
-                                  <span className="truncate">{toFaDigits(c.room)}</span>
-                                </>
-                              )}
                             </div>
                           </div>
 
@@ -681,5 +744,14 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
         </div>
       )}
     </AnimatePresence>
+
+    {/* مودال چرخشی شبیه ساعت موبایل برای انتخاب ساعت سماد */}
+    <SarvTimePickerModal
+      isOpen={timePickerOpen}
+      initialTime={samadTime}
+      onClose={() => setTimePickerOpen(false)}
+      onConfirm={(newTime) => handleChangeSamadTime(newTime)}
+    />
+  </>
   );
 }

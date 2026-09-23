@@ -7,7 +7,7 @@
 
 import { getCurrentTermSchedule, hasLiveData } from './behestan/store';
 import { detectCurrentTermId } from './behestan/parsers';
-import { parseClassTime, getScheduleMatrix } from '../data/viewModel';
+import { parseClassTime, getScheduleMatrix, jalaliToDate } from '../data/viewModel';
 
 const SETTINGS_KEY = 'sarvestan_class_reminders_settings';
 const SCHEDULED_IDS_KEY = 'sarvestan_class_reminders_ids';
@@ -504,6 +504,24 @@ export async function importAlarmsForCourse(courseLike, { skipUi = false } = {})
 }
 
 /**
+ * بررسی وضعیت دسترسی نوتیفیکیشن بدون نمایش درخواست
+ */
+export async function checkNotificationPermission() {
+  const p = plugins().ClassAlarms;
+  if (!p?.checkNotificationPermission) {
+    if (typeof Notification !== 'undefined') {
+      return { granted: Notification.permission === 'granted' };
+    }
+    return { granted: true };
+  }
+  try {
+    return await p.checkNotificationPermission();
+  } catch {
+    return { granted: true };
+  }
+}
+
+/**
  * بررسی و درخواست مجوز نوتیفیکیشن
  */
 export async function requestNotificationPermission() {
@@ -763,4 +781,85 @@ export async function testSamadNotification() {
     return { ok: false, error: String(e?.message || e) };
   }
 }
+
+/**
+ * افزودن موعد امتحان به تقویم رسمی دستگاه (Google Calendar / تقویم پیش‌فرض)
+ */
+export async function exportExamToCalendar(exam) {
+  if (!exam) return { ok: false, error: 'اطلاعات امتحان نامعتبر است' };
+
+  const courseName = exam.course || 'امتحان';
+  const title = `امتحان ${courseName}`;
+  const location = exam.room && exam.room !== 'ـ' ? `محل آزمون: ${exam.room}` : '';
+  const seatInfo = exam.seat && exam.seat !== '—' && exam.seat !== 'ـ' ? `شماره صندلی: ${exam.seat}` : '';
+  const instructor = exam.instructor && exam.instructor !== 'ـ' ? `استاد: ${exam.instructor}` : '';
+  const description = [instructor, seatInfo, location].filter(Boolean).join(' | ');
+
+  let startMs = 0;
+  let endMs = 0;
+
+  try {
+    const rawDate = String(exam.examDate || '').replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+    const dm = rawDate.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+    if (dm) {
+      const jy = parseInt(dm[1], 10);
+      const jm = parseInt(dm[2], 10);
+      const jd = parseInt(dm[3], 10);
+      const d = jalaliToDate(jy, jm, jd);
+      if (d) {
+        let sh = 8;
+        let sm = 30;
+        let eh = 10;
+        let em = 30;
+        const rawTime = String(exam.examTime || '').replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+        const tm = [...rawTime.matchAll(/(\d{1,2}):(\d{2})/g)];
+        if (tm.length >= 1) {
+          sh = parseInt(tm[0][1], 10);
+          sm = parseInt(tm[0][2], 10);
+          eh = sh + 2;
+          em = sm;
+        }
+        if (tm.length >= 2) {
+          eh = parseInt(tm[1][1], 10);
+          em = parseInt(tm[1][2], 10);
+        }
+        const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), sh, sm, 0, 0);
+        const end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), eh, em, 0, 0);
+        startMs = start.getTime();
+        endMs = end.getTime();
+      }
+    }
+  } catch (e) {
+    console.warn('[exportExamToCalendar date parse error]', e);
+  }
+
+  const p = plugins().ClassAlarms;
+  if (p?.exportToCalendar) {
+    try {
+      const res = await p.exportToCalendar({
+        title,
+        description,
+        location,
+        startMs,
+        endMs,
+      });
+      return { ok: true, ...res };
+    } catch (e) {
+      console.warn('[exportToCalendar native error, fallback to web]', e);
+    }
+  }
+
+  // لینک تحت وب گوگل کلندر در صورت عدم دسترسی به افزونه نیتیو
+  try {
+    const isoStart = startMs ? new Date(startMs).toISOString().replace(/-|:|\.\d\d\d/g, '') : '';
+    const isoEnd = endMs ? new Date(endMs).toISOString().replace(/-|:|\.\d\d\d/g, '') : '';
+    const datesParam = isoStart && isoEnd ? `&dates=${isoStart}/${isoEnd}` : '';
+    const gUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&details=${encodeURIComponent(description)}&location=${encodeURIComponent(location)}${datesParam}`;
+    window.open(gUrl, '_blank');
+    return { ok: true, web: true };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
+
 

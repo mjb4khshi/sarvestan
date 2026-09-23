@@ -2,9 +2,9 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { motion } from 'framer-motion';
 import { LogIn, Loader2, X, CheckCircle2, KeyRound, Globe, ShieldCheck } from 'lucide-react';
 import SarvCheckbox from '../components/SarvCheckbox';
-import { applyManualSession, isSessionAlive } from '../services/behestan/session';
+import { applyManualSession, isSessionAlive, beginFreshLoginSession, clearSession } from '../services/behestan/session';
 import { runFullSync, resetSyncState } from '../services/behestan/sync';
-import { isNativeCapacitor, loginAndroid, loginViaSsoWebView, loginViaNativeSso } from '../services/behestan/ssoLoginNative';
+import { isNativeCapacitor, loginAndroid, loginViaSsoWebView, loginViaNativeSso, clearSsoCookies } from '../services/behestan/ssoLoginNative';
 import {
   subscribeLogin,
   getLoginSnapshot,
@@ -18,6 +18,7 @@ import {
   setLoginRemember,
   commitCredsOnSuccess,
   loadSavedCreds,
+  clearSavedCreds,
 } from '../services/loginFlow';
 
 function parseUidFromCookies(cookies) {
@@ -41,6 +42,31 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** حداقل زمان نمایش هر تیک */
 const MIN_STEP_MS = 700;
+
+function authErrorMessage(j) {
+  const raw = String(j?.error || j?.message || '').trim();
+  if (!raw) return 'ورود ناموفق — نام کاربری یا رمز عبور را بررسی کنید.';
+  if (/invalid username or password|bad credentials/i.test(raw)) {
+    return 'نام کاربری یا رمز عبور اشتباه است.';
+  }
+  if (/نادرست|اشتباه|نامعتبر|incorrect|wrong password/i.test(raw)) {
+    return raw.includes('رمز') || raw.includes('گذرواژه') || raw.includes('کلمه')
+      ? raw
+      : 'نام کاربری یا رمز عبور اشتباه است.';
+  }
+  if (/کد\s*[\d۰-۹]+/.test(raw) || /http\s*\d+/i.test(raw)) {
+    return `خطای ورود (${raw})`;
+  }
+  return raw;
+}
+
+function networkErrorMessage(e) {
+  const msg = String(e?.message || e);
+  if (/timeout|timed\s*out|network|failed to fetch|ارتباط/i.test(msg)) {
+    return 'خطای شبکه — اتصال اینترنت را بررسی کنید و دوباره تلاش کنید.';
+  }
+  return 'خطای غیرمنتظره هنگام ورود: ' + msg;
+}
 
 /** احراز هویت: بسته به متد انتخابی */
 async function doLogin(username, password, method) {
@@ -73,6 +99,8 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
   const flow = useSyncExternalStore(subscribeLogin, getLoginSnapshot, getLoginSnapshot);
   const busyRef = useRef(false);
   const [method, setMethod] = useState('sso'); // 'sso' | 'webview'
+  // رمزی که برای تلاش جاری معتبر است — بعد از شکست، ورود وب‌ویو دوباره با آن نمی‌کوبد
+  const lastTriedRef = useRef({ method: '', username: '', password: '', failed: false });
 
   // پر کردن نام کاربری/رمز ذخیره‌شده — ورود دوم بدون تایپ
   useEffect(() => {
@@ -108,32 +136,59 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
     }
 
     busyRef.current = true;
+    const prevTried = lastTriedRef.current;
+    // بعد از شکست SSO با همان رمز، وب‌ویو نباید رمز اشتباه را دوباره بفرستد/بکوبد
+    const stripFailedPass =
+      method === 'webview' && prevTried.failed && prevTried.password === p && prevTried.username === u;
+    lastTriedRef.current = { method, username: u, password: p, failed: false };
     beginLoginFlow();
 
     try {
+      // نشست/کوکی کهنه را قبل از تلاش تازه دور بریز — عامل «رور ۲۰۰ ولی لاگین خراب»
+      try {
+        beginFreshLoginSession();
+        await clearSsoCookies();
+      } catch {}
+
       setLoginStep(0);
       const t0 = Date.now();
 
-      const j = await doLogin(u, p, method);
+      const j = await doLogin(u, stripFailedPass ? '' : p, method);
       if (!j?.ok || !j?.sid || !j?.ticket) {
+        lastTriedRef.current.failed = true;
         busyRef.current = false;
-        failLoginFlow(-1, 'ورود ناموفق: ' + (j?.error || 'نامشخص'));
+        // نشست ناقص قبلی نماند
+        try { clearSession(); } catch {}
+        const failMsg = authErrorMessage(j);
+        // رمز ذخیره‌شده اگر همین بار رد شد، دوباره خودکار پر نشود
+        if (j?.code === 'bad-credentials' || /اشتباه|نادرست/.test(failMsg)) {
+          try {
+            const saved = loadSavedCreds();
+            if (saved && saved.username === u) clearSavedCreds();
+          } catch {}
+        }
+        failLoginFlow(-1, failMsg);
         return;
       }
 
       commitCredsOnSuccess(u, p);
 
-      applyManualSession({
-        sid: j.sid,
-        ticket: j.ticket,
-        studentId: j.studentId || undefined,
-        userId: j.userId || parseUidFromCookies(j.cookies) || undefined,
-        cookies: j.cookies || undefined,
-      });
+      applyManualSession(
+        {
+          sid: j.sid,
+          ticket: j.ticket,
+          studentId: j.studentId || undefined,
+          userId: j.userId || parseUidFromCookies(j.cookies) || undefined,
+          cookies: j.cookies || undefined,
+        },
+        { replace: true },
+      );
 
       if (!isSessionAlive()) {
+        lastTriedRef.current.failed = true;
         busyRef.current = false;
-        failLoginFlow(-1, 'نشست ثبت نشد. دوباره تلاش کن.');
+        try { clearSession(); } catch {}
+        failLoginFlow(-1, 'نشست ثبت نشد. رمز را بررسی و دوباره تلاش کنید.');
         return;
       }
 
@@ -145,13 +200,27 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
       await sleep(350);
 
       setLoginStep(2);
-      // تلاش برای سنک اولیه — صبر تا اتمام سنک جهت نمایش داده‌ها بلافاصله پس از بستن مودال
+      // تلاش برای سنک اولیه — اگر نشست مرد باشد خطا نشان بده، وگرنه timeout بی‌خیال
+      let syncBlocked = false;
       try {
-        await Promise.race([
+        const syncRes = await Promise.race([
           runFullSync({ force: true }),
-          sleep(8000),
+          sleep(8000).then(() => ({ ok: false, reason: 'timeout' })),
         ]);
-      } catch {}
+        if (syncRes?.reason === 'session-expired' || syncRes?.reason === 'no-session') {
+          syncBlocked = true;
+        }
+      } catch (e) {
+        if (/نشست|session|50216|403/i.test(String(e?.message || e))) syncBlocked = true;
+      }
+
+      if (syncBlocked) {
+        lastTriedRef.current.failed = true;
+        busyRef.current = false;
+        try { clearSession(); } catch {}
+        failLoginFlow(-1, 'نشست معتبر نشد. رمز یا وضعیت حساب را بررسی کنید.');
+        return;
+      }
 
       setLoginStep(3);
       setLoginDone(true);
@@ -160,8 +229,10 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
       closeLoginModal();
       onSuccess?.();
     } catch (e) {
+      lastTriedRef.current.failed = true;
       busyRef.current = false;
-      failLoginFlow(-1, 'خطای شبکه: ' + String(e?.message || e));
+      try { clearSession(); } catch {}
+      failLoginFlow(-1, networkErrorMessage(e));
     }
   };
 
@@ -187,7 +258,13 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
         <div className="grid grid-cols-2 p-1 bg-base-500/20 rounded-2xl border border-white/5 text-[12px] font-medium">
           <button
             type="button"
-            onClick={() => setMethod('sso')}
+            onClick={() => {
+              if (lastTriedRef.current.failed && lastTriedRef.current.password) {
+                lastTriedRef.current = { ...lastTriedRef.current, password: '' };
+                setLoginPassword('');
+              }
+              setMethod('sso');
+            }}
             disabled={busy}
             className={`py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
               method === 'sso'
@@ -200,7 +277,13 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
           </button>
           <button
             type="button"
-            onClick={() => setMethod('webview')}
+            onClick={() => {
+              if (lastTriedRef.current.failed && lastTriedRef.current.password) {
+                lastTriedRef.current = { ...lastTriedRef.current, password: '' };
+                setLoginPassword('');
+              }
+              setMethod('webview');
+            }}
             disabled={busy}
             className={`py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
               method === 'webview'
@@ -335,7 +418,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
         )}
       </motion.button>
 
-      {stepIdx >= 0 && (
+      {stepIdx >= 0 && !error && (
         <div className="space-y-1.5">
           {STEPS.map((s, i) => {
             const finished = i < stepIdx || (done && i <= stepIdx);
@@ -373,7 +456,16 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
           {native && method !== 'webview' && (
             <button
               type="button"
-              onClick={() => setMethod('webview')}
+              onClick={() => {
+                // رمز شکست‌خورده را از state هم بردار تا وب‌ویو پر/کوب نشود
+                lastTriedRef.current = {
+                  ...lastTriedRef.current,
+                  failed: true,
+                  password: '',
+                };
+                setLoginPassword('');
+                setMethod('webview');
+              }}
               className="w-full py-2 px-3 text-[12px] font-bold text-primary bg-primary-soft hover:bg-primary/20 border border-primary/25 rounded-xl transition flex items-center justify-center gap-1.5"
             >
               <Globe className="w-3.5 h-3.5" />

@@ -124,7 +124,7 @@ export function beginLoginFlow() {
     active: true,
     busy: true,
     done: false,
-    stepIdx: 0,
+    stepIdx: -1,
     error: '',
   };
   emit();
@@ -146,7 +146,7 @@ export function failLoginFlow(step = -1, msg = '') {
     active: true, // مودال باز بماند برای retry
     busy: false,
     done: false,
-    stepIdx: step,
+    stepIdx: -1, // تیک‌های سبز قبلی پاک شوند — فقط خطا دیده شود
     error: msg,
   };
   emit();

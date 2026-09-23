@@ -27,8 +27,10 @@ import {
   AlertCircle,
   AlertTriangle,
   Trash2,
+  BellRing,
 } from 'lucide-react';
 import UpdateModal from '../components/UpdateModal';
+import ClassAlarmModal from '../components/ClassAlarmModal';
 import { checkForUpdate, CURRENT_VERSION } from '../services/updater';
 import { clearLiveData, clearSession } from '../services/behestan';
 import { clearSsoCookies } from '../services/behestan/ssoLoginNative';
@@ -60,6 +62,7 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
   const [iconToast, setIconToast] = useState('');
   const [clearDataModalOpen, setClearDataModalOpen] = useState(false);
   const [clearingData, setClearingData] = useState(false);
+  const [alarmModalOpen, setAlarmModalOpen] = useState(false);
   const { currentIconId, currentIcon, setAppIcon, icons: appIcons } = useAppIcon();
 
   const handleExecuteClearData = async () => {
@@ -311,44 +314,48 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
             type="button"
             onClick={handleShareSchedule}
             disabled={!!shareBusy}
-            className="sarv-card p-3.5 text-right border border-primary/35 bg-primary-soft/70 hover:bg-primary-soft active:scale-[0.98] transition-all disabled:opacity-60 group relative overflow-hidden"
+            className="sarv-card p-3.5 text-right border border-primary/35 bg-primary-soft/70 hover:bg-primary-soft active:scale-[0.98] transition-all disabled:opacity-60 group relative overflow-hidden flex flex-col justify-between h-full"
           >
-            <div className="flex items-center justify-between mb-2">
-              <span className="w-10 h-10 rounded-2xl bg-primary text-primary-content grid place-items-center shadow-sm group-hover:scale-105 transition-transform">
-                {shareBusy === 'schedule' ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <CalendarDays className="w-5 h-5" />
-                )}
-              </span>
-              <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20">
-                طرح استوری
-              </span>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="w-10 h-10 rounded-2xl bg-primary text-primary-content grid place-items-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
+                  {shareBusy === 'schedule' ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <CalendarDays className="w-5 h-5" />
+                  )}
+                </span>
+                <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20 shrink-0">
+                  طرح استوری
+                </span>
+              </div>
+              <p className="text-[13.5px] font-black text-base-content">برنامه هفتگی</p>
             </div>
-            <p className="text-[13.5px] font-black text-base-content">برنامه هفتگی</p>
-            <p className="text-[10.5px] text-neutral mt-0.5">پوستر تم هفتگی با ساعات و اساتید</p>
+            <p className="text-[10.5px] text-neutral mt-1 min-h-[30px] line-clamp-2 leading-tight">پوستر تم هفتگی با ساعات و اساتید</p>
           </button>
 
           <button
             type="button"
             onClick={handleShareGpa}
             disabled={!!shareBusy}
-            className="sarv-card p-3.5 text-right border border-success/35 bg-success-soft/70 hover:bg-success-soft active:scale-[0.98] transition-all disabled:opacity-60 group relative overflow-hidden"
+            className="sarv-card p-3.5 text-right border border-success/35 bg-success-soft/70 hover:bg-success-soft active:scale-[0.98] transition-all disabled:opacity-60 group relative overflow-hidden flex flex-col justify-between h-full"
           >
-            <div className="flex items-center justify-between mb-2">
-              <span className="w-10 h-10 rounded-2xl bg-success text-success-content grid place-items-center shadow-sm group-hover:scale-105 transition-transform">
-                {shareBusy === 'gpa' ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <TrendingUp className="w-5 h-5" />
-                )}
-              </span>
-              <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-success/15 text-success border border-success/20">
-                کارت معدل
-              </span>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="w-10 h-10 rounded-2xl bg-success text-success-content grid place-items-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
+                  {shareBusy === 'gpa' ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <TrendingUp className="w-5 h-5" />
+                  )}
+                </span>
+                <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-success/15 text-success border border-success/20 shrink-0">
+                  کارت معدل
+                </span>
+              </div>
+              <p className="text-[13.5px] font-black text-base-content">معدل و نمرات</p>
             </div>
-            <p className="text-[13.5px] font-black text-base-content">معدل و نمرات</p>
-            <p className="text-[10.5px] text-neutral mt-0.5">کارت استوری کارنامه و میانگین کل</p>
+            <p className="text-[10.5px] text-neutral mt-1 min-h-[30px] line-clamp-2 leading-tight">کارت استوری کارنامه و میانگین کل</p>
           </button>
         </div>
         {shareMsg && !sharePreview && (
@@ -394,14 +401,37 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
       <section className="space-y-1.5">
         <h3 className="text-[12.5px] font-bold text-neutral px-1">خدمات و وضعیت آموزشی</h3>
         <div className="sarv-card overflow-hidden divide-y divide-base-500/30">
+          {/* تنظیم یادآور و آلارم کلاس‌ها */}
+          <button
+            type="button"
+            onClick={() => setAlarmModalOpen(true)}
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors"
+          >
+            <div className="flex items-start gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-primary-soft text-primary border border-primary-soft mt-0.5">
+                <BellRing className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-[13.5px] font-bold text-base-content truncate">تنظیم یادآور و آلارم کلاس‌ها</p>
+                  <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-primary-soft text-primary border border-primary-soft">
+                    نوتیفیکیشن و ساعت
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-neutral mt-0.5">اعلان پیش از شروع، آلارم هفتگی و یادآور غذای سماد</p>
+              </div>
+            </div>
+            <ChevronLeft className="w-4 h-4 text-neutral shrink-0 mt-2" />
+          </button>
+
           {/* چارت و وضعیت دروس */}
           <button
             type="button"
             onClick={() => setChartModalOpen(true)}
             className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors"
           >
-            <div className="flex items-center gap-3 min-w-0">
-              <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-accent-soft text-accent border border-accent-soft">
+            <div className="flex items-start gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-accent-soft text-accent border border-accent-soft mt-0.5">
                 <BookOpenCheck className="w-4.5 h-4.5" />
               </span>
               <div className="min-w-0">
@@ -415,7 +445,7 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
                 <p className="text-[10.5px] text-neutral mt-0.5">پیش‌نیازها، سرفصل و دروس باقیمانده</p>
               </div>
             </div>
-            <ChevronLeft className="w-4 h-4 text-neutral shrink-0" />
+            <ChevronLeft className="w-4 h-4 text-neutral shrink-0 mt-2" />
           </button>
 
           {/* نامه‌ها و گواهی‌ها */}
@@ -424,8 +454,8 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
             onClick={() => window.open('https://behestan.kntu.ac.ir/', '_blank')}
             className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors"
           >
-            <div className="flex items-center gap-3 min-w-0">
-              <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-info-soft text-info border border-info-soft">
+            <div className="flex items-start gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-info-soft text-info border border-info-soft mt-0.5">
                 <FileText className="w-4.5 h-4.5" />
               </span>
               <div className="min-w-0">
@@ -439,7 +469,7 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
                 <p className="text-[10.5px] text-neutral mt-0.5">اشتغال به تحصیل، معرفی‌نامه و مدارک رسمی</p>
               </div>
             </div>
-            <ExternalLink className="w-4 h-4 text-neutral/70 shrink-0" />
+            <ExternalLink className="w-4 h-4 text-neutral/70 shrink-0 mt-2" />
           </button>
 
           {/* درخواست‌های آموزشی */}
@@ -448,8 +478,8 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
             onClick={() => window.open('https://behestan.kntu.ac.ir/', '_blank')}
             className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors"
           >
-            <div className="flex items-center gap-3 min-w-0">
-              <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-primary-soft text-primary border border-primary-soft">
+            <div className="flex items-start gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-primary-soft text-primary border border-primary-soft mt-0.5">
                 <FileCheck2 className="w-4.5 h-4.5" />
               </span>
               <div className="min-w-0">
@@ -463,7 +493,7 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
                 <p className="text-[10.5px] text-neutral mt-0.5">فرم‌های ۲۱۱۲۲، حذف تک‌درس و مصوبات آموزشی</p>
               </div>
             </div>
-            <ExternalLink className="w-4 h-4 text-neutral/70 shrink-0" />
+            <ExternalLink className="w-4 h-4 text-neutral/70 shrink-0 mt-2" />
           </button>
         </div>
       </section>
@@ -1457,6 +1487,11 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
           </div>
         )}
       </AnimatePresence>
+      {/* مودال تنظیم یادآور و آلارم کلاس‌ها */}
+      <ClassAlarmModal
+        isOpen={alarmModalOpen}
+        onClose={() => setAlarmModalOpen(false)}
+      />
     </div>
   );
 }

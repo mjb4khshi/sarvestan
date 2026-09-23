@@ -81,11 +81,16 @@ export async function loginViaJavaSso(username, password) {
         source: 'native_java',
       };
     }
-    return { ok: false, error: res?.error || 'نشست ساخته نشد' };
+    return { ok: false, error: res?.error || 'نشست ساخته نشد', code: res?.code || undefined };
   } catch (e) {
+    const msg = String(e?.message || e?.error || e || 'خطای ورود بومی');
+    const bad =
+      e?.code === 'bad-credentials' ||
+      /invalid username or password|bad credentials|نادرست|اشتباه/i.test(msg);
     return {
       ok: false,
-      error: String(e?.message || e?.error || e || 'خطای ورود بومی'),
+      error: bad ? 'نام کاربری یا رمز عبور اشتباه است.' : msg,
+      code: bad ? 'bad-credentials' : undefined,
     };
   }
 }
@@ -97,9 +102,13 @@ export async function loginViaSsoWebView(credentials = {}) {
     return { ok: false, error: 'پلاگین WebView در دسترس نیست', code: 'no-plugin' };
   }
   try {
+    const user = credentials?.username ? String(credentials.username).trim() : '';
+    const pass = credentials?.password ? String(credentials.password) : '';
     const res = await p.login({
-      username: credentials?.username ? String(credentials.username).trim() : '',
-      password: credentials?.password ? String(credentials.password) : '',
+      username: user,
+      password: pass,
+      // بعد از شکست SSO، رمز اشتباه را خودکار نکوب — فقط نام کاربری پر شود
+      allowAutoSubmit: Boolean(pass),
     });
     if (res?.ok && res.sid && res.ticket) {
       return {
@@ -112,11 +121,18 @@ export async function loginViaSsoWebView(credentials = {}) {
         source: 'webview',
       };
     }
-    return { ok: false, error: 'نشست ساخته نشد', code: 'empty' };
+    return { ok: false, error: res?.error || 'نشست ساخته نشد', code: 'empty' };
   } catch (e) {
+    const msg = String(e?.message || e?.error || e || 'خطای WebView');
+    if (e?.code === 'cancelled' || /انصراف/.test(msg)) {
+      return { ok: false, error: msg, code: 'cancelled' };
+    }
+    if (/invalid|نادرست|اشتباه|bad credentials/i.test(msg)) {
+      return { ok: false, error: 'نام کاربری یا رمز عبور اشتباه است.', code: 'bad-credentials' };
+    }
     return {
       ok: false,
-      error: String(e?.message || e?.error || e || 'خطای WebView'),
+      error: msg || 'نشست ساخته نشد',
       code: 'webview-error',
     };
   }
@@ -545,15 +561,31 @@ export async function loginViaNativeSso(username, password) {
 
 /** پاک کردن کوکی‌های SSO/بهستان تا تلاش دوم مثل اول تمیز باشد */
 export async function clearSsoCookies() {
+  let cleared = false;
   try {
     const h = http();
     if (h?.clearCookies) {
       await h.clearCookies({ url: 'https://sso.kntu.ac.ir' });
       await h.clearCookies({ url: 'https://behestan.kntu.ac.ir' });
-      return true;
+      cleared = true;
     }
   } catch {}
-  return false;
+  // کوکی‌های WebView (CookieManager) هم ماندگارند — بدون پاکسازی، نشست کهنه «HTTP 200 ولی خراب» می‌سازد
+  try {
+    const cookies = plugins().CapacitorCookies;
+    if (cookies?.clear) {
+      await cookies.clear();
+      cleared = true;
+    }
+  } catch {}
+  try {
+    const sso = plugins().SsoWebView;
+    if (sso?.clearCookies) {
+      await sso.clearCookies();
+      cleared = true;
+    }
+  } catch {}
+  return cleared;
 }
 
 /** ورود یکپارچه اندروید — فقط با رمز، WebView خودکار باز نمی‌شود */
@@ -567,20 +599,38 @@ export async function loginAndroid(username, password) {
       const javaRes = await loginViaJavaSso(username, password);
       if (javaRes.ok) return javaRes;
 
-      // اگر خطای مشخصی مانند نام کاربری یا رمز اشتباه بود، فوراً برگردان
+      // خطای احراز هویت (رمز اشتباه و…) نباید به فال‌بک برود و کوکی کهنه را «موفق» جلوه دهد
       if (
-        javaRes.error &&
-        (javaRes.error.includes('نادرست') ||
-          javaRes.error.includes('اشتباه') ||
-          javaRes.error.includes('Invalid'))
+        javaRes.code === 'bad-credentials' ||
+        (javaRes.error &&
+          (javaRes.error.includes('نادرست') ||
+            javaRes.error.includes('اشتباه') ||
+            javaRes.error.includes('Invalid') ||
+            javaRes.error.includes('نامعتبر') ||
+            javaRes.error.includes('نشست از بهستان برنگشت') ||
+            javaRes.error.includes('فرم ورود SSO پیدا نشد') ||
+            javaRes.error.includes('پیام سامانه')))
       ) {
-        return javaRes;
+        return {
+          ok: false,
+          error:
+            javaRes.code === 'bad-credentials' ||
+            /invalid username or password|bad credentials/i.test(javaRes.error || '')
+              ? 'نام کاربری یا رمز عبور اشتباه است.'
+              : javaRes.error,
+          code: javaRes.code || undefined,
+        };
       }
       console.warn('[SsoLogin] Java login failed, trying fallback:', javaRes.error);
     }
 
     // ۲) فال‌بک با پروتکل نیتیو جاوااسکریپت (CapacitorHttp)
     const httpRes = await loginViaNativeSso(username, password);
+    if (!httpRes?.ok && httpRes?.error) {
+      httpRes.error = /invalid username or password|bad credentials/i.test(httpRes.error)
+        ? 'نام کاربری یا رمز عبور اشتباه است.'
+        : httpRes.error;
+    }
     // WebView خودکار باز نکن — کاربر باید خودش «وب‌ویو» را انتخاب کند
     return httpRes;
   }
