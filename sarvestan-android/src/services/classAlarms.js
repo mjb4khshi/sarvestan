@@ -149,89 +149,90 @@ export function collectWeeklySlots() {
   const list = [];
   const seen = new Set();
 
-  // ۱. استخراج از ماتریس کلاسی (همیشه معتبر و شامل تمام دروس ۹‌گانه نمایش داده شده در UI)
+  // ۱. اولویت اول و قطعی: استخراج مستقیم از getCurrentTermSchedule (دروس با زمان‌بندی دقیق بدون برش در جدول)
   try {
-    const matrix = getScheduleMatrix();
-    const daysList = matrix.days || ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه'];
-    const slotsList = matrix.slots || [];
-    const cells = matrix.cells || {};
-
-    for (const [coord, cell] of Object.entries(cells)) {
-      if (!cell) continue;
-      const [siStr, diStr] = coord.split('-');
-      const si = parseInt(siStr, 10);
-      const di = parseInt(diStr, 10);
-      const rawDay = daysList[di];
-      const day = normalizeDay(rawDay);
-      if (!day || !DAY_CAL[day]) continue;
-
-      const rawTime = cell.time || slotsList[si] || '';
-      const parsed = parseTimeStartEnd(rawTime);
-      if (!parsed) continue;
-
-      const title = cell.title || 'کلاس';
-      const key = `${title}-${day}-${parsed.start.hour}:${parsed.start.minute}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        list.push({
-          id: `cell_${coord}`,
-          title,
-          name: title,
-          label: title,
-          day,
-          days: [day],
-          time: parsed.timeStr || rawTime,
-          slot: slotsList[si] || rawTime,
-          hour: parsed.start.hour,
-          minute: parsed.start.minute,
-          endHour: parsed.end.hour,
-          endMinute: parsed.end.minute,
-          hall: cell.room && cell.room !== 'ـ' ? cell.room : '',
-          room: cell.room && cell.room !== 'ـ' ? cell.room : '',
-          professor: cell.professor && cell.professor !== 'ـ' ? cell.professor : '',
-        });
+    const courses = getCurrentTermSchedule() || [];
+    for (const c of courses) {
+      for (const s of courseSlots(c)) {
+        const day = normalizeDay(s.day);
+        if (!day || !DAY_CAL[day]) continue;
+        const rawTime = s.time || c.time || c.classTimeRaw || c.slot;
+        const parsed = parseTimeStartEnd(rawTime);
+        if (!parsed) continue;
+        const title = c.name || c.title || c.course || 'کلاس';
+        const key = `${title}-${day}-${parsed.start.hour}:${parsed.start.minute}-${parsed.end.hour}:${parsed.end.minute}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push({
+            id: c.id || c.code || `slot_${key}`,
+            title,
+            name: title,
+            label: title,
+            day,
+            days: [day],
+            time: parsed.timeStr || rawTime,
+            slot: parsed.timeStr || rawTime,
+            hour: parsed.start.hour,
+            minute: parsed.start.minute,
+            endHour: parsed.end.hour,
+            endMinute: parsed.end.minute,
+            hall: s.hall || c.hall || c.room || '',
+            room: s.hall || c.hall || c.room || '',
+            professor: c.professor || '',
+          });
+        }
       }
     }
   } catch (e) {
-    console.warn('[collectWeeklySlots] matrix extract error:', e);
+    console.warn('[collectWeeklySlots] courses extract error:', e);
   }
 
-  // ۲. در صورتی که ماتریس به هر دلیل خالی بود، استخراج مستقیم از getCurrentTermSchedule
+  // ۲. در صورتی که به هر دلیلی دروسی یافت نشد، استخراج کمکی از ماتریس کلاسی
   if (list.length === 0) {
     try {
-      const courses = getCurrentTermSchedule() || [];
-      for (const c of courses) {
-        for (const s of courseSlots(c)) {
-          const day = normalizeDay(s.day);
-          if (!day || !DAY_CAL[day]) continue;
-          const parsed = parseTimeStartEnd(s.time || c.time || c.classTimeRaw || c.slot);
-          if (!parsed) continue;
-          const title = c.name || c.title || c.course || 'کلاس';
-          const key = `${title}-${day}-${parsed.start.hour}:${parsed.start.minute}`;
-          if (!seen.has(key)) {
-            seen.add(key);
-            list.push({
-              id: c.id || c.code || `slot_${key}`,
-              title,
-              name: title,
-              label: title,
-              day,
-              days: [day],
-              time: parsed.timeStr,
-              slot: parsed.timeStr,
-              hour: parsed.start.hour,
-              minute: parsed.start.minute,
-              endHour: parsed.end.hour,
-              endMinute: parsed.end.minute,
-              hall: s.hall || c.hall || c.room || '',
-              room: s.hall || c.hall || c.room || '',
-              professor: c.professor || '',
-            });
-          }
+      const matrix = getScheduleMatrix();
+      const daysList = matrix.days || ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه'];
+      const slotsList = matrix.slots || [];
+      const cells = matrix.cells || {};
+
+      for (const [coord, cell] of Object.entries(cells)) {
+        if (!cell) continue;
+        const [siStr, diStr] = coord.split('-');
+        const si = parseInt(siStr, 10);
+        const di = parseInt(diStr, 10);
+        const rawDay = daysList[di];
+        const day = normalizeDay(rawDay);
+        if (!day || !DAY_CAL[day]) continue;
+
+        const rawTime = cell.time || slotsList[si] || '';
+        const parsed = parseTimeStartEnd(rawTime);
+        if (!parsed) continue;
+
+        const title = cell.title || 'کلاس';
+        const key = `${title}-${day}-${parsed.start.hour}:${parsed.start.minute}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push({
+            id: `cell_${coord}`,
+            title,
+            name: title,
+            label: title,
+            day,
+            days: [day],
+            time: parsed.timeStr || rawTime,
+            slot: slotsList[si] || rawTime,
+            hour: parsed.start.hour,
+            minute: parsed.start.minute,
+            endHour: parsed.end.hour,
+            endMinute: parsed.end.minute,
+            hall: cell.room && cell.room !== 'ـ' ? cell.room : '',
+            room: cell.room && cell.room !== 'ـ' ? cell.room : '',
+            professor: cell.professor && cell.professor !== 'ـ' ? cell.professor : '',
+          });
         }
       }
     } catch (e) {
-      console.warn('[collectWeeklySlots] courses extract error:', e);
+      console.warn('[collectWeeklySlots] matrix extract error:', e);
     }
   }
 
@@ -719,6 +720,103 @@ export async function requestDndPermission() {
 }
 
 /**
+ * نگاشت اندیس‌های getDay() جاوااسکریپت به نام روزهای فارسی
+ */
+export const JS_DAY_TO_FA = {
+  0: 'یکشنبه',
+  1: 'دوشنبه',
+  2: 'سه‌شنبه',
+  3: 'چهارشنبه',
+  4: 'پنجشنبه',
+  5: 'جمعه',
+  6: 'شنبه',
+};
+
+/**
+ * بررسی اینکه آیا در همین لحظه کلاسی در حال برگزاری است؟
+ * بازگرداندن اطلاعات کلاسی که ساعت و دقیقه کنونی در بازه آن قرار دارد
+ */
+export function getCurrentlyActiveCourse() {
+  const slots = collectWeeklySlots();
+  const now = new Date();
+  const jsDay = now.getDay();
+  const todayFa = JS_DAY_TO_FA[jsDay];
+  const asCalDay = jsDay === 0 ? 1 : jsDay + 1;
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  for (const slot of slots) {
+    const isToday =
+      (slot.days && slot.days.some((d) => normalizeDay(d) === todayFa)) ||
+      normalizeDay(slot.day) === todayFa ||
+      (slot.days && slot.days.some((d) => DAY_CAL[normalizeDay(d)] === asCalDay));
+
+    if (!isToday) continue;
+
+    const startMinutes = slot.hour * 60 + slot.minute;
+    const endMinutes =
+      (slot.endHour != null ? slot.endHour : slot.hour + 1) * 60 +
+      (slot.endMinute != null ? slot.endMinute : slot.minute + 30);
+
+    if (currentMinutes >= startMinutes && currentMinutes < endMinutes) {
+      return {
+        ...slot,
+        currentMinutes,
+        startMinutes,
+        endMinutes,
+        remainingMinutes: endMinutes - currentMinutes,
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * اعمال مستقیم وضعیت سایلنت / Do Not Disturb در سطح سیستم‌عامل
+ */
+export async function setNativeDndMode(enabled) {
+  const p = plugins().ClassAlarms;
+  if (!p?.setDndMode) return { ok: true, noPlugin: true };
+  try {
+    return await p.setDndMode({ enabled: Boolean(enabled) });
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
+
+/**
+ * دریافت وضعیت زنده DND سیستم‌عامل
+ */
+export async function getNativeDndMode() {
+  const p = plugins().ClassAlarms;
+  if (!p?.getDndMode) return { isDnd: false };
+  try {
+    return await p.getDndMode();
+  } catch {
+    return { isDnd: false };
+  }
+}
+
+/**
+ * همگام‌سازی فوری وضعیت زنگ گوشی بر اساس کلاس‌های همین لحظه
+ */
+export async function syncCurrentDndState() {
+  const isDndSettingOn = getDndDuringClass();
+  if (!isDndSettingOn) return { ok: true, active: false };
+
+  const activeCourse = getCurrentlyActiveCourse();
+  if (activeCourse) {
+    const res = await setNativeDndMode(true);
+    if (res?.needsPermission) {
+      await requestDndPermission();
+    }
+    return { ok: true, active: true, activeCourse, mode: 'silent' };
+  } else {
+    await setNativeDndMode(false);
+    return { ok: true, active: false };
+  }
+}
+
+/**
  * دریافت وضعیت فعال بودن حالت مزاحم نشوید حین کلاس
  */
 export function getDndDuringClass() {
@@ -727,6 +825,8 @@ export function getDndDuringClass() {
 
 /**
  * فعال یا غیرفعال‌سازی حالت مزاحم نشوید حین کلاس
+ * - اگر کاربر وسط بازه زمانی کلاس باشد، بلافاصله سایلنت را فعال می‌کند
+ * - آلارم بازگردانی صدا در پایان کلاس را در سیستم‌عامل زمان‌بندی می‌کند
  */
 export async function setDndDuringClass(enabled) {
   const s = getReminderSettings();
@@ -741,14 +841,41 @@ export async function setDndDuringClass(enabled) {
     }
   }
 
-  // به‌روزرسانی زمان‌بندی یادآورها در سیستم
+  let activeCourse = null;
+  let activatedNow = false;
+
+  if (enabled) {
+    // آیا در این لحظه کلاسی در جریان است؟ (مثلاً کلاس ۷ تا ۱۷ در ساعت ۱۰:۴۰)
+    activeCourse = getCurrentlyActiveCourse();
+    if (activeCourse) {
+      const res = await setNativeDndMode(true);
+      if (res?.needsPermission) {
+        await requestDndPermission();
+      }
+      activatedNow = true;
+    } else {
+      await setNativeDndMode(false);
+    }
+  } else {
+    // با خاموش کردن سایلنت، گوشی بلافاصله به حالت عادی بازمی‌گردد
+    await setNativeDndMode(false);
+  }
+
+  // به‌روزرسانی زمان‌بندی یادآورها در سیستم (شامل زمان اتمام کلاس‌های در حال جریان)
   const res = await scheduleClassReminders({
     leadMinutes: s.leadMinutes,
     notifyAtStart: s.notifyAtStart,
     dndDuringClass: Boolean(enabled),
   });
 
-  return { ok: true, enabled: Boolean(enabled), permissionGranted: permissionResult.granted, ...res };
+  return {
+    ok: true,
+    enabled: Boolean(enabled),
+    permissionGranted: permissionResult.granted,
+    activeCourse,
+    activatedNow,
+    ...res,
+  };
 }
 
 /**

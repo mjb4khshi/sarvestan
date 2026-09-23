@@ -195,9 +195,13 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
     }
     setBusyAction('dnd');
     try {
-      await setDndDuringClass(nextState);
+      const res = await setDndDuringClass(nextState);
       if (nextState) {
-        showMsg('حالت مزاحم نشوید حین کلاس فعال شد؛ صدای گوشی در ساعات برگزاری کلاس‌ها به‌صورت هوشمند سایلنت می‌شود.', 'success');
+        if (res?.activatedNow && res?.activeCourse) {
+          showMsg(`کلاس «${res.activeCourse.title || res.activeCourse.name}» هم‌اکنون در حال برگزاری است؛ حالت مزاحم نشوید فوراً فعال و گوشی سایلنت شد.`, 'success');
+        } else {
+          showMsg('حالت مزاحم نشوید حین کلاس فعال شد؛ صدای گوشی در ساعات برگزاری کلاس‌ها به‌صورت هوشمند سایلنت می‌شود.', 'success');
+        }
       } else {
         showMsg('حالت مزاحم نشوید حین کلاس غیرفعال شد.', 'info');
       }

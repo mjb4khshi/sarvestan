@@ -229,7 +229,14 @@ export default function App() {
       return (
         <ErrorBoundary>
           <ThemeProvider>
-            <LoginScreen />
+            <LoginScreen
+              onSuccess={() => {
+                try {
+                  sessionStorage.removeItem('sarvestan_manual_logout');
+                } catch {}
+                window.location.replace(window.location.origin + window.location.pathname);
+              }}
+            />
           </ThemeProvider>
         </ErrorBoundary>
       );

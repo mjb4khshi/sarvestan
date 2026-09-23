@@ -71,18 +71,22 @@ function cleanCourseName(name) {
 export function getToneForCourse(courseOrNameOrCode, allCourses = []) {
   if (!courseOrNameOrCode) return COURSE_TONES[0];
   const raw = typeof courseOrNameOrCode === 'object' ? courseOrNameOrCode : { name: courseOrNameOrCode };
+  if (raw.color) return raw.color;
+
   const cCode = cleanCourseCode(raw.code);
   const cName = cleanCourseName(raw.name || raw.course || raw.title || '');
 
   // تطبیق با ترتیب دروس ترم جاری تا رنگ درس در تمام بخش‌ها (جدول هفتگی، نمای روزانه، امتحانات) کاملاً یکسان باشد
   if (Array.isArray(allCourses) && allCourses.length > 0) {
-    const idx = allCourses.findIndex((sc) => {
+    const matched = allCourses.find((sc) => {
       const scCode = cleanCourseCode(sc.code);
       const scName = cleanCourseName(sc.name || sc.course || sc.title || '');
       if (cCode && scCode && cCode === scCode) return true;
       if (cName && scName && (cName === scName || cName.includes(scName) || scName.includes(cName))) return true;
       return false;
     });
+    if (matched?.color) return matched.color;
+    const idx = allCourses.indexOf(matched);
     if (idx >= 0) {
       return COURSE_TONES[idx % COURSE_TONES.length];
     }
@@ -765,16 +769,36 @@ function buildTermsFromLive(snap) {
           color = 'danger';
         }
 
+        // تطبیق با برنامه هفتگی برای رنگ سفارشی و وضعیت شبیه‌ساز معدل
+        const sched = getCurrentTermSchedule(tid) || [];
+        const schedCourse = sched.find((sc) => {
+          if (!sc) return false;
+          if (c.id && sc.id && String(c.id) === String(sc.id)) return true;
+          if (c.code && sc.code && cleanCourseCode(c.code) === cleanCourseCode(sc.code)) return true;
+          if (c.name && (sc.name || sc.title) && cleanCourseName(c.name) === cleanCourseName(sc.name || sc.title)) return true;
+          return false;
+        });
+
+        const effectiveIncludeInGpa =
+          schedCourse?.includeInGpa !== undefined
+            ? schedCourse.includeInGpa
+            : c.includeInGpa !== undefined
+              ? c.includeInGpa
+              : true;
+
+        const effectiveColor = schedCourse?.color || c.color || color;
+
         return {
-          id: c.code || `c${i}`,
+          id: c.code || c.id || `c${i}`,
           code: c.code ? faDigits(c.code) : String(i + 1),
           course: c.name,
           unit: c.units || 0,
           score: raw,
           displayScore,
           status,
-          color,
+          color: effectiveColor,
           regStatus: st,
+          includeInGpa: effectiveIncludeInGpa !== false,
         };
       }),
     };
@@ -880,7 +904,7 @@ export function getScheduleMatrix() {
   const cells = {};
 
   courses.forEach((c, ci) => {
-    const tone = COURSE_TONES[ci % COURSE_TONES.length];
+    const tone = c.color || COURSE_TONES[ci % COURSE_TONES.length];
     for (const s of courseSlots(c)) {
       const di = days.indexOf(s.day);
       if (di < 0) continue;
@@ -911,7 +935,7 @@ export function getScheduleMatrix() {
         room: s.hall || c.hall || 'ـ',
         professor: c.professor || 'ـ',
         time: s.time || c.time || '',
-        color: tone,
+        color: c.color || tone,
         course: c,
       };
 

@@ -225,9 +225,23 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
       setLoginStep(3);
       setLoginDone(true);
       busyRef.current = false;
+      try {
+        sessionStorage.removeItem('sarvestan_manual_logout');
+      } catch {}
+      try {
+        const url = new URL(window.location.href);
+        if (url.searchParams.has('login')) {
+          url.searchParams.delete('login');
+          window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+        }
+      } catch {}
       await sleep(400);
       closeLoginModal();
-      onSuccess?.();
+      if (typeof onSuccess === 'function') {
+        onSuccess();
+      } else if (!asModal) {
+        window.location.replace(window.location.origin + window.location.pathname);
+      }
     } catch (e) {
       lastTriedRef.current.failed = true;
       busyRef.current = false;

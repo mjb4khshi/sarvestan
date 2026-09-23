@@ -23,7 +23,7 @@ import {
   Pencil,
   Edit3,
 } from 'lucide-react';
-import { isNativeAlarms, hasClassAlarmPlugin, exportExamToCalendar } from '../services/classAlarms';
+import { isNativeAlarms, hasClassAlarmPlugin, exportExamToCalendar, syncCurrentDndState } from '../services/classAlarms';
 import { getScheduleMatrix, getExamsView, parseClassTime, getToneForCourse } from '../data/viewModel';
 import { toFaDigits } from '../utils/faDigits';
 import ClassAlarmModal from '../components/ClassAlarmModal';
@@ -70,6 +70,16 @@ const cellTone = {
   secondary: 'bg-secondary-soft text-secondary border-secondary-soft',
 };
 
+const softBadgeTone = {
+  primary: 'bg-primary-soft text-primary',
+  success: 'bg-success-soft text-success',
+  info: 'bg-info-soft text-info',
+  warn: 'bg-warn-soft text-warn',
+  danger: 'bg-danger-soft text-danger',
+  accent: 'bg-accent-soft text-accent',
+  secondary: 'bg-secondary-soft text-secondary',
+};
+
 export default function ScheduleScreen({ initialView = 'cards', onViewChange }) {
   const [activeTab, setActiveTab] = useState(initialView);
   const [selectedDayIndex, setSelectedDayIndex] = useState(null); // null = همه روزها
@@ -83,6 +93,7 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
   const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
   const [editingExam, setEditingExam] = useState(null);
   const [isExamModalOpen, setIsExamModalOpen] = useState(false);
+  const [scheduleVer, setScheduleVer] = useState(0);
 
   const { days, slots, cells } = getScheduleMatrix();
   const EXAMS_DATA = getExamsView();
@@ -124,21 +135,30 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
     if (!cardCourse) return;
     const fullList = getCurrentTermSchedule() || [];
 
+    const norm = (v) =>
+      String(v || '')
+        .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+        .replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+        .replace(/[يی]/g, 'ی')
+        .replace(/[كک]/g, 'ک')
+        .replace(/[\u200c\s]+/g, ' ')
+        .trim();
+
     const targetId = cardCourse.id ? String(cardCourse.id).trim() : null;
-    const targetCode = cardCourse.code ? String(cardCourse.code).trim() : null;
-    const targetName = (cardCourse.name || cardCourse.title || '').trim();
+    const targetCode = cardCourse.code ? norm(cardCourse.code) : null;
+    const targetName = norm(cardCourse.name || cardCourse.title || '');
 
     // تطابق دقیق با لیست دروس فقط بر اساس شناسه‌ها و مقادیر معتبر و غیرخالی
     const hit = fullList.find((item) => {
       if (!item) return false;
       const itemId = item.id ? String(item.id).trim() : null;
-      const itemCode = item.code ? String(item.code).trim() : null;
-      const itemName = (item.name || item.title || '').trim();
+      const itemCode = item.code ? norm(item.code) : null;
+      const itemName = norm(item.name || item.title || '');
 
-      // ۱. تطابق با کد درس
-      if (targetCode && itemCode && targetCode === itemCode) return true;
-      // ۲. تطابق با شناسه
+      // ۱. تطابق با شناسه
       if (targetId && itemId && targetId === itemId) return true;
+      // ۲. تطابق با کد درس
+      if (targetCode && itemCode && targetCode === itemCode) return true;
       // ۳. تطابق با نام درس
       if (targetName && itemName && targetName === itemName) return true;
 
@@ -146,32 +166,46 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
     });
 
     if (hit) {
-      setEditingCourse(hit);
+      setEditingCourse({
+        ...hit,
+        color: hit.color || cardCourse.color || 'primary',
+        includeInGpa: hit.includeInGpa !== false,
+      });
     } else if (cardCourse.daySlots || cardCourse.days) {
-      setEditingCourse(cardCourse);
+      setEditingCourse({
+        ...cardCourse,
+        color: cardCourse.color || 'primary',
+        includeInGpa: cardCourse.includeInGpa !== false,
+      });
     } else {
       setEditingCourse({
         id: targetId || `temp_${Date.now()}`,
-        name: targetName,
-        code: targetCode || '',
+        name: cardCourse.name || cardCourse.title || targetName,
+        code: cardCourse.code || targetCode || '',
         professor: cardCourse.professor || '',
         hall: cardCourse.room || cardCourse.hall || '',
         time: cardCourse.time || cardCourse.slot || '',
         days: cardCourse.day ? [cardCourse.day] : [],
+        color: cardCourse.color || 'primary',
+        includeInGpa: cardCourse.includeInGpa !== false,
       });
     }
     setIsCourseModalOpen(true);
   };
 
-  const handleSaveCourse = (courseData) => {
+  const handleSaveCourse = async (courseData) => {
     const currentTerm = resolveCurrentTermId();
-    if (editingCourse && (editingCourse.id || editingCourse.code)) {
-      updateScheduleCourse(currentTerm, editingCourse.id || editingCourse.code, courseData);
+    if (editingCourse) {
+      updateScheduleCourse(currentTerm, editingCourse, courseData);
       showToast(`اطلاعات درس «${courseData.name}» به‌روزرسانی شد.`);
     } else {
       addScheduleCourse(currentTerm, courseData);
       showToast(`درس «${courseData.name}» به برنامه اضافه شد.`);
     }
+    setScheduleVer((v) => v + 1);
+    try {
+      await syncCurrentDndState();
+    } catch {}
   };
 
   const handleDeleteCourse = (identifier) => {
@@ -457,7 +491,7 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                     professor: c.professor || 'ـ',
                     time,
                     room,
-                    color: getToneForCourse(c, allSched),
+                    color: c.color || getToneForCourse(c, allSched),
                     course: c,
                   };
                 })
@@ -545,9 +579,15 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                               {toFaDigits(c.time || '—')}
                             </span>
                           </div>
-                          <div className="flex items-center gap-1.5 text-neutral">
-                            <MapPin className="w-3.5 h-3.5 text-neutral" />
-                            <span>{toFaDigits(c.room || '—')}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-bold border-0 ${
+                                softBadgeTone[c.color] || 'bg-primary-soft text-primary'
+                              }`}
+                            >
+                              <MapPin className="w-3 h-3 shrink-0" />
+                              <span>{toFaDigits(c.room || '—')}</span>
+                            </span>
                           </div>
                         </div>
                       </motion.article>

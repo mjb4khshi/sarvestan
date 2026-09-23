@@ -504,6 +504,83 @@ public class SarvestanClassAlarmPlugin extends Plugin {
         call.resolve(ret);
     }
 
+    /** اعمال مستقیم و فوری حالت مزاحم نشوید (سایلنت خودکار) */
+    @PluginMethod
+    public void setDndMode(PluginCall call) {
+        Context ctx = getContext();
+        boolean enabled = Boolean.TRUE.equals(call.getBoolean("enabled", false));
+        boolean success = false;
+        boolean needsPermission = false;
+        String reason = "";
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+            android.media.AudioManager audio = (android.media.AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+
+            if (nm != null && nm.isNotificationPolicyAccessGranted()) {
+                try {
+                    if (enabled) {
+                        nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY);
+                        if (audio != null) {
+                            try {
+                                audio.setRingerMode(android.media.AudioManager.RINGER_MODE_SILENT);
+                            } catch (Exception ignore) {}
+                        }
+                    } else {
+                        nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
+                        if (audio != null) {
+                            try {
+                                audio.setRingerMode(android.media.AudioManager.RINGER_MODE_NORMAL);
+                            } catch (Exception ignore) {}
+                        }
+                    }
+                    success = true;
+                } catch (Exception e) {
+                    reason = e.getMessage() != null ? e.getMessage() : e.toString();
+                    Log.e("SarvestanClassAlarms", "setDndMode failed: " + reason, e);
+                }
+            } else {
+                needsPermission = true;
+                reason = "دسترسی Do Not Disturb در تنظیمات سیستم داده نشده است";
+            }
+        } else {
+            android.media.AudioManager audio = (android.media.AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+            if (audio != null) {
+                audio.setRingerMode(enabled ? android.media.AudioManager.RINGER_MODE_SILENT : android.media.AudioManager.RINGER_MODE_NORMAL);
+                success = true;
+            }
+        }
+
+        JSObject ret = new JSObject();
+        ret.put("ok", success);
+        ret.put("enabled", enabled);
+        ret.put("needsPermission", needsPermission);
+        if (!success) {
+            ret.put("error", reason);
+        }
+        call.resolve(ret);
+    }
+
+    /** بررسی وضعیت کنونی فعال بودن سایلنت / DND */
+    @PluginMethod
+    public void getDndMode(PluginCall call) {
+        Context ctx = getContext();
+        boolean isDnd = false;
+        boolean hasPermission = false;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) {
+                hasPermission = nm.isNotificationPolicyAccessGranted();
+                int filter = nm.getCurrentInterruptionFilter();
+                isDnd = (filter != NotificationManager.INTERRUPTION_FILTER_ALL && filter != NotificationManager.INTERRUPTION_FILTER_UNKNOWN);
+            }
+        }
+        JSObject ret = new JSObject();
+        ret.put("isDnd", isDnd);
+        ret.put("hasPermission", hasPermission);
+        call.resolve(ret);
+    }
+
     /** ارسال اعلان تستی فوری برای اطمینان از عملکرد مجوز و صدا */
     @PluginMethod
     public void testNotification(PluginCall call) {

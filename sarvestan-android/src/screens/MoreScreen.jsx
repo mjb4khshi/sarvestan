@@ -103,13 +103,17 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
       }
     }
     try {
-      await setDndDuringClass(nextState);
-      setResetToast(
-        nextState
-          ? 'حالت مزاحم نشوید حین کلاس فعال شد (سایلنت خودکار در ساعات کلاس)'
-          : 'حالت مزاحم نشوید حین کلاس غیرفعال شد.'
-      );
-      setTimeout(() => setResetToast(''), 3500);
+      const res = await setDndDuringClass(nextState);
+      if (nextState) {
+        if (res?.activatedNow && res?.activeCourse) {
+          setResetToast(`کلاس «${res.activeCourse.title || res.activeCourse.name}» در جریان است؛ حالت مزاحم نشوید فوراً فعال شد.`);
+        } else {
+          setResetToast('حالت مزاحم نشوید حین کلاس فعال شد (سایلنت خودکار در ساعات کلاس)');
+        }
+      } else {
+        setResetToast('حالت مزاحم نشوید حین کلاس غیرفعال شد.');
+      }
+      setTimeout(() => setResetToast(''), 4000);
     } catch (e) {
       setResetToast('خطا در تغییر وضعیت: ' + String(e?.message || e));
       setTimeout(() => setResetToast(''), 3500);
@@ -159,13 +163,9 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
       try {
         sessionStorage.clear();
       } catch {}
-      try {
-        sessionStorage.setItem('sarvestan_manual_logout', '1');
-      } catch {}
-
       setTimeout(() => {
         try {
-          window.location.replace(window.location.origin + window.location.pathname + '?login=1');
+          window.location.replace(window.location.origin + window.location.pathname);
         } catch {
           window.location.reload();
         }

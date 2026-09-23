@@ -304,35 +304,73 @@ export function updateScheduleCourse(termId, courseIdentifier, updatedCourse) {
   const schedule = { ...(cache.schedule || {}) };
   const list = [...(schedule[targetTerm] || [])];
 
-  const idx = list.findIndex((c, i) => {
+  const norm = (v) =>
+    String(v || '')
+      .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+      .replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+      .replace(/[يی]/g, 'ی')
+      .replace(/[كک]/g, 'ک')
+      .replace(/[\u200c\s]+/g, ' ')
+      .trim();
+
+  const idTarget =
+    courseIdentifier && typeof courseIdentifier === 'object' ? courseIdentifier.id : courseIdentifier;
+  const codeTarget =
+    courseIdentifier && typeof courseIdentifier === 'object'
+      ? courseIdentifier.code
+      : (courseIdentifier || updatedCourse?.code);
+  const nameTarget =
+    courseIdentifier && typeof courseIdentifier === 'object'
+      ? (courseIdentifier.name || courseIdentifier.title)
+      : updatedCourse?.name;
+
+  let idx = list.findIndex((c) => {
     if (!c) return false;
-    if (courseIdentifier && typeof courseIdentifier === 'object') {
-      if (courseIdentifier.id && c.id && c.id === courseIdentifier.id) return true;
-      if (courseIdentifier.code && c.code && String(c.code) === String(courseIdentifier.code)) {
-        if (!courseIdentifier.name || c.name === courseIdentifier.name) return true;
-      }
-    }
-    if (c.id && c.id === courseIdentifier) return true;
-    if (c.code && String(c.code) === String(courseIdentifier)) return true;
-    if (i === courseIdentifier) return true;
+    if (idTarget && c.id && String(c.id) === String(idTarget)) return true;
+    if (codeTarget && c.code && norm(c.code) === norm(codeTarget)) return true;
+    if (nameTarget && (c.name || c.title) && norm(c.name || c.title) === norm(nameTarget)) return true;
     return false;
   });
 
+  const merged = {
+    ...(idx >= 0 ? list[idx] : {}),
+    ...updatedCourse,
+    id: (idx >= 0 ? list[idx].id : null) || updatedCourse.id || `course_${Date.now()}`,
+    customEdited: true,
+  };
+
   if (idx >= 0) {
-    list[idx] = {
-      ...list[idx],
-      ...updatedCourse,
-      id: list[idx].id || updatedCourse.id || `course_${Date.now()}`,
-      customEdited: true,
-    };
-    schedule[targetTerm] = list;
-    try {
-      localStorage.setItem(KEYS.SCHEDULE_CUSTOMIZED, 'true');
-    } catch {}
-    updatePart({ schedule });
-    return true;
+    list[idx] = merged;
+  } else {
+    list.push(merged);
   }
-  return false;
+
+  schedule[targetTerm] = list;
+  try {
+    localStorage.setItem(KEYS.SCHEDULE_CUSTOMIZED, 'true');
+  } catch {}
+
+  // همگام‌سازی با کش courses برای دسترسی بدون معطلی شبیه‌ساز معدل
+  if (Array.isArray(cache.courses)) {
+    const cIdx = cache.courses.findIndex((cc) => {
+      if (!cc) return false;
+      if (idTarget && cc.id && String(cc.id) === String(idTarget)) return true;
+      if (codeTarget && cc.code && norm(cc.code) === norm(codeTarget)) return true;
+      if (nameTarget && (cc.name || cc.title) && norm(cc.name || cc.title) === norm(nameTarget)) return true;
+      return false;
+    });
+    if (cIdx >= 0) {
+      cache.courses[cIdx] = {
+        ...cache.courses[cIdx],
+        ...updatedCourse,
+        includeInGpa: updatedCourse.includeInGpa !== false,
+        color: updatedCourse.color || cache.courses[cIdx].color,
+      };
+    }
+  }
+
+  updatePart({ schedule, courses: cache.courses });
+  return true;
 }
 
 export function addScheduleCourse(termId, newCourse) {
@@ -349,10 +387,25 @@ export function addScheduleCourse(termId, newCourse) {
   list.push(courseWithId);
   schedule[targetTerm] = list;
 
+  // افزودن به کش courses برای دیده‌شدن در شبیه‌ساز معدل
+  if (Array.isArray(cache.courses)) {
+    cache.courses.push({
+      id: courseWithId.id,
+      code: courseWithId.code || '',
+      name: courseWithId.name || '',
+      units: courseWithId.units || 3,
+      termId: targetTerm,
+      color: courseWithId.color || 'primary',
+      includeInGpa: courseWithId.includeInGpa !== false,
+      grade: null,
+      status: 'در حال',
+    });
+  }
+
   try {
     localStorage.setItem(KEYS.SCHEDULE_CUSTOMIZED, 'true');
   } catch {}
-  updatePart({ schedule });
+  updatePart({ schedule, courses: cache.courses });
   return courseWithId;
 }
 

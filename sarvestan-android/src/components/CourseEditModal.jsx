@@ -11,11 +11,23 @@ import {
   Check,
   AlertTriangle,
   Calendar,
+  Palette,
+  Calculator,
 } from 'lucide-react';
 import { toFaDigits } from '../utils/faDigits';
 import SarvTimePickerModal from './SarvTimePickerModal';
 
 const DAYS_OF_WEEK = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'];
+
+const THEME_PALETTE = [
+  { id: 'primary', label: 'اصلی تم', classBg: 'bg-primary' },
+  { id: 'secondary', label: 'ثانویه', classBg: 'bg-secondary' },
+  { id: 'accent', label: 'اکسنت', classBg: 'bg-accent' },
+  { id: 'info', label: 'اطلاعات', classBg: 'bg-info' },
+  { id: 'success', label: 'موفقیت', classBg: 'bg-success' },
+  { id: 'warn', label: 'هشدار', classBg: 'bg-warn' },
+  { id: 'danger', label: 'سرخ', classBg: 'bg-danger' },
+];
 
 function parseStartAndEnd(timeStr) {
   if (!timeStr) return { start: '08:00', end: '10:00' };
@@ -44,6 +56,8 @@ export default function CourseEditModal({
   const [slots, setSlots] = useState([
     { day: 'شنبه', start: '13:30', end: '15:00', hall: '' },
   ]);
+  const [includeInGpa, setIncludeInGpa] = useState(true);
+  const [color, setColor] = useState('primary');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [timePickerState, setTimePickerState] = useState({
@@ -64,6 +78,8 @@ export default function CourseEditModal({
         setUnits(course.units != null ? course.units : 3);
         setCode(course.code || '');
         setGroup(course.group || '01');
+        setIncludeInGpa(course.includeInGpa !== false);
+        setColor(course.color || 'primary');
 
         if (Array.isArray(course.daySlots) && course.daySlots.length > 0) {
           setSlots(
@@ -105,6 +121,8 @@ export default function CourseEditModal({
         setUnits(3);
         setCode('');
         setGroup('01');
+        setIncludeInGpa(true);
+        setColor('primary');
         setSlots([{ day: defaultDay || 'شنبه', start: '13:30', end: '15:00', hall: '' }]);
       }
     }
@@ -171,6 +189,8 @@ export default function CourseEditModal({
       time: timeFormatted,
       classTimeRaw: timeFormatted,
       daySlots: formattedDaySlots,
+      includeInGpa: Boolean(includeInGpa),
+      color: color || 'primary',
     };
 
     onSave(resultCourse);
@@ -333,6 +353,76 @@ export default function CourseEditModal({
                     placeholder="۰۱"
                     className="w-full px-2.5 py-2 rounded-xl bg-base-500/15 border border-base-500/30 text-base-content text-[12px] text-center font-mono focus:border-primary outline-none transition"
                   />
+                </div>
+              </div>
+
+              {/* انتخاب رنگ درس از پالت تم */}
+              <div className="p-3 rounded-2xl bg-base-500/10 border border-base-500/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11.5px] font-bold text-base-content flex items-center gap-1.5">
+                    <Palette className="w-3.5 h-3.5 text-primary" />
+                    رنگ درس از پالت تم
+                  </label>
+                  <span className="text-[10px] text-neutral font-medium">
+                    برای کارت و بج مکان
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-1.5 pt-0.5">
+                  {THEME_PALETTE.map((pal) => {
+                    const isSelected = color === pal.id;
+                    return (
+                      <button
+                        key={pal.id}
+                        type="button"
+                        onClick={() => setColor(pal.id)}
+                        className={`relative flex-1 py-1.5 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all active:scale-95 ${
+                          isSelected
+                            ? 'border-primary shadow-xs ring-2 ring-primary/30 bg-base'
+                            : 'border-transparent hover:bg-base-500/15'
+                        }`}
+                        title={pal.label}
+                      >
+                        <span className={`w-5 h-5 rounded-full ${pal.classBg} shadow-xs grid place-items-center`}>
+                          {isSelected && <Check className="w-3 h-3 text-white stroke-[3]" />}
+                        </span>
+                        <span className={`text-[9.5px] font-bold ${isSelected ? 'text-primary' : 'text-neutral'}`}>
+                          {pal.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* تیک اضافه کردن درس به شبیه‌ساز معدل */}
+              <div
+                onClick={() => setIncludeInGpa((prev) => !prev)}
+                className="p-3 rounded-2xl bg-base-500/10 border border-base-500/20 flex items-center justify-between gap-3 cursor-pointer hover:bg-base-500/15 transition select-none"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span
+                    className={`w-8 h-8 rounded-xl grid place-items-center shrink-0 transition-colors ${
+                      includeInGpa ? 'bg-primary/15 text-primary' : 'bg-base-500/30 text-neutral'
+                    }`}
+                  >
+                    <Calculator className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <span className="text-[12px] font-bold text-base-content block">
+                      محاسبه در شبیه‌ساز معدل
+                    </span>
+                    <span className="text-[10.5px] text-neutral block">
+                      این درس در بخش محاسبه و شبیه‌ساز معدل ترم لحاظ شود
+                    </span>
+                  </div>
+                </div>
+
+                <div
+                  className={`w-11 h-6 rounded-full transition-colors relative p-0.5 shrink-0 flex items-center shadow-inner ${
+                    includeInGpa ? 'bg-primary justify-end' : 'bg-base-500/40 justify-start'
+                  }`}
+                >
+                  <span className="w-5 h-5 rounded-full bg-white shadow-md block transition-all" />
                 </div>
               </div>
 

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Award,
@@ -59,12 +59,37 @@ export default function GradesScreen({ onNavigate }) {
     const init = {};
     (TERMS[0]?.courses || []).forEach((c) => {
       init[c.id] = {
-        included: c.status !== 'حذف اضطراری' && c.status !== 'در انتظار',
+        included:
+          c.status !== 'حذف اضطراری' &&
+          c.status !== 'در انتظار' &&
+          c.includeInGpa !== false,
         score: c.score ?? 17.0,
       };
     });
     return init;
   });
+
+  // به‌روزرسانی زنده وضعیت دروس هنگام تغییر در داده‌های برنامه یا کش
+  useEffect(() => {
+    if (!TERMS[0]?.courses) return;
+    setSimCourses((prev) => {
+      const next = { ...prev };
+      TERMS[0].courses.forEach((c) => {
+        if (!next[c.id]) {
+          next[c.id] = {
+            included:
+              c.status !== 'حذف اضطراری' &&
+              c.status !== 'در انتظار' &&
+              c.includeInGpa !== false,
+            score: c.score ?? 17.0,
+          };
+        } else if (c.includeInGpa === false) {
+          next[c.id] = { ...next[c.id], included: false };
+        }
+      });
+      return next;
+    });
+  }, [TERMS]);
 
   // تاگل حذف/لحاظ کردن یک درس در محاسبه معدل
   const toggleCourseInclusion = (courseId) => {
@@ -106,7 +131,7 @@ export default function GradesScreen({ onNavigate }) {
     const init = {};
     (TERMS[0]?.courses || []).forEach((c) => {
       init[c.id] = {
-        included: true,
+        included: c.includeInGpa !== false,
         score: c.score ?? 17.0,
       };
     });
