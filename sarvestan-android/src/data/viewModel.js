@@ -129,7 +129,7 @@ function parseHour(raw) {
   return parseInt(m[1], 10) + parseInt(m[2], 10) / 60;
 }
 
-const EMPTY_WEEK = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه'].map((day) => ({
+const EMPTY_WEEK = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه'].map((day) => ({
   day,
   count: 0,
 }));
@@ -166,7 +166,7 @@ const EMPTY_SUMMARY = {
 };
 
 const EMPTY_MATRIX = {
-  days: ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه'],
+  days: ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه'],
   slots: [
     '۰۷:۳۰ – ۰۹:۰۰',
     '۰۹:۰۰ – ۱۰:۳۰',
@@ -262,10 +262,21 @@ function buildViewModel() {
     };
   });
 
-  const days = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه'];
+  const baseDays = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه'];
+  const hasThu = allCourses.some(
+    (c) => (Array.isArray(c.days) && c.days.includes('پنجشنبه')) || (Array.isArray(c.daySlots) && c.daySlots.some((s) => s.day === 'پنجشنبه')),
+  );
+  const hasFri = allCourses.some(
+    (c) => (Array.isArray(c.days) && c.days.includes('جمعه')) || (Array.isArray(c.daySlots) && c.daySlots.some((s) => s.day === 'جمعه')),
+  );
+  const days = [...baseDays];
+  if (hasThu) days.push('پنجشنبه');
+  if (hasFri) days.push('جمعه');
   const week = days.map((d) => ({
     day: d,
-    count: allCourses.filter((c) => Array.isArray(c.days) && c.days.includes(d)).length,
+    count: allCourses.filter(
+      (c) => (Array.isArray(c.days) && c.days.includes(d)) || (Array.isArray(c.daySlots) && c.daySlots.some((s) => s.day === d)),
+    ).length,
   }));
 
   const rangeHours = (raw) => {
@@ -832,9 +843,11 @@ export function getScheduleMatrix() {
   const courses = getCurrentTermSchedule(currentTerm);
   if (!courses.length) return EMPTY_MATRIX;
 
-  const baseDays = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه'];
+  const baseDays = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه'];
+  const hasThu = courses.some((c) => courseSlots(c).some((s) => s.day === 'پنجشنبه'));
   const hasFri = courses.some((c) => courseSlots(c).some((s) => s.day === 'جمعه'));
   const days = [...baseDays];
+  if (hasThu) days.push('پنجشنبه');
   if (hasFri) days.push('جمعه');
 
   // بررسی نیاز به اسلات‌های اختیاری بر اساس کلاس‌های موجود
