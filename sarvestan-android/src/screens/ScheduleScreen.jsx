@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CalendarDays,
@@ -22,13 +22,28 @@ import {
   Plus,
   Pencil,
   Edit3,
+  Share2,
+  Camera,
+  Download,
+  Copy,
+  Check,
+  X,
 } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
+import {
+  renderScheduleImage,
+  canvasToDataUrl,
+  saveCanvasImage,
+  shareCanvas,
+  copyCanvasToClipboard,
+} from '../services/shareImages';
 import { isNativeAlarms, hasClassAlarmPlugin, exportExamToCalendar, syncCurrentDndState } from '../services/classAlarms';
 import { getScheduleMatrix, getExamsView, parseClassTime, getToneForCourse } from '../data/viewModel';
 import { toFaDigits } from '../utils/faDigits';
 import ClassAlarmModal from '../components/ClassAlarmModal';
 import CourseEditModal from '../components/CourseEditModal';
 import ExamEditModal from '../components/ExamEditModal';
+import OdometerNumber from '../components/OdometerNumber';
 import {
   getCurrentTermSchedule,
   updateScheduleCourse,
@@ -81,11 +96,30 @@ const softBadgeTone = {
 };
 
 export default function ScheduleScreen({ initialView = 'cards', onViewChange }) {
+  const { currentThemeMeta } = useTheme();
   const [activeTab, setActiveTab] = useState(initialView);
-  const [selectedDayIndex, setSelectedDayIndex] = useState(null); // null = همه روزها
+
+  const { days, slots, cells } = getScheduleMatrix();
+  const EXAMS_DATA = getExamsView();
+
+  // انتخاب هوشمند روز جاری هفته بر اساس روز تقویم
+  const [selectedDayIndex, setSelectedDayIndex] = useState(() => {
+    const dayMap = { 6: 'شنبه', 0: 'یکشنبه', 1: 'دوشنبه', 2: 'سه‌شنبه', 3: 'چهارشنبه', 4: 'پنجشنبه', 5: 'جمعه' };
+    const todayName = dayMap[new Date().getDay()];
+    const initialDays = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'];
+    const idx = initialDays.indexOf(todayName);
+    return idx >= 0 && idx < 5 ? idx : 0; // پیش‌فرض روز جاری (یا شنبه اگر آخر هفته است)
+  });
+
   const [isAlarmModalOpen, setIsAlarmModalOpen] = useState(false);
   const [exportingExamId, setExportingExamId] = useState(null);
   const [calendarFeedback, setCalendarFeedback] = useState('');
+
+  // استیت‌های اشتراک‌گذاری سریع استوری (Quick Story Share)
+  const [shareBusy, setShareBusy] = useState(false);
+  const [storyPreview, setStoryPreview] = useState(null); // { url, canvas }
+  const [storyToast, setStoryToast] = useState('');
+  const [storyCopied, setStoryCopied] = useState(false);
 
   // وضعیت‌های مربوط به ویرایش دروس و امتحانات
   const [editingCourse, setEditingCourse] = useState(null);
@@ -95,8 +129,19 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
   const [isExamModalOpen, setIsExamModalOpen] = useState(false);
   const [scheduleVer, setScheduleVer] = useState(0);
 
-  const { days, slots, cells } = getScheduleMatrix();
-  const EXAMS_DATA = getExamsView();
+  // فوکوس و اسکرول نرم خودکار به کلاس بعدی یا در حال برگزاری روز انتخابی
+  useEffect(() => {
+    if (activeTab !== 'cards') return;
+    const timer = setTimeout(() => {
+      // جستجوی کارت با کلاس برجسته یا اولین کارت کلاس روز
+      const targetEl = document.querySelector('[data-highlight-class="true"]') ||
+        document.querySelector('.sarv-course-card');
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 280);
+    return () => clearTimeout(timer);
+  }, [activeTab, selectedDayIndex]);
 
   const handleTabChange = (view) => {
     setActiveTab(view);
@@ -125,9 +170,7 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
   // مدیریت باز کردن ویرایش و افزودن درس
   const handleOpenAddCourse = (day = null) => {
     setEditingCourse(null);
-    const chosenDay =
-      day || (selectedDayIndex !== null && days[selectedDayIndex] ? days[selectedDayIndex] : 'شنبه');
-    setDefaultDayForModal(chosenDay);
+    setDefaultDayForModal(day || 'شنبه');
     setIsCourseModalOpen(true);
   };
 
@@ -165,16 +208,19 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
       return false;
     });
 
+    const resolvedColor =
+      hit?.color || cardCourse.color || getToneForCourse(hit || cardCourse, fullList);
+
     if (hit) {
       setEditingCourse({
         ...hit,
-        color: hit.color || cardCourse.color || 'primary',
+        color: resolvedColor,
         includeInGpa: hit.includeInGpa !== false,
       });
     } else if (cardCourse.daySlots || cardCourse.days) {
       setEditingCourse({
         ...cardCourse,
-        color: cardCourse.color || 'primary',
+        color: resolvedColor,
         includeInGpa: cardCourse.includeInGpa !== false,
       });
     } else {
@@ -186,7 +232,7 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
         hall: cardCourse.room || cardCourse.hall || '',
         time: cardCourse.time || cardCourse.slot || '',
         days: cardCourse.day ? [cardCourse.day] : [],
-        color: cardCourse.color || 'primary',
+        color: resolvedColor,
         includeInGpa: cardCourse.includeInGpa !== false,
       });
     }
@@ -242,8 +288,64 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
     showToast('نوبت امتحان با موفقیت حذف شد.');
   };
 
-  // محاسبه آمار برنامه
-  const totalClasses = Object.keys(cells).length;
+  const handleQuickStory = async () => {
+    if (shareBusy) return;
+    setShareBusy(true);
+    setStoryToast('');
+    try {
+      const canvas = await renderScheduleImage({ theme: currentThemeMeta });
+      setStoryPreview({
+        url: canvasToDataUrl(canvas),
+        canvas,
+        filename: 'sarvestan-schedule-story.png',
+        title: 'برنامه هفتگی من | سروستان',
+      });
+      setStoryToast('تصویر باکیفیت آماده شد — گزینه ذخیره یا اشتراک را انتخاب کنید');
+    } catch (e) {
+      console.error('[quick story]', e);
+      showToast('خطا در تولید تصویر برنامه: ' + (e?.message || e));
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  const handleDownloadStory = async () => {
+    if (!storyPreview?.canvas) return;
+    try {
+      await saveCanvasImage(storyPreview.canvas, storyPreview.filename);
+      setStoryToast('تصویر در گالری ذخیره شد ✓');
+    } catch {
+      setStoryToast('خطا در ذخیره تصویر');
+    }
+  };
+
+  const handleShareStoryNative = async () => {
+    if (!storyPreview?.canvas) return;
+    try {
+      const r = await shareCanvas(storyPreview.canvas, {
+        filename: storyPreview.filename,
+        title: storyPreview.title,
+      });
+      if (r === 'shared') setStoryToast('تصویر با موفقیت ارسال شد');
+      if (r === 'downloaded') setStoryToast('تصویر ذخیره شد — آماده قرار دادن در استوری');
+    } catch {
+      setStoryToast('خطا در اشتراک‌گذاری');
+    }
+  };
+
+  const handleCopyStory = async () => {
+    if (!storyPreview?.canvas) return;
+    try {
+      await copyCanvasToClipboard(storyPreview.canvas);
+      setStoryCopied(true);
+      setStoryToast('تصویر در حافظه کپی شد (آماده چسباندن در استوری) ✓');
+      setTimeout(() => setStoryCopied(false), 2500);
+    } catch {
+      await handleDownloadStory();
+    }
+  };
+
+  const totalClasses = Object.keys(cells || {}).length;
   const canAlarms = isNativeAlarms() && hasClassAlarmPlugin();
 
   return (
@@ -267,6 +369,24 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            {/* دکمه خروجی سریع تصویر برنامه (همرسانی) */}
+            {activeTab !== 'exams' && (
+              <button
+                type="button"
+                onClick={handleQuickStory}
+                disabled={shareBusy}
+                className="px-2.5 py-1.5 rounded-xl bg-accent-soft text-accent border border-accent/30 text-[11px] font-bold flex items-center gap-1 hover:bg-accent hover:text-accent-content active:scale-95 transition cursor-pointer disabled:opacity-50"
+                title="تولید تصویر تایم‌تیبل مناسب همرسانی و پس‌زمینه"
+              >
+                {shareBusy ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Share2 className="w-3.5 h-3.5" />
+                )}
+                <span>همرسانی</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={activeTab === 'exams' ? handleOpenAddExam : handleOpenAddCourse}
@@ -276,8 +396,8 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
               <span>{activeTab === 'exams' ? 'افزودن امتحان' : 'افزودن درس'}</span>
             </button>
 
-            <span className="text-[11px] font-semibold px-2.5 py-1 rounded-xl bg-primary/10 text-primary border border-primary/20 font-mono whitespace-nowrap shrink-0">
-              {activeTab === 'exams' ? 'گزارش ۴۲۸' : 'گزارش ۷۸'}
+            <span className="text-[11px] font-semibold px-2 py-1 rounded-xl bg-primary/10 text-primary border border-primary/20 font-mono whitespace-nowrap shrink-0">
+              {activeTab === 'exams' ? '۴۲۸' : '۷۸'}
             </span>
           </div>
         </div>
@@ -403,26 +523,27 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
           transition={{ duration: 0.2 }}
           className="space-y-4"
         >
-          {/* نوار فیلتر روزهای هفته با انیمیشن حرکت مستطیل فعال */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar relative">
-            <button
-              type="button"
-              onClick={() => setSelectedDayIndex(null)}
-              className={`relative px-3 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap transition-colors select-none ${
-                selectedDayIndex === null
-                  ? 'text-primary-content'
-                  : 'bg-base-500/20 text-neutral hover:bg-base-500/40'
-              }`}
-            >
-              {selectedDayIndex === null && (
-                <motion.span
-                  layoutId="dayActivePill"
-                  className="absolute inset-0 bg-primary rounded-xl z-0 shadow-sm"
-                  transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-                />
-              )}
-              <span className="relative z-10">همه روزها</span>
-            </button>
+          {/* نوار فیلتر روزهای هفته با محفظه لبه‌گرد ثابت و اسکرول داخلی عناصر */}
+          <div className="w-full p-1 rounded-2xl bg-base-500/20 border border-base-500/35 overflow-x-auto no-scrollbar" data-no-swipe>
+            <div className="inline-flex items-center gap-1.5 min-w-full">
+              <button
+                type="button"
+                onClick={() => setSelectedDayIndex(null)}
+                className={`relative px-3 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap transition-colors select-none shrink-0 ${
+                  selectedDayIndex === null
+                    ? 'text-primary-content'
+                    : 'text-neutral hover:text-base-content'
+                }`}
+              >
+                {selectedDayIndex === null && (
+                  <motion.span
+                    layoutId="dayActivePill"
+                    className="absolute inset-0 bg-primary rounded-xl z-0 shadow-sm"
+                    transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                  />
+                )}
+                <span className="relative z-10">همه روزها</span>
+              </button>
 
             {days.map((day, idx) => {
               const allSched = getCurrentTermSchedule() || [];
@@ -437,10 +558,10 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                   key={day}
                   type="button"
                   onClick={() => setSelectedDayIndex(isSelected ? null : idx)}
-                  className={`relative px-3 py-1.5 rounded-xl text-[11px] whitespace-nowrap flex items-center gap-1.5 transition-colors select-none cursor-pointer ${
+                  className={`relative px-3 py-1.5 rounded-xl text-[11px] whitespace-nowrap flex items-center gap-1.5 transition-colors select-none cursor-pointer shrink-0 ${
                     isSelected
                       ? 'text-primary-content font-bold'
-                      : 'bg-base-500/20 text-neutral hover:bg-base-500/40 font-medium'
+                      : 'text-neutral hover:text-base-content font-medium'
                   }`}
                 >
                   {isSelected && (
@@ -463,6 +584,7 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                 </button>
               );
             })}
+            </div>
           </div>
 
           {/* لیست روزها و کارت‌های کلاس */}
@@ -492,6 +614,8 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                     time,
                     room,
                     color: c.color || getToneForCourse(c, allSched),
+                    absences: Number(c.absences) || 0,
+                    maxAbsences: c.maxAbsences != null ? Number(c.maxAbsences) : 3,
                     course: c,
                   };
                 })
@@ -538,60 +662,92 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                   </div>
 
                   <div className="space-y-2.5">
-                    {dayCourses.map((c, ci) => (
-                      <motion.article
-                        key={`${day}-${c.title}-${c.id || ci}`}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: ci * 0.04 }}
-                        className={`sarv-card p-4 hover:border-primary/40 transition-colors border-r-4 ${
-                          borderEdge[c.color] || 'border-r-primary'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <h4 className="text-[14px] font-bold text-base-content truncate">
-                              {c.title}
-                            </h4>
-                            <div className="mt-1 flex items-center gap-2 text-[11.5px] text-neutral">
-                              <span className="flex items-center gap-1">
-                                <User className="w-3 h-3 text-primary/70" />
-                                {c.professor}
+                    {dayCourses.map((c, ci) => {
+                      const isHex = String(c.color || '').startsWith('#') || String(c.color || '').startsWith('rgb');
+                      const parsed = parseClassTime(c.time);
+                      const nowH = new Date().getHours() + new Date().getMinutes() / 60;
+                      const isNow = parsed.startHour != null && parsed.endHour != null && nowH >= parsed.startHour && nowH < parsed.endHour;
+                      const isNext = parsed.startHour != null && nowH < parsed.startHour;
+                      const isHighlight = isNow || isNext;
+
+                      return (
+                        <motion.article
+                          key={`${day}-${c.title}-${c.id || ci}`}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: ci * 0.04 }}
+                          data-highlight-class={isHighlight ? 'true' : undefined}
+                          style={isHex ? { borderRightColor: c.color } : undefined}
+                          className={`sarv-card sarv-course-card p-4 hover:border-primary/40 transition-colors border-r-4 ${
+                            isHex ? '' : (borderEdge[c.color] || 'border-r-primary')
+                          } ${isNow ? 'ring-2 ring-success/60 ring-offset-2 ring-offset-base' : ''}`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <h4 className="text-[14px] font-bold text-base-content truncate">
+                                {c.title}
+                              </h4>
+                              <div className="mt-1 flex items-center gap-2 text-[11.5px] text-neutral">
+                                <span className="flex items-center gap-1">
+                                  <User className="w-3 h-3 text-primary/70" />
+                                  {c.professor}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {/* بج شمارنده غیبت‌های مجاز با انیمیشن شمارشگر */}
+                              <span
+                                onClick={() => handleOpenEditCourse(c.course || c)}
+                                title="تعداد غیبت‌های انجام‌شده از سقف مجاز (برای تغییر کلیک کنید)"
+                                className={`px-2 py-0.5 rounded-lg text-[10.5px] font-bold cursor-pointer transition active:scale-95 flex items-center gap-1 border ${
+                                  c.absences >= c.maxAbsences
+                                    ? 'bg-danger text-danger-content border-danger'
+                                    : c.absences === c.maxAbsences - 1
+                                    ? 'bg-warn-soft text-warn border-warn/30'
+                                    : c.absences > 0
+                                    ? 'bg-info-soft text-info border-info/25'
+                                    : 'bg-base-500/20 text-neutral border-base-500/30'
+                                }`}
+                              >
+                                <OdometerNumber value={c.absences} height={14} className="text-[10.5px] font-bold" />
+                                <span className="opacity-60">/</span>
+                                <OdometerNumber value={c.maxAbsences} height={14} className="text-[10.5px] font-bold" />
+                                <span className="text-[9.5px] font-sans">غیبت</span>
+                              </span>
+
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditCourse(c.course || c)}
+                                className="p-1.5 rounded-lg bg-base-500/20 hover:bg-base-500/35 text-neutral hover:text-base-content transition active:scale-90 cursor-pointer"
+                                title="ویرایش این درس"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 pt-2.5 border-t border-base-500/30 flex items-center justify-between text-[11.5px] text-base-content/90">
+                            <div className="flex items-center gap-1.5 text-neutral font-medium">
+                              <Clock className="w-3.5 h-3.5 text-primary" />
+                              <span className="font-mono text-base-content font-bold">
+                                {toFaDigits(c.time || '—')}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                style={isHex ? { backgroundColor: `${c.color}22`, color: c.color } : undefined}
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-bold border-0 ${
+                                  isHex ? '' : (softBadgeTone[c.color] || 'bg-primary-soft text-primary')
+                                }`}
+                              >
+                                <MapPin className="w-3 h-3 shrink-0" />
+                                <span>{toFaDigits(c.room || '—')}</span>
                               </span>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEditCourse(c.course || c)}
-                              className="p-1.5 rounded-lg bg-base-500/20 hover:bg-base-500/35 text-neutral hover:text-base-content transition active:scale-90 cursor-pointer"
-                              title="ویرایش این درس"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="mt-3 pt-2.5 border-t border-base-500/30 flex items-center justify-between text-[11.5px] text-base-content/90">
-                          <div className="flex items-center gap-1.5 text-neutral font-medium">
-                            <Clock className="w-3.5 h-3.5 text-primary" />
-                            <span className="font-mono text-base-content font-bold">
-                              {toFaDigits(c.time || '—')}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-bold border-0 ${
-                                softBadgeTone[c.color] || 'bg-primary-soft text-primary'
-                              }`}
-                            >
-                              <MapPin className="w-3 h-3 shrink-0" />
-                              <span>{toFaDigits(c.room || '—')}</span>
-                            </span>
-                          </div>
-                        </div>
-                      </motion.article>
-                    ))}
+                        </motion.article>
+                      );
+                    })}
                   </div>
                 </section>
               );
@@ -668,27 +824,44 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                               </div>
                             )}
                             <div className="space-y-1.5">
-                              {items.map((item, idx) => (
-                                <div
-                                  key={item.id || idx}
-                                  onClick={() => handleOpenEditCourse(item.course || item)}
-                                  className={`rounded-xl border p-2 text-right transition-all hover:scale-[1.02] cursor-pointer hover:ring-2 hover:ring-primary/40 shadow-xs ${
-                                    cellTone[item.color] || cellTone.primary
-                                  }`}
-                                  title="برای مشاهده و ویرایش درس کلیک کنید"
-                                >
-                                  <p className="text-[11px] font-bold leading-tight line-clamp-2">
-                                    {item.title}
-                                  </p>
-                                  <p className="text-[10px] opacity-80 mt-1 flex items-center gap-1">
-                                    <MapPin className="w-2.5 h-2.5 shrink-0" />
-                                    <span className="truncate">{toFaDigits(item.room)}</span>
-                                  </p>
-                                  <p className="text-[9px] opacity-75 truncate mt-0.5">
-                                    {item.professor}
-                                  </p>
-                                </div>
-                              ))}
+                              {items.map((item, idx) => {
+                                const isHex = String(item.color || '').startsWith('#') || String(item.color || '').startsWith('rgb');
+                                return (
+                                  <div
+                                    key={item.id || idx}
+                                    onClick={() => handleOpenEditCourse(item.course || item)}
+                                    style={isHex ? { borderColor: item.color, backgroundColor: `${item.color}18`, color: item.color } : undefined}
+                                    className={`rounded-xl border p-2 text-right transition-all hover:scale-[1.02] cursor-pointer hover:ring-2 hover:ring-primary/40 shadow-xs ${
+                                      isHex ? '' : (cellTone[item.color] || cellTone.primary)
+                                    }`}
+                                    title="برای مشاهده و ویرایش درس کلیک کنید"
+                                  >
+                                    <p className="text-[11px] font-bold leading-tight line-clamp-2">
+                                      {item.title}
+                                    </p>
+                                    <div className="mt-1 flex items-center justify-between gap-1 text-[10px] opacity-85">
+                                      <span className="flex items-center gap-1 truncate">
+                                        <MapPin className="w-2.5 h-2.5 shrink-0" />
+                                        <span className="truncate">{toFaDigits(item.room)}</span>
+                                      </span>
+                                      {(item.course?.absences > 0 || item.absences > 0) && (
+                                        <span
+                                          className={`px-1 py-0.2 rounded font-mono text-[9px] font-bold shrink-0 ${
+                                            (item.course?.absences || item.absences) >= (item.course?.maxAbsences || item.maxAbsences || 3)
+                                              ? 'bg-danger text-danger-content'
+                                              : 'bg-warn text-warn-content'
+                                          }`}
+                                        >
+                                          {toFaDigits(item.course?.absences || item.absences)}/{toFaDigits(item.course?.maxAbsences || item.maxAbsences || 3)}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-[9px] opacity-75 truncate mt-0.5">
+                                      {item.professor}
+                                    </p>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </td>
                         );
@@ -875,6 +1048,7 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
       <CourseEditModal
         isOpen={isCourseModalOpen}
         course={editingCourse}
+        existingCourses={getCurrentTermSchedule() || []}
         defaultDay={defaultDayForModal}
         onClose={() => {
           setIsCourseModalOpen(false);
@@ -883,6 +1057,111 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
         onSave={handleSaveCourse}
         onDelete={handleDeleteCourse}
       />
+
+      {/* مودال پیش‌نمایش تصویر سریع استوری (Quick Story Share) */}
+      <AnimatePresence>
+        {storyPreview && (
+          <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setStoryPreview(null);
+                setStoryToast('');
+              }}
+              className="absolute inset-0 bg-black/75 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ y: '40%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '30%', opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+              className="relative z-10 w-full max-w-[440px] rounded-t-3xl sm:rounded-3xl bg-base border border-base-500/50 p-4 shadow-2xl max-h-[92vh] flex flex-col"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-base-500/30 shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-accent-soft text-accent grid place-items-center">
+                    <Share2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-[14px] font-bold text-base-content">
+                      تصویر باکیفیت برنامه هفتگی
+                    </h3>
+                    <p className="text-[10px] text-neutral">طرح رزولوشن بالا ۱۰۸۰p ویژه همرسانی و پس‌زمینه</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStoryPreview(null);
+                    setStoryToast('');
+                  }}
+                  className="w-8 h-8 rounded-full bg-base-500/30 hover:bg-base-500/50 text-neutral grid place-items-center active:scale-95 transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* کانتینر پیش‌نمایش تصویر */}
+              <div className="flex-1 overflow-y-auto py-3 pr-0.5">
+                <div className="relative rounded-2xl overflow-hidden border border-base-500/50 shadow-lg bg-black/40">
+                  <img
+                    src={storyPreview.url}
+                    alt="پیش‌نمایش استوری برنامه هفتگی"
+                    className="w-full h-auto object-contain block"
+                  />
+                </div>
+              </div>
+
+              {storyToast && (
+                <p className="text-[11px] text-primary bg-primary-soft border border-primary/30 rounded-xl px-3 py-1.5 mb-2 text-center font-bold">
+                  {storyToast}
+                </p>
+              )}
+
+              {/* اکشن بار ۳گانه: اشتراک، ذخیره و کپی */}
+              <div className="grid grid-cols-3 gap-2 pt-1 border-t border-base-500/30 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleShareStoryNative}
+                  className="btn btn-primary !py-2.5 text-[12px] font-bold flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                >
+                  <Share2 className="w-4 h-4" />
+                  اشتراک
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDownloadStory}
+                  className="btn bg-base-500/30 hover:bg-base-500/50 text-base-content border border-base-500/50 !py-2.5 text-[12px] font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                >
+                  <Download className="w-4 h-4" />
+                  ذخیره
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCopyStory}
+                  className="btn bg-base-500/30 hover:bg-base-500/50 text-base-content border border-base-500/50 !py-2.5 text-[12px] font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                >
+                  {storyCopied ? (
+                    <>
+                      <Check className="w-4 h-4 text-success" />
+                      کپی شد!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      کپی تصویر
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* مودال ویرایش و افزودن نوبت امتحان */}
       <ExamEditModal

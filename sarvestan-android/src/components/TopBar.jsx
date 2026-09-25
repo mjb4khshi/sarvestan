@@ -102,7 +102,7 @@ export default function TopBar({ title, onBack }) {
               type="button"
               onClick={() => setThemeSheetOpen(true)}
               className="flex items-center gap-1.5 h-8 px-2 rounded-xl bg-base-500/30 hover:bg-base-500/50 border border-base-500/40 text-neutral hover:text-base-content active:scale-95 transition-all outline-none"
-              title="تغییر تم و رنگ سرو"
+              title={`تغییر تم (تم فعلی: ${activeThemeMeta?.persianName || 'تم'})`}
             >
               <span
                 className="w-3.5 h-3.5 rounded-full shadow-sm ring-1 ring-black/20"
@@ -190,10 +190,24 @@ export default function TopBar({ title, onBack }) {
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <span
-                          className="w-5 h-5 rounded-full ring-2 ring-base shadow-sm shrink-0"
-                          style={{ backgroundColor: theme.primary }}
-                        />
+                        {/* پیش‌نمایش ۳ رنگ شاخص پالت: کاملاً منظم، بدون هم‌پوشانی و با کادر تفکیک‌شده */}
+                        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-base-500/20 border border-base-500/35 shrink-0 shadow-2xs">
+                          <span
+                            className="w-3.5 h-3.5 rounded-full border border-black/20 dark:border-white/20 shadow-2xs shrink-0"
+                            style={{ backgroundColor: theme.primary }}
+                            title="رنگ اصلی"
+                          />
+                          <span
+                            className="w-3.5 h-3.5 rounded-full border border-black/20 dark:border-white/20 shadow-2xs shrink-0"
+                            style={{ backgroundColor: theme.accent || theme.primary }}
+                            title="رنگ مکمل"
+                          />
+                          <span
+                            className="w-3.5 h-3.5 rounded-full border border-black/20 dark:border-white/20 shadow-2xs shrink-0"
+                            style={{ backgroundColor: theme.base }}
+                            title="رنگ زمینه"
+                          />
+                        </div>
                         <div className="min-w-0">
                           <p className="text-[13px] font-bold leading-tight">
                             {theme.icon} {theme.persianName}

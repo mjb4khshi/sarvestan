@@ -249,12 +249,12 @@ export default function StoryPreviewScreen({ onBack }) {
                 </div>
                 <div>
                   <h2 className="font-bold text-white text-base flex items-center gap-2">
-                    پوستر استوری کارنامه و وضعیت تحصیلی
+                    پوستر استوری معدل کل (مینیمال)
                     <span className="text-[10px] bg-purple-500/20 text-purple-400 font-bold px-2 py-0.5 rounded-full border border-purple-500/30">
                       ۱۰۸۰ × ۱۹۲۰ Story 9:16
                     </span>
                   </h2>
-                  <p className="text-xs text-slate-400">معدل کل، آمار واحدها، نوار پیشرفت و نمرات رسمی</p>
+                  <p className="text-xs text-slate-400">معدل کل با فونت بسیار درشت، نشان اختصاصی سرو و تبلیغ سروستان</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">

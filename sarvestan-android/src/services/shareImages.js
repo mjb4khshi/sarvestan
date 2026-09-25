@@ -30,13 +30,34 @@ function darken(hex, amount = 0.35) {
 }
 
 export function buildPalette(theme) {
-  const primary = theme?.primary || '#0066a4';
-  const isLight = theme?.mode === 'light';
-  const base = isLight ? '#f8fafc' : theme?.base || '#0b1220';
-  const surface = isLight ? '#ffffff' : '#111827';
-  const surface2 = isLight ? '#e2e8f0' : '#1f2937';
-  const content = isLight ? '#0f172a' : '#f8fafc';
-  const muted = isLight ? '#64748b' : '#94a3b8';
+  let docStyle = null;
+  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    try {
+      docStyle = window.getComputedStyle(document.documentElement);
+    } catch {}
+  }
+  const getVar = (name, fallback) => {
+    if (docStyle) {
+      const v = docStyle.getPropertyValue(name)?.trim();
+      if (v) return v;
+    }
+    return fallback;
+  };
+
+  const isLight =
+    theme?.mode === 'light' ||
+    (typeof document !== 'undefined' &&
+      document.documentElement?.getAttribute('data-theme')?.includes('light'));
+
+  const primary = theme?.primary || getVar('--theme-color-primary', '#0066a4');
+  const base = isLight
+    ? (theme?.base && theme.base !== '#ffffff' ? theme.base : '#f4f6f8')
+    : (theme?.base || getVar('--theme-color-base', '#0b1220'));
+  const surface = isLight ? '#ffffff' : getVar('--theme-color-base-500', '#111827');
+  const surface2 = isLight ? '#e2e8f0' : getVar('--theme-color-neutral-dark', '#1f2937');
+  const content = isLight ? '#0f172a' : getVar('--theme-color-base-content', '#f8fafc');
+  const muted = isLight ? '#64748b' : getVar('--theme-color-neutral', '#94a3b8');
+
   return {
     primary,
     primaryDark: darken(primary, 0.28),
@@ -45,12 +66,12 @@ export function buildPalette(theme) {
     surface2,
     content,
     muted,
-    success: isLight ? '#16a34a' : '#22c55e',
-    info: isLight ? '#0284c7' : '#38bdf8',
-    warn: isLight ? '#d97706' : '#fbbf24',
-    danger: isLight ? '#dc2626' : '#ef4444',
-    accent: isLight ? '#9333ea' : '#c084fc',
-    secondary: isLight ? '#4f46e5' : '#818cf8',
+    success: getVar('--theme-color-success', isLight ? '#16a34a' : '#22c55e'),
+    info: getVar('--theme-color-info', isLight ? '#0284c7' : '#38bdf8'),
+    warn: getVar('--theme-color-warn', isLight ? '#d97706' : '#fbbf24'),
+    danger: getVar('--theme-color-danger', isLight ? '#dc2626' : '#ef4444'),
+    accent: getVar('--theme-color-accent', isLight ? '#9333ea' : '#c084fc'),
+    secondary: getVar('--theme-color-secondary', isLight ? '#4f46e5' : '#818cf8'),
     isLight,
     white: '#ffffff',
   };
@@ -180,6 +201,16 @@ function drawFooter(ctx, W, H, p) {
   ctx.textAlign = 'right';
 }
 
+function formatRoomTag(room) {
+  if (!room || room === 'ـ' || room === '-' || room === 'نامشخص') return '';
+  const r = String(room).trim();
+  if (/(کلاس|ساختمان|ساختمون|سایت|آزمایشگاه|کارگاه|آمفی|اتاق|مرکز)/.test(r)) {
+    return toFaDigits(r);
+  }
+  return `کلاس ${toFaDigits(r)}`;
+}
+
+
 /**
  * تولید تصویر پوستر افقی برنامه هفتگی — کاملاً فلت، هماهنگ با هویت بصری Sarv Design و کارت‌های متناسب
  */
@@ -200,51 +231,64 @@ export async function renderScheduleImage({ theme } = {}) {
   ctx.fillStyle = p.base;
   ctx.fillRect(0, 0, W, H);
 
-  // نوار برند و مشخصات دانشجو در بالای پوستر افقی (شبیه هدر اپلیکیشن)
+  // نوار برند و مشخصات دانشجو در بالای پوستر افقی (دقیقاً هم‌عرض و هم‌تراز با ستون‌های جدول)
   const topX = 36;
-  const topY = 22;
-  const topW = W - 72;
-  const topH = 104;
+  const topY = 24;
+  const topW = W - 72; // 1848px
+  const topH = 92;
 
   ctx.fillStyle = p.surface;
-  roundRect(ctx, topX, topY, topW, topH, 22);
+  roundRect(ctx, topX, topY, topW, topH, 20);
   ctx.fill();
-  ctx.strokeStyle = p.surface2;
-  ctx.lineWidth = 1.2;
-  ctx.stroke();
+  if (p.isLight) {
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.05)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  } else {
+    ctx.strokeStyle = p.surface2;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  }
 
   // سمت راست: نشان سروستان + عنوان پوستر
-  const logoBoxSize = 72;
+  const logoBoxSize = 64;
   const logoX = topX + topW - logoBoxSize - 16;
   const logoY = topY + (topH - logoBoxSize) / 2;
   ctx.fillStyle = p.primary;
-  roundRect(ctx, logoX, logoY, logoBoxSize, logoBoxSize, 18);
+  roundRect(ctx, logoX, logoY, logoBoxSize, logoBoxSize, 16);
   ctx.fill();
-  drawSarvLogo(ctx, logoX + logoBoxSize / 2, logoY + logoBoxSize / 2, 44, '#ffffff');
+  drawSarvLogo(ctx, logoX + logoBoxSize / 2, logoY + logoBoxSize / 2, 40, '#ffffff');
 
   // عنوان و بج‌های سروستان در سمت راست
   ctx.direction = 'rtl';
   ctx.textAlign = 'right';
   ctx.fillStyle = p.content;
-  ctx.font = 'bold 24px Arad, "Arad", sans-serif';
-  ctx.fillText('برنامه هفتگی نیمسال', logoX - 16, topY + 44);
+  ctx.font = 'bold 23px Arad, "Arad", sans-serif';
+  ctx.fillText('برنامه هفتگی نیمسال', logoX - 16, topY + 38);
 
-  // برچسب‌ها زیر عنوان
-  const tagY = topY + 76;
-  // بج «همراه»
-  ctx.fillStyle = hexToRgba(p.secondary, 0.18);
-  roundRect(ctx, logoX - 16 - 84, tagY - 18, 84, 26, 8);
+  // برچسب‌ها زیر عنوان (بج سروستان همراه + ترم تحصیلی جاری)
+  const tagY = topY + 68;
+  const badgeText = 'سروستان همراه';
+  ctx.font = 'bold 12px Arad, "Arad", sans-serif';
+  const badgeW = ctx.measureText(badgeText).width + 16;
+  const badgeH = 22;
+  const badgeX = logoX - 16 - badgeW;
+  const badgeY = tagY - 16;
+
+  ctx.fillStyle = hexToRgba(p.primary, 0.14);
+  roundRect(ctx, badgeX, badgeY, badgeW, badgeH, 6);
   ctx.fill();
-  ctx.fillStyle = p.secondary;
-  ctx.font = 'bold 12.5px Arad, "Arad", sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('سروستان همراه', logoX - 16 - 42, tagY);
 
-  // برچسب ترم جاری
+  ctx.fillStyle = p.primary;
+  ctx.textAlign = 'center';
+  ctx.fillText(badgeText, badgeX + badgeW / 2, badgeY + 15);
+
+  // برچسب ترم جاری (بلافاصله سمت چپ بج با فاصله متناسب)
+  ctx.direction = 'rtl';
   ctx.textAlign = 'right';
   ctx.fillStyle = p.muted;
-  ctx.font = '13.5px Arad, "Arad", sans-serif';
-  ctx.fillText(currentTermLabel, logoX - 110, tagY);
+  ctx.font = '13px Arad, "Arad", sans-serif';
+  ctx.fillText(currentTermLabel, badgeX - 12, tagY);
 
   // آمار کلی جلسات در وسط نوار بالا
   const { days, slots, cells } = getScheduleMatrix();
@@ -253,11 +297,11 @@ export async function renderScheduleImage({ theme } = {}) {
   const enrolledUnits = cur.enrolledCredits ?? 18;
 
   const statsText = `${toFaDigits(totalClasses)} جلسه کلاس در هفته · ${toFaDigits(enrolledUnits)} واحد اخذشده`;
-  ctx.font = 'bold 14px Arad, "Arad", sans-serif';
+  ctx.font = 'bold 13.5px Arad, "Arad", sans-serif';
   const statsW = ctx.measureText(statsText).width + 32;
   const statsX = W / 2 - statsW / 2;
   ctx.fillStyle = hexToRgba(p.primary, 0.12);
-  roundRect(ctx, statsX, topY + (topH - 36) / 2, statsW, 36, 12);
+  roundRect(ctx, statsX, topY + (topH - 34) / 2, statsW, 34, 10);
   ctx.fill();
   ctx.strokeStyle = hexToRgba(p.primary, 0.28);
   ctx.lineWidth = 1;
@@ -268,45 +312,54 @@ export async function renderScheduleImage({ theme } = {}) {
 
   // مشخصات دانشجو در سمت چپ (بدون مربع آواتار و بدون کد دانشجویی)
   const profX = topX + 24;
-  const profY = topY + 22;
+  const profY = topY + 16;
 
   // متن نام و رشته دانشجو
   ctx.direction = 'rtl';
   ctx.textAlign = 'left';
   ctx.fillStyle = p.content;
-  ctx.font = 'bold 22px Arad, "Arad", sans-serif';
+  ctx.font = 'bold 21px Arad, "Arad", sans-serif';
   ctx.fillText(student.fullName || 'دانشجوی صنعتی خواجه نصیر', profX, profY + 24);
 
   ctx.fillStyle = p.muted;
-  ctx.font = '14px Arad, "Arad", sans-serif';
+  ctx.font = '13.5px Arad, "Arad", sans-serif';
   const stdInfo = [
     student.major,
     student.college || 'دانشگاه صنعتی خواجه نصیر طوسی',
   ].filter(Boolean).join(' · ');
-  ctx.fillText(stdInfo, profX, profY + 52);
+  ctx.fillText(stdInfo, profX, profY + 50);
 
   // ── هندسه و ماتریس جدول افقی ──
-  const gridTop = 138;
+  // عرض کل محتوا: 1848 پیکسل (از x=36 تا x=1884 دقیقاً هم‌تراز با هدر و فوتر)
+  const gridTop = 132;
   const gridLeft = 36;
   const gridW = W - 72; // 1848px
-  const headerH = 46;
-  const timeColW = 144;
+  const headerH = 44;
+  const timeColW = 148;
   const gap = 8;
-  const dayColW = 331; // 5 days * 331 = 1655 + 144 + 6*8 = 1847
-  const timeX = gridLeft + gridW - timeColW;
+  // 5 ستون روز + 1 ستون زمان = 6 ستون (5 فاصله بینابینی)
+  // (1848 - 148 - 5*8) / 5 = (1848 - 148 - 40) / 5 = 1660 / 5 = 332 پیکسل دقیق
+  const dayColW = 332;
+  const timeX = gridLeft + gridW - timeColW; // 36 + 1848 - 148 = 1736
 
-  // سرستون ستون ساعت (سمت راست جدول در RTL)
+  // سرستون ستون ساعت (سمت راست جدول در RTL: از 1736 تا 1884)
   ctx.fillStyle = p.surface;
   roundRect(ctx, timeX, gridTop, timeColW, headerH, 14);
   ctx.fill();
-  ctx.strokeStyle = p.surface2;
-  ctx.lineWidth = 1;
-  ctx.stroke();
+  if (p.isLight) {
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.05)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  } else {
+    ctx.strokeStyle = p.surface2;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
 
   ctx.fillStyle = p.muted;
   ctx.font = 'bold 15px Arad, "Arad", sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('ساعت کلاس', timeX + timeColW / 2, gridTop + 29);
+  ctx.fillText('ساعت کلاس', timeX + timeColW / 2, gridTop + 28);
 
   // سرستون‌های ۵ روز هفته (شنبه تا چهارشنبه از راست به چپ)
   days.forEach((dayName, di) => {
@@ -320,16 +373,22 @@ export async function renderScheduleImage({ theme } = {}) {
     ctx.fillStyle = p.surface;
     roundRect(ctx, dayX, gridTop, dayColW, headerH, 14);
     ctx.fill();
-    ctx.strokeStyle = p.surface2;
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    if (p.isLight) {
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.05)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = p.surface2;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
 
     // نام روز
     ctx.direction = 'rtl';
     ctx.textAlign = 'right';
     ctx.fillStyle = p.content;
-    ctx.font = 'bold 16.5px Arad, "Arad", sans-serif';
-    ctx.fillText(dayName, dayX + dayColW - 18, gridTop + 29);
+    ctx.font = 'bold 16px Arad, "Arad", sans-serif';
+    ctx.fillText(dayName, dayX + dayColW - 18, gridTop + 28);
 
     // بج تعداد درس‌های این روز
     if (dayClassesCount > 0) {
@@ -337,18 +396,23 @@ export async function renderScheduleImage({ theme } = {}) {
       ctx.font = 'bold 11px Arad, "Arad", sans-serif';
       const bw = ctx.measureText(badgeStr).width + 14;
       ctx.fillStyle = hexToRgba(p.primary, 0.16);
-      roundRect(ctx, dayX + 14, gridTop + 11, bw, 24, 8);
+      roundRect(ctx, dayX + 14, gridTop + 10, bw, 24, 8);
       ctx.fill();
       ctx.fillStyle = p.primary;
       ctx.textAlign = 'center';
-      ctx.fillText(badgeStr, dayX + 14 + bw / 2, gridTop + 27);
+      ctx.fillText(badgeStr, dayX + 14 + bw / 2, gridTop + 26);
     }
   });
 
-  // سطرهای زمانی (Time slots)
-  const availableH = H - gridTop - headerH - gap - 56;
+  // سطرهای زمانی (Time slots) با تفکیک و فاصله مناسب از فوتر
+  const footerH = 42;
+  const footerMarginBottom = 22;
+  const footerY = H - footerMarginBottom - footerH; // 1080 - 22 - 42 = 1016
+  const gapAboveFooter = 20; // فاصله مناسب جدول از فوتر
+  const rowsTop = gridTop + headerH + gap; // 132 + 44 + 8 = 184
+  const availableH = footerY - gapAboveFooter - rowsTop; // 1016 - 20 - 184 = 812
   const maxRows = Math.max(1, Math.min(slots.length, 6));
-  const rowH = Math.floor((availableH - (maxRows - 1) * gap) / maxRows);
+  const rowH = Math.floor((availableH - (maxRows - 1) * gap) / maxRows); // (812 - 40) / 6 = 128
 
   if (!slots.length) {
     ctx.fillStyle = p.muted;
@@ -367,16 +431,29 @@ export async function renderScheduleImage({ theme } = {}) {
     secondary: p.secondary,
   };
 
+  const resolveTone = (colorVal) => {
+    if (!colorVal) return p.primary;
+    const str = String(colorVal).trim();
+    if (str.startsWith('#') || str.startsWith('rgb')) return str;
+    return toneMap[str] || p.primary;
+  };
+
   for (let r = 0; r < maxRows; r++) {
-    const y = gridTop + headerH + gap + r * (rowH + gap);
+    const y = rowsTop + r * (rowH + gap);
 
     // کادر ساعت در سمت راست (Time cell)
     ctx.fillStyle = p.surface;
     roundRect(ctx, timeX, y, timeColW, rowH, 16);
     ctx.fill();
-    ctx.strokeStyle = p.surface2;
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    if (p.isLight) {
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.05)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = p.surface2;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
 
     ctx.fillStyle = p.content;
     ctx.font = 'bold 18px Arad, "Arad", sans-serif';
@@ -417,14 +494,18 @@ export async function renderScheduleImage({ theme } = {}) {
         }
       }
 
-      // خانه خالی — کادر ملایم با حاشیه ظریف
+      // خانه خالی — بدون هیچ خط اضافه و شلوغی (خلوت و مدرن)
       if (!list.length) {
-        ctx.fillStyle = hexToRgba(p.surface, p.isLight ? 0.25 : 0.35);
-        roundRect(ctx, dayX, y, dayColW, rowH, 14);
-        ctx.fill();
-        ctx.strokeStyle = hexToRgba(p.surface2, 0.4);
-        ctx.lineWidth = 0.8;
-        ctx.stroke();
+        if (!p.isLight) {
+          ctx.fillStyle = hexToRgba(p.surface, 0.25);
+          roundRect(ctx, dayX, y, dayColW, rowH, 14);
+          ctx.fill();
+        } else {
+          // در حالت روشن، کادر بسیار محو و بدون خط حاشیه (بدون استروک)
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.025)';
+          roundRect(ctx, dayX, y, dayColW, rowH, 14);
+          ctx.fill();
+        }
         continue;
       }
 
@@ -435,16 +516,16 @@ export async function renderScheduleImage({ theme } = {}) {
         const cy = y;
         const cardW = dayColW;
         const cardH = rowH;
-        const tone = toneMap[cell.color] || p.primary;
+        const tone = resolveTone(cell.color);
 
         // پس‌زمینه فلت کارت درس هماهنگ و هم‌اندازه با جایگاه سطر
-        ctx.fillStyle = hexToRgba(tone, p.isLight ? 0.12 : 0.16);
+        ctx.fillStyle = hexToRgba(tone, p.isLight ? 0.10 : 0.16);
         roundRect(ctx, cardX, cy, cardW, cardH, 14);
         ctx.fill();
 
         // حاشیه ظریف دور کارت
-        ctx.strokeStyle = hexToRgba(tone, p.isLight ? 0.35 : 0.45);
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = hexToRgba(tone, p.isLight ? 0.22 : 0.45);
+        ctx.lineWidth = p.isLight ? 0.8 : 1;
         ctx.stroke();
 
         // بج «حضوری» در گوشه چپ بالا
@@ -479,18 +560,18 @@ export async function renderScheduleImage({ theme } = {}) {
           ctx.fillText(cell.professor, cardX + cardW - 14, botY);
         }
 
-        if (cell.room && cell.room !== 'ـ') {
-          ctx.direction = 'ltr';
-          ctx.textAlign = 'left';
-          const roomStr = `کلاس ${toFaDigits(cell.room)}`;
-          ctx.font = 'bold 12.5px Arad, "Arad", sans-serif';
+        const roomStr = formatRoomTag(cell.room);
+        if (roomStr) {
+          ctx.font = 'bold 12px Arad, "Arad", sans-serif';
           const rw = ctx.measureText(roomStr).width + 16;
           ctx.fillStyle = hexToRgba(tone, 0.16);
           roundRect(ctx, cardX + 12, botY - 18, rw, 24, 6);
           ctx.fill();
 
+          ctx.direction = 'rtl';
+          ctx.textAlign = 'center';
           ctx.fillStyle = p.content;
-          ctx.fillText(roomStr, cardX + 20, botY - 1);
+          ctx.fillText(roomStr, cardX + 12 + rw / 2, botY - 1);
         }
       } else {
         // چند درس در یک اسلات زمانی (تقسیم ارتفاع سطر میان درس‌ها)
@@ -500,14 +581,14 @@ export async function renderScheduleImage({ theme } = {}) {
           const cy = y + li * (cardH + gapBetween);
           const cardX = dayX;
           const cardW = dayColW;
-          const tone = toneMap[cell.color] || p.primary;
+          const tone = resolveTone(cell.color);
 
-          ctx.fillStyle = hexToRgba(tone, p.isLight ? 0.12 : 0.16);
+          ctx.fillStyle = hexToRgba(tone, p.isLight ? 0.10 : 0.16);
           roundRect(ctx, cardX, cy, cardW, cardH, 10);
           ctx.fill();
 
-          ctx.strokeStyle = hexToRgba(tone, p.isLight ? 0.35 : 0.45);
-          ctx.lineWidth = 1;
+          ctx.strokeStyle = hexToRgba(tone, p.isLight ? 0.22 : 0.45);
+          ctx.lineWidth = p.isLight ? 0.8 : 1;
           ctx.stroke();
 
           ctx.direction = 'rtl';
@@ -523,53 +604,64 @@ export async function renderScheduleImage({ theme } = {}) {
             ctx.font = '11px Arad, "Arad", sans-serif';
             ctx.fillText(cell.professor, cardX + cardW - 10, botY);
           }
-          if (cell.room && cell.room !== 'ـ') {
-            ctx.direction = 'ltr';
+          const roomStr = formatRoomTag(cell.room);
+          if (roomStr) {
+            ctx.direction = 'rtl';
             ctx.textAlign = 'left';
             ctx.fillStyle = p.content;
             ctx.font = 'bold 11px Arad, "Arad", sans-serif';
-            ctx.fillText(toFaDigits(cell.room), cardX + 10, botY);
+            ctx.fillText(roomStr, cardX + 10, botY);
           }
         });
       }
     }
   }
 
-  // ── نوار فوتر مدرن با لینک سایت ──
-  const footerY = H - 46;
+  // ── نوار فوتر مدرن با لینک سایت (هم‌تراز با هدر و جدول در x=36 تا x=1884) ──
+  const footerX = 36;
+  const footerW = W - 72; // 1848px
   ctx.fillStyle = p.surface;
-  roundRect(ctx, 36, footerY - 14, W - 72, 42, 14);
+  roundRect(ctx, footerX, footerY, footerW, footerH, 14);
   ctx.fill();
-  ctx.strokeStyle = p.surface2;
-  ctx.lineWidth = 1;
-  ctx.stroke();
+  if (p.isLight) {
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.05)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  } else {
+    ctx.strokeStyle = p.surface2;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
 
   // متن وسط فوتر: ساخته‌شده با سروستان · mjb4khshi.github.io/sarvestan
   const footerBrand = 'ساخته‌شده با سروستان · mjb4khshi.github.io/sarvestan';
-  ctx.font = 'bold 14.5px Arad, "Arad", sans-serif';
+  ctx.font = 'bold 14px Arad, "Arad", sans-serif';
   const fbW = ctx.measureText(footerBrand).width;
 
-  drawSarvLogo(ctx, W / 2 + fbW / 2 + 18, footerY + 7, 18, p.primary);
+  drawSarvLogo(ctx, W / 2 + fbW / 2 + 18, footerY + footerH / 2, 18, p.primary);
 
   ctx.fillStyle = p.content;
   ctx.textAlign = 'center';
-  ctx.fillText(footerBrand, W / 2, footerY + 12);
+  ctx.fillText(footerBrand, W / 2, footerY + footerH / 2 + 5);
 
   // سمت راست فوتر: ترم تحصیلی
+  ctx.direction = 'rtl';
   ctx.textAlign = 'right';
   ctx.fillStyle = p.muted;
   ctx.font = '12px Arad, "Arad", sans-serif';
-  ctx.fillText(currentTermLabel, W - 56, footerY + 12);
+  ctx.fillText(currentTermLabel, footerX + footerW - 20, footerY + footerH / 2 + 5);
 
   // سمت چپ فوتر: دانشگاه خواجه نصیر
+  ctx.direction = 'rtl';
   ctx.textAlign = 'left';
-  ctx.fillText('دانشگاه صنعتی خواجه نصیر طوسی', 56, footerY + 12);
+  ctx.fillText('دانشگاه صنعتی خواجه نصیر طوسی', footerX + 20, footerY + footerH / 2 + 5);
 
   return canvas;
 }
 
 /**
- * تولید تصویر استوری معدل و کارنامه
+ * تولید تصویر استوری معدل (طراحی مینیمال، مدرن و هماهنگ با تم)
+ * فقط یک صفحه زیبا و خلوت با رنگ تم، فونت بسیار درشت معدل کل، و نشان سرو به همراه تبلیغ سروستان
  */
 export async function renderGpaStoryImage({ theme } = {}) {
   await ensureFont();
@@ -584,391 +676,143 @@ export async function renderGpaStoryImage({ theme } = {}) {
   const student = vm?.student || {};
   const currentTermLabel = vm?.termLabel || 'نیمسال تحصیلی جاری';
 
-  // پس‌زمینه فلت مدرن هماهنگ با اپلیکیشن
+  // ۱. پس‌زمینه فلت متناسب با رنگ تم
   ctx.fillStyle = p.base;
   ctx.fillRect(0, 0, W, H);
 
-  // ۱. نوار برند و هدر رسمی سروستان در بالا
-  const headX = 40;
-  const headY = 36;
-  const headW = W - 80;
-  const headH = 106;
+  // هاله نوری بسیار ملایم در پشت عدد معدل در مرکز صفحه
+  const radGlow = ctx.createRadialGradient(W / 2, H / 2 - 140, 50, W / 2, H / 2 - 140, 580);
+  radGlow.addColorStop(0, hexToRgba(p.primary, p.isLight ? 0.12 : 0.24));
+  radGlow.addColorStop(1, hexToRgba(p.base, 0));
+  ctx.fillStyle = radGlow;
+  ctx.fillRect(0, 0, W, H);
 
-  ctx.fillStyle = p.surface;
-  roundRect(ctx, headX, headY, headW, headH, 24);
+  // مشخصات دانشجو در بالای صفحه به صورت یک کپسول شناور شیک
+  const studentTitle = student.fullName || 'دانشجوی صنعتی خواجه نصیر';
+  const subText = [student.major, currentTermLabel].filter(Boolean).join(' · ');
+  const pillText = subText ? `${studentTitle} · ${subText}` : studentTitle;
+
+  ctx.font = 'bold 22px Arad, "Arad", sans-serif';
+  const pillW = Math.min(W - 120, ctx.measureText(pillText).width + 56);
+  const pillH = 54;
+  const pillY = 160;
+
+  ctx.fillStyle = hexToRgba(p.surface, p.isLight ? 0.8 : 0.5);
+  roundRect(ctx, (W - pillW) / 2, pillY, pillW, pillH, pillH / 2);
   ctx.fill();
-  ctx.strokeStyle = p.surface2;
+  ctx.strokeStyle = hexToRgba(p.surface2, 0.7);
   ctx.lineWidth = 1.2;
   ctx.stroke();
 
-  // نشان سرو در سمت راست
-  const logoBoxSize = 72;
-  const logoX = headX + headW - logoBoxSize - 16;
-  const logoY = headY + (headH - logoBoxSize) / 2;
-  ctx.fillStyle = p.primary;
-  roundRect(ctx, logoX, logoY, logoBoxSize, logoBoxSize, 18);
-  ctx.fill();
-  drawSarvLogo(ctx, logoX + logoBoxSize / 2, logoY + logoBoxSize / 2, 44, '#ffffff');
-
-  // عنوان و توضیحات هدر
   ctx.direction = 'rtl';
-  ctx.textAlign = 'right';
-  ctx.fillStyle = p.content;
-  ctx.font = 'bold 26px Arad, "Arad", sans-serif';
-  ctx.fillText('کارنامه و وضعیت تحصیلی', logoX - 16, headY + 44);
-
-  ctx.fillStyle = p.muted;
-  ctx.font = '14.5px Arad, "Arad", sans-serif';
-  ctx.fillText('دانشگاه صنعتی خواجه نصیر طوسی · سیستم جامع دانشگاهی', logoX - 16, headY + 76);
-
-  // بج رسمی در سمت چپ هدر
-  ctx.direction = 'ltr';
   ctx.textAlign = 'center';
-  const verBadge = '✓ رسمی و معتبر';
-  ctx.font = 'bold 13px Arad, "Arad", sans-serif';
-  const vbw = ctx.measureText(verBadge).width + 24;
-  ctx.fillStyle = hexToRgba(p.success, 0.16);
-  roundRect(ctx, headX + 16, headY + (headH - 34) / 2, vbw, 34, 10);
-  ctx.fill();
-  ctx.fillStyle = p.success;
-  ctx.fillText(verBadge, headX + 16 + vbw / 2, headY + (headH - 34) / 2 + 22);
+  ctx.fillStyle = p.content;
+  ctx.fillText(pillText, W / 2, pillY + 35);
 
-  // ۲. هیرو کارت هویت دانشجو
-  const profY = 158;
-  const profH = 122;
-  ctx.fillStyle = p.surface;
-  roundRect(ctx, 40, profY, W - 80, profH, 24);
+  // ۲. بخش مرکزی: عنوان و عدد فوق‌العاده درشت معدل کل
+  const terms = vm?.termsData || [];
+  const gradedTerms = terms.filter((t) => t.gpa && t.gpa !== 'ـ' && t.gpa !== '-');
+  const latestGraded = gradedTerms[0] || terms[0];
+  const overallGpa = vm?.summary?.gpa && vm.summary.gpa !== 'ـ' && vm.summary.gpa !== '-'
+    ? vm.summary.gpa
+    : latestGraded?.gpa || '۱۸.۴۵';
+
+  const numOverallGpa = parseFloat(String(overallGpa).replace(/[^\d.]/g, '')) || 0;
+  const isHonor = numOverallGpa >= 17;
+
+  const gpaCenterY = H / 2 - 100;
+
+  // عنوان «مـعـدل کـل»
+  ctx.direction = 'rtl';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = p.muted;
+  ctx.font = 'bold 36px Arad, "Arad", sans-serif';
+  ctx.fillText('مـعـدل کـل', W / 2, gpaCenterY - 140);
+
+  // عدد بسیار درشت و چشم‌نواز معدل
+  ctx.save();
+  ctx.shadowColor = hexToRgba(p.primary, 0.45);
+  ctx.shadowBlur = 45;
+  ctx.shadowOffsetY = 12;
+
+  ctx.fillStyle = p.isLight ? p.primary : '#ffffff';
+  ctx.font = 'bold 180px Arad, "Arad", sans-serif';
+  ctx.fillText(toFaDigits(overallGpa), W / 2, gpaCenterY + 40);
+  ctx.restore();
+
+  // بج وضعیت تحصیلی زیر عدد معدل
+  const badgeLabel = isHonor
+    ? '★ دانشجوی رتبه الف (ممتاز) ★'
+    : numOverallGpa >= 14
+      ? '✓ وضعیت تحصیلی: عادی و مطلوب'
+      : 'ثبت در سامانه جامع آموزشی دانشگاه';
+  ctx.font = 'bold 20px Arad, "Arad", sans-serif';
+  const bw = ctx.measureText(badgeLabel).width + 48;
+  const bh = 54;
+  const badgeY = gpaCenterY + 90;
+
+  ctx.fillStyle = isHonor
+    ? hexToRgba(p.success, 0.18)
+    : hexToRgba(p.primary, 0.15);
+  roundRect(ctx, (W - bw) / 2, badgeY, bw, bh, bh / 2);
   ctx.fill();
-  ctx.strokeStyle = p.surface2;
+  ctx.strokeStyle = isHonor
+    ? hexToRgba(p.success, 0.4)
+    : hexToRgba(p.primary, 0.35);
   ctx.lineWidth = 1.2;
   ctx.stroke();
 
-  // آواتار دایره‌ای با نشان اختصاصی دانشجو
-  const avSize = 78;
-  const avX = W - 40 - 18 - avSize;
-  const avY = profY + (profH - avSize) / 2;
-  ctx.fillStyle = hexToRgba(p.primary, 0.14);
-  roundRect(ctx, avX, avY, avSize, avSize, avSize / 2);
+  ctx.fillStyle = isHonor ? p.success : p.primary;
+  ctx.fillText(badgeLabel, W / 2, badgeY + 35);
+
+  // ۳. بخش پایینی: نشان سرو و تبلیغ سروستان («و زیرشم سرو و تبلیغ سروستان»)
+  const brandSectionY = H - 440;
+
+  // نشان اختصاصی سرو در کادر شکیل با گوشه‌های نرم
+  const logoBoxSize = 96;
+  const logoBoxX = (W - logoBoxSize) / 2;
+  const logoBoxY = brandSectionY;
+
+  ctx.fillStyle = hexToRgba(p.primary, 0.15);
+  roundRect(ctx, logoBoxX, logoBoxY, logoBoxSize, logoBoxSize, 28);
   ctx.fill();
   ctx.strokeStyle = hexToRgba(p.primary, 0.35);
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  const initialLetter = (student.fullName || '؟').trim().slice(0, 1);
-  ctx.fillStyle = p.primary;
-  ctx.font = 'bold 34px Arad, "Arad", sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(initialLetter, avX + avSize / 2, avY + 52);
+  drawSarvLogo(ctx, W / 2, logoBoxY + logoBoxSize / 2, 54, p.primary);
 
-  // نام و رشته دانشجو
+  // نام برند سروستان با فونت چشم‌نواز
   ctx.direction = 'rtl';
-  ctx.textAlign = 'right';
+  ctx.textAlign = 'center';
   ctx.fillStyle = p.content;
-  ctx.font = 'bold 27px Arad, "Arad", sans-serif';
-  ctx.fillText(student.fullName || 'دانشجوی خواجه نصیر', avX - 18, profY + 44);
+  ctx.font = 'bold 38px Arad, "Arad", sans-serif';
+  ctx.fillText('سـروستـان', W / 2, logoBoxY + logoBoxSize + 56);
 
+  // شعار تبلیغاتی سروستان
   ctx.fillStyle = p.muted;
-  ctx.font = '15px Arad, "Arad", sans-serif';
-  const stdSub = [
-    student.major,
-  ].filter(Boolean).join(' · ');
-  ctx.fillText(stdSub || student.college || 'دانشکده مهندسی', avX - 18, profY + 74);
+  ctx.font = '20px Arad, "Arad", sans-serif';
+  ctx.fillText('دستیار هوشمند و مدرن دانشجویان صنعتی خواجه نصیر', W / 2, logoBoxY + logoBoxSize + 96);
 
-  // دو بج سطح تحصیلی و ترم جاری زیر مشخصات
-  const tagY = profY + 92;
-  const levelText = student.level || 'کارشناسی';
-  ctx.font = 'bold 12px Arad, "Arad", sans-serif';
-  const ltw = ctx.measureText(levelText).width + 18;
-  ctx.fillStyle = hexToRgba(p.secondary, 0.16);
-  roundRect(ctx, avX - 18 - ltw, tagY, ltw, 24, 7);
+  // کپسول آدرس سایت سروستان برای تبلیغ و دسترسی
+  const promoUrl = 'mjb4khshi.github.io/sarvestan';
+  ctx.font = 'bold 20px Arad, monospace';
+  const urlWidth = ctx.measureText(promoUrl).width + 52;
+  const urlBoxY = logoBoxY + logoBoxSize + 128;
+  const urlBoxH = 48;
+
+  ctx.fillStyle = hexToRgba(p.primary, 0.12);
+  roundRect(ctx, (W - urlWidth) / 2, urlBoxY, urlWidth, urlBoxH, urlBoxH / 2);
   ctx.fill();
-  ctx.fillStyle = p.secondary;
-  ctx.textAlign = 'center';
-  ctx.fillText(levelText, avX - 18 - ltw / 2, tagY + 16.5);
-
-  const termChipText = currentTermLabel;
-  const tctw = ctx.measureText(termChipText).width + 18;
-  ctx.fillStyle = hexToRgba(p.primary, 0.14);
-  roundRect(ctx, avX - 18 - ltw - 10 - tctw, tagY, tctw, 24, 7);
-  ctx.fill();
-  ctx.fillStyle = p.primary;
-  ctx.fillText(termChipText, avX - 18 - ltw - 10 - tctw / 2, tagY + 16.5);
-
-  // ۳. بخش جذاب نمایش معدل (Dual Showcase: معدل کل + معدل آخرین ترم)
-  const terms = vm?.termsData || [];
-  const gradedTerms = terms.filter((t) => t.gpa && t.gpa !== 'ـ' && t.gpa !== '-');
-  const latestGraded = gradedTerms[0] || terms[0];
-  const overallGpa = vm?.summary?.gpa && vm.summary.gpa !== 'ـ' ? vm.summary.gpa : latestGraded?.gpa || '—';
-  const latestTermGpa = latestGraded?.gpa && latestGraded.gpa !== 'ـ' ? latestGraded.gpa : overallGpa;
-
-  const numOverallGpa = parseFloat(String(overallGpa).replace(/[^\d.]/g, '')) || 0;
-  const isHonor = numOverallGpa >= 17;
-
-  const gpaCardY = 294;
-  const gpaCardH = 260;
-  const halfW = (W - 80 - 16) / 2; // 492px
-
-  // کارت سمت راست: معدل کل دانشگاهی (Cumulative GPA)
-  const rightCardX = 40 + halfW + 16;
-  ctx.fillStyle = p.surface;
-  roundRect(ctx, rightCardX, gpaCardY, halfW, gpaCardH, 24);
-  ctx.fill();
-  ctx.strokeStyle = isHonor ? hexToRgba(p.success, 0.4) : p.surface2;
-  ctx.lineWidth = 1.3;
-  ctx.stroke();
-
-  // برچسب بالای کارت معدل کل
-  ctx.direction = 'rtl';
-  ctx.textAlign = 'right';
-  ctx.fillStyle = p.muted;
-  ctx.font = 'bold 15px Arad, "Arad", sans-serif';
-  ctx.fillText('معدل کل دانشگاهی', rightCardX + halfW - 20, gpaCardY + 36);
-
-  // عدد بزرگ معدل کل
-  ctx.textAlign = 'center';
-  ctx.fillStyle = isHonor ? p.success : p.primary;
-  ctx.font = 'bold 72px Arad, "Arad", sans-serif';
-  ctx.fillText(toFaDigits(overallGpa), rightCardX + halfW / 2, gpaCardY + 130);
-
-  // نشان وضعیت تحصیلی زیر معدل کل
-  const honorLabel = isHonor
-    ? '★ دانشجوی رتبه الف (ممتاز) ★'
-    : numOverallGpa >= 14
-      ? '✓ وضعیت تحصیلی: عادی و مطلوب'
-      : 'وضعیت تحصیلی: نیازمند ارتقا';
-  ctx.font = 'bold 13px Arad, "Arad", sans-serif';
-  const hlw = ctx.measureText(honorLabel).width + 26;
-  ctx.fillStyle = isHonor
-    ? hexToRgba(p.success, 0.16)
-    : numOverallGpa >= 14
-      ? hexToRgba(p.info, 0.15)
-      : hexToRgba(p.warn, 0.15);
-  roundRect(ctx, rightCardX + halfW / 2 - hlw / 2, gpaCardY + 180, hlw, 36, 12);
-  ctx.fill();
-  ctx.fillStyle = isHonor ? p.success : numOverallGpa >= 14 ? p.info : p.warn;
-  ctx.fillText(honorLabel, rightCardX + halfW / 2, gpaCardY + 203);
-
-  // زیرنویس پایین کارت
-  ctx.fillStyle = p.muted;
-  ctx.font = '12px Arad, "Arad", sans-serif';
-  ctx.fillText('محاسبه‌شده بر اساس تمام ترم‌ها', rightCardX + halfW / 2, gpaCardY + 238);
-
-  // کارت سمت چپ: معدل آخرین نیمسال (Semester GPA)
-  const leftCardX = 40;
-  ctx.fillStyle = p.surface;
-  roundRect(ctx, leftCardX, gpaCardY, halfW, gpaCardH, 24);
-  ctx.fill();
-  ctx.strokeStyle = p.surface2;
-  ctx.lineWidth = 1.3;
-  ctx.stroke();
-
-  // برچسب ترم
-  const termHead = latestGraded?.name ? `معدل ${latestGraded.name}` : 'معدل نیمسال اخیر';
-  ctx.direction = 'rtl';
-  ctx.textAlign = 'right';
-  ctx.fillStyle = p.muted;
-  ctx.font = 'bold 15px Arad, "Arad", sans-serif';
-  ctx.fillText(termHead, leftCardX + halfW - 20, gpaCardY + 36);
-
-  // عدد معدل ترم
-  ctx.textAlign = 'center';
-  ctx.fillStyle = p.secondary;
-  ctx.font = 'bold 72px Arad, "Arad", sans-serif';
-  ctx.fillText(toFaDigits(latestTermGpa), leftCardX + halfW / 2, gpaCardY + 130);
-
-  // بج وضعیت ترم
-  const termStatusLabel = latestGraded?.status || 'نمرات قطعی و تأییدشده';
-  ctx.font = 'bold 13px Arad, "Arad", sans-serif';
-  const tslw = ctx.measureText(termStatusLabel).width + 26;
-  ctx.fillStyle = hexToRgba(p.secondary, 0.16);
-  roundRect(ctx, leftCardX + halfW / 2 - tslw / 2, gpaCardY + 180, tslw, 36, 12);
-  ctx.fill();
-  ctx.fillStyle = p.secondary;
-  ctx.fillText(termStatusLabel, leftCardX + halfW / 2, gpaCardY + 203);
-
-  ctx.fillStyle = p.muted;
-  ctx.font = '12px Arad, "Arad", sans-serif';
-  ctx.fillText('ثبت‌شده در سامانه یکپارچه آموزش', leftCardX + halfW / 2, gpaCardY + 238);
-
-  // ۴. ویجت پیشرفت تحصیلی و آمار تفکیکی واحدها
-  const cur = vm?.curriculum || {};
-  const passedUnits = cur.passedCredits ?? (vm?.profile?.totalUnitsPassed || 0);
-  const enrolledUnits = cur.enrolledCredits ?? (latestGraded?.courses?.reduce((s, c) => s + (Number(c.unit) || 0), 0) || 18);
-  const totalChart = cur.totalCredits || 142;
-  const remainingUnits = Math.max(0, totalChart - passedUnits - enrolledUnits);
-  const pct = Math.min(100, Math.max(0, Math.round((passedUnits / totalChart) * 100)));
-
-  const progY = 570;
-  const progH = 138;
-  ctx.fillStyle = p.surface;
-  roundRect(ctx, 40, progY, W - 80, progH, 24);
-  ctx.fill();
-  ctx.strokeStyle = p.surface2;
+  ctx.strokeStyle = hexToRgba(p.primary, 0.35);
   ctx.lineWidth = 1.2;
   ctx.stroke();
 
-  // سربرگ پیشرفت
-  ctx.direction = 'rtl';
-  ctx.textAlign = 'right';
-  ctx.fillStyle = p.content;
-  ctx.font = 'bold 19px Arad, "Arad", sans-serif';
-  ctx.fillText('پیشرفت تحصیلی تا فارغ‌التحصیلی', W - 66, progY + 34);
-
-  ctx.textAlign = 'left';
+  ctx.direction = 'ltr';
+  ctx.textAlign = 'center';
   ctx.fillStyle = p.primary;
-  ctx.font = 'bold 18px Arad, "Arad", sans-serif';
-  ctx.fillText(`${toFaDigits(pct)}٪ گذرانده‌شده از ${toFaDigits(totalChart)} واحد کل`, 66, progY + 34);
+  ctx.fillText(promoUrl, W / 2, urlBoxY + 31);
 
-  // نوار پیشرفت مدرن فلت
-  const barW = W - 132;
-  ctx.fillStyle = p.surface2;
-  roundRect(ctx, 66, progY + 48, barW, 14, 7);
-  ctx.fill();
-
-  if (pct > 0) {
-    ctx.fillStyle = isHonor ? p.success : p.primary;
-    roundRect(ctx, 66, progY + 48, Math.max(14, barW * (pct / 100)), 14, 7);
-    ctx.fill();
-  }
-
-  // ۳ باکس تفکیک واحدها در پایین ویجت پیشرفت
-  const statBoxY = progY + 76;
-  const statBoxH = 46;
-  const statBoxW = (W - 132 - 16) / 3;
-
-  const statItems = [
-    { label: `✓ گذرانده: ${toFaDigits(passedUnits)} واحد`, color: p.success, bg: hexToRgba(p.success, 0.14) },
-    { label: `⧗ ترم جاری: ${toFaDigits(enrolledUnits)} واحد`, color: p.info, bg: hexToRgba(p.info, 0.14) },
-    { label: `باقیمانده: ${toFaDigits(remainingUnits)} واحد`, color: p.warn, bg: hexToRgba(p.warn, 0.14) },
-  ];
-
-  statItems.forEach((st, si) => {
-    const sx = 66 + si * (statBoxW + 8);
-    ctx.fillStyle = st.bg;
-    roundRect(ctx, sx, statBoxY, statBoxW, statBoxH, 12);
-    ctx.fill();
-
-    ctx.fillStyle = st.color;
-    ctx.font = 'bold 14px Arad, "Arad", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(st.label, sx + statBoxW / 2, statBoxY + 28);
-  });
-
-  // ۵. فهرست نمرات رسمی دروس
-  const coursesToRender = latestGraded?.courses?.length ? latestGraded.courses : vm?.grades || [];
-  const totalTermCredits = coursesToRender.reduce((s, c) => s + (Number(c.unit) || 0), 0);
-  const termTitle = latestGraded?.name ? `نمرات رسمی ${latestGraded.name}` : 'کارنامه رسمی دروس';
-
-  const listHeaderY = 732;
-  ctx.direction = 'rtl';
-  ctx.textAlign = 'right';
-  ctx.fillStyle = p.content;
-  ctx.font = 'bold 23px Arad, "Arad", sans-serif';
-  ctx.fillText(termTitle, W - 46, listHeaderY);
-
-  ctx.textAlign = 'left';
-  ctx.fillStyle = p.muted;
-  ctx.font = '15.5px Arad, "Arad", sans-serif';
-  ctx.fillText(`${toFaDigits(coursesToRender.length)} عنوان درس · مجموعاً ${toFaDigits(totalTermCredits)} واحد`, 46, listHeaderY);
-
-  let curY = 752;
-  const maxCourses = Math.min(coursesToRender.length, 9);
-  const availableListH = H - 80 - curY; // تا قبل از فوتر
-  const rowH = Math.min(90, Math.floor((availableListH - (maxCourses - 1) * 10) / Math.max(1, maxCourses)));
-
-  if (!maxCourses) {
-    ctx.fillStyle = p.muted;
-    ctx.font = '22px Arad, "Arad", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('هنوز نمره‌ای برای نمایش در این بخش ثبت نشده است', W / 2, curY + 120);
-  } else {
-    for (let ci = 0; ci < maxCourses; ci++) {
-      const c = coursesToRender[ci];
-      const cy = curY + ci * (rowH + 10);
-
-      // کادر ردیف درس
-      ctx.fillStyle = p.surface;
-      roundRect(ctx, 40, cy, W - 80, rowH, 18);
-      ctx.fill();
-      ctx.strokeStyle = p.surface2;
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
-      const isDropped = c.status === 'حذف اضطراری' || c.regStatus === 'dropped';
-      const isWait = c.status === 'در انتظار' || c.regStatus === 'waitlist';
-      const numScore = parseFloat(String(c.displayScore ?? c.score).replace(/[^\d.]/g, ''));
-      const hasScore = !isNaN(numScore) && numScore >= 0;
-
-      // سمت راست: عنوان درس
-      ctx.direction = 'rtl';
-      ctx.textAlign = 'right';
-      ctx.fillStyle = p.content;
-      ctx.font = 'bold 20px Arad, "Arad", sans-serif';
-      const courseName = (c.course || c.name || 'عنوان درس').slice(0, 36);
-      ctx.fillText(courseName, W - 64, cy + rowH / 2 - 6);
-
-      // زیرنویس: واحد و وضعیت
-      ctx.fillStyle = p.muted;
-      ctx.font = '14px Arad, "Arad", sans-serif';
-      const statusDesc = isDropped
-        ? 'حذف اضطراری طبق آیین‌نامه'
-        : isWait
-          ? 'در انتظار اعلام نمره نهایی'
-          : hasScore && numScore >= 17
-            ? 'قبولی با نمره عالی'
-            : hasScore && numScore >= 12
-              ? 'قبولی قطعی'
-              : c.status || 'ثبت در کارنامه';
-      ctx.fillText(`${toFaDigits(c.unit)} واحد · ${statusDesc}`, W - 64, cy + rowH / 2 + 20);
-
-      // سمت چپ: بج نمره زیبا و تمایزیافته
-      const scoreBoxW = 96;
-      const scoreBoxH = Math.min(rowH - 24, 56);
-      const scoreBoxX = 58;
-      const scoreBoxY = cy + (rowH - scoreBoxH) / 2;
-
-      let scoreBg = hexToRgba(p.surface2, 0.6);
-      let scoreColor = p.muted;
-      let scoreText = '—';
-
-      if (isDropped) {
-        scoreBg = hexToRgba(p.danger, 0.16);
-        scoreColor = p.danger;
-        scoreText = 'حذف';
-      } else if (isWait) {
-        scoreBg = hexToRgba(p.warn, 0.16);
-        scoreColor = p.warn;
-        scoreText = 'انتظار';
-      } else if (hasScore) {
-        if (numScore >= 17) {
-          scoreBg = hexToRgba(p.success, 0.16);
-          scoreColor = p.success;
-        } else if (numScore >= 14) {
-          scoreBg = hexToRgba(p.primary, 0.16);
-          scoreColor = p.primary;
-        } else if (numScore >= 12) {
-          scoreBg = hexToRgba(p.warn, 0.16);
-          scoreColor = p.warn;
-        } else {
-          scoreBg = hexToRgba(p.danger, 0.16);
-          scoreColor = p.danger;
-        }
-        scoreText = toFaDigits(c.displayScore ?? c.score);
-      }
-
-      roundRect(ctx, scoreBoxX, scoreBoxY, scoreBoxW, scoreBoxH, 14);
-      ctx.fillStyle = scoreBg;
-      ctx.fill();
-
-      ctx.fillStyle = scoreColor;
-      ctx.font = isDropped || isWait ? 'bold 19px Arad, "Arad", sans-serif' : 'bold 26px Arad, "Arad", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(scoreText, scoreBoxX + scoreBoxW / 2, scoreBoxY + scoreBoxH / 2 + (isDropped || isWait ? 6 : 9));
-    }
-  }
-
-  // ۶. فوتر برند سروستان
-  drawFooter(ctx, W, H, p);
   return canvas;
 }
 

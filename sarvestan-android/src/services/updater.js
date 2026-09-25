@@ -3,7 +3,7 @@
  * Repository: mjb4khshi/sarvestan
  */
 
-export const CURRENT_VERSION = '1.0.1';
+export const CURRENT_VERSION = '1.1.0';
 export const GITHUB_REPO = 'mjb4khshi/sarvestan';
 export const GITHUB_RELEASES_API = `https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=10`;
 export const GITHUB_RELEASES_PAGE = `https://github.com/${GITHUB_REPO}/releases`;

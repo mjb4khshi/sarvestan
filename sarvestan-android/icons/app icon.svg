@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1080" height="1080" viewBox="0 0 1080 1080">
+  <defs>
+    <clipPath id="clip-app_icon">
+      <rect width="1080" height="1080"/>
+    </clipPath>
+  </defs>
+  <g id="app_icon" data-name="app icon" clip-path="url(#clip-app_icon)">
+    <rect width="1080" height="1080" fill="rgba(255,255,255,0)"/>
+    <rect id="Rectangle_1" data-name="Rectangle 1" width="929" height="929" rx="153" transform="translate(76 76)" fill="#0d9275"/>
+    <path id="Path_3" data-name="Path 3" d="M540,172.4s-326.75,745.843,0,745.843S540,172.4,540,172.4Z" transform="translate(0 -5.32)" fill="#fff"/>
+  </g>
+</svg>

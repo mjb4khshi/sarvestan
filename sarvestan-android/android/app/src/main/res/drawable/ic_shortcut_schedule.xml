@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="@color/shortcut_bg"/>
+        </shape>
+    </item>
+    <item android:top="11dp" android:bottom="11dp" android:left="11dp" android:right="11dp">
+        <vector
+            android:width="26dp"
+            android:height="26dp"
+            android:viewportWidth="24"
+            android:viewportHeight="24">
+            <path
+                android:fillColor="#FFFFFF"
+                android:pathData="M19,4h-1V2h-2v2H8V2H6v2H5c-1.11,0 -1.99,0.9 -1.99,2L3,20c0,1.1 0.89,2 2,2h14c1.1,0 2,-0.9 2,-2V6c0,-1.1 -0.9,-2 -2,-2z m0,16H5V10h14v10zM9,14H7v-2h2v2zm4,0h-2v-2h2v2zm4,0h-2v-2h2v2zm-8,4H7v-2h2v2zm4,0h-2v-2h2v2zm4,0h-2v-2h2v2z" />
+        </vector>
+    </item>
+</layer-list>

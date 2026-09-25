@@ -16,6 +16,8 @@ import { getViewModel } from '../data/viewModel';
 import { useSarvestanData } from '../hooks/useSarvestanData';
 import { openLoginModal } from '../services/loginFlow';
 import { toFaDigits } from '../utils/faDigits';
+import OdometerNumber from '../components/OdometerNumber';
+import { motion } from 'framer-motion';
 
 export function getGpaStatusBadge(gpaRaw) {
   if (!gpaRaw || gpaRaw === 'ـ' || gpaRaw === '—' || gpaRaw === '-') return null;
@@ -233,42 +235,50 @@ export default function HomeScreen({ onNavigate }) {
           </div>
         )}
 
-        {/* ردیف آمار سه‌گانه بنتو تعاملی */}
+        {/* ردیف آمار سه‌گانه بنتو تعاملی بدون انیمیشن و با تایپوگرافی روان و غیرجدولی */}
         <div className="mt-3.5 w-full grid grid-cols-3 gap-2 pt-3 border-t border-base-500/40">
           <button
             type="button"
             onClick={() => onNavigate('grades')}
-            className="rounded-2xl p-2.5 text-center bg-primary-soft border border-primary-soft hover:border-primary active:scale-95 transition-all outline-none cursor-pointer"
+            className="rounded-2xl p-2.5 text-center bg-primary-soft border border-primary-soft hover:border-primary active:scale-95 transition-all outline-none cursor-pointer flex flex-col items-center justify-center"
             title="مشاهده کارنامه و محاسبه‌گر معدل"
           >
             <p className="text-[10.5px] text-primary font-bold">معدل کل</p>
-            <p className="text-[16px] font-black text-primary mt-0.5 font-mono">
-              {toFaDigits(SUMMARY.gpa)}
-            </p>
+            <div className="mt-0.5 flex items-center justify-center">
+              <span className="text-[17px] text-primary font-black leading-tight">
+                {toFaDigits(SUMMARY.gpa)}
+              </span>
+            </div>
           </button>
 
           <button
             type="button"
             onClick={() => onNavigate('chart')}
-            className="rounded-2xl p-2.5 text-center bg-accent-soft border border-accent-soft hover:border-accent active:scale-95 transition-all outline-none cursor-pointer"
+            className="rounded-2xl p-2.5 text-center bg-accent-soft border border-accent-soft hover:border-accent active:scale-95 transition-all outline-none cursor-pointer flex flex-col items-center justify-center"
             title="مشاهده چارت و سرفصل دروس"
           >
             <p className="text-[10.5px] text-accent font-bold">واحد اخذشده</p>
-            <p className="text-[16px] font-black text-accent mt-0.5 font-mono">
-              {toFaDigits(SUMMARY.credits)} <span className="text-[10px] font-sans">واحد</span>
-            </p>
+            <div className="mt-0.5 flex items-center justify-center gap-1">
+              <span className="text-[17px] text-accent font-black leading-tight">
+                {toFaDigits(SUMMARY.credits)}
+              </span>
+              <span className="text-[10px] text-accent font-bold">واحد</span>
+            </div>
           </button>
 
           <button
             type="button"
             onClick={() => onNavigate('finance')}
-            className={`rounded-2xl p-2.5 text-center ${tuitionTone.card} border active:scale-95 transition-all outline-none cursor-pointer`}
+            className={`rounded-2xl p-2.5 text-center ${tuitionTone.card} border active:scale-95 transition-all outline-none cursor-pointer flex flex-col items-center justify-center`}
             title="مشاهده وضعیت شهریه و امور مالی"
           >
             <p className={`text-[10.5px] ${tuitionTone.text} font-bold`}>شهریه</p>
-            <p className={`text-[13px] font-black ${tuitionTone.text} mt-0.5 truncate font-mono`}>
-              {toFaDigits(SUMMARY.unpaid)} <span className="text-[9.5px] font-sans">ت</span>
-            </p>
+            <div className="mt-0.5 flex items-center justify-center gap-1 max-w-full">
+              <span className={`text-[13.5px] ${tuitionTone.text} font-black leading-tight`}>
+                {toFaDigits(SUMMARY.unpaid)}
+              </span>
+              <span className={`text-[9.5px] ${tuitionTone.text} font-bold`}>ت</span>
+            </div>
           </button>
         </div>
       </section>
@@ -403,27 +413,50 @@ export default function HomeScreen({ onNavigate }) {
         <div className="space-y-2">
           {TODAY_CLASSES.map((cls) => {
             const meta = statusMeta[cls.status] || statusMeta.later;
-            const borderCol =
-              cls.color === 'primary'
-                ? 'border-r-primary'
-                : cls.color === 'info'
-                ? 'border-r-info'
-                : 'border-r-secondary';
+            const borderColMap = {
+              primary: 'border-r-primary',
+              success: 'border-r-success',
+              info: 'border-r-info',
+              warn: 'border-r-warn',
+              danger: 'border-r-danger',
+              accent: 'border-r-accent',
+              secondary: 'border-r-secondary',
+            };
+            const isHex = String(cls.color || '').startsWith('#') || String(cls.color || '').startsWith('rgb');
+            const borderCol = isHex ? '' : (borderColMap[cls.color] || 'border-r-primary');
 
             return (
               <article
                 key={cls.id}
+                style={isHex ? { borderRightColor: cls.color } : undefined}
                 className={`sarv-card p-3.5 flex items-start gap-3 border-r-4 ${borderCol}`}
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <h4 className="text-[14px] font-bold text-base-content truncate">{cls.title}</h4>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${meta.chip}`}>
-                      {meta.label}
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {cls.absences > 0 && (
+                        <span
+                          className={`text-[9.5px] px-1.5 py-0.5 rounded-md font-bold flex items-center gap-0.5 ${
+                            cls.absences >= cls.maxAbsences
+                              ? 'bg-danger text-danger-content'
+                              : 'bg-warn text-warn-content'
+                          }`}
+                          title={`تعداد غیبت: ${toFaDigits(cls.absences)} از ${toFaDigits(cls.maxAbsences)}`}
+                        >
+                          <OdometerNumber value={cls.absences} height={14} className="text-[9.5px]" />
+                          <span className="opacity-70">/</span>
+                          <OdometerNumber value={cls.maxAbsences} height={14} className="text-[9.5px]" />
+                          <span className="mr-0.5 font-sans">غیبت</span>
+                        </span>
+                      )}
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full ${meta.chip}`}>
+                        {meta.label}
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="mt-2 flex items-center gap-3 text-[11.5px]">
+                  <div className="mt-2 flex items-center gap-3 text-[11.5px] flex-wrap">
                     <span className="inline-flex items-center gap-1 font-bold text-primary bg-primary-soft px-2 py-0.5 rounded-lg font-mono">
                       <Clock className="w-3 h-3 text-primary" />
                       {toFaDigits(cls.time)}
@@ -436,6 +469,35 @@ export default function HomeScreen({ onNavigate }) {
                       {toFaDigits(cls.code)}
                     </span>
                   </div>
+
+                  {/* نوار پیشرفت زنده کلاس در حال برگزاری (Live Class Progress) */}
+                  {cls.status === 'now' && cls.startHour != null && cls.endHour != null && (() => {
+                    const nowH = new Date().getHours() + new Date().getMinutes() / 60;
+                    const totalDuration = (cls.endHour - cls.startHour) * 60;
+                    const elapsed = Math.max(0, (nowH - cls.startHour) * 60);
+                    const remainingMinutes = Math.max(1, Math.round((cls.endHour - nowH) * 60));
+                    const progressPct = Math.min(100, Math.max(4, Math.round((elapsed / Math.max(totalDuration, 1)) * 100)));
+
+                    return (
+                      <div className="mt-2.5 pt-2 border-t border-base-500/30 space-y-1">
+                        <div className="flex items-center justify-between text-[10.5px]">
+                          <span className="text-success font-bold flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-success animate-ping" />
+                            {toFaDigits(remainingMinutes)} دقیقه تا پایان کلاس
+                          </span>
+                          <span className="font-mono text-neutral text-[10px]">
+                            {toFaDigits(progressPct)}٪
+                          </span>
+                        </div>
+                        <div className="w-full h-1.5 rounded-full bg-base-500/40 overflow-hidden">
+                          <div
+                            className="h-full bg-success rounded-full transition-all duration-500"
+                            style={{ width: `${progressPct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </article>
             );
@@ -457,36 +519,53 @@ export default function HomeScreen({ onNavigate }) {
           </span>
         </div>
 
-        {/* نمودار میله‌ای با مقیاس‌بندی پویا و جلوگیری از تداخل با متن بالا */}
+        {/* نمودار میله‌ای بر اساس ساعات کلاس در روز */}
         {(() => {
-          const maxCount = Math.max(...WEEK.map((d) => d.count || 0), 1);
+          const maxHours = Math.max(...WEEK.map((d) => (typeof d.hours === 'number' ? d.hours : (d.count || 0))), 1);
           return (
             <div className="flex items-end justify-between gap-2 h-28 pt-2">
               {WEEK.map((d, idx) => {
-                const count = d.count || 0;
+                const hours = typeof d.hours === 'number' ? d.hours : (d.count || 0);
                 const isToday = idx === todayIdx;
                 const barBgTokens = ['bg-info', 'bg-primary', 'bg-secondary', 'bg-accent', 'bg-success'];
-                // مقیاس‌بندی متناسب بر اساس حداکثر کلاس‌ها در هفته
-                const heightPct = count > 0
-                  ? Math.max(14, Math.min(96, Math.round((count / Math.max(maxCount, 4)) * 96)))
+                // مقیاس‌بندی متناسب بر اساس حداکثر ساعت کلاس در هفته
+                const heightPct = hours > 0
+                  ? Math.max(14, Math.min(96, Math.round((hours / Math.max(maxHours, 4.5)) * 96)))
                   : 6;
 
+                const displayHours = Number.isInteger(hours) ? hours : hours.toFixed(1);
+
                 return (
-                  <div key={d.day} className="flex-1 flex flex-col items-center h-full">
-                    {/* شمارنده ستون — محافظت‌شده که هرگز با هدر بالا تداخل نمی‌کند */}
+                  <div key={d.day} className="flex-1 flex flex-col items-center h-full" title={`${toFaDigits(displayHours)} ساعت کلاس`}>
+                    {/* شمارنده ستون (ساعت کلاس) */}
                     <div className="h-5 flex items-center justify-center">
-                      <span className={`text-[10.5px] font-mono font-bold ${isToday ? 'text-primary font-black' : 'text-neutral'}`}>
-                        {toFaDigits(count)}
-                      </span>
+                      <motion.span
+                        initial={{ opacity: 0, y: 3 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{
+                          duration: 0.35,
+                          delay: 0.22 + idx * 0.06,
+                          ease: 'easeOut',
+                        }}
+                        className={`text-[10.5px] font-bold ${isToday ? 'text-primary font-black' : 'text-neutral'}`}
+                      >
+                        {toFaDigits(displayHours)}
+                      </motion.span>
                     </div>
 
-                    {/* فضای میله — مقیاس‌بندی داخل کادر */}
+                    {/* فضای میله — مقیاس‌بندی داخل کادر با انیمیشن ورود */}
                     <div className="flex-1 w-full flex items-end justify-center py-1">
-                      <div
-                        className={`w-full max-w-[28px] rounded-t-xl rounded-b-md transition-all duration-300 ${barBgTokens[idx % barBgTokens.length]} ${
-                          isToday ? 'ring-2 ring-primary ring-offset-2 ring-offset-base scale-105' : 'opacity-80 hover:opacity-100'
+                      <motion.div
+                        initial={{ height: 0, opacity: 0.25 }}
+                        animate={{ height: `${heightPct}%`, opacity: isToday ? 1 : 0.85 }}
+                        transition={{
+                          duration: 0.6,
+                          delay: 0.1 + idx * 0.06,
+                          ease: [0.16, 1, 0.3, 1],
+                        }}
+                        className={`w-full max-w-[28px] rounded-t-xl rounded-b-md ${barBgTokens[idx % barBgTokens.length]} ${
+                          isToday ? 'ring-2 ring-primary ring-offset-2 ring-offset-base scale-105' : 'hover:opacity-100'
                         }`}
-                        style={{ height: `${heightPct}%` }}
                       />
                     </div>
 

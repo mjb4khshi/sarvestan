@@ -13,9 +13,12 @@ import {
   Calendar,
   Palette,
   Calculator,
+  UserX,
+  Minus,
 } from 'lucide-react';
 import { toFaDigits } from '../utils/faDigits';
 import SarvTimePickerModal from './SarvTimePickerModal';
+import OdometerNumber from './OdometerNumber';
 
 const DAYS_OF_WEEK = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'];
 
@@ -40,6 +43,7 @@ function parseStartAndEnd(timeStr) {
 export default function CourseEditModal({
   isOpen,
   course = null,
+  existingCourses = [],
   defaultDay = 'شنبه',
   onClose,
   onSave,
@@ -58,6 +62,8 @@ export default function CourseEditModal({
   ]);
   const [includeInGpa, setIncludeInGpa] = useState(true);
   const [color, setColor] = useState('primary');
+  const [absences, setAbsences] = useState(0);
+  const [maxAbsences, setMaxAbsences] = useState(3);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [timePickerState, setTimePickerState] = useState({
@@ -80,6 +86,8 @@ export default function CourseEditModal({
         setGroup(course.group || '01');
         setIncludeInGpa(course.includeInGpa !== false);
         setColor(course.color || 'primary');
+        setAbsences(Number(course.absences) || 0);
+        setMaxAbsences(course.maxAbsences != null ? Number(course.maxAbsences) : 3);
 
         if (Array.isArray(course.daySlots) && course.daySlots.length > 0) {
           setSlots(
@@ -123,7 +131,7 @@ export default function CourseEditModal({
         setGroup('01');
         setIncludeInGpa(true);
         setColor('primary');
-        setSlots([{ day: defaultDay || 'شنبه', start: '13:30', end: '15:00', hall: '' }]);
+        setSlots([{ day: 'شنبه', start: '13:30', end: '15:00', hall: '' }]);
       }
     }
   }, [isOpen, course, defaultDay]);
@@ -133,7 +141,7 @@ export default function CourseEditModal({
     setSlots([
       ...slots,
       {
-        day: 'دوشنبه',
+        day: 'شنبه',
         start: last?.start || '13:30',
         end: last?.end || '15:00',
         hall: last?.hall || hall || '',
@@ -154,10 +162,43 @@ export default function CourseEditModal({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!name.trim()) {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
       setErrorMsg('لطفاً نام درس را وارد کنید.');
       return;
     }
+
+    const normName = (str) =>
+      String(str || '')
+        .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+        .replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+        .replace(/[يی]/g, 'ی')
+        .replace(/[كک]/g, 'ک')
+        .replace(/[\u200c\s]+/g, ' ')
+        .trim()
+        .toLowerCase();
+
+    const normalizedInputName = normName(trimmedName);
+
+    // بررسی نام تکراری در میان دروس موجود
+    if (Array.isArray(existingCourses) && existingCourses.length > 0) {
+      const isDuplicate = existingCourses.some((c) => {
+        if (!c) return false;
+        // اگر در حال ویرایش همین درس هستیم، خودش را مستثنی کن
+        if (isEditing) {
+          if (course?.id && c?.id && String(course.id) === String(c.id)) return false;
+          if (course?.code && c?.code && String(course.code) === String(c.code)) return false;
+          if (normName(course?.name || course?.title) === normName(c?.name || c?.title)) return false;
+        }
+        return normName(c?.name || c?.title) === normalizedInputName;
+      });
+
+      if (isDuplicate) {
+        setErrorMsg('درسی با این نام قبلاً ایجاد شده است.');
+        return;
+      }
+    }
+
     if (!slots.length) {
       setErrorMsg('حداقل یک جلسه برای این درس تعیین کنید.');
       return;
@@ -191,6 +232,8 @@ export default function CourseEditModal({
       daySlots: formattedDaySlots,
       includeInGpa: Boolean(includeInGpa),
       color: color || 'primary',
+      absences: Math.max(0, Number(absences) || 0),
+      maxAbsences: Math.max(1, Number(maxAbsences) || 3),
     };
 
     onSave(resultCourse);
@@ -423,6 +466,103 @@ export default function CourseEditModal({
                   }`}
                 >
                   <span className="w-5 h-5 rounded-full bg-white shadow-md block transition-all" />
+                </div>
+              </div>
+
+              {/* شمارنده و تنظیم غیبت‌های مجاز درس */}
+              <div className="p-3.5 rounded-2xl bg-base-500/10 border border-base-500/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-8 h-8 rounded-xl bg-warn-soft text-warn grid place-items-center shrink-0">
+                      <UserX className="w-4 h-4" />
+                    </span>
+                    <div>
+                      <span className="text-[12px] font-bold text-base-content block">
+                        وضعیت حضور و غیاب
+                      </span>
+                      <span className="text-[10px] text-neutral block">
+                        قانون ۳/۱۶ یا سقف مجاز جلسات غیبت
+                      </span>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`text-[10.5px] font-bold px-2 py-0.5 rounded-lg font-mono ${
+                      absences >= maxAbsences
+                        ? 'bg-danger text-danger-content'
+                        : absences === maxAbsences - 1
+                        ? 'bg-warn text-warn-content'
+                        : 'bg-success-soft text-success'
+                    }`}
+                  >
+                    {absences >= maxAbsences
+                      ? 'خطر حذف درس'
+                      : absences === maxAbsences - 1
+                      ? 'فقط ۱ غیبت مانده'
+                      : 'وضعیت امن'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5 pt-1">
+                  {/* تعداد جلسات غیبت ثبت‌شده */}
+                  <div className="p-2.5 rounded-xl bg-base border border-base-500/25 space-y-1.5">
+                    <label className="text-[10.5px] text-neutral font-bold block text-center">
+                      غیبت‌های انجام‌شده
+                    </label>
+                    <div className="flex items-center justify-between gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setAbsences((a) => Math.max(0, a - 1))}
+                        className="w-7 h-7 rounded-lg bg-base-500/20 hover:bg-base-500/35 text-base-content grid place-items-center active:scale-90 transition cursor-pointer"
+                        title="کاهش غیبت"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <OdometerNumber
+                        value={absences}
+                        height={24}
+                        className="text-[17px] font-black text-base-content"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setAbsences((a) => a + 1)}
+                        className="w-7 h-7 rounded-lg bg-base-500/20 hover:bg-base-500/35 text-base-content grid place-items-center active:scale-90 transition cursor-pointer"
+                        title="افزایش غیبت"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* سقف مجاز غیبت */}
+                  <div className="p-2.5 rounded-xl bg-base border border-base-500/25 space-y-1.5">
+                    <label className="text-[10.5px] text-neutral font-bold block text-center">
+                      سقف غیبت مجاز
+                    </label>
+                    <div className="flex items-center justify-between gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setMaxAbsences((m) => Math.max(1, m - 1))}
+                        className="w-7 h-7 rounded-lg bg-base-500/20 hover:bg-base-500/35 text-base-content grid place-items-center active:scale-90 transition cursor-pointer"
+                        title="کاهش سقف مجاز"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <OdometerNumber
+                        value={maxAbsences}
+                        height={24}
+                        className="text-[17px] font-black text-primary"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setMaxAbsences((m) => m + 1)}
+                        className="w-7 h-7 rounded-lg bg-base-500/20 hover:bg-base-500/35 text-base-content grid place-items-center active:scale-90 transition cursor-pointer"
+                        title="افزایش سقف مجاز"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 

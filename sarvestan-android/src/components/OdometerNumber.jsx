@@ -3,7 +3,7 @@ import { toFaDigits } from '../utils/faDigits';
 
 const FA_DIGITS = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
 
-function SingleDigitWheel({ char, height = 36 }) {
+function SingleDigitWheel({ char, height = 36, startFromZero = false }) {
   const isDigit = /[۰-۹0-9]/.test(char);
   if (!isDigit) {
     return (
@@ -28,12 +28,12 @@ function SingleDigitWheel({ char, height = 36 }) {
     >
       <motion.span
         className="flex flex-col text-center w-full"
-        initial={false}
+        initial={startFromZero ? { y: 0 } : false}
         animate={{ y: -activeIdx * height }}
         transition={{
           type: 'spring',
-          stiffness: 300,
-          damping: 24,
+          stiffness: 200,
+          damping: 22,
         }}
       >
         {FA_DIGITS.map((d) => (
@@ -53,7 +53,7 @@ function SingleDigitWheel({ char, height = 36 }) {
 /**
  * مؤلفه نمایش عدد به سبک کیلومترشمار مکانیکی و کرنومتر دستی آنالوگ با فاصله‌گذاری فشرده و طبیعی
  */
-export default function OdometerNumber({ value, height = 36, className = '' }) {
+export default function OdometerNumber({ value, height = 36, className = '', startFromZero = false }) {
   const str = toFaDigits(value);
   const chars = str.split('');
 
@@ -64,7 +64,7 @@ export default function OdometerNumber({ value, height = 36, className = '' }) {
       style={{ height: `${height}px` }}
     >
       {chars.map((c, i) => (
-        <SingleDigitWheel key={i} char={c} height={height} />
+        <SingleDigitWheel key={i} char={c} height={height} startFromZero={startFromZero} />
       ))}
     </span>
   );

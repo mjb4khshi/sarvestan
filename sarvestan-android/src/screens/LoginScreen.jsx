@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { motion } from 'framer-motion';
-import { LogIn, Loader2, X, CheckCircle2, KeyRound, Globe, ShieldCheck } from 'lucide-react';
+import { LogIn, Loader2, X, CheckCircle2, KeyRound, Globe, ShieldCheck, GraduationCap, BookOpen } from 'lucide-react';
 import SarvCheckbox from '../components/SarvCheckbox';
 import { applyManualSession, isSessionAlive, beginFreshLoginSession, clearSession } from '../services/behestan/session';
 import { runFullSync, resetSyncState } from '../services/behestan/sync';
@@ -69,7 +69,7 @@ function networkErrorMessage(e) {
 }
 
 /** احراز هویت: بسته به متد انتخابی */
-async function doLogin(username, password, method) {
+async function doLogin(username, password, method, options = {}) {
   if (method === 'webview') {
     if (isNativeCapacitor()) {
       return loginViaSsoWebView({ username, password });
@@ -79,7 +79,7 @@ async function doLogin(username, password, method) {
 
   // ورود روی اندروید (تلاش هوشمند نیتیو با فال‌بک وب‌ویو)
   if (isNativeCapacitor()) {
-    return loginAndroid(username, password);
+    return loginAndroid(username, password, options);
   }
 
   // روی وب
@@ -99,6 +99,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
   const flow = useSyncExternalStore(subscribeLogin, getLoginSnapshot, getLoginSnapshot);
   const busyRef = useRef(false);
   const [method, setMethod] = useState('sso'); // 'sso' | 'webview'
+  const [kahadAccounts, setKahadAccounts] = useState(null);
   // رمزی که برای تلاش جاری معتبر است — بعد از شکست، ورود وب‌ویو دوباره با آن نمی‌کوبد
   const lastTriedRef = useRef({ method: '', username: '', password: '', failed: false });
 
@@ -126,7 +127,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
     onSuccess?.();
   };
 
-  const handleLogin = async () => {
+  const handleLogin = async (loginOptions = {}) => {
     if (busyRef.current) return;
     const u = String(username || '').trim();
     const p = password;
@@ -144,16 +145,37 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
     beginLoginFlow();
 
     try {
-      // نشست/کوکی کهنه را قبل از تلاش تازه دور بریز — عامل «رور ۲۰۰ ولی لاگین خراب»
-      try {
-        beginFreshLoginSession();
-        await clearSsoCookies();
-      } catch {}
+      // نشست/کوکی کهنه را قبل از تلاش تازه دور بریز (مگر اینکه کاربر رشته کهاد را انتخاب کرده باشد)
+      if (!loginOptions?.selectedUserNo) {
+        try {
+          beginFreshLoginSession();
+          await clearSsoCookies();
+        } catch {}
+      }
 
       setLoginStep(0);
       const t0 = Date.now();
 
-      const j = await doLogin(u, stripFailedPass ? '' : p, method);
+      let j = await doLogin(u, stripFailedPass ? '' : p, method, loginOptions);
+
+      // اگر کاربر کهاد/دو رشته‌ای بود و لیست اکانت‌ها برگشت
+      if (!j?.ok && j?.code === 'needs-kahad-selection' && j?.accounts?.length > 0) {
+        busyRef.current = false;
+        failLoginFlow(-1, '');
+        setKahadAccounts(j.accounts);
+        return;
+      }
+
+      // فال‌بک وب‌ویو اگر نیاز به انتخاب تعاملی باشد
+      if (!j?.ok && j?.code === 'needs-account-selection' && isNativeCapacitor()) {
+        try {
+          setMethod('webview');
+          j = await loginViaSsoWebView({ username: u, password: p });
+        } catch (err) {
+          j = { ok: false, error: 'انصراف یا خطا در انتخاب رشته کهاد' };
+        }
+      }
+
       if (!j?.ok || !j?.sid || !j?.ticket) {
         lastTriedRef.current.failed = true;
         busyRef.current = false;
@@ -497,9 +519,97 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
     </div>
   );
 
+  const kahadModal = kahadAccounts && (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        style={{ backgroundColor: 'var(--theme-color-base, #161618)' }}
+        className="w-full max-w-[380px] rounded-3xl border border-base-500 p-6 shadow-2xl flex flex-col gap-4 text-right relative z-10"
+        dir="rtl"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-primary-soft text-primary flex items-center justify-center shrink-0">
+            <GraduationCap className="w-5 h-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-[15px] font-black text-base-content">انتخاب پرونده تحصیلی</h3>
+            <p className="text-[11px] text-neutral mt-0.5 font-medium">طرح کهاد / چند رشته‌ای</p>
+          </div>
+        </div>
+
+        <p className="text-[11.5px] leading-relaxed text-neutral">
+          برای این کدملی دو پرونده تحصیلی در سیستم دانشگاه تعریف شده است. لطفاً جهت ورود، پرونده رشته اصلی را انتخاب کنید:
+        </p>
+
+        <div className="flex flex-col gap-2.5 my-1">
+          {kahadAccounts.map((acc, idx) => {
+            const isSecondary = idx > 0;
+            return (
+              <button
+                key={acc.UserNo || idx}
+                type="button"
+                disabled={isSecondary}
+                onClick={() => {
+                  if (isSecondary) return;
+                  const pickedNo = acc.UserNo;
+                  const pickedType = acc.UserType || '1';
+                  setKahadAccounts(null);
+                  handleLogin({ selectedUserNo: pickedNo, selectedUserType: pickedType });
+                }}
+                className={`w-full text-right p-3.5 rounded-2xl border transition-all flex items-center justify-between ${
+                  isSecondary
+                    ? 'opacity-40 cursor-not-allowed bg-base-500/10 border-base-500/20'
+                    : 'bg-base-500/30 hover:bg-base-500/50 border-primary/40 hover:border-primary shadow-sm active:scale-[0.98]'
+                }`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      isSecondary ? 'bg-base-500/30 text-neutral' : 'bg-primary-soft text-primary'
+                    }`}
+                  >
+                    <BookOpen className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-base-content">
+                      {acc.UserLabel || `دانشجو: ${acc.UserNo}`}
+                    </div>
+                    <div className="text-[10.5px] text-neutral font-mono mt-0.5">
+                      شماره دانشجویی: {acc.UserNo}
+                    </div>
+                  </div>
+                </div>
+                <span
+                  className={`text-[10px] px-2.5 py-1 rounded-lg font-bold shrink-0 mr-2 ${
+                    isSecondary
+                      ? 'bg-base-500/30 text-neutral'
+                      : 'bg-primary-soft text-primary'
+                  }`}
+                >
+                  {isSecondary ? 'کهاد (به‌زودی)' : 'رشته اصلی'}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setKahadAccounts(null)}
+          className="w-full py-2.5 text-center text-xs font-bold text-neutral hover:text-base-content transition-colors"
+        >
+          انصراف
+        </button>
+      </motion.div>
+    </div>
+  );
+
   if (asModal) {
     return (
       <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center">
+        {kahadModal}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -534,6 +644,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
 
   return (
     <div className="min-h-full bg-base text-base-content mobile-shell">
+      {kahadModal}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}

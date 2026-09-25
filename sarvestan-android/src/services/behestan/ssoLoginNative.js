@@ -60,7 +60,7 @@ export function stripKeycloakCookies(jar) {
 }
 
 /** ورود مستقیم نیتیو جاوا (بدون وب‌ویو، دقیقا مانند وب با curl) */
-export async function loginViaJavaSso(username, password) {
+export async function loginViaJavaSso(username, password, options = {}) {
   const p = plugins().SsoLogin;
   if (!p?.login) {
     return { ok: false, error: 'پلاگین SsoLogin در دسترس نیست', code: 'no-plugin' };
@@ -69,6 +69,8 @@ export async function loginViaJavaSso(username, password) {
     const res = await p.login({
       username: String(username || '').trim(),
       password: String(password || ''),
+      selectedUserNo: options.selectedUserNo || undefined,
+      selectedUserType: options.selectedUserType || undefined,
     });
     if (res?.ok && res.sid && res.ticket) {
       return {
@@ -76,7 +78,7 @@ export async function loginViaJavaSso(username, password) {
         sid: res.sid,
         ticket: res.ticket,
         cookies: res.cookies || '',
-        studentId: res.studentId || String(username || '').trim(),
+        studentId: res.studentId || options.selectedUserNo || String(username || '').trim(),
         userId: res.userId || undefined,
         source: 'native_java',
       };
@@ -84,6 +86,24 @@ export async function loginViaJavaSso(username, password) {
     return { ok: false, error: res?.error || 'نشست ساخته نشد', code: res?.code || undefined };
   } catch (e) {
     const msg = String(e?.message || e?.error || e || 'خطای ورود بومی');
+    if (
+      e?.code === 'needs-kahad-selection' ||
+      e?.data?.code === 'needs-kahad-selection' ||
+      /کهاد|چند رشته/i.test(msg)
+    ) {
+      let accounts = e?.accounts || e?.data?.accounts;
+      if (!accounts && (e?.accountsRaw || e?.data?.accountsRaw)) {
+        try {
+          accounts = JSON.parse(e?.accountsRaw || e?.data?.accountsRaw);
+        } catch {}
+      }
+      return {
+        ok: false,
+        error: 'اکانت دارای چند رشته است (طرح کهاد/دو رشته‌ای)',
+        code: 'needs-kahad-selection',
+        accounts: accounts || [],
+      };
+    }
     const bad =
       e?.code === 'bad-credentials' ||
       /invalid username or password|bad credentials|نادرست|اشتباه/i.test(msg);
@@ -404,6 +424,18 @@ export async function loginViaNativeSso(username, password) {
     if (m) code = decodeURIComponent(m[1]);
   }
   if (!code) {
+    const isBad =
+      loginBody.includes('Invalid username or password') ||
+      loginBody.includes('invalid username or password') ||
+      /kc-feedback-text/i.test(loginBody) ||
+      (loginBody.includes('کاربری') && (loginBody.includes('نادرست') || loginBody.includes('اشتباه')));
+    if (!isBad) {
+      return {
+        ok: false,
+        error: 'اکانت دارای چند رشته است (طرح کهاد/دو رشته‌ای)',
+        code: 'needs-account-selection',
+      };
+    }
     const err =
       loginBody.match(/kc-feedback-text[^>]*>\s*([^<]+)/i)?.[1]?.trim() ||
       (loginBody.includes('Invalid username or password') ? 'نام کاربری یا کلمه عبور نادرست است.' : '');
@@ -589,15 +621,24 @@ export async function clearSsoCookies() {
 }
 
 /** ورود یکپارچه اندروید — فقط با رمز، WebView خودکار باز نمی‌شود */
-export async function loginAndroid(username, password) {
+export async function loginAndroid(username, password, options = {}) {
   if (username && password) {
-    // کوکی‌های نشست قبلی Keycloak نباید فرم/ریدایرکت تلاش دوم را خراب کنند
-    await clearSsoCookies();
+    if (!options.selectedUserNo) {
+      // کوکی‌های نشست قبلی Keycloak نباید فرم/ریدایرکت تلاش دوم را خراب کنند
+      await clearSsoCookies();
+    }
 
     // ۱) ورود مستقیم از طریق لایهٔ بومی Java (بدون باز شدن وب‌ویو، دقیقاً مشابه مکانیزم curl در وب)
     if (hasSsoLoginPlugin()) {
-      const javaRes = await loginViaJavaSso(username, password);
+      const javaRes = await loginViaJavaSso(username, password, options);
       if (javaRes.ok) return javaRes;
+
+      if (
+        javaRes.code === 'needs-kahad-selection' ||
+        javaRes.code === 'needs-account-selection'
+      ) {
+        return javaRes;
+      }
 
       // خطای احراز هویت (رمز اشتباه و…) نباید به فال‌بک برود و کوکی کهنه را «موفق» جلوه دهد
       if (

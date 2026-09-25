@@ -410,7 +410,7 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
                   )}
                 </span>
                 <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20 shrink-0">
-                  طرح استوری
+                  تصویر برنامه
                 </span>
               </div>
               <p className="text-[13.5px] font-black text-base-content">برنامه هفتگی</p>
@@ -1420,9 +1420,9 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
                   </div>
                   <div>
                     <h3 className="text-[14px] font-bold text-base-content">
-                      {sharePreview.kind === 'gpa' ? 'پوستر استوری کارنامه و معدل' : 'پوستر استوری برنامه هفتگی'}
+                      {sharePreview.kind === 'gpa' ? 'پوستر استوری کارنامه و معدل' : 'تصویر باکیفیت برنامه هفتگی'}
                     </h3>
-                    <p className="text-[10px] text-neutral">طرح رزولوشن بالا ۱۰۸۰×۱۹۲۰ ویژه استوری</p>
+                    <p className="text-[10px] text-neutral">طرح رزولوشن بالا ۱۰۸۰p ویژه همرسانی و پس‌زمینه</p>
                   </div>
                 </div>
                 <button

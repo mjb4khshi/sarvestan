@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="schedule"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_schedule"
+        android:shortcutShortLabel="@string/shortcut_schedule_short"
+        android:shortcutLongLabel="@string/shortcut_schedule_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="ir.mjbakhshi.sarvestan"
+            android:targetClass="ir.mjbakhshi.sarvestan.MainActivity">
+            <extra android:name="shortcut_target" android:value="schedule" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="behestan"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_behestan"
+        android:shortcutShortLabel="@string/shortcut_behestan_short"
+        android:shortcutLongLabel="@string/shortcut_behestan_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="ir.mjbakhshi.sarvestan"
+            android:targetClass="ir.mjbakhshi.sarvestan.MainActivity">
+            <extra android:name="shortcut_target" android:value="behestan" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="vc"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_vc"
+        android:shortcutShortLabel="@string/shortcut_vc_short"
+        android:shortcutLongLabel="@string/shortcut_vc_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="ir.mjbakhshi.sarvestan"
+            android:targetClass="ir.mjbakhshi.sarvestan.MainActivity">
+            <extra android:name="shortcut_target" android:value="vc" />
+        </intent>
+    </shortcut>
+</shortcuts>

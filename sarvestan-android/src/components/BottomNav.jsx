@@ -76,8 +76,31 @@ export default function BottomNav({ active, onChange }) {
       className="fixed bottom-0 inset-x-0 z-50 pointer-events-none pb-[env(safe-area-inset-bottom,0px)]"
       aria-label="ناوبری اصلی برنامه"
     >
-      <div className="mx-auto max-w-[420px] px-3 pb-2.5 pt-0 pointer-events-auto">
-        <div className="relative rounded-[22px] bg-base/95 backdrop-blur-2xl border border-base-500/70 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.45)] px-2 py-1 grid grid-cols-5 gap-1 items-center">
+      {/* گرادینت بسیار نرم و محو همرنگ پس‌زمینه برای حذف آلودگی بصری زیر نوبار با حفظ حس شناور بودن */}
+      <div
+        className="absolute inset-x-0 bottom-0 h-28 pointer-events-none -z-10"
+        style={{
+          background: `linear-gradient(
+            to top,
+            var(--theme-color-base, #0a0a0c) 0%,
+            color-mix(in oklab, var(--theme-color-base, #0a0a0c) 92%, transparent) 22%,
+            color-mix(in oklab, var(--theme-color-base, #0a0a0c) 72%, transparent) 42%,
+            color-mix(in oklab, var(--theme-color-base, #0a0a0c) 45%, transparent) 62%,
+            color-mix(in oklab, var(--theme-color-base, #0a0a0c) 20%, transparent) 78%,
+            color-mix(in oklab, var(--theme-color-base, #0a0a0c) 6%, transparent) 90%,
+            transparent 100%
+          )`,
+        }}
+      />
+
+      <div className="relative mx-auto max-w-[420px] px-3 pb-2.5 pt-0 pointer-events-auto">
+        <div
+          className="relative rounded-[22px] bg-base/95 backdrop-blur-2xl border border-base-500/70 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.45)] px-2 py-1 grid grid-cols-5 gap-1 items-center"
+          style={{
+            backgroundColor: 'color-mix(in oklab, var(--theme-color-base, #0a0a0c) 95%, transparent)',
+            borderColor: 'color-mix(in oklab, var(--theme-color-base-500, #222222) 70%, transparent)',
+          }}
+        >
           {TABS_RIGHT.map((t) => (
             <NavTabItem key={t.id} {...t} active={active} onChange={onChange} />
           ))}

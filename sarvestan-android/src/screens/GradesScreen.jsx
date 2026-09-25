@@ -19,6 +19,7 @@ import { getViewModel } from '../data/viewModel';
 import { toFaDigits } from '../utils/faDigits';
 import OdometerNumber from '../components/OdometerNumber';
 import SarvCheckbox from '../components/SarvCheckbox';
+import GpaTrendGraph from '../components/GpaTrendGraph';
 import { getGpaStatusBadge } from './HomeScreen';
 
 function scoreColor(scoreVal, status) {
@@ -216,33 +217,36 @@ export default function GradesScreen({ onNavigate }) {
           </span>
         </div>
 
-        <div className="sarv-seg relative">
-          {TERMS.map((t) => {
-            const isSelected = selectedTermId === t.id;
-            return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setSelectedTermId(t.id)}
-                className={`relative py-2 px-2 rounded-xl text-center transition-colors select-none outline-none ${
-                  isSelected ? 'text-primary-content font-bold' : 'text-neutral hover:text-base-content'
-                }`}
-              >
-                {/* مستطیل شناور متحرک زیر تب فعال */}
-                {isSelected && (
-                  <motion.span
-                    layoutId="termActivePill"
-                    className="absolute inset-0 rounded-xl bg-primary shadow-sm z-0"
-                    transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-                  />
-                )}
-                <span className="relative z-10 block">
-                  <p className="text-[11.5px] leading-tight font-black">{toFaDigits(t.shortName)}</p>
-                  <p className="text-[10px] font-mono mt-0.5 opacity-90">معدل: {toFaDigits(t.gpa)}</p>
-                </span>
-              </button>
-            );
-          })}
+        {/* محفظه ثابت لبه‌گرد بیرونی با اسکرول داخلی عناصر و پیل متحرک */}
+        <div className="w-full p-1 rounded-2xl bg-base-content/5 border border-base-content/10 overflow-x-auto no-scrollbar" data-no-swipe>
+          <div className="inline-flex gap-1.5 min-w-full">
+            {TERMS.map((t) => {
+              const isSelected = selectedTermId === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setSelectedTermId(t.id)}
+                  className={`relative py-2 px-3.5 rounded-xl text-center transition-colors select-none outline-none shrink-0 flex-1 min-w-[96px] ${
+                    isSelected ? 'text-primary-content font-bold' : 'text-neutral hover:text-base-content'
+                  }`}
+                >
+                  {/* مستطیل شناور متحرک زیر تب فعال */}
+                  {isSelected && (
+                    <motion.span
+                      layoutId="termActivePill"
+                      className="absolute inset-0 rounded-xl bg-primary shadow-sm z-0"
+                      transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                    />
+                  )}
+                  <span className="relative z-10 block whitespace-nowrap">
+                    <p className="text-[11.5px] leading-tight font-black">{toFaDigits(t.shortName)}</p>
+                    <p className="text-[10px] font-mono mt-0.5 opacity-90">معدل: {toFaDigits(t.gpa)}</p>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </section>
 
@@ -295,6 +299,13 @@ export default function GradesScreen({ onNavigate }) {
           </div>
         </div>
       </motion.section>
+
+      {/* نمودار روند تغییرات معدل در طول ترم‌های تحصیلی */}
+      <GpaTrendGraph
+        terms={TERMS}
+        selectedTermId={selectedTermId}
+        onSelectTerm={(termId) => setSelectedTermId(termId)}
+      />
 
       {/* ابزار محاسبه‌گر معدل کل و معدل ترم — فقط برای آخرین ترم تحصیلی */}
       {isLatestTerm ? (

@@ -8,6 +8,7 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
@@ -26,13 +27,6 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSocketFactory;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
-
 /**
  * ورود بومی و مستقیم SSO دانشگاه صنعتی خواجه نصیرالدین طوسی (sso.kntu.ac.ir)
  * اجرای مستقل پروتکل احراز هویت در لایهٔ Java بدون نیاز به باز شدن WebView
@@ -41,31 +35,6 @@ import javax.net.ssl.X509TrustManager;
 public class SsoLoginPlugin extends Plugin {
 
     private static final String TAG = "SsoLogin";
-    private SSLSocketFactory trustAllSslFactory;
-    private final HostnameVerifier trustAllHostnames = (hostname, session) -> true;
-
-    private SSLSocketFactory getTrustAllSslFactory() {
-        if (trustAllSslFactory == null) {
-            try {
-                TrustManager[] trustAllCerts = new TrustManager[]{
-                    new X509TrustManager() {
-                        public X509Certificate[] getAcceptedIssuers() {
-                            return new X509Certificate[0];
-                        }
-                        public void checkClientTrusted(X509Certificate[] certs, String authType) {}
-                        public void checkServerTrusted(X509Certificate[] certs, String authType) {}
-                    }
-                };
-                SSLContext sc = SSLContext.getInstance("TLS");
-                sc.init(null, trustAllCerts, new SecureRandom());
-                trustAllSslFactory = sc.getSocketFactory();
-            } catch (Exception e) {
-                Log.e(TAG, "Error init SSL: " + e.getMessage());
-            }
-        }
-        return trustAllSslFactory;
-    }
-
     private static class HttpResult {
         int status;
         String location;
@@ -75,13 +44,6 @@ public class SsoLoginPlugin extends Plugin {
     private HttpResult executeHttp(String urlStr, String method, String body, String contentType, String referer, Map<String, String> cookies) throws Exception {
         URL url = new URL(urlStr);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        if (conn instanceof HttpsURLConnection) {
-            SSLSocketFactory sf = getTrustAllSslFactory();
-            if (sf != null) {
-                ((HttpsURLConnection) conn).setSSLSocketFactory(sf);
-                ((HttpsURLConnection) conn).setHostnameVerifier(trustAllHostnames);
-            }
-        }
         conn.setRequestMethod(method);
         conn.setInstanceFollowRedirects(false);
         conn.setConnectTimeout(20000);
@@ -249,74 +211,80 @@ public class SsoLoginPlugin extends Plugin {
                     return;
                 }
 
-                // یافتن آدرس اکشن فرم
-                Pattern actionPat = Pattern.compile("action\\s*=\\s*[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
-                Matcher mAct = actionPat.matcher(getRes.body);
-                String action = null;
-                if (mAct.find()) {
-                    action = decodeHtml(mAct.group(1).trim());
-                }
+                String code = extractCodeFromUrl(currentUrl);
+                String postUrl = currentUrl;
+                HttpResult postRes = getRes;
 
-                if (action == null) {
-                    Pattern fbPat = Pattern.compile("class=[\"'][^\"']*kc-feedback-text[^\"']*[\"'][^>]*>([\\s\\S]*?)<\\/", Pattern.CASE_INSENSITIVE);
-                    Matcher mFb = fbPat.matcher(getRes.body);
-                    if (mFb.find()) {
-                        call.reject("پیام سامانه احراز هویت: " + decodeHtml(mFb.group(1).trim()));
+                // اگر از قبل نشست فعال بود و مستقیماً کد صادر شد، نیاز به ارسال مجدد فرم لاگین نیست
+                if (code == null) {
+                    // یافتن آدرس اکشن فرم
+                    Pattern actionPat = Pattern.compile("action\\s*=\\s*[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
+                    Matcher mAct = actionPat.matcher(getRes.body);
+                    String action = null;
+                    if (mAct.find()) {
+                        action = decodeHtml(mAct.group(1).trim());
+                    }
+
+                    if (action == null) {
+                        Pattern fbPat = Pattern.compile("class=[\"'][^\"']*kc-feedback-text[^\"']*[\"'][^>]*>([\\s\\S]*?)<\\/", Pattern.CASE_INSENSITIVE);
+                        Matcher mFb = fbPat.matcher(getRes.body);
+                        if (mFb.find()) {
+                            call.reject("پیام سامانه احراز هویت: " + decodeHtml(mFb.group(1).trim()));
+                            return;
+                        }
+                        call.reject("فرم ورود SSO پیدا نشد (کد وضعیت " + getRes.status + ")");
                         return;
                     }
-                    call.reject("فرم ورود SSO پیدا نشد (کد وضعیت " + getRes.status + ")");
-                    return;
-                }
 
-                String actionUrl = new URL(new URL(currentUrl), action).toString();
+                    String actionUrl = new URL(new URL(currentUrl), action).toString();
 
-                // استخراج فیلدهای مخفی فرم
-                Map<String, String> hidden = new LinkedHashMap<>();
-                Pattern inputPat = Pattern.compile("<input[^>]+type=[\"']hidden[\"'][^>]*>", Pattern.CASE_INSENSITIVE);
-                Matcher mInp = inputPat.matcher(getRes.body);
-                while (mInp.find()) {
-                    String tag = mInp.group(0);
-                    Matcher mName = Pattern.compile("name=[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE).matcher(tag);
-                    Matcher mVal = Pattern.compile("value=[\"']([^\"']*)[\"']", Pattern.CASE_INSENSITIVE).matcher(tag);
-                    if (mName.find()) {
-                        hidden.put(mName.group(1), mVal.find() ? decodeHtml(mVal.group(1)) : "");
+                    // استخراج فیلدهای مخفی فرم
+                    Map<String, String> hidden = new LinkedHashMap<>();
+                    Pattern inputPat = Pattern.compile("<input[^>]+type=[\"']hidden[\"'][^>]*>", Pattern.CASE_INSENSITIVE);
+                    Matcher mInp = inputPat.matcher(getRes.body);
+                    while (mInp.find()) {
+                        String tag = mInp.group(0);
+                        Matcher mName = Pattern.compile("name=[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE).matcher(tag);
+                        Matcher mVal = Pattern.compile("value=[\"']([^\"']*)[\"']", Pattern.CASE_INSENSITIVE).matcher(tag);
+                        if (mName.find()) {
+                            hidden.put(mName.group(1), mVal.find() ? decodeHtml(mVal.group(1)) : "");
+                        }
                     }
-                }
 
-                // Step 2: ارسال اطلاعات کاربری
-                StringBuilder formBody = new StringBuilder();
-                formBody.append("username=").append(URLEncoder.encode(username, "UTF-8"));
-                formBody.append("&password=").append(URLEncoder.encode(password, "UTF-8"));
-                formBody.append("&credentialId=");
-                for (Map.Entry<String, String> entry : hidden.entrySet()) {
-                    if ("username".equalsIgnoreCase(entry.getKey()) || "password".equalsIgnoreCase(entry.getKey())) continue;
-                    formBody.append("&").append(URLEncoder.encode(entry.getKey(), "UTF-8"))
-                            .append("=").append(URLEncoder.encode(entry.getValue(), "UTF-8"));
-                }
-                if (!hidden.containsKey("login")) {
-                    formBody.append("&login=").append(URLEncoder.encode("Sign In", "UTF-8"));
-                }
+                    // Step 2: ارسال اطلاعات کاربری
+                    StringBuilder formBody = new StringBuilder();
+                    formBody.append("username=").append(URLEncoder.encode(username, "UTF-8"));
+                    formBody.append("&password=").append(URLEncoder.encode(password, "UTF-8"));
+                    formBody.append("&credentialId=");
+                    for (Map.Entry<String, String> entry : hidden.entrySet()) {
+                        if ("username".equalsIgnoreCase(entry.getKey()) || "password".equalsIgnoreCase(entry.getKey())) continue;
+                        formBody.append("&").append(URLEncoder.encode(entry.getKey(), "UTF-8"))
+                                .append("=").append(URLEncoder.encode(entry.getValue(), "UTF-8"));
+                    }
+                    if (!hidden.containsKey("login")) {
+                        formBody.append("&login=").append(URLEncoder.encode("Sign In", "UTF-8"));
+                    }
 
-                String postUrl = actionUrl;
-                HttpResult postRes = null;
-                String code = null;
+                    postUrl = actionUrl;
+                    postRes = null;
 
-                for (int i = 0; i < 8; i++) {
-                    postRes = executeHttp(postUrl, "POST", formBody.toString(), "application/x-www-form-urlencoded", currentUrl, cookies);
-                    if (postRes.status >= 300 && postRes.status < 400 && postRes.location != null) {
-                        postUrl = new URL(new URL(postUrl), postRes.location).toString();
-                        code = extractCodeFromUrl(postUrl);
-                        if (code != null) break;
-
-                        postRes = executeHttp(postUrl, "GET", null, null, null, cookies);
-                        if (postRes.location != null) {
+                    for (int i = 0; i < 8; i++) {
+                        postRes = executeHttp(postUrl, "POST", formBody.toString(), "application/x-www-form-urlencoded", currentUrl, cookies);
+                        if (postRes.status >= 300 && postRes.status < 400 && postRes.location != null) {
                             postUrl = new URL(new URL(postUrl), postRes.location).toString();
                             code = extractCodeFromUrl(postUrl);
                             if (code != null) break;
-                            continue;
+
+                            postRes = executeHttp(postUrl, "GET", null, null, null, cookies);
+                            if (postRes.location != null) {
+                                postUrl = new URL(new URL(postUrl), postRes.location).toString();
+                                code = extractCodeFromUrl(postUrl);
+                                if (code != null) break;
+                                continue;
+                            }
                         }
+                        break;
                     }
-                    break;
                 }
 
                 if (code == null && postRes != null) {
@@ -329,23 +297,35 @@ public class SsoLoginPlugin extends Plugin {
 
                 if (code == null) {
                     String err = "";
+                    boolean isBadCredentials = false;
                     if (postRes != null && postRes.body != null) {
                         Matcher mFb = Pattern.compile("class=[\"'][^\"']*kc-feedback-text[^\"']*[\"'][^>]*>([\\s\\S]*?)<\\/", Pattern.CASE_INSENSITIVE).matcher(postRes.body);
-                        if (mFb.find()) err = decodeHtml(mFb.group(1).trim());
-                        else if (postRes.body.contains("Invalid username or password") ||
-                                 postRes.body.contains("invalid username or password")) {
+                        if (mFb.find()) {
+                            err = decodeHtml(mFb.group(1).trim());
+                            isBadCredentials = true;
+                        } else if (postRes.body.contains("Invalid username or password") ||
+                                 postRes.body.contains("invalid username or password") ||
+                                 (postRes.body.contains("کاربری") && (postRes.body.contains("نادرست") || postRes.body.contains("اشتباه")))) {
                             err = "نام کاربری یا رمز عبور اشتباه است.";
-                        } else if (postRes.body.contains("کاربری") && (postRes.body.contains("نادرست") || postRes.body.contains("اشتباه"))) {
-                            err = "نام کاربری یا رمز عبور اشتباه است.";
+                            isBadCredentials = true;
                         }
                     }
+
+                    // اگر خطای پسورد نبود، یعنی لاگین موفق بوده اما Keycloak به صفحه انتخاب اکانت/رشته کهاد رفته
+                    if (!isBadCredentials && postRes != null && postRes.status == 200) {
+                        JSObject selectRes = new JSObject();
+                        selectRes.put("ok", false);
+                        selectRes.put("error", "اکانت دارای چند رشته است (طرح کهاد/دو رشته‌ای)");
+                        selectRes.put("code", "needs-account-selection");
+                        call.reject("اکانت دارای چند رشته است (طرح کهاد/دو رشته‌ای)", "needs-account-selection", selectRes);
+                        return;
+                    }
+
                     String finalErr = err.isEmpty() ? "نام کاربری یا رمز عبور اشتباه است." : err;
-                    // پیام خطای احراز هویت را با کلید مشخص برگردان تا JS آن را تشخیص دهد
                     JSObject fail = new JSObject();
                     fail.put("ok", false);
                     fail.put("error", finalErr);
                     fail.put("code", "bad-credentials");
-                    // Capacitor reject هم برای سازگاری با catch در JS
                     call.reject(finalErr, "bad-credentials", fail);
                     return;
                 }
@@ -381,6 +361,9 @@ public class SsoLoginPlugin extends Plugin {
                     return;
                 }
 
+                String selectedUserNo = call.getString("selectedUserNo", null);
+                String selectedUserType = call.getString("selectedUserType", "1");
+
                 String sid = null;
                 if (oauthJson.has("oaut") && !oauthJson.isNull("oaut")) {
                     JSONObject oaut = oauthJson.getJSONObject("oaut");
@@ -390,7 +373,90 @@ public class SsoLoginPlugin extends Plugin {
                 }
                 String ticket = oauthJson.optString("t", null);
 
-                if (sid == null || ticket == null) {
+                // بررسی وجود چند حساب کاربری / طرح کهاد
+                JSONArray accounts = null;
+                if (oauthJson.has("rset") && !oauthJson.isNull("rset")) {
+                    JSONObject rset = oauthJson.getJSONObject("rset");
+                    if (rset.has("grd") && !rset.isNull("grd")) {
+                        JSONArray grd = rset.getJSONArray("grd");
+                        if (grd.length() > 0) {
+                            String xml = grd.getJSONObject(0).optString("xml", "");
+                            if (xml.contains("accountInfo")) {
+                                try {
+                                    JSONObject accObj = new JSONObject(xml);
+                                    accounts = accObj.getJSONArray("accountInfo");
+                                } catch (Exception ignore) {}
+                            }
+                        }
+                    }
+                }
+
+                if ((ticket == null || ticket.isEmpty() || "null".equals(ticket)) && accounts != null && accounts.length() > 0) {
+                    // اگر کاربر نام کاربری را برابر یکی از شماره‌های دانشجویی زده، خودکار همان را انتخاب کن
+                    if (selectedUserNo == null || selectedUserNo.isEmpty()) {
+                        for (int a = 0; a < accounts.length(); a++) {
+                            JSONObject acc = accounts.getJSONObject(a);
+                            String uNo = acc.optString("UserNo", "");
+                            if (uNo.equals(username)) {
+                                selectedUserNo = uNo;
+                                selectedUserType = acc.optString("UserType", "1");
+                                break;
+                            }
+                        }
+                    }
+
+                    // اگر هنوز انتخاب نشده، لیست را برای انتخاب کاربر به فرانت‌اند بفرست
+                    if (selectedUserNo == null || selectedUserNo.isEmpty()) {
+                        JSObject selectFail = new JSObject();
+                        selectFail.put("ok", false);
+                        selectFail.put("code", "needs-kahad-selection");
+                        selectFail.put("error", "اکانت دارای چند رشته است (طرح کهاد/دو رشته‌ای)");
+                        try {
+                            selectFail.put("accounts", new com.getcapacitor.JSArray(accounts.toString()));
+                        } catch (Exception ignore) {
+                            selectFail.put("accountsRaw", accounts.toString());
+                        }
+                        call.reject("اکانت دارای چند رشته است (طرح کهاد/دو رشته‌ای)", "needs-kahad-selection", selectFail);
+                        return;
+                    }
+
+                    // انتخاب مشخص شده؛ یک کد تایید تازه از SSO می‌گیریم (نشست فعال است و بلافاصله ۳۰۲ می‌دهد)
+                    String reAuthUrl = "https://sso.kntu.ac.ir/realms/kntu/protocol/openid-connect/auth" +
+                        "?client_id=behestan.kntu.ac.ir" +
+                        "&redirect_uri=" + URLEncoder.encode("https://behestan.kntu.ac.ir/index.html", "UTF-8") +
+                        "&response_type=code&scope=" + URLEncoder.encode("openid profile", "UTF-8") +
+                        "&state=" + System.currentTimeMillis();
+
+                    HttpResult reAuthRes = executeHttp(reAuthUrl, "GET", null, null, null, cookies);
+                    String secondCode = null;
+                    if (reAuthRes.status >= 300 && reAuthRes.status < 400 && reAuthRes.location != null) {
+                        secondCode = extractCodeFromUrl(reAuthRes.location);
+                    }
+                    if (secondCode == null) {
+                        secondCode = code; // در صورت عدم دریافت کد جدید از همان کد قبلی استفاده کن
+                    }
+
+                    // ارسال درخواست مرحله دوم با مشخص کردن شماره دانشجویی رشته انتخابی
+                    String finalOauthBody = "{\"act\":\"09\",\"r\":{\"code\":\"" + secondCode +
+                        "\",\"ticket\":\"\",\"l\":\"\",\"p\":\"\",\"d\":\"0\",\"c\":\"\",\"rsc\":\"112\"," +
+                        "\"un\":\"" + selectedUserNo + "\",\"ut\":\"" + selectedUserType + "\"},\"rp\":{}}";
+
+                    HttpResult secondOauthRes = executeHttp("https://behestan.kntu.ac.ir/frmc/Authentication/oauth2/", "POST", finalOauthBody, "application/json", "https://behestan.kntu.ac.ir/", cookies);
+                    if (secondOauthRes.body != null && !secondOauthRes.body.isEmpty()) {
+                        try {
+                            JSONObject secondJson = new JSONObject(secondOauthRes.body);
+                            ticket = secondJson.optString("t", null);
+                            if (secondJson.has("oaut") && !secondJson.isNull("oaut")) {
+                                JSONObject oaut2 = secondJson.getJSONObject("oaut");
+                                if (oaut2.has("rp") && !oaut2.isNull("rp")) {
+                                    sid = oaut2.getJSONObject("rp").optString("sid", sid);
+                                }
+                            }
+                        } catch (Exception ignore) {}
+                    }
+                }
+
+                if (sid == null || ticket == null || "null".equals(ticket)) {
                     String err = "نشست از بهستان برنگشت";
                     if (oauthJson.has("msg") && !oauthJson.isNull("msg")) {
                         JSONObject msg = oauthJson.getJSONObject("msg");

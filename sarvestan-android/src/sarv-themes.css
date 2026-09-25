@@ -36,10 +36,10 @@
   --theme-radius-checkbox: 40%;
 }
 
-/* 1. Persian Dark (اصیل) */
+/* 1. Persian Dark (اصیل با کنتراست بالا) */
 [datatheme="persian-dark"],
 [data-theme="persian-dark"] {
-  --theme-color-primary: #0066a4;
+  --theme-color-primary: #0077c2;
   --theme-color-secondary: #d88f58;
   --theme-color-accent: #fe28a2;
   --theme-color-success: #46c93a;
@@ -80,8 +80,8 @@ html[data-theme="persian-light"],
   --theme-color-info: #00a594;
   --theme-color-danger: #ff4757;
   --theme-color-neutral: #6b7280;
-  --theme-color-neutral-dark: #404040;
-  --theme-color-neutral-darker: #1e1e1e;
+  --theme-color-neutral-dark: #cbd5e1;
+  --theme-color-neutral-darker: #e2e8f0;
   --theme-color-base: #ffffff;
   --theme-color-base-500: #e2e8f0;
   --theme-color-base-900: #858585;
@@ -94,7 +94,7 @@ html[data-theme="persian-light"],
   --theme-color-info-content: #ffffff;
   --theme-color-neutral-content: #ffffff;
   --theme-color-base-content: #0f172a;
-  --theme-shadow-color: 0, 0, 0;
+  --theme-shadow-color: 15, 23, 42;
   --theme-radius-card: 1.15rem;
   --theme-radius-button: 0.85rem;
   --theme-radius-input: 0.85rem;
@@ -506,3 +506,99 @@ html[data-theme="persian-light"],
   --theme-radius-button: 14px;
   --theme-radius-input: 14px;
 }
+
+/* 16. Batman (شوالیه تاریکی: مشکی و زرد نئون، فقط اخطار قرمز) */
+[datatheme="batman"],
+[data-theme="batman"] {
+  --theme-color-primary: #ffe600;
+  --theme-color-secondary: #facc15;
+  --theme-color-accent: #eab308;
+  --theme-color-success: #fef08a;
+  --theme-color-warn: #eab308;
+  --theme-color-danger: #ef4444;
+  --theme-color-info: #fde047;
+  --theme-color-neutral: #a1a1aa;
+  --theme-color-neutral-dark: #27272a;
+  --theme-color-neutral-darker: #18181b;
+  --theme-color-base: #000000;
+  --theme-color-base-500: #18181b;
+  --theme-color-base-900: #71717a;
+  --theme-color-primary-content: #000000;
+  --theme-color-secondary-content: #000000;
+  --theme-color-accent-content: #000000;
+  --theme-color-success-content: #000000;
+  --theme-color-warn-content: #000000;
+  --theme-color-danger-content: #ffffff;
+  --theme-color-info-content: #000000;
+  --theme-color-neutral-content: #ffffff;
+  --theme-color-base-content: #ffffff;
+  --theme-shadow-color: 255, 230, 0;
+  --theme-radius-card: 1.15rem;
+  --theme-radius-button: 0.85rem;
+  --theme-radius-input: 0.85rem;
+}
+
+/* 17. Monochrome Dark (سیاه و سفید تاریک) */
+[datatheme="monochrome"],
+[data-theme="monochrome"],
+[datatheme="monochrome-dark"],
+[data-theme="monochrome-dark"] {
+  --theme-color-primary: #ffffff;
+  --theme-color-secondary: #e4e4e7;
+  --theme-color-accent: #d4d4d8;
+  --theme-color-success: #f4f4f5;
+  --theme-color-warn: #a1a1aa;
+  --theme-color-danger: #ef4444;
+  --theme-color-info: #e4e4e7;
+  --theme-color-neutral: #a1a1aa;
+  --theme-color-neutral-dark: #27272a;
+  --theme-color-neutral-darker: #18181b;
+  --theme-color-base: #000000;
+  --theme-color-base-500: #18181b;
+  --theme-color-base-900: #71717a;
+  --theme-color-primary-content: #000000;
+  --theme-color-secondary-content: #000000;
+  --theme-color-accent-content: #000000;
+  --theme-color-success-content: #000000;
+  --theme-color-warn-content: #000000;
+  --theme-color-danger-content: #ffffff;
+  --theme-color-info-content: #000000;
+  --theme-color-neutral-content: #ffffff;
+  --theme-color-base-content: #ffffff;
+  --theme-shadow-color: 255, 255, 255;
+  --theme-radius-card: 1.15rem;
+  --theme-radius-button: 0.85rem;
+  --theme-radius-input: 0.85rem;
+}
+
+/* 18. Monochrome Light (سیاه و سفید روشن) */
+[datatheme="monochrome-light"],
+[data-theme="monochrome-light"] {
+  --theme-color-primary: #000000;
+  --theme-color-secondary: #27272a;
+  --theme-color-accent: #3f3f46;
+  --theme-color-success: #18181b;
+  --theme-color-warn: #52525b;
+  --theme-color-danger: #ef4444;
+  --theme-color-info: #27272a;
+  --theme-color-neutral: #71717a;
+  --theme-color-neutral-dark: #cbd5e1;
+  --theme-color-neutral-darker: #e2e8f0;
+  --theme-color-base: #ffffff;
+  --theme-color-base-500: #e4e4e7;
+  --theme-color-base-900: #52525b;
+  --theme-color-primary-content: #ffffff;
+  --theme-color-secondary-content: #ffffff;
+  --theme-color-accent-content: #ffffff;
+  --theme-color-success-content: #ffffff;
+  --theme-color-warn-content: #ffffff;
+  --theme-color-danger-content: #ffffff;
+  --theme-color-info-content: #ffffff;
+  --theme-color-neutral-content: #ffffff;
+  --theme-color-base-content: #09090b;
+  --theme-shadow-color: 0, 0, 0;
+  --theme-radius-card: 1.15rem;
+  --theme-radius-button: 0.85rem;
+  --theme-radius-input: 0.85rem;
+}
+

@@ -161,7 +161,7 @@ public class SsoWebViewPlugin extends Plugin {
 
                     @Override
                     public void onReceivedSslError(WebView view, android.webkit.SslErrorHandler handler, android.net.http.SslError error) {
-                        handler.proceed();
+                        super.onReceivedSslError(view, handler, error);
                     }
 
                     @Override
@@ -274,18 +274,22 @@ public class SsoWebViewPlugin extends Plugin {
         String js =
             "javascript:(function(){" +
                 "try{" +
-                "  var code=" + jsonStr(code) + ";" +
-                "  if(!code){" +
-                "    var m=location.href.match(/[?&]code=([^&]+)/);" +
-                "    code=m?decodeURIComponent(m[1]):null;" +
-                "  }" +
                 "  var sid=localStorage.getItem('sid')||localStorage.getItem('SID');" +
                 "  var t=localStorage.getItem('t');" +
                 "  if(sid&&t&&t.length>8){" +
                 "    window.__Ssv=JSON.stringify({ok:true,sid:sid,ticket:t,from:'ls'});" +
                 "    return;" +
                 "  }" +
+                "  var code=" + jsonStr(code) + ";" +
                 "  if(!code){" +
+                "    var m=location.href.match(/[?&]code=([^&]+)/);" +
+                "    code=m?decodeURIComponent(m[1]):null;" +
+                "  }" +
+                "  if(!code){" +
+                "    window.__Ssv=JSON.stringify({ok:false,wait:true});" +
+                "    return;" +
+                "  }" +
+                "  if (" + attempt + " < 3) {" +
                 "    window.__Ssv=JSON.stringify({ok:false,wait:true});" +
                 "    return;" +
                 "  }" +

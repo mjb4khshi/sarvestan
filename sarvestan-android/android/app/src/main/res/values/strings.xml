@@ -10,4 +10,12 @@
     <string name="widget_gpa_desc">ویجت شیک معدل کل و کارنامه</string>
     <string name="widget_class_name">سروستان: کلاس بعدی (۲×۲)</string>
     <string name="widget_class_desc">ویجت کلاس بعدی و برنامه امروز</string>
+
+    <!-- لانچر شورتکات‌ها -->
+    <string name="shortcut_schedule_short">برنامه هفتگی</string>
+    <string name="shortcut_schedule_long">مشاهده برنامه هفتگی</string>
+    <string name="shortcut_behestan_short">بهستان</string>
+    <string name="shortcut_behestan_long">سامانه آموزشی بهستان</string>
+    <string name="shortcut_vc_short">کلاس مجازی</string>
+    <string name="shortcut_vc_long">سامانه کلاس‌های مجازی (VC)</string>
 </resources>

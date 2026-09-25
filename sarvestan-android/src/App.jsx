@@ -70,6 +70,36 @@ function Shell() {
         window.history.replaceState({}, '', window.location.pathname);
       } catch {}
     }
+
+    const triggerTarget = (rawTarget) => {
+      const target = String(rawTarget || '').toLowerCase();
+      if (target === 'schedule') {
+        handleNavigate('schedule');
+      } else if (target === 'behestan') {
+        window.open('https://behestan.kntu.ac.ir/', '_blank');
+      } else if (target === 'vc') {
+        window.open('https://vc.kntu.ac.ir/', '_blank');
+      }
+    };
+
+    const onShortcut = (e) => {
+      triggerTarget(e?.detail);
+    };
+
+    window.addEventListener('sarvShortcut', onShortcut);
+
+    try {
+      const { Plugins } = window.Capacitor || {};
+      if (Plugins?.SarvestanIcon?.getPendingShortcut) {
+        Plugins.SarvestanIcon.getPendingShortcut().then((res) => {
+          if (res?.target) {
+            triggerTarget(res.target);
+          }
+        }).catch(() => {});
+      }
+    } catch {}
+
+    return () => window.removeEventListener('sarvShortcut', onShortcut);
   }, []);
 
   const changeTabWithDirection = (targetTab, explicitDir = null) => {
@@ -169,10 +199,10 @@ function Shell() {
           <AnimatePresence mode="wait">
             <motion.main
               key={tab}
-              initial={{ opacity: 0, x: slideDir * 8 }}
+              initial={{ opacity: 0, x: -slideDir * 12 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -slideDir * 8 }}
-              transition={{ duration: 0.12, ease: 'easeOut' }}
+              exit={{ opacity: 0, x: slideDir * 12 }}
+              transition={{ duration: 0.14, ease: 'easeOut' }}
               className="flex-1 min-w-0"
             >
               {tab === 'home' && <HomeScreen onNavigate={handleNavigate} />}
@@ -202,9 +232,9 @@ function Shell() {
 }
 
 export default function App() {
-  // صفحهٔ پیش‌نمایش پوسترها با ?story=1 یا ?preview=1
   try {
     const qs = new URLSearchParams(window.location.search);
+    // صفحهٔ شبیه‌ساز استوری و پوستر با ?story=1
     if (qs.has('story') || qs.has('preview')) {
       return (
         <ErrorBoundary>
@@ -246,11 +276,13 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <AutoUpdateGate />
-        <LoginGate />
-        <SsoCallbackBridge />
-        <DataBootstrap />
-        <Shell />
+        <div className="relative">
+          <AutoUpdateGate />
+          <LoginGate />
+          <SsoCallbackBridge />
+          <DataBootstrap />
+          <Shell />
+        </div>
       </ThemeProvider>
     </ErrorBoundary>
   );

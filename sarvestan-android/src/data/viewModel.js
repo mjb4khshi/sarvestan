@@ -263,6 +263,8 @@ function buildViewModel() {
       startHour,
       endHour,
       color: getToneForCourse(c, allCourses),
+      absences: Number(c.absences) || 0,
+      maxAbsences: c.maxAbsences != null ? Number(c.maxAbsences) : 3,
     };
   });
 
@@ -276,29 +278,46 @@ function buildViewModel() {
   const days = [...baseDays];
   if (hasThu) days.push('پنجشنبه');
   if (hasFri) days.push('جمعه');
-  const week = days.map((d) => ({
-    day: d,
-    count: allCourses.filter(
-      (c) => (Array.isArray(c.days) && c.days.includes(d)) || (Array.isArray(c.daySlots) && c.daySlots.some((s) => s.day === d)),
-    ).length,
-  }));
-
   const rangeHours = (raw) => {
     const m = String(raw || '').match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
-    if (!m) return 0;
-    return (
+    if (!m) return 1.5;
+    return Math.max(
+      0.5,
       parseInt(m[3], 10) +
       parseInt(m[4], 10) / 60 -
       (parseInt(m[1], 10) + parseInt(m[2], 10) / 60)
     );
   };
-  const weekHours = Math.round(
-    allCourses.reduce((s, c) => {
-      const h = rangeHours(c.classTimeRaw || c.time) || 1.5;
-      const dayCount = Array.isArray(c.days) && c.days.length ? c.days.length : 1;
-      return s + h * dayCount;
-    }, 0),
-  );
+
+  const getCourseHoursForDay = (c, targetDay) => {
+    let hours = 0;
+    if (Array.isArray(c.daySlots) && c.daySlots.length) {
+      c.daySlots.forEach((slot) => {
+        if (slot.day === targetDay) {
+          hours += rangeHours(slot.time || c.classTimeRaw || c.time);
+        }
+      });
+    } else if (Array.isArray(c.days) && c.days.includes(targetDay)) {
+      hours += rangeHours(c.classTimeRaw || c.time);
+    }
+    return hours;
+  };
+
+  const week = days.map((d) => {
+    const hours = Math.round(
+      allCourses.reduce((sum, c) => sum + getCourseHoursForDay(c, d), 0) * 10
+    ) / 10;
+    const count = allCourses.filter(
+      (c) => (Array.isArray(c.daySlots) && c.daySlots.some((s) => s.day === d)) || (Array.isArray(c.days) && c.days.includes(d)),
+    ).length;
+    return {
+      day: d,
+      hours,
+      count,
+    };
+  });
+
+  const weekHours = Math.round(week.reduce((s, d) => s + (d.hours || 0), 0) * 10) / 10;
 
   let nextClass =
     todayClasses.find((c) => c.status === 'now') ||
@@ -450,14 +469,31 @@ function buildViewModel() {
   const fullName = profile.fullName || '';
 
   // واحد اخذشدهٔ ترم جاری: فقط دروس ثبت‌شده — حذف اضطراری و در انتظار حساب نمی‌شوند
-  const currentTermCourses = (snap.courses || []).filter((c) => {
-    if (c.termId !== currentTerm && !c.isRegistration) return false;
-    const st = courseState(c);
-    return st === 'enrolled' || st === 'registered' || st === 'passed';
-  });
-  const f1825Units = currentTermCourses.reduce((s, c) => s + (parseNum(c.units) || 0), 0);
-  const scheduleUnits = allCourses.reduce((s, c) => s + (parseNum(c.units) || 0), 0);
-  const enrolledUnits = f1825Units > 0 ? f1825Units : scheduleUnits;
+  const curriculum = getCurriculumView();
+  const scheduleUnits = allCourses.reduce((s, c) => s + (parseNum(c.units ?? c.unit) || 0), 0);
+
+  // واحد اخذشدهٔ ترم جاری: دقیقاً هماهنگ با متد معتبر چارت (بدون دروس حذف/انتظار و بدون تکرار کد درس)
+  let enrolledUnits = curriculum?.enrolledCredits;
+  if (enrolledUnits == null || enrolledUnits <= 0) {
+    const byCode = new Map();
+    for (const c of (snap.courses || [])) {
+      if (!c?.code) continue;
+      const prev = byCode.get(String(c.code));
+      if (!prev || String(c.termId || '') >= String(prev.termId || '')) {
+        byCode.set(String(c.code), {
+          ...c,
+          units: parseNum(c.units ?? c.unit) || 0,
+        });
+      }
+    }
+    const currentTermCourses = [...byCode.values()].filter((c) => {
+      if (c.termId && c.termId !== currentTerm && !c.isRegistration) return false;
+      const st = courseState(c, currentTerm);
+      return st === 'enrolled';
+    });
+    const calcUnits = currentTermCourses.reduce((s, c) => s + (parseNum(c.units ?? c.unit) || 0), 0);
+    enrolledUnits = calcUnits > 0 ? calcUnits : (scheduleUnits > 0 ? scheduleUnits : (parseNum(sum.credits) || 0));
+  }
 
   const droppedCourses = (snap.courses || []).filter(
     (c) => c.termId === currentTerm && courseState(c) === 'dropped',
@@ -513,7 +549,7 @@ function buildViewModel() {
     scheduleCourses: allCourses,
     profile,
     termsData: buildTermsFromLive(snap),
-    curriculum: getCurriculumView(),
+    curriculum,
     exams: getExamsView(),
     nextClass,
   };
@@ -543,7 +579,7 @@ function normalizeType(t) {
   return s;
 }
 
-function courseState(c) {
+function courseState(c, activeTermId = '4051') {
   const reg = String(c.regStatus || '');
   if (reg === 'dropped') return 'dropped';
   if (reg === 'waitlist') return 'waitlist';
@@ -558,8 +594,8 @@ function courseState(c) {
   if (g !== null && g > 0) return 'failed';
   // روی برنامهٔ ثبت‌نام یا برچسب ثبت‌شده → در حال اخذ
   if (c.onSchedule || c.isRegistration || reg === 'registered') return 'enrolled';
-  // ترم جاری بدون نمره و بدون وضعیت — enrolled (مثل قبل) مگر فرم ۷۷ یا F1825 چیز دیگری گفته باشد
-  if (!c.grade && c.termId && (c.termId === '4051' || c.isRegistration)) return 'enrolled';
+  // ترم جاری بدون نمره و بدون وضعیت — enrolled
+  if (!c.grade && (c.termId === activeTermId || c.termId === '4051' || c.isRegistration || !c.termId)) return 'enrolled';
   return 'unknown';
 }
 
@@ -1071,7 +1107,7 @@ export function getExamsView() {
           examDate: e.examDate || 'ـ',
           examTime: e.examTime || 'ـ',
           room: e.hall || e.room || 'ـ',
-          seat: '—',
+          seat: e.chairNumber || e.seatNumber ? faDigits(e.chairNumber || e.seatNumber) : '—',
           daysLeft: daysLeft ?? 0,
           color: getToneForCourse(e, allCourses),
           isUrgent: daysLeft != null && daysLeft <= 7,
