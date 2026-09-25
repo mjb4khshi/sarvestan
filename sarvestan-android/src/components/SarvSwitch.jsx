@@ -57,10 +57,9 @@ export default function SarvSwitch({
           x: checked ? travelX : 0,
         }}
         transition={{
-          type: 'spring',
-          stiffness: 550,
-          damping: 32,
-          mass: 0.8,
+          type: 'tween',
+          duration: 0.18,
+          ease: [0.2, 0.8, 0.2, 1],
         }}
         className={`block rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.35)] pointer-events-none will-change-transform ${
           isSm ? 'w-4 h-4' : 'w-5 h-5'

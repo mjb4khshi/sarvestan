@@ -532,7 +532,7 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                   <motion.span
                     layoutId="dayActivePill"
                     className="absolute inset-0 bg-primary rounded-xl z-0 shadow-sm"
-                    transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                    transition={{ type: 'tween', duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
                   />
                 )}
                 <span className="relative z-10">همه روزها</span>
@@ -561,7 +561,7 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                     <motion.span
                       layoutId="dayActivePill"
                       className="absolute inset-0 bg-primary rounded-xl z-0 shadow-sm"
-                      transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                      transition={{ type: 'tween', duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
                     />
                   )}
                   <span className="relative z-10">{day}</span>

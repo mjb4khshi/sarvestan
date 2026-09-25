@@ -43,9 +43,9 @@ function NavTabItem({ id, label, Icon, active, activeColor, onChange }) {
       {isActive && (
         <motion.span
           layoutId="navTabActivePill"
-          className="absolute inset-1 rounded-2xl bg-base-500/35 border border-base-500/50 z-0 shadow-sm will-change-transform"
-          style={{ transform: 'translateZ(0)' }}
-          transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+          className="absolute inset-1 rounded-2xl bg-base-500/35 border border-base-500/50 z-0 shadow-sm"
+          // tween به‌جای spring: پرش مورب/گیر روی WebView اندروید کمتر می‌شود
+          transition={{ type: 'tween', duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
         />
       )}
       <span
@@ -96,11 +96,11 @@ export default function BottomNav({ active, onChange }) {
 
       <div className="relative mx-auto max-w-[420px] px-3 pb-2.5 pt-0 pointer-events-auto">
         <div
-          className="relative rounded-[22px] bg-base/95 backdrop-blur-md border border-base-500/70 shadow-[0_8px_20px_-4px_rgba(0,0,0,0.35)] px-2 py-1 grid grid-cols-5 gap-1 items-center will-change-transform"
+          className="relative rounded-[22px] bg-base/95 backdrop-blur-md border border-base-500/70 shadow-[0_8px_20px_-4px_rgba(0,0,0,0.35)] px-2 py-1 grid grid-cols-5 gap-1 items-center"
           style={{
             backgroundColor: 'color-mix(in oklab, var(--theme-color-base, #0a0a0c) 95%, transparent)',
             borderColor: 'color-mix(in oklab, var(--theme-color-base-500, #222222) 70%, transparent)',
-            transform: 'translateZ(0)',
+            // translateZ روی والد layoutId با FLIP فریمورک تداخل دارد و باعث پرش مورب می‌شود
           }}
         >
           {TABS_RIGHT.map((t) => (

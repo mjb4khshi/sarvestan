@@ -236,7 +236,7 @@ export default function GradesScreen({ onNavigate }) {
                     <motion.span
                       layoutId="termActivePill"
                       className="absolute inset-0 rounded-xl bg-primary shadow-sm z-0"
-                      transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                      transition={{ type: 'tween', duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
                     />
                   )}
                   <span className="relative z-10 block whitespace-nowrap">

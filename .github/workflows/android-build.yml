@@ -3,6 +3,7 @@ name: Build Android APK
 on:
   push:
     branches: ["main", "master"]
+    tags: ['v*']
     paths:
       - 'sarvestan-android/**'
       - '.github/workflows/android-build.yml'
@@ -47,25 +48,75 @@ jobs:
         working-directory: sarvestan-android
         run: npx cap sync android
 
+      - name: Check keystore secrets
+        id: secrets
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "has_keystore=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_keystore=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup release keystore (signed with same key as shipped APKs)
+        if: steps.secrets.outputs.has_keystore == 'true'
+        working-directory: sarvestan-android/android
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          mkdir -p keystore
+          echo "$ANDROID_KEYSTORE_B64" | base64 -d > keystore/ci-release.jks
+          cat > keystore.properties <<EOF
+          storeFile=keystore/ci-release.jks
+          storePassword=${ANDROID_KEYSTORE_PASSWORD}
+          keyAlias=${ANDROID_KEY_ALIAS}
+          keyPassword=${ANDROID_KEY_PASSWORD}
+          EOF
+
       - name: Grant execute permission for gradlew
         working-directory: sarvestan-android/android
         run: chmod +x gradlew
 
-      - name: Build Android Debug APK
+      - name: Build Android Release APK
+        if: steps.secrets.outputs.has_keystore == 'true'
+        working-directory: sarvestan-android/android
+        run: ./gradlew assembleRelease
+
+      - name: Build Android Debug APK (fallback, no secrets)
+        if: steps.secrets.outputs.has_keystore == 'false'
         working-directory: sarvestan-android/android
         run: ./gradlew assembleDebug
 
-      - name: Upload Debug APK Artifact
+      - name: Collect APK
+        id: apk
+        run: |
+          if [ -f sarvestan-android/android/app/build/outputs/apk/release/app-release.apk ]; then
+            mkdir -p dist-apk
+            cp sarvestan-android/android/app/build/outputs/apk/release/app-release.apk dist-apk/sarvestan.apk
+            echo "path=dist-apk/sarvestan.apk" >> "$GITHUB_OUTPUT"
+            echo "name=sarvestan.apk" >> "$GITHUB_OUTPUT"
+          else
+            mkdir -p dist-apk
+            cp sarvestan-android/android/app/build/outputs/apk/debug/app-debug.apk dist-apk/sarvestan.apk
+            echo "path=dist-apk/sarvestan.apk" >> "$GITHUB_OUTPUT"
+            echo "name=sarvestan.apk" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sarvestan-debug-apk
-          path: sarvestan-android/android/app/build/outputs/apk/debug/app-debug.apk
+          name: sarvestan-apk
+          path: ${{ steps.apk.outputs.path }}
           if-no-files-found: error
 
       - name: Attach APK to GitHub Release (if release)
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          files: sarvestan-android/android/app/build/outputs/apk/debug/app-debug.apk
+          files: ${{ steps.apk.outputs.path }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
