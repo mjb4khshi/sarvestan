@@ -28,6 +28,13 @@ sarvestan-extension.zip
 .DS_Store
 Thumbs.db
 
+# Local notes / prompts / temp assets — never commit
+FIX_LOG.md
+**/PROMPT-*.md
+**/PROMPT-*.txt
+**/Instagram Story*
+*.xd
+
 # Package archives
 *.tgz
 !sarv-ui-0.3.1.tgz
