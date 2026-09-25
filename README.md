@@ -11,22 +11,22 @@
 <br/>
 
 [![Website Showcase](https://img.shields.io/badge/Website-Showcase%20%26%20Landing-10b981?style=for-the-badge&logo=googlechrome&logoColor=white)](https://mjb4khshi.github.io/sarvestan/)
-[![Download Android APK](https://img.shields.io/badge/Download-Android%20APK%20(v1.0)-0284c7?style=for-the-badge&logo=android&logoColor=white)](https://mjb4khshi.github.io/sarvestan/sarvestan.apk)
+[![Download Android APK](https://img.shields.io/badge/Download-Android%20APK%20(v1.1)-0284c7?style=for-the-badge&logo=android&logoColor=white)](https://mjb4khshi.github.io/sarvestan/sarvestan.apk)
 [![Download Extension ZIP](https://img.shields.io/badge/Download-Extension%20(.zip)-8b5cf6?style=for-the-badge&logo=googlechrome&logoColor=white)](https://mjb4khshi.github.io/sarvestan/sarvestan-extension.zip)
-[![GitHub Releases](https://img.shields.io/badge/Releases-Latest%20Version-22c55e?style=for-the-badge&logo=github&logoColor=white)](https://github.com/mjb4khshi/sarvestan/releases)
+[![GitHub Releases](https://img.shields.io/badge/Releases-Latest%20Version%20(v1.1.0)-22c55e?style=for-the-badge&logo=github&logoColor=white)](https://github.com/mjb4khshi/sarvestan/releases)
 
 <br/>
 
 [![React 19](https://img.shields.io/badge/React-19.0-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![Android Native](https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white)](https://developer.android.com)
-[![Capacitor 6](https://img.shields.io/badge/Capacitor-6.0-119EFF?style=flat-square&logo=capacitor&logoColor=white)](https://capacitorjs.com)
+[![Capacitor 7](https://img.shields.io/badge/Capacitor-7.0-119EFF?style=flat-square&logo=capacitor&logoColor=white)](https://capacitorjs.com)
 [![Tailwind CSS v4](https://img.shields.io/badge/Tailwind-v4-38BDF8?style=flat-square&logo=tailwindcss)](https://tailwindcss.com)
 [![Sarv UI](https://img.shields.io/badge/Design%20System-Sarv%20UI-10b981?style=flat-square)](https://github.com/mjb4khshi/sarv-ui)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
 <br/>
 
-**سروستان** یک اکوسیستم دوگانه، آزاد و مدرن است که سامانه آموزشی قدیمی بهستان را به یک محیط بصری چشم‌نواز، سریع و کاربرپسند با زبان طراحی اختصاصی **Sarv UI** تبدیل می‌کند. این اکوسیستم هم‌اکنون در دو قالب **افزونه مرورگر دسکتاپ** و **اپلیکیشن نیتیو اندروید (v1.0)** در دسترس است.
+**سروستان** یک اکوسیستم دوگانه، آزاد و مدرن است که سامانه آموزشی قدیمی بهستان را به یک محیط بصری چشم‌نواز، سریع و کاربرپسند با زبان طراحی اختصاصی **Sarv UI** تبدیل می‌کند. این اکوسیستم هم‌اکنون در دو قالب **افزونه مرورگر دسکتاپ** و **اپلیکیشن نیتیو اندروید (v1.1)** در دسترس است.
 
 </div>
 
@@ -41,11 +41,12 @@
 │ 💻 افزونه مرورگر دسکتاپ      │ 📱 اپلیکیشن نیتیو اندروید   │
 │ (Chrome / Edge / Brave)      │ (Android 8.0+ Native APK)    │
 ├──────────────────────────────┼──────────────────────────────┤
-│ • تزریق لحظه‌ای داشبورد ۲.۰  │ • کارکرد ۱۰۰٪ مستقل و آفلاین │
-│ • پالت فرمان سریع (Ctrl+K)    │ • ۳ ویجت زنده هوم‌اسکرین     │
-│ • تحلیل ترم به ترم کارنامه   │ • ۱۲ تم رنگی آیکون لانچر     │
-│ • تقویم ماتریسی برنامه هفتگی │ • استوری و خروجی بدون کد شخص │
-│ • اتصال زنده به سشن بهستان   │ • بدون نیاز به VPN و پروکسی  │
+│ • تزریق لحظه‌ای داشبورد ۲.۰  │ • پشتیبانی کامل از کهاد      │
+│ • پالت فرمان سریع (Ctrl+K)    │ • حالت DND هوشمند سر کلاس    │
+│ • تحلیل ترم به ترم کارنامه   │ • یادآور نوتیفیکیشن سمد      │
+│ • تقویم ماتریسی برنامه هفتگی │ • کارکرد ۱۰۰٪ مستقل و آفلاین │
+│ • اتصال زنده به سشن بهستان   │ • ۳ ویجت زنده هوم‌اسکرین     │
+│ • دیزاین‌سیستم Sarv UI       │ • ۱۲ تم رنگی آیکون لانچر     │
 └──────────────────────────────┴──────────────────────────────┘
 ```
 
@@ -56,8 +57,11 @@
 | بخش | امکانات و ویژگی‌ها | پلتفرم |
 | :--- | :--- | :---: |
 | **میز کار تحصیلی (Overview)** | نمایش خلاصه وضعیت، معدل کل، واحدهای گذرانده، تراز مالی، کلاس‌های روز و دسترسی سریع | 💻 📱 |
+| **پشتیبانی دانشجویان کهاد** | همگام‌سازی و تفکیک دروس دانشجویان دورشته‌ای بدون تداخل برنامه | 💻 📱 |
+| **یادآورها و DND کلاسی** | بی‌صدا شدن خودکار گوشی حین کلاس و یادآور هفتگی رزرو غذای سمد | 📱 |
+| **ویرایش و شخصی‌سازی دروس** | ویرایش استاد، کلاس، ساعت و رنگ کارت‌ها با امکان بازگشت به بهستان | 💻 📱 |
 | **کارنامه و نمرات (Transcripts)** | ریزنمرات تمام ترم‌ها، محاسبه آنلاین معدل ترمی و تجمعی، فیلتر درس‌ها و درصد قبولی | 💻 📱 |
-| **برنامه هفتگی و امتحانات** | تقویم بصری ماتریسی، ساعت شروع و پایان کلاس‌ها، کارت ورود به جلسه و تاریخ آزمون‌ها | 💻 📱 |
+| **برنامه هفتگی و امتحانات** | تقویم بصری ماتریسی، خروجی تقویم موبایل، کارت آزمون و پنج‌شنبه پویا | 💻 📱 |
 | **ویجت‌های زنده هوم‌اسکرین** | ۳ ویجت اختصاصی اندروید (کلاس بعدی، معدل تحصیلی و کامبو ترکیبی) با آپدیت خودکار | 📱 |
 | **تم‌ها و آیکون‌های داینامیک** | ۱۵ تم رنگی بر پایه Sarv UI در وب + ۱۲ پوسته اختصاصی آیکون لانچر در اندروید | 💻 📱 |
 | **امور مالی و شهریه (Finance)** | صورتحساب ریزتراز، بدهی و بستانکاری و ارجاع امن به درگاه‌های پرداخت شتاب | 💻 📱 |
@@ -102,7 +106,7 @@
 sarvestan/
 ├── public/                     # مانیفست افزونه، اینترسپتور، فایل‌های نصبی (APK و ZIP)
 │   ├── favicon.svg             # آیکون وکتور رسمی سرو
-│   ├── sarvestan.apk           # بسته نصبی پروداکشن اندروید (v1.0)
+│   ├── sarvestan.apk           # بسته نصبی پروداکشن اندروید (v1.1)
 │   └── sarvestan-extension.zip # بسته نصبی افزونه دسکتاپ
 ├── src/
 │   ├── components/             # لندینگ پیج، هدر، مودال‌ها و ویجت‌های مشترک
