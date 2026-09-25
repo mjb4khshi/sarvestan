@@ -58,6 +58,8 @@ function GithubIcon({ className = "w-4 h-4" }) {
   );
 }
 
+const LATEST_APK_URL = 'https://github.com/mjb4khshi/sarvestan/releases/latest/download/sarvestan.apk';
+
 function TelegramIcon({ className = "w-4 h-4" }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -1756,8 +1758,7 @@ export default function LandingPage() {
 
             {/* Flagship: Download Android APK (Theme Success Green) */}
             <a
-              href="./sarvestan.apk"
-              download
+              href={LATEST_APK_URL}
               className="btn btn-sm bg-success text-success-content hover:bg-success/90 border border-success/30 rounded-xl font-bold flex items-center gap-1 sm:gap-1.5 px-3 sm:px-4 shadow-md shadow-success/25 text-xs sm:text-sm whitespace-nowrap shrink-0 transition-all hover:scale-105 active:scale-95"
               title="دانلود فایل نصبی اپلیکیشن اندروید (APK)"
             >
@@ -1830,8 +1831,7 @@ export default function LandingPage() {
           >
             {/* Primary Hero Button: Android APK - Solid Theme Success Green (No gradient) */}
             <a
-              href="./sarvestan.apk"
-              download
+              href={LATEST_APK_URL}
               className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-success text-success-content hover:bg-success/90 font-black text-base sm:text-lg shadow-2xl shadow-success/30 hover:shadow-success/50 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 border border-success/40 group"
             >
               <Smartphone className="w-6 h-6 shrink-0 group-hover:rotate-6 transition-transform" />
@@ -2409,12 +2409,11 @@ export default function LandingPage() {
                         <span>ریلیز گیت‌هاب (v1.1.0)</span>
                       </a>
                       <a
-                        href="./sarvestan.apk"
-                        download
+                        href={LATEST_APK_URL}
                         className="px-3 py-1.5 rounded-xl bg-primary text-primary-content text-xs font-bold hover:bg-primary/90 flex items-center gap-1.5 shadow-sm transition-all"
                       >
                         <Download className="w-3.5 h-3.5" />
-                        <span>دانلود sarvestan.apk (۵٫۲ مگابایت)</span>
+                        <span>دانلود sarvestan.apk (مستقیم)</span>
                       </a>
                     </div>
                   </div>
@@ -2612,7 +2611,7 @@ export default function LandingPage() {
               💡 سروستان یک پروژه کاملاً متن‌باز، رایگان و مستقل برای رفاه دانشجویان است.
             </p>
             <div className="flex items-center gap-2 shrink-0">
-              <a href="./sarvestan.apk" download className="btn btn-xs bg-success text-success-content hover:bg-success/90 rounded-xl font-bold flex items-center gap-1">
+              <a href={LATEST_APK_URL} className="btn btn-xs bg-success text-success-content hover:bg-success/90 rounded-xl font-bold flex items-center gap-1">
                 <Smartphone className="w-3 h-3" />
                 <span>دانلود APK اندروید</span>
               </a>
@@ -2838,8 +2837,7 @@ export default function LandingPage() {
               </a>
               <span className="opacity-30">•</span>
               <a
-                href="./sarvestan.apk"
-                download
+                href={LATEST_APK_URL}
                 className="hover:text-primary transition-colors"
               >
                 دانلود نسخه اندروید (APK)
