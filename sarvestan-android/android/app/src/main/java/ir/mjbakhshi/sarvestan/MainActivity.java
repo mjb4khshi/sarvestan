@@ -53,28 +53,23 @@ public class MainActivity extends BridgeActivity {
 
     private void handleShortcutIntent(Intent intent) {
         if (intent == null) return;
-        String target = "";
-        if (intent.hasExtra("shortcut_target")) {
-            target = intent.getStringExtra("shortcut_target");
-        }
-        if (target == null || target.isEmpty()) {
-            Uri data = intent.getData();
-            if (data != null && "sarvestan".equalsIgnoreCase(data.getScheme())) {
-                String path = data.getPath();
-                String host = data.getHost();
-                if (path != null && !path.isEmpty() && !"/".equals(path)) {
-                    target = path.replace("/", "").trim();
-                } else if (host != null) {
-                    target = host.trim();
-                }
+        Uri data = intent.getData();
+        if (data != null && "sarvestan".equalsIgnoreCase(data.getScheme())) {
+            String path = data.getPath();
+            String host = data.getHost();
+            String target = "";
+            if (path != null && !path.isEmpty() && !"/".equals(path)) {
+                target = path.replace("/", "").trim();
+            } else if (host != null) {
+                target = host.trim();
             }
-        }
-        if (target != null && !target.isEmpty()) {
-            final String finalTarget = target;
-            sPendingShortcut = finalTarget;
-            triggerShortcutInWebView(finalTarget, 400);
-            triggerShortcutInWebView(finalTarget, 1000);
-            triggerShortcutInWebView(finalTarget, 2000);
+            if (!target.isEmpty()) {
+                final String finalTarget = target;
+                sPendingShortcut = finalTarget;
+                triggerShortcutInWebView(finalTarget, 400);
+                triggerShortcutInWebView(finalTarget, 1000);
+                triggerShortcutInWebView(finalTarget, 2000);
+            }
         }
     }
 

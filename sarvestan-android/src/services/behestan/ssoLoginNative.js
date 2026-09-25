@@ -127,8 +127,8 @@ export async function loginViaSsoWebView(credentials = {}) {
     const res = await p.login({
       username: user,
       password: pass,
-      // بعد از شکست SSO، رمز اشتباه را خودکار نکوب — فقط نام کاربری پر شود
-      allowAutoSubmit: Boolean(pass),
+      // submit خودکار حذف شده — کاربر خودش Sign In می‌زند
+      allowAutoSubmit: false,
     });
     if (res?.ok && res.sid && res.ticket) {
       return {

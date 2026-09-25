@@ -140,22 +140,19 @@ public class SarvestanIconPlugin extends Plugin {
 
             int color = Color.parseColor(colorHex);
 
-            Intent scheduleIntent = new Intent(Intent.ACTION_MAIN)
+            Intent scheduleIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("sarvestan://shortcut/schedule"))
                 .setPackage(context.getPackageName())
                 .setClass(context, MainActivity.class)
-                .putExtra("shortcut_target", "schedule")
                 .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
-            Intent behestanIntent = new Intent(Intent.ACTION_MAIN)
+            Intent behestanIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("sarvestan://shortcut/behestan"))
                 .setPackage(context.getPackageName())
                 .setClass(context, MainActivity.class)
-                .putExtra("shortcut_target", "behestan")
                 .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
-            Intent vcIntent = new Intent(Intent.ACTION_MAIN)
+            Intent vcIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("sarvestan://shortcut/vc"))
                 .setPackage(context.getPackageName())
                 .setClass(context, MainActivity.class)
-                .putExtra("shortcut_target", "vc")
                 .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
             ShortcutInfoCompat s1 = new ShortcutInfoCompat.Builder(context, "shortcut_schedule")

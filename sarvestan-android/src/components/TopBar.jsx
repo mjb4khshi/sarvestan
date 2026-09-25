@@ -48,9 +48,10 @@ export default function TopBar({ title, onBack }) {
   return (
     <>
       <header
-        className="sticky top-0 z-40 w-full backdrop-blur-2xl bg-base/88 border-b border-base-500/40 transition-colors"
+        className="sticky top-0 z-40 w-full backdrop-blur-md bg-base/92 border-b border-base-500/40 transition-colors will-change-transform"
         style={{
           paddingTop: 'env(safe-area-inset-top, 0px)',
+          transform: 'translateZ(0)',
         }}
       >
         <div className="mx-auto max-w-[430px] h-14 flex items-center justify-between gap-2 px-3">

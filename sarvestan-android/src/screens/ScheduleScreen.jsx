@@ -418,23 +418,30 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
         </AnimatePresence>
 
         {/* سوییچر ۳گانه بین روزانه، ماتریس هفتگی و امتحانات */}
-        <div className="sarv-seg w-full">
+        <div className="sarv-seg w-full relative overflow-hidden" dir="rtl">
+          {/* قرص متحرک کشویی بر پایه موقعیت خالص افقی */}
+          <div
+            className="absolute top-1 bottom-1 w-[calc(33.333%-2px)] bg-primary rounded-xl z-0 shadow-sm transition-transform duration-250 ease-out will-change-transform"
+            style={{
+              transform: `translateX(${
+                activeTab === 'cards'
+                  ? '0%'
+                  : activeTab === 'matrix'
+                    ? '-100%'
+                    : '-200%'
+              }) translateZ(0)`,
+            }}
+          />
+
           <button
             type="button"
             onClick={() => handleTabChange('cards')}
-            className={`relative flex-1 flex items-center justify-center gap-1.5 py-2 text-[12px] rounded-xl transition-colors outline-none ${
+            className={`relative flex-1 flex items-center justify-center gap-1.5 py-2 text-[12px] rounded-xl transition-colors outline-none z-10 ${
               activeTab === 'cards'
-                ? 'text-primary-content font-bold z-10'
-                : 'text-neutral hover:text-base-content font-medium z-10'
+                ? 'text-primary-content font-bold'
+                : 'text-neutral hover:text-base-content font-medium'
             }`}
           >
-            {activeTab === 'cards' && (
-              <motion.span
-                layoutId="scheduleViewPill"
-                className="absolute inset-0 bg-primary rounded-xl z-0 shadow-sm"
-                transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-              />
-            )}
             <span className="relative z-10 inline-flex items-center gap-1.5">
               <CalendarDays className="w-3.5 h-3.5" />
               نمای روزانه
@@ -444,19 +451,12 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
           <button
             type="button"
             onClick={() => handleTabChange('matrix')}
-            className={`relative flex-1 flex items-center justify-center gap-1.5 py-2 text-[12px] rounded-xl transition-colors outline-none ${
+            className={`relative flex-1 flex items-center justify-center gap-1.5 py-2 text-[12px] rounded-xl transition-colors outline-none z-10 ${
               activeTab === 'matrix'
-                ? 'text-primary-content font-bold z-10'
-                : 'text-neutral hover:text-base-content font-medium z-10'
+                ? 'text-primary-content font-bold'
+                : 'text-neutral hover:text-base-content font-medium'
             }`}
           >
-            {activeTab === 'matrix' && (
-              <motion.span
-                layoutId="scheduleViewPill"
-                className="absolute inset-0 bg-primary rounded-xl z-0 shadow-sm"
-                transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-              />
-            )}
             <span className="relative z-10 inline-flex items-center gap-1.5">
               <Table2 className="w-3.5 h-3.5" />
               جدول هفتگی
@@ -466,19 +466,12 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
           <button
             type="button"
             onClick={() => handleTabChange('exams')}
-            className={`relative flex-1 flex items-center justify-center gap-1.5 py-2 text-[12px] rounded-xl transition-colors outline-none ${
+            className={`relative flex-1 flex items-center justify-center gap-1.5 py-2 text-[12px] rounded-xl transition-colors outline-none z-10 ${
               activeTab === 'exams'
-                ? 'text-primary-content font-bold z-10'
-                : 'text-neutral hover:text-base-content font-medium z-10'
+                ? 'text-primary-content font-bold'
+                : 'text-neutral hover:text-base-content font-medium'
             }`}
           >
-            {activeTab === 'exams' && (
-              <motion.span
-                layoutId="scheduleViewPill"
-                className="absolute inset-0 bg-primary rounded-xl z-0 shadow-sm"
-                transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-              />
-            )}
             <span className="relative z-10 inline-flex items-center gap-1.5">
               <Timer className="w-3.5 h-3.5" />
               امتحانات

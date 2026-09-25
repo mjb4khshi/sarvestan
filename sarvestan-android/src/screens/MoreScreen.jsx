@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import UpdateModal from '../components/UpdateModal';
 import ClassAlarmModal from '../components/ClassAlarmModal';
+import SarvSwitch from '../components/SarvSwitch';
 import { checkForUpdate, CURRENT_VERSION } from '../services/updater';
 import {
   clearLiveData,
@@ -727,23 +728,13 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
               </div>
             </div>
 
-            <button
-              type="button"
-              role="switch"
-              dir="ltr"
-              aria-checked={dndEnabled}
-              onClick={() => handleToggleDnd(!dndEnabled)}
+            <SarvSwitch
+              checked={dndEnabled}
+              onChange={(val) => handleToggleDnd(val)}
               disabled={dndToggling}
-              className={`w-12 h-6.5 p-0.5 rounded-full transition-colors flex items-center shrink-0 cursor-pointer ${
-                dndEnabled ? 'bg-primary justify-end' : 'bg-base-500/40 justify-start'
-              }`}
-            >
-              <motion.span
-                layout
-                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                className="w-5.5 h-5.5 rounded-full bg-white shadow-md block"
-              />
-            </button>
+              variant="primary"
+              aria-label="سایلنت خودکار حین کلاس"
+            />
           </div>
 
           {/* باز کردن مودال تنظیمات اعلان‌ها و آلارم کلاس‌ها */}

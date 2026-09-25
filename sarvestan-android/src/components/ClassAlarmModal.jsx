@@ -48,6 +48,7 @@ import {
 } from '../services/classAlarms';
 import { toFaDigits } from '../utils/faDigits';
 import SarvCheckbox from './SarvCheckbox';
+import SarvSwitch from './SarvSwitch';
 import SarvTimePickerModal from './SarvTimePickerModal';
 
 const LEAD_TIME_OPTIONS = [
@@ -570,23 +571,13 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
                     </span>
                   </div>
 
-                  <button
-                    type="button"
-                    role="switch"
-                    dir="ltr"
-                    aria-checked={dndEnabled}
-                    onClick={() => handleToggleDnd(!dndEnabled)}
+                  <SarvSwitch
+                    checked={dndEnabled}
+                    onChange={(val) => handleToggleDnd(val)}
                     disabled={busyAction === 'dnd'}
-                    className={`w-12 h-6.5 p-0.5 rounded-full transition-colors flex items-center shrink-0 cursor-pointer ${
-                      dndEnabled ? 'bg-primary justify-end' : 'bg-base-500/40 justify-start'
-                    }`}
-                  >
-                    <motion.span
-                      layout
-                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                      className="w-5.5 h-5.5 rounded-full bg-white shadow-md block"
-                    />
-                  </button>
+                    variant="primary"
+                    aria-label="حالت مزاحم نشوید حین کلاس"
+                  />
                 </div>
 
                 {/* دکمه‌های اقدام بخش نوتیفیکیشن */}
@@ -669,23 +660,13 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
                     </span>
                   </div>
 
-                  <button
-                    type="button"
-                    role="switch"
-                    dir="ltr"
-                    aria-checked={samadEnabled}
-                    onClick={() => handleToggleSamad(!samadEnabled)}
+                  <SarvSwitch
+                    checked={samadEnabled}
+                    onChange={(val) => handleToggleSamad(val)}
                     disabled={busyAction === 'samad'}
-                    className={`w-12 h-6.5 p-0.5 rounded-full transition-colors flex items-center shrink-0 cursor-pointer ${
-                      samadEnabled ? 'bg-primary justify-end' : 'bg-base-500/40 justify-start'
-                    }`}
-                  >
-                    <motion.span
-                      layout
-                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                      className="w-5.5 h-5.5 rounded-full bg-white shadow-md pointer-events-none"
-                    />
-                  </button>
+                    variant="primary"
+                    aria-label="یادآوری رزرو غذای چهارشنبه‌ها"
+                  />
                 </div>
 
                 {/* تنظیم ساعت و پیش‌نمایش در صورت فعال بودن سوییچ */}
