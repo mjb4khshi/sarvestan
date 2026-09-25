@@ -29,6 +29,12 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      # Gradle را از قبل نصب/کش می‌کند تا wrapper مجبور به دانلود آنلاین services.gradle.org نشود
+      - name: Setup Gradle (cached distribution)
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -84,12 +90,24 @@ jobs:
       - name: Build Android Release APK
         if: steps.secrets.outputs.has_keystore == 'true'
         working-directory: sarvestan-android/android
-        run: ./gradlew assembleRelease
+        run: |
+          for i in 1 2 3; do
+            ./gradlew assembleRelease --no-daemon && exit 0
+            echo "gradle attempt $i failed; retrying..."
+            sleep $((i * 15))
+          done
+          exit 1
 
       - name: Build Android Debug APK (fallback, no secrets)
         if: steps.secrets.outputs.has_keystore == 'false'
         working-directory: sarvestan-android/android
-        run: ./gradlew assembleDebug
+        run: |
+          for i in 1 2 3; do
+            ./gradlew assembleDebug --no-daemon && exit 0
+            echo "gradle attempt $i failed; retrying..."
+            sleep $((i * 15))
+          done
+          exit 1
 
       - name: Collect APK
         id: apk
