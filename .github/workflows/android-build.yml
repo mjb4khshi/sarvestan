@@ -83,16 +83,17 @@ jobs:
           keyPassword=${ANDROID_KEY_PASSWORD}
           EOF
 
-      - name: Grant execute permission for gradlew
+      - name: Verify Gradle available
         working-directory: sarvestan-android/android
-        run: chmod +x gradlew
+        run: gradle --version
 
+      # از gradle نصب‌شدهٔ setup-gradle استفاده کن — ./gradlew باز هم دانلود می‌کند و اینجا قطع است
       - name: Build Android Release APK
         if: steps.secrets.outputs.has_keystore == 'true'
         working-directory: sarvestan-android/android
         run: |
           for i in 1 2 3; do
-            ./gradlew assembleRelease --no-daemon && exit 0
+            gradle assembleRelease --no-daemon && exit 0
             echo "gradle attempt $i failed; retrying..."
             sleep $((i * 15))
           done
@@ -103,7 +104,7 @@ jobs:
         working-directory: sarvestan-android/android
         run: |
           for i in 1 2 3; do
-            ./gradlew assembleDebug --no-daemon && exit 0
+            gradle assembleDebug --no-daemon && exit 0
             echo "gradle attempt $i failed; retrying..."
             sleep $((i * 15))
           done
