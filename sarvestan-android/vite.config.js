@@ -1,9 +1,24 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { loginViaCentralSso } from './scripts/sso-login-server.mjs'
 import fs from 'fs'
 import path from 'path'
+import { pathToFileURL } from 'url'
+
+/**
+ * ماژول SSO فقط برای dev server لازم است و در CI gitignore شده.
+ * اگر فایل نبود، بیلد/کانفیگ نباید بشکند.
+ */
+async function loadLoginViaCentralSso() {
+  try {
+    const file = path.join(process.cwd(), 'scripts', 'sso-login-server.mjs')
+    if (!fs.existsSync(file)) return null
+    const mod = await import(pathToFileURL(file).href)
+    return typeof mod.loginViaCentralSso === 'function' ? mod.loginViaCentralSso : null
+  } catch {
+    return null
+  }
+}
 
 /** نشست ذخیره‌شدهٔ سرور — اپ با GET می‌خواند و سنک زنده می‌دود */
 function sessionPlugin() {
@@ -54,6 +69,18 @@ function ssoLoginPlugin() {
         req.on('data', (c) => chunks.push(c))
         req.on('end', async () => {
           try {
+            const loginViaCentralSso = await loadLoginViaCentralSso()
+            if (!loginViaCentralSso) {
+              res.statusCode = 503
+              res.setHeader('Content-Type', 'application/json')
+              res.end(
+                JSON.stringify({
+                  ok: false,
+                  error: 'SSO login module not available in this environment',
+                }),
+              )
+              return
+            }
             const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}')
             const result = await loginViaCentralSso(body.username, body.password)
             if (result.ok) {
