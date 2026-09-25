@@ -87,13 +87,12 @@ jobs:
         working-directory: sarvestan-android/android
         run: gradle --version
 
-      # از gradle نصب‌شدهٔ setup-gradle استفاده کن — ./gradlew باز هم دانلود می‌کند و اینجا قطع است
       - name: Build Android Release APK
         if: steps.secrets.outputs.has_keystore == 'true'
         working-directory: sarvestan-android/android
         run: |
           for i in 1 2 3; do
-            gradle assembleRelease --no-daemon && exit 0
+            gradle clean assembleRelease --no-daemon && exit 0
             echo "gradle attempt $i failed; retrying..."
             sleep $((i * 15))
           done
@@ -104,7 +103,7 @@ jobs:
         working-directory: sarvestan-android/android
         run: |
           for i in 1 2 3; do
-            gradle assembleDebug --no-daemon && exit 0
+            gradle clean assembleDebug --no-daemon && exit 0
             echo "gradle attempt $i failed; retrying..."
             sleep $((i * 15))
           done
