@@ -586,7 +586,7 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
               if (selectedDayIndex !== null && selectedDayIndex !== di) return null;
 
               const allSched = getCurrentTermSchedule() || [];
-              const dayCourses = allSched
+              let dayCourses = allSched
                 .filter((c) => {
                   const sList = c.daySlots || [];
                   if (sList.length) return sList.some((s) => s.day === day);
@@ -611,12 +611,13 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                     maxAbsences: c.maxAbsences != null ? Number(c.maxAbsences) : 3,
                     course: c,
                   };
-                })
-                .sort((a, b) => {
-                  const ta = parseClassTime(a.time).startHour ?? 999;
-                  const tb = parseClassTime(b.time).startHour ?? 999;
-                  return ta - tb;
                 });
+
+              dayCourses.sort((a, b) => {
+                const ta = parseClassTime(a.time).startHour ?? 999;
+                const tb = parseClassTime(b.time).startHour ?? 999;
+                return ta - tb;
+              });
 
               if (!dayCourses.length) {
                 if (selectedDayIndex === di) {
@@ -657,10 +658,13 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                   <div className="space-y-2.5">
                     {dayCourses.map((c, ci) => {
                       const isHex = String(c.color || '').startsWith('#') || String(c.color || '').startsWith('rgb');
+                      const dayMap = { 6: 'شنبه', 0: 'یکشنبه', 1: 'دوشنبه', 2: 'سه‌شنبه', 3: 'چهارشنبه', 4: 'پنجشنبه', 5: 'جمعه' };
+                      const currentDayName = dayMap[new Date().getDay()];
+                      const isToday = day === currentDayName;
                       const parsed = parseClassTime(c.time);
                       const nowH = new Date().getHours() + new Date().getMinutes() / 60;
-                      const isNow = parsed.startHour != null && parsed.endHour != null && nowH >= parsed.startHour && nowH < parsed.endHour;
-                      const isNext = parsed.startHour != null && nowH < parsed.startHour;
+                      const isNow = isToday && parsed.startHour != null && parsed.endHour != null && nowH >= parsed.startHour && nowH < parsed.endHour;
+                      const isNext = isToday && parsed.startHour != null && nowH < parsed.startHour;
                       const isHighlight = isNow || isNext;
 
                       return (
@@ -673,13 +677,24 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                           style={isHex ? { borderRightColor: c.color } : undefined}
                           className={`sarv-card sarv-course-card p-4 hover:border-primary/40 transition-colors border-r-4 ${
                             isHex ? '' : (borderEdge[c.color] || 'border-r-primary')
-                          } ${isNow ? 'ring-2 ring-success/60 ring-offset-2 ring-offset-base' : ''}`}
+                          }`}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">
-                              <h4 className="text-[14px] font-bold text-base-content truncate">
-                                {c.title}
-                              </h4>
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-[14px] font-bold text-base-content truncate">
+                                  {c.title}
+                                </h4>
+                                {isNow && (
+                                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-success/15 border border-success/30 text-success text-[10px] font-bold shrink-0">
+                                    <span className="relative flex h-2 w-2">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+                                      <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
+                                    </span>
+                                    <span>در حال برگزاری</span>
+                                  </span>
+                                )}
+                              </div>
                               <div className="mt-1 flex items-center gap-2 text-[11.5px] text-neutral">
                                 <span className="flex items-center gap-1">
                                   <User className="w-3 h-3 text-primary/70" />

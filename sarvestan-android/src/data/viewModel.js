@@ -24,7 +24,7 @@ function faNum(n, digits = 0) {
 
 function todayPersianDay() {
   const day = new Date().getDay();
-  const map = { 6: 'شنبه', 0: 'یکشنبه', 1: 'دوشنبه', 2: 'سه‌شنبه', 3: 'چهارشنبه' };
+  const map = { 6: 'شنبه', 0: 'یکشنبه', 1: 'دوشنبه', 2: 'سه‌شنبه', 3: 'چهارشنبه', 4: 'پنجشنبه', 5: 'جمعه' };
   return map[day] || null;
 }
 

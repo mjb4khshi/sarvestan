@@ -777,7 +777,11 @@ export function debugDump() {
 export function getTodayClasses(persianDay) {
   const courses = getCurrentTermSchedule();
   return courses
-    .filter((c) => Array.isArray(c.days) && c.days.includes(persianDay))
+    .filter((c) => {
+      const hasInDays = Array.isArray(c.days) && c.days.includes(persianDay);
+      const hasInSlots = Array.isArray(c.daySlots) && c.daySlots.some((s) => s.day === persianDay);
+      return hasInDays || hasInSlots;
+    })
     .map((c) => {
       // اگر daySlots دارد، ساعت و مکان مختص همین روز را ست کن
       if (Array.isArray(c.daySlots) && c.daySlots.length) {

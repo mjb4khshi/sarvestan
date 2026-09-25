@@ -43,6 +43,26 @@ import {
 } from '../services/behestan';
 import { clearSsoCookies } from '../services/behestan/ssoLoginNative';
 import { clearSavedCreds } from '../services/loginFlow';
+
+function GithubIcon({ className = 'w-4 h-4' }) {
+  return (
+    <svg className={className} fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
+      />
+    </svg>
+  );
+}
+
+function LinkedinIcon({ className = 'w-4 h-4' }) {
+  return (
+    <svg className={className} fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" />
+    </svg>
+  );
+}
 import {
   cancelAllReminders,
   getDndDuringClass,
@@ -312,12 +332,31 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
   };
 
 
+  const INVITE_TEXT =
+    'سلام! 👋\nدیدم هنوز داری با سایت بهستان کلنجار میری، گفتم سروستان رو بهت معرفی کنم 🌿\n\nاپلیکیشن هوشمند دانشجویان خواجه نصیر (نسخه جدید ۱.۱.۰):\n⚡ کارکرد آفلاین برنامه کلاسی + ۳ ویجت زنده برای صفحه اصلی گوشی\n🎓 پشتیبانی کامل از دانشجویان کهاد (دورشته‌ای)\n🔕 حالت سکوت خودکار گوشی سر کلاس (DND)\n🍱 یادآور هفتگی رزرو غذای سماد\n📊 کارنامه، محاسبه‌گر معدل و تحلیل بدهی شهریه\n🔒 ۱۰۰٪ امن و محلی بدون نیاز به سرور یا VPN\n\n📱 دانلود مستقیم نسخه اندروید و افزونه:\nhttps://mjb4khshi.github.io/sarvestan';
+
   const handleCopyInvite = () => {
-    navigator.clipboard?.writeText(
-      'سلام! 👋\nاز بهستان خسته شدی؟ سروستان رو امتحان کن 👇\n⚡ برنامه هفتگی، کارنامه، معدل و شهریه — همه توی یه اپ مدرن\n🔒 داده‌ها فقط روی گوشی خودت می‌مونه\n🎨 قابلیت تغییر تم و ظاهر سفارشی\n\n📱 نصب: https://mjb4khshi.github.io/sarvestan\nبزن ببین چه خبره!'
-    );
+    navigator.clipboard?.writeText(INVITE_TEXT);
     setCopiedInvite(true);
     setTimeout(() => setCopiedInvite(false), 2500);
+  };
+
+  const handleShareInvite = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'سروستان | اکوسیستم هوشمند سامانه بهستان',
+          text: INVITE_TEXT,
+          url: 'https://mjb4khshi.github.io/sarvestan',
+        });
+      } catch (e) {
+        if (e.name !== 'AbortError') {
+          handleCopyInvite();
+        }
+      }
+    } else {
+      handleCopyInvite();
+    }
   };
 
   // فیلتر کردن دروس چارت — اگر چارت خالی باشد، لیست خالی
@@ -1239,34 +1278,48 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
                   ))}
                 </div>
 
-                <div className="sarv-card p-3.5 bg-base-500/15 border-dashed border-base-500/40 text-[12px] leading-relaxed">
-                  <p className="text-base-content font-medium mb-2">پیشنهاد آماده برای ارسال:</p>
-                  <p className="text-neutral select-all whitespace-pre-wrap font-mono text-[11px]">
-                    {'سلام! 👋\nاز بهستان خسته شدی؟ سروستان رو امتحان کن 👇\n⚡ برنامه هفتگی، کارنامه، معدل و شهریه — همه توی یه اپ مدرن\n🔒 داده‌ها فقط روی گوشی خودت می‌مونه\n🎨 قابلیت تغییر تم و ظاهر سفارشی\n\n📱 نصب: https://mjb4khshi.github.io/sarvestan\nبزن ببین چه خبره!'}
+                <div className="sarv-card p-3.5 bg-base-500/15 border border-dashed border-base-500/40 text-[12px] leading-relaxed">
+                  <p className="text-base-content font-bold mb-2 flex items-center justify-between">
+                    <span>متن آماده برای ارسال:</span>
+                    <span className="text-[10px] text-accent font-mono font-bold bg-accent/15 px-2 py-0.5 rounded-full">نسخه ۱.۱.۰</span>
+                  </p>
+                  <p className="text-neutral select-all whitespace-pre-wrap font-sans text-[11.5px] leading-relaxed">
+                    {INVITE_TEXT}
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleCopyInvite}
-                  className={`w-full py-3 rounded-2xl font-bold text-[13px] flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 ${
-                    copiedInvite
-                      ? 'bg-success text-success-content'
-                      : 'bg-accent text-accent-content'
-                  }`}
-                >
-                  {copiedInvite ? (
-                    <>
-                      <Check className="w-4 h-4" />
-                      کپی شد — بفرستش! ✓
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-4 h-4" />
-                      کپی متن دعوت
-                    </>
-                  )}
-                </button>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleShareInvite}
+                    className="py-3 rounded-2xl font-bold text-[13px] flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 bg-accent text-accent-content hover:brightness-110 cursor-pointer"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    <span>اشتراک‌گذاری</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCopyInvite}
+                    className={`py-3 rounded-2xl font-bold text-[13px] flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer ${
+                      copiedInvite
+                        ? 'bg-success text-success-content'
+                        : 'bg-base-500/30 text-base-content hover:bg-base-500/50'
+                    }`}
+                  >
+                    {copiedInvite ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>کپی شد! ✓</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4" />
+                        <span>کپی متن</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>
@@ -1322,10 +1375,10 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
 
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { t: 'برنامه هفتگی', d: 'ماتریس و کارت، با اتاق و استاد' },
-                    { t: 'کارنامه و نمرات', d: 'به تفکیک ترم + محاسبه‌گر معدل' },
-                    { t: 'امور مالی', d: 'بدهی، پرداختی و ریز تراز' },
-                    { t: 'چارت درسی', d: 'وضعیت پاس/مانده با نوار پیشرفت' },
+                    { t: 'برنامه آفلاین و ویجت‌ها', d: 'کارت و ماتریس + ۳ ویجت زنده صفحه اصلی' },
+                    { t: 'پشتیبانی کامل کهاد', d: 'تفکیک دروس دورشته‌ای بدون تداخل' },
+                    { t: 'سکوت کلاسی و یادآور سماد', d: 'سایلنت خودکار DND و نوتیف هفتگی غذا' },
+                    { t: 'کارنامه، نمرات و مالی', d: 'محاسبه‌گر معدل و ریز تراز بدهی بهستان' },
                   ].map((f) => (
                     <div
                       key={f.t}
@@ -1340,37 +1393,79 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
                 <div className="p-3 rounded-2xl bg-success-soft border border-success-soft space-y-1.5">
                   <p className="font-bold text-success text-[12px]">حریم خصوصی — اول از همه</p>
                   <p className="text-[11px] text-neutral leading-relaxed">
-                    نه سرور داریم، نه اکانت، نه تبلیغ. کارنامه، مالی و برنامه‌ات فقط و فقط
-                    <strong className="text-base-content"> روی دستگاه خودت</strong> ذخیره و پردازش
-                    می‌شود. حتی ما هم به داده‌هایت دسترسی نداریم.
+                    نه سرور واسطه‌ای در کار است، نه تبلیغ و نه پایگاه داده ابری. برنامه، نمرات و اطلاعات تحصیلی فقط و فقط
+                    <strong className="text-base-content"> روی دستگاه خودت</strong> ذخیره و پردازش می‌شوند و حتی در خروجی‌های استوری، اطلاعات حساس پنهان می‌گردند.
                   </p>
                 </div>
 
                 <div className="p-3 rounded-2xl bg-primary-soft border border-primary-soft space-y-1.5">
-                  <p className="font-bold text-primary text-[12px]">ساخته‌شده با Sarv UI</p>
+                  <p className="font-bold text-primary text-[12px]">دیزاین‌سیستم اختصاصی Sarv UI</p>
                   <p className="text-[11px] text-neutral leading-relaxed">
                     کل رابط کاربری روی دیزاین‌سیستم اختصاصی
                     <strong className="text-base-content"> Sarv UI</strong> ساخته شده — با ۱۵ تم رنگی
-                    زنده، فونت ایرانی آراد، و انیمیشن‌های نرم. هر وقت دلت خواست تم عوض کن؛
-                    همه‌چیز هماهنگ جابجا می‌شود.
+                    زنده، ۱۲ آیکون لانچر اختصاصی، فونت ایرانی آراد و انیمیشن‌های بهینه ۶۰ فریم بر ثانیه.
                   </p>
                 </div>
 
-                <div className="p-3.5 rounded-2xl bg-base-500/20 border border-base-500/30 space-y-2">
-                  <p className="font-bold text-base-content text-[12.5px] flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-accent" />
-                    درباره توسعه‌دهنده
-                  </p>
+                {/* کارت شیک درباره توسعه‌دهنده همراه با تصویر */}
+                <div className="p-3.5 rounded-2xl bg-base-500/20 border border-base-500/30 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src="./mjb-avatar.png"
+                      alt="محمدجواد بخشی"
+                      className="w-12 h-12 rounded-2xl object-cover border-2 border-primary/40 shadow-sm shrink-0"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                    <div>
+                      <p className="font-bold text-base-content text-[13px] flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-accent" />
+                        درباره توسعه‌دهنده
+                      </p>
+                      <p className="text-[11px] text-neutral font-medium mt-0.5">
+                        محمدجواد بخشی ایرج • مهندسی صنایع و سیستم‌ها (ورودی ۴۰۴)
+                      </p>
+                    </div>
+                  </div>
                   <p className="text-[11.5px] text-neutral leading-relaxed">
-                    <strong className="text-base-content">محمدجواد بخشی ایرج</strong>، توسعه‌دهندهٔ سروستان، خودش هم دانشجوی دانشگاه است و درست مثل سایر هم‌دانشگاهی‌ها، رابط کاربری قدیمی، سنگین و نه‌چندان خوشایند سامانهٔ بهستان همیشه روی اعصابش بوده! سروستان حاصل تلاش برای ساخت فضایی مدرن، روان و لذت‌بخش است تا دانشجویان بتوانند امور آموزشی و برنامهٔ هفتگی‌شان را با آرامش و بدون اتلاف وقت پیگیری کنند.
+                    به عنوان دانشجوی خواجه نصیر، کار با رابط کاربری قدیمی و کند بهستان همیشه وقت‌گیر و کلافه‌کننده بود. سروستان را ساختم تا تجربه‌ای سریع، مستقل و مدرن خلق شود که هر دانشجو از دیدن برنامه و نمراتش لذت ببرد.
                   </p>
+                  <div className="flex items-center gap-2 pt-1 flex-wrap">
+                    <a
+                      href="https://github.com/mjb4khshi"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2.5 py-1 rounded-xl bg-primary text-primary-content text-[11px] font-bold flex items-center gap-1 hover:brightness-110 active:scale-95 transition"
+                    >
+                      <GithubIcon className="w-3 h-3" />
+                      <span>گیت‌هاب</span>
+                    </a>
+                    <a
+                      href="https://www.linkedin.com/in/mjbakhshi/"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2.5 py-1 rounded-xl bg-[#0a66c2] text-white text-[11px] font-bold flex items-center gap-1 hover:brightness-110 active:scale-95 transition shadow-xs"
+                    >
+                      <LinkedinIcon className="w-3 h-3" />
+                      <span>لینکدین</span>
+                    </a>
+                    <a
+                      href="https://mjb4khshi.github.io/sarvestan"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2.5 py-1 rounded-xl bg-base-500/30 text-base-content text-[11px] font-bold flex items-center gap-1 hover:bg-base-500/50 active:scale-95 transition"
+                    >
+                      <span>وب‌سایت</span>
+                    </a>
+                  </div>
                 </div>
 
                 <div className="pt-2 flex justify-between items-center text-[11px] text-neutral border-t border-base-500/30">
                   <span>
                     طراحی و توسعه: <strong className="text-base-content font-mono font-bold">@mjb4khshi</strong>
                   </span>
-                  <span className="font-mono">v{CURRENT_VERSION} · 2026</span>
+                  <span className="font-mono">v1.1.0 · 2026</span>
                 </div>
               </div>
             </motion.div>

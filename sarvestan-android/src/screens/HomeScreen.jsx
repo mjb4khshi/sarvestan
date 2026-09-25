@@ -71,7 +71,7 @@ export default function HomeScreen({ onNavigate }) {
   const NEXT = vm.nextClass;
   const WEEK_HOURS = vm.weekHours ?? 13;
   const TERM_LABEL = vm.termLabel || STUDENT.term || 'نیمسال اول ۱۴۰۴–۱۴۰۵';
-  const dayNameMap = { 6: 'شنبه', 0: 'یکشنبه', 1: 'دوشنبه', 2: 'سه‌شنبه', 3: 'چهارشنبه' };
+  const dayNameMap = { 6: 'شنبه', 0: 'یکشنبه', 1: 'دوشنبه', 2: 'سه‌شنبه', 3: 'چهارشنبه', 4: 'پنجشنبه', 5: 'جمعه' };
   const todayIdx = Math.max(0, WEEK.findIndex((d) => d.day === dayNameMap[new Date().getDay()]));
   const gpaStatus = getGpaStatusBadge(SUMMARY.gpa || STUDENT.gpa || vm.grades?.cumulativeGpa);
 
@@ -450,8 +450,14 @@ export default function HomeScreen({ onNavigate }) {
                           <span className="mr-0.5 font-sans">غیبت</span>
                         </span>
                       )}
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full ${meta.chip}`}>
-                        {meta.label}
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full inline-flex items-center gap-1.5 ${meta.chip}`}>
+                        {cls.status === 'now' && (
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
+                          </span>
+                        )}
+                        <span>{meta.label}</span>
                       </span>
                     </div>
                   </div>
