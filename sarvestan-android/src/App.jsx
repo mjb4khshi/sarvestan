@@ -9,6 +9,7 @@ import HomeScreen from './screens/HomeScreen';
 import ScheduleScreen from './screens/ScheduleScreen';
 import GradesScreen from './screens/GradesScreen';
 import FinanceScreen from './screens/FinanceScreen';
+import StudyScreen from './screens/StudyScreen';
 import MoreScreen from './screens/MoreScreen';
 import LoginScreen from './screens/LoginScreen';
 import StoryPreviewScreen from './screens/StoryPreviewScreen';
@@ -19,6 +20,7 @@ import {
   subscribeLogin,
   getLoginSnapshot,
   openLoginModal,
+  closeLoginModal,
   isLoginModalOpen,
 } from './services/loginFlow';
 import { isSessionAlive } from './services/behestan/session';
@@ -29,11 +31,11 @@ import { checkForUpdate, hasDismissedUpdate, dismissUpdate } from './services/up
 const TITLES = {
   schedule: 'برنامه هفتگی',
   grades: 'کارنامه و نمرات',
-  finance: 'امور مالی و شهریه',
+  study: 'مطالعه و پلنر',
   more: 'خدمات و تنظیمات',
 };
 
-const TABS_ORDER = ['schedule', 'grades', 'home', 'finance', 'more'];
+const TABS_ORDER = ['schedule', 'grades', 'home', 'study', 'more'];
 
 function SsoCallbackBridge() {
   useEffect(() => {
@@ -58,6 +60,9 @@ function Shell() {
   const [tab, setTab] = useState('home');
   const [scheduleDefaultView, setScheduleDefaultView] = useState('cards');
   const [chartAutoOpen, setChartAutoOpen] = useState(false);
+  const [financeAutoOpen, setFinanceAutoOpen] = useState(false);
+  const [exitToast, setExitToast] = useState(false);
+  const lastBackPressRef = useRef(0);
   const [slideDir, setSlideDir] = useState(0);
   const showBack = tab !== 'home';
   const pointerStartRef = useRef(null);
@@ -102,6 +107,61 @@ function Shell() {
     return () => window.removeEventListener('sarvShortcut', onShortcut);
   }, []);
 
+  // مدیریت رویداد دکمه فیزیکی یا ژست بازگشت (Back) اندروید
+  useEffect(() => {
+    const onBackButton = (e) => {
+      // ۱. اگر مودال لاگین باز باشد
+      if (isLoginModalOpen()) {
+        closeLoginModal();
+        e?.preventDefault?.();
+        return;
+      }
+
+      // ۲. تلاش برای بستن هر مودال باز در صفحات (چارت، مالی، آلارم، ...)
+      const closeEvent = new CustomEvent('sarvCloseTopModal', { cancelable: true });
+      const notHandled = window.dispatchEvent(closeEvent);
+      if (!notHandled) {
+        // یکی از کامپوننت‌ها رویداد را مصرف و بسته شد
+        e?.preventDefault?.();
+        return;
+      }
+
+      if (chartAutoOpen) {
+        setChartAutoOpen(false);
+        e?.preventDefault?.();
+        return;
+      }
+
+      if (financeAutoOpen) {
+        setFinanceAutoOpen(false);
+        e?.preventDefault?.();
+        return;
+      }
+
+      // ۳. اگر در تب دیگری غیر از خانه (میز کار) هستیم -> بازگشت به خانه
+      if (tab !== 'home') {
+        changeTabWithDirection('home', -1);
+        e?.preventDefault?.();
+        return;
+      }
+
+      // ۴. در صفحه خانه: با دوبار فشردن دکمه بازگشت خارج می‌شود
+      const now = Date.now();
+      if (now - lastBackPressRef.current < 2000) {
+        // بدون preventDefault: اجازه خروج به MainActivity داده می‌شود
+        return;
+      }
+
+      lastBackPressRef.current = now;
+      e?.preventDefault?.();
+      setExitToast(true);
+      setTimeout(() => setExitToast(false), 2000);
+    };
+
+    window.addEventListener('sarvBackButton', onBackButton);
+    return () => window.removeEventListener('sarvBackButton', onBackButton);
+  }, [tab, chartAutoOpen, financeAutoOpen]);
+
   const changeTabWithDirection = (targetTab, explicitDir = null) => {
     const currentIndex = TABS_ORDER.indexOf(tab);
     const nextIndex = TABS_ORDER.indexOf(targetTab);
@@ -122,12 +182,19 @@ function Shell() {
       changeTabWithDirection('schedule');
     } else if (targetTab === 'chart') {
       setChartAutoOpen(true);
+      setFinanceAutoOpen(false);
+      changeTabWithDirection('more');
+    } else if (targetTab === 'finance') {
+      setFinanceAutoOpen(true);
+      setChartAutoOpen(false);
       changeTabWithDirection('more');
     } else {
-      if (targetTab === 'more' && options.openChart) {
-        setChartAutoOpen(true);
+      if (targetTab === 'more') {
+        if (options.openChart) setChartAutoOpen(true);
+        if (options.openFinance) setFinanceAutoOpen(true);
       } else {
         setChartAutoOpen(false);
+        setFinanceAutoOpen(false);
       }
       changeTabWithDirection(targetTab);
     }
@@ -213,17 +280,33 @@ function Shell() {
                 />
               )}
               {tab === 'grades' && <GradesScreen onNavigate={handleNavigate} />}
-              {tab === 'finance' && <FinanceScreen onNavigate={handleNavigate} />}
+              {tab === 'study' && <StudyScreen onNavigate={handleNavigate} />}
               {tab === 'more' && (
                 <MoreScreen
-                  key={`more-${chartAutoOpen}`}
+                  key={`more-${chartAutoOpen}-${financeAutoOpen}`}
                   onNavigate={handleNavigate}
                   initialChartOpen={chartAutoOpen}
+                  initialFinanceOpen={financeAutoOpen}
                 />
               )}
             </motion.main>
           </AnimatePresence>
         </div>
+
+        {/* توست تأیید خروج هنگام دکمه بازگشت */}
+        <AnimatePresence>
+          {exitToast && (
+            <motion.div
+              initial={{ opacity: 0, y: 24, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 16, scale: 0.95 }}
+              transition={{ duration: 0.16 }}
+              className="fixed bottom-20 left-4 right-4 z-[999] mx-auto max-w-xs px-4 py-2.5 rounded-2xl bg-base-content text-base text-[12px] font-bold text-center shadow-2xl backdrop-blur-md border border-base-500/30 pointer-events-none"
+            >
+              برای خروج از برنامه، دوباره بازگشت را بزنید
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <BottomNav active={tab} onChange={changeTabWithDirection} />
       </div>

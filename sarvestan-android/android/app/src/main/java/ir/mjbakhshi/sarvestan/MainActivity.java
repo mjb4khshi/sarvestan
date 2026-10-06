@@ -39,6 +39,26 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    public void onBackPressed() {
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            getBridge().getWebView().evaluateJavascript(
+                "(function() { " +
+                "  var ev = new CustomEvent('sarvBackButton', { cancelable: true }); " +
+                "  var handled = !window.dispatchEvent(ev); " +
+                "  return handled; " +
+                "})()",
+                value -> {
+                    if (!"true".equals(value)) {
+                        runOnUiThread(() -> super.onBackPressed());
+                    }
+                }
+            );
+        } else {
+            super.onBackPressed();
+        }
+    }
+
+    @Override
     public void onConfigurationChanged(@NonNull Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         SarvestanIconPlugin.syncShortcuts(this, null);

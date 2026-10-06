@@ -1,11 +1,11 @@
 import {
   Award,
   CalendarDays,
-  CreditCard,
+  Timer,
   LayoutGrid,
   LayoutDashboard,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, LayoutGroup } from 'framer-motion';
 
 /**
  * ناوبری پایین — همه آیتم‌ها (شامل میز کار) یکسان:
@@ -24,7 +24,7 @@ const TABS_CENTER = {
 };
 
 const TABS_LEFT = [
-  { id: 'finance', label: 'امور مالی', Icon: CreditCard, activeColor: 'text-success' },
+  { id: 'study', label: 'مطالعه و پلنر', Icon: Timer, activeColor: 'text-warn' },
   { id: 'more', label: 'سایر خدمات و تنظیمات', Icon: LayoutGrid, activeColor: 'text-accent' },
 ];
 
@@ -95,25 +95,26 @@ export default function BottomNav({ active, onChange }) {
       />
 
       <div className="relative mx-auto max-w-[420px] px-3 pb-2.5 pt-0 pointer-events-auto">
-        <div
-          className="relative rounded-[22px] bg-base/95 backdrop-blur-md border border-base-500/70 shadow-[0_8px_20px_-4px_rgba(0,0,0,0.35)] px-2 py-1 grid grid-cols-5 gap-1 items-center"
-          style={{
-            backgroundColor: 'color-mix(in oklab, var(--theme-color-base, #0a0a0c) 95%, transparent)',
-            borderColor: 'color-mix(in oklab, var(--theme-color-base-500, #222222) 70%, transparent)',
-            // translateZ روی والد layoutId با FLIP فریمورک تداخل دارد و باعث پرش مورب می‌شود
-          }}
-        >
-          {TABS_RIGHT.map((t) => (
-            <NavTabItem key={t.id} {...t} active={active} onChange={onChange} />
-          ))}
+        <LayoutGroup id="sarvBottomNavTabs">
+          <div
+            className="relative rounded-[22px] bg-base/95 backdrop-blur-md border border-base-500/70 shadow-[0_8px_20px_-4px_rgba(0,0,0,0.35)] px-2 py-1 grid grid-cols-5 gap-1 items-center"
+            style={{
+              backgroundColor: 'color-mix(in oklab, var(--theme-color-base, #0a0a0c) 95%, transparent)',
+              borderColor: 'color-mix(in oklab, var(--theme-color-base-500, #222222) 70%, transparent)',
+            }}
+          >
+            {TABS_RIGHT.map((t) => (
+              <NavTabItem key={t.id} {...t} active={active} onChange={onChange} />
+            ))}
 
-          {/* میز کار — دقیقاً هم‌عرض بقیه آیتم‌ها */}
-          <NavTabItem {...TABS_CENTER} active={active} onChange={onChange} />
+            {/* میز کار — دقیقاً هم‌عرض بقیه آیتم‌ها */}
+            <NavTabItem {...TABS_CENTER} active={active} onChange={onChange} />
 
-          {TABS_LEFT.map((t) => (
-            <NavTabItem key={t.id} {...t} active={active} onChange={onChange} />
-          ))}
-        </div>
+            {TABS_LEFT.map((t) => (
+              <NavTabItem key={t.id} {...t} active={active} onChange={onChange} />
+            ))}
+          </div>
+        </LayoutGroup>
       </div>
     </nav>
   );

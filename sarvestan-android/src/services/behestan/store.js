@@ -608,10 +608,13 @@ export function applyReg77Status(courses) {
 /** واحد و نام استاندارد F1825 را روی برنامهٔ هفتگی اعمال کن */
 export function enrichScheduleFromCourses(courses) {
   if (!Array.isArray(courses) || !courses.length) return;
-  const byCode = {};
+  const byTermAndCode = {};
   for (const c of courses) {
     if (c && c.code) {
-      byCode[String(c.code)] = {
+      const termKey = c.termId ? String(c.termId).trim() : '';
+      const key = `${termKey}|${String(c.code).trim()}`;
+      byTermAndCode[key] = {
+        termId: c.termId || null,
         units: c.units > 0 ? c.units : 0,
         name: c.name || null,
         type: c.type || null,
@@ -625,10 +628,12 @@ export function enrichScheduleFromCourses(courses) {
   for (const termId of Object.keys(schedule)) {
     const list = schedule[termId];
     if (!Array.isArray(list)) continue;
-    // حذف قطعی دروس حذف‌شده و در انتظار از برنامه هفتگی
+    const currentTermKey = String(termId).trim();
+    // حذف قطعی دروس حذف‌شده و در انتظار از برنامه هفتگی — فقط برای همان ترم جاری
     const filtered = list.filter((course) => {
       if (!course) return false;
-      const hit = byCode[String(course.code)];
+      const key = `${currentTermKey}|${String(course.code).trim()}`;
+      const hit = byTermAndCode[key];
       const reg = hit?.regStatus || course.regStatus;
       const st = hit?.status || course.status;
       if (reg === 'dropped' || reg === 'waitlist') return false;
@@ -643,7 +648,8 @@ export function enrichScheduleFromCourses(courses) {
 
     for (const course of schedule[termId]) {
       if (!course || !course.code || course.customEdited) continue;
-      const hit = byCode[String(course.code)];
+      const key = `${currentTermKey}|${String(course.code).trim()}`;
+      const hit = byTermAndCode[key];
       if (!hit) continue;
       if (hit.units > 0 && course.units !== hit.units) {
         course.units = hit.units;

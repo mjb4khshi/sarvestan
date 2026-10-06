@@ -17,6 +17,7 @@ import { useSarvestanData } from '../hooks/useSarvestanData';
 import { openLoginModal } from '../services/loginFlow';
 import { toFaDigits } from '../utils/faDigits';
 import OdometerNumber from '../components/OdometerNumber';
+import StudyHeatmap from '../components/StudyHeatmap';
 import { motion } from 'framer-motion';
 
 export function getGpaStatusBadge(gpaRaw) {
@@ -592,6 +593,9 @@ export default function HomeScreen({ onNavigate }) {
           );
         })()}
       </section>
+
+      {/* ماتریس پیوستگی فعالیت و مطالعه سالانه (هیت‌مپ داشبورد) */}
+      <StudyHeatmap onNavigate={onNavigate} />
 
       {/* اعلانات با توکن‌های رسمی سرو */}
       <section className="space-y-2">

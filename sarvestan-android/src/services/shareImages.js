@@ -1,8 +1,8 @@
 /**
  * تصویر اشتراک‌گذاری استوری سروستان — هماهنگ با هویت بصری Sarv Design و ارقام کاملاً فارسی
  */
-import { toFaDigits } from '../utils/faDigits';
-import { getScheduleMatrix, getViewModel } from '../data/viewModel';
+import { toFaDigits } from '../utils/faDigits.js';
+import { getScheduleMatrix, getViewModel, getToneForCourse } from '../data/viewModel.js';
 
 const DAYS = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه'];
 
@@ -957,4 +957,311 @@ export function canvasToDataUrl(canvas) {
   } catch {
     return '';
   }
+}
+
+function resolveTone(toneName, pal) {
+  if (!pal) return '#0ea5e9';
+  const map = {
+    primary: pal.primary,
+    info: pal.info,
+    success: pal.success,
+    secondary: pal.secondary,
+    accent: pal.accent,
+    warn: pal.warn,
+    danger: pal.danger,
+  };
+  return map[toneName] || pal.primary || '#0ea5e9';
+}
+
+/**
+ * ساخت پوستر شیک استوری مطالعه روزانه — طراحی مینیمال، مدرن و هماهنگ با تم سروستان (بدون گرادیانت و با توازن عمودی کامل)
+ */
+export async function renderStudyStoryImage({ stats, student, theme }) {
+  await ensureFont();
+  const pal = buildPalette(theme);
+
+  const W = 1080;
+  const H = 1920;
+  const canvas = newCanvas(W, H);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas در دسترس نیست');
+
+  const vm = getViewModel();
+  const scheduleCourses = vm?.scheduleCourses || [];
+
+  // ۱. پس‌زمینه فلت متناسب با تم
+  ctx.fillStyle = pal.base;
+  ctx.fillRect(0, 0, W, H);
+
+  // هاله نوری بسیار ملایم در مرکز پوستر
+  const radGlow = ctx.createRadialGradient(W / 2, 580, 50, W / 2, 580, 560);
+  radGlow.addColorStop(0, hexToRgba(pal.primary, pal.isLight ? 0.12 : 0.22));
+  radGlow.addColorStop(1, hexToRgba(pal.base, 0));
+  ctx.fillStyle = radGlow;
+  ctx.fillRect(0, 0, W, H);
+
+  // ۲. هدر برند سروستان در بالای پوستر
+  const headerX = 50;
+  const headerY = 56;
+  const headerW = W - 100;
+  const headerH = 116;
+
+  ctx.fillStyle = pal.surface;
+  roundRect(ctx, headerX, headerY, headerW, headerH, 24);
+  ctx.fill();
+  ctx.strokeStyle = pal.surface2;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // باکس آیکون رسمی سرو
+  ctx.fillStyle = hexToRgba(pal.primary, 0.15);
+  roundRect(ctx, headerX + 20, headerY + 18, 80, 80, 20);
+  ctx.fill();
+  drawSarvLogo(ctx, headerX + 60, headerY + 58, 48, pal.primary);
+
+  // عنوان و تاریخ هدر
+  ctx.direction = 'rtl';
+  ctx.textAlign = 'right';
+  ctx.fillStyle = pal.content;
+  ctx.font = 'bold 30px Arad, "Arad", sans-serif';
+  ctx.fillText('سروستان · گزارش مطالعه و تمرکز', headerX + headerW - 28, headerY + 50);
+
+  const todayFa = new Date().toLocaleDateString('fa-IR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+  ctx.font = '17px Arad, "Arad", sans-serif';
+  ctx.fillStyle = pal.muted;
+  ctx.fillText(todayFa, headerX + headerW - 28, headerY + 88);
+
+  // مشخصات دانشجو در کپسول شناور
+  const studentName = student?.fullName || 'دانشجوی صنعتی خواجه نصیر';
+  const majorText = student?.major ? ` · ${student.major}` : '';
+  const infoPill = `${studentName}${majorText}`;
+  ctx.font = 'bold 20px Arad, "Arad", sans-serif';
+  const pillW = Math.min(W - 140, ctx.measureText(infoPill).width + 60);
+  const pillH = 46;
+  const pillY = 200;
+
+  ctx.fillStyle = hexToRgba(pal.surface, pal.isLight ? 0.85 : 0.5);
+  roundRect(ctx, (W - pillW) / 2, pillY, pillW, pillH, pillH / 2);
+  ctx.fill();
+  ctx.strokeStyle = hexToRgba(pal.surface2, 0.65);
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.direction = 'rtl';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = pal.content;
+  ctx.fillText(infoPill, W / 2, pillY + 30);
+
+  // ۳. بخش مرکزی: عدد بسیار درشت و چشم‌نواز مطالعه (مشابه استایل پوستر معدل)
+  const heroCenterY = 470;
+
+  ctx.direction = 'rtl';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = pal.muted;
+  ctx.font = 'bold 28px Arad, "Arad", sans-serif';
+  ctx.fillText('مـیـزان مـطـالـعـه و تـمـرکـز امـروز', W / 2, heroCenterY - 110);
+
+  const todayHrs = toFaDigits(stats?.todayHours || '۰');
+  ctx.fillStyle = pal.isLight ? pal.primary : '#ffffff';
+  ctx.font = 'bold 155px Arad, "Arad", sans-serif';
+  ctx.fillText(todayHrs, W / 2, heroCenterY + 40);
+
+  ctx.fillStyle = pal.muted;
+  ctx.font = 'bold 26px Arad, "Arad", sans-serif';
+  const todayMins = toFaDigits(stats?.todayMinutes || 0);
+  ctx.fillText(`ساعت تمرکز خالص (معادل ${todayMins} دقیقه)`, W / 2, heroCenterY + 95);
+
+  // کپسول وضعیت زیر عدد
+  const badgeText = stats?.streak > 1
+    ? `★ استریک پیوسته: ${toFaDigits(stats.streak)} روز متوالی در اوج تمرکز ★`
+    : '✓ تعهد به انجام تکالیف و آمادگی تحصیلی';
+  ctx.font = 'bold 19px Arad, "Arad", sans-serif';
+  const bw = ctx.measureText(badgeText).width + 48;
+  const by = heroCenterY + 125;
+
+  ctx.fillStyle = hexToRgba(pal.primary, pal.isLight ? 0.12 : 0.2);
+  roundRect(ctx, (W - bw) / 2, by, bw, 42, 21);
+  ctx.fill();
+  ctx.strokeStyle = hexToRgba(pal.primary, 0.35);
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.fillStyle = pal.primary;
+  ctx.fillText(badgeText, W / 2, by + 28);
+
+  // ۴. شبکه ۲×۲ کارت‌های کلیدی عملکرد (استریک، ساعات کل، سشن‌ها، تسک‌ها)
+  const gridY = 690;
+  const colW = (W - 130) / 2;
+  const rowH = 105;
+  const gap = 20;
+
+  const metrics = [
+    {
+      title: 'استریک فعال',
+      value: `${toFaDigits(stats?.streak || 1)} روز پیاپی`,
+      sub: 'پیوستگی مداوم در مطالعه',
+      tone: pal.accent,
+      icon: '🔥',
+    },
+    {
+      title: 'مجموع مطالعه کل ترم',
+      value: `${toFaDigits(stats?.totalHours || '۰')} ساعت`,
+      sub: 'زمان انباشته دانشگاهی',
+      tone: pal.info,
+      icon: '⏱',
+    },
+    {
+      title: 'تعداد جلسات تمرکز',
+      value: `${toFaDigits(stats?.totalSessions || 0)} سشن`,
+      sub: 'پومودورو و آزاد',
+      tone: pal.primary,
+      icon: '🎯',
+    },
+    {
+      title: 'تکالیف تحویل‌شده',
+      value: `${toFaDigits(stats?.totalTasksDone || 0)} تکلیف`,
+      sub: `از مجموع ${toFaDigits(stats?.totalTasks || 0)} مورد`,
+      tone: pal.success,
+      icon: '✓',
+    },
+  ];
+
+  metrics.forEach((m, idx) => {
+    const col = idx % 2;
+    const row = Math.floor(idx / 2);
+    const x = col === 0 ? W - 50 - colW : 50;
+    const y = gridY + row * (rowH + gap);
+
+    ctx.fillStyle = pal.surface;
+    roundRect(ctx, x, y, colW, rowH, 24);
+    ctx.fill();
+    ctx.strokeStyle = hexToRgba(m.tone, pal.isLight ? 0.35 : 0.45);
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    ctx.direction = 'rtl';
+    ctx.textAlign = 'right';
+    ctx.fillStyle = m.tone;
+    ctx.font = 'bold 24px Arad, "Arad", sans-serif';
+    ctx.fillText(`${m.icon} ${m.value}`, x + colW - 22, y + 42);
+
+    ctx.fillStyle = pal.content;
+    ctx.font = 'bold 16px Arad, "Arad", sans-serif';
+    ctx.fillText(m.title, x + colW - 22, y + 70);
+
+    ctx.fillStyle = pal.muted;
+    ctx.font = '13px Arad, "Arad", sans-serif';
+    ctx.fillText(m.sub, x + colW - 22, y + 92);
+  });
+
+  // ۵. بخش تفکیک دروس و تکالیف ترم جاری (پرکننده متوازن نیمه دوم پوستر)
+  const coursesStartY = 960;
+  ctx.direction = 'rtl';
+  ctx.textAlign = 'right';
+  ctx.fillStyle = pal.content;
+  ctx.font = 'bold 28px Arad, "Arad", sans-serif';
+  ctx.fillText('دروس و برنامه‌های تحصیلی نیمسال جاری:', W - 55, coursesStartY);
+
+  // آماده‌سازی دروس: اگر سشنی ثبت شده باشد از byCourse، وگرنه از دروس رسمی برنامه بهستان
+  let displayCourses = (stats?.byCourse || []).slice(0, 5);
+  if (displayCourses.length < 4 && scheduleCourses.length > 0) {
+    const existingNames = new Set(displayCourses.map((c) => c.name));
+    for (const sc of scheduleCourses) {
+      if (!existingNames.has(sc.name)) {
+        displayCourses.push({
+          name: sc.name,
+          color: getToneForCourse(sc),
+          totalMinutes: 0,
+          sessionsCount: 0,
+          professor: sc.professor,
+          units: sc.units,
+        });
+      }
+      if (displayCourses.length >= 5) break;
+    }
+  }
+
+  let cardY = coursesStartY + 30;
+  const courseCardH = 110;
+  const courseCardGap = 16;
+
+  for (const c of displayCourses.slice(0, 5)) {
+    const rowTone = resolveTone(c.color || 'primary', pal);
+
+    ctx.fillStyle = hexToRgba(pal.surface, pal.isLight ? 0.95 : 0.7);
+    roundRect(ctx, 50, cardY, W - 100, courseCardH, 22);
+    ctx.fill();
+    ctx.strokeStyle = hexToRgba(rowTone, pal.isLight ? 0.35 : 0.5);
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // نوار رنگی نشان درس
+    ctx.fillStyle = rowTone;
+    roundRect(ctx, W - 58, cardY + 18, 8, courseCardH - 36, 4);
+    ctx.fill();
+
+    // نام درس
+    ctx.direction = 'rtl';
+    ctx.textAlign = 'right';
+    ctx.fillStyle = pal.content;
+    ctx.font = 'bold 26px Arad, "Arad", sans-serif';
+    ctx.fillText(c.name, W - 85, cardY + 48);
+
+    // استاد و مشخصات
+    const subDesc = c.sessionsCount > 0
+      ? `${toFaDigits(c.sessionsCount)} جلسه تمرکز ثبت‌شده`
+      : c.professor ? `استاد: ${c.professor}${c.units ? ` · ${toFaDigits(c.units)} واحد` : ''}` : 'واحد فعال در برنامه هفتگی';
+    ctx.font = '15px Arad, "Arad", sans-serif';
+    ctx.fillStyle = pal.muted;
+    ctx.fillText(subDesc, W - 85, cardY + 84);
+
+    // مدت زمان یا برچسب
+    ctx.textAlign = 'left';
+    if (c.totalMinutes > 0) {
+      const cHrs = toFaDigits((c.totalMinutes / 60).toFixed(1));
+      ctx.fillStyle = rowTone;
+      ctx.font = 'bold 26px Arad, "Arad", sans-serif';
+      ctx.fillText(`${cHrs} ساعت`, 85, cardY + 62);
+    } else {
+      ctx.fillStyle = pal.muted;
+      ctx.font = 'bold 16px Arad, "Arad", sans-serif';
+      ctx.fillText('آماده برای تمرکز', 85, cardY + 62);
+    }
+
+    cardY += courseCardH + courseCardGap;
+  }
+
+  // ۶. نوار فوتر مدرن با لوگوی رسمی سرو
+  const footerX = 50;
+  const footerW = W - 100;
+  const footerY = 1790;
+  const footerH = 68;
+
+  ctx.fillStyle = pal.surface;
+  roundRect(ctx, footerX, footerY, footerW, footerH, 20);
+  ctx.fill();
+  ctx.strokeStyle = pal.surface2;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  const footerBrand = 'ساخته‌شده با سروستان · mjb4khshi.github.io/sarvestan';
+  ctx.font = 'bold 18px Arad, "Arad", sans-serif';
+  ctx.fillStyle = pal.content;
+  ctx.textAlign = 'center';
+  ctx.fillText(footerBrand, W / 2, footerY + 41);
+
+  drawSarvLogo(
+    ctx,
+    W / 2 + ctx.measureText(footerBrand).width / 2 + 24,
+    footerY + footerH / 2,
+    22,
+    pal.primary
+  );
+
+  return canvas;
 }

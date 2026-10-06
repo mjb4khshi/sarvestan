@@ -258,7 +258,7 @@ function pad(n) {
  * ساخت لیست نوتیف‌ها: برای هر جلسه، تا ۷ روز آینده (شامل اعلان‌های پیش‌آگاهی، شروع و حالت مزاحم نشوید)
  */
 export function buildReminderItems({
-  daysAhead = 7,
+  daysAhead = 84, // ۱۲ هفته (کل طول ترم تحصیلی به جای فقط ۷ روز)
   leadMinutes = 10,
   notifyAtStart = true,
   dndDuringClass = false,
@@ -348,7 +348,7 @@ export function buildReminderItems({
  * زمان‌بندی یادآوری کلاس‌ها در سیستم
  */
 export async function scheduleClassReminders({
-  daysAhead = 7,
+  daysAhead = 84, // ۱۲ هفته پوشش کامل جلسات ترم
   leadMinutes = 10,
   notifyAtStart = true,
   dndDuringClass = null,

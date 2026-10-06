@@ -30,10 +30,12 @@ import {
   BellRing,
   BellOff,
   RotateCcw,
+  CreditCard,
 } from 'lucide-react';
 import UpdateModal from '../components/UpdateModal';
 import ClassAlarmModal from '../components/ClassAlarmModal';
 import SarvSwitch from '../components/SarvSwitch';
+import FinanceScreen from './FinanceScreen';
 import { checkForUpdate, CURRENT_VERSION } from '../services/updater';
 import {
   clearLiveData,
@@ -44,6 +46,14 @@ import {
 import { clearSsoCookies } from '../services/behestan/ssoLoginNative';
 import { clearSavedCreds } from '../services/loginFlow';
 import mjbAvatar from '../../public/mjb-avatar.png';
+
+import {
+  cancelAllReminders,
+  getDndDuringClass,
+  setDndDuringClass,
+  checkDndPermission,
+  requestDndPermission,
+} from '../services/classAlarms';
 
 function GithubIcon({ className = 'w-4 h-4' }) {
   return (
@@ -64,13 +74,6 @@ function LinkedinIcon({ className = 'w-4 h-4' }) {
     </svg>
   );
 }
-import {
-  cancelAllReminders,
-  getDndDuringClass,
-  setDndDuringClass,
-  checkDndPermission,
-  requestDndPermission,
-} from '../services/classAlarms';
 import { isNativeCapacitor } from '../services/androidWidget';
 import { getViewModel } from '../data/viewModel';
 import { useSarvestanData } from '../hooks/useSarvestanData';
@@ -89,12 +92,17 @@ import {
 } from '../services/shareImages';
 import { useAppIcon, SarvIconSvg } from '../services/appIcon';
 
-export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
+export default function MoreScreen({
+  onNavigate,
+  initialChartOpen = false,
+  initialFinanceOpen = false,
+}) {
   const vm = getViewModel();
   const { workflows, sync, syncMeta } = useSarvestanData();
   const { activeThemeMeta } = useTheme();
   const lastSyncTime = getLastSyncTimestamp(syncMeta);
   const lastSyncFormatted = formatLastSync(lastSyncTime);
+  const [financeModalOpen, setFinanceModalOpen] = useState(initialFinanceOpen);
   const [iconModalOpen, setIconModalOpen] = useState(false);
   const [iconToast, setIconToast] = useState('');
   const [clearDataModalOpen, setClearDataModalOpen] = useState(false);
@@ -105,6 +113,12 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
   const [dndEnabled, setDndEnabled] = useState(() => getDndDuringClass());
   const [dndToggling, setDndToggling] = useState(false);
   const { currentIconId, currentIcon, setAppIcon, icons: appIcons } = useAppIcon();
+
+  useEffect(() => {
+    if (initialFinanceOpen) {
+      setFinanceModalOpen(true);
+    }
+  }, [initialFinanceOpen]);
 
   // همگام‌سازی وضعیت حالت مزاحم نشوید با تغییر در مودال‌ها یا بازگشت به صفحه
   useEffect(() => {
@@ -248,6 +262,48 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
   const [sharePreview, setSharePreview] = useState(null); // { url, kind, canvas, filename, title }
   const [shareMsg, setShareMsg] = useState('');
   const [copiedPreview, setCopiedPreview] = useState(false);
+
+  // بستن بالاترین مودال هنگام فشردن دکمه بازگشت اندروید
+  useEffect(() => {
+    const handleCloseTopModal = (e) => {
+      if (financeModalOpen) {
+        setFinanceModalOpen(false);
+        e.preventDefault();
+      } else if (chartModalOpen) {
+        setChartModalOpen(false);
+        e.preventDefault();
+      } else if (alarmModalOpen) {
+        setAlarmModalOpen(false);
+        e.preventDefault();
+      } else if (iconModalOpen) {
+        setIconModalOpen(false);
+        e.preventDefault();
+      } else if (referralModalOpen) {
+        setReferralModalOpen(false);
+        e.preventDefault();
+      } else if (sharePreview) {
+        setSharePreview(null);
+        e.preventDefault();
+      } else if (clearDataModalOpen) {
+        setClearDataModalOpen(false);
+        e.preventDefault();
+      } else if (resetModalOpen) {
+        setResetModalOpen(false);
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('sarvCloseTopModal', handleCloseTopModal);
+    return () => window.removeEventListener('sarvCloseTopModal', handleCloseTopModal);
+  }, [
+    financeModalOpen,
+    chartModalOpen,
+    alarmModalOpen,
+    iconModalOpen,
+    referralModalOpen,
+    sharePreview,
+    clearDataModalOpen,
+    resetModalOpen,
+  ]);
 
   const handleShareSchedule = async () => {
     if (shareBusy) return;
@@ -526,6 +582,41 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
       <section className="space-y-1.5">
         <h3 className="text-[12.5px] font-bold text-neutral px-1">خدمات و وضعیت آموزشی</h3>
         <div className="sarv-card overflow-hidden divide-y divide-base-500/30">
+          {/* امور مالی و شهریه */}
+          <button
+            type="button"
+            onClick={() => setFinanceModalOpen(true)}
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors"
+          >
+            <div className="flex items-start gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-success-soft text-success border border-success-soft mt-0.5">
+                <CreditCard className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-[13.5px] font-bold text-base-content truncate">امور مالی و شهریه</p>
+                  <span
+                    className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-md ${
+                      vm.finance?.isPaid
+                        ? 'bg-success-soft text-success border border-success-soft'
+                        : 'bg-danger-soft text-danger border border-danger-soft'
+                    }`}
+                  >
+                    {vm.finance?.isPaid
+                      ? 'تسویه کامل'
+                      : vm.finance?.debtToman
+                      ? `${toFaDigits(Number(vm.finance.debtToman).toLocaleString('fa-IR'))} ت`
+                      : 'بدهی جاری'}
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-neutral mt-0.5">
+                  ریز تراز مالی، شهریه متغیر، وضعیت تسویه و رسید رسمی
+                </p>
+              </div>
+            </div>
+            <ChevronLeft className="w-4 h-4 text-neutral shrink-0 mt-2" />
+          </button>
+
           {/* تنظیم یادآور و آلارم کلاس‌ها */}
           <button
             type="button"
@@ -1008,6 +1099,54 @@ export default function MoreScreen({ onNavigate, initialChartOpen = false }) {
           نسخه {toFaDigits(CURRENT_VERSION)} سروستان همراه · Sarv UI
         </p>
       </div>
+
+      {/* مودال تمام‌صفحه: امور مالی و شهریه */}
+      <AnimatePresence>
+        {financeModalOpen && (
+          <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setFinanceModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{ y: '100%', opacity: 0.5 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0.5 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+              className="relative z-10 w-full max-w-[440px] rounded-t-3xl sm:rounded-3xl bg-base border border-base-500/50 p-4 shadow-2xl h-[90vh] flex flex-col"
+            >
+              {/* هدر مودال امور مالی */}
+              <div className="flex items-center justify-between pb-3 border-b border-base-500/30 shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-success-soft text-success grid place-items-center shadow-sm">
+                    <CreditCard className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-[15px] font-black text-base-content">امور مالی و شهریه</h3>
+                    <p className="text-[11px] text-neutral">ریز تراز مالی، شهریه و رسید رسمی سرو</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFinanceModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-base-500/30 text-neutral hover:text-base-content grid place-items-center transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* بدنه محتوا */}
+              <div className="overflow-y-auto flex-1 no-scrollbar pt-1 pb-4">
+                <FinanceScreen onNavigate={onNavigate} />
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* مودال تمام‌صفحه: چارت و وضعیت دروس */}
       <AnimatePresence>
