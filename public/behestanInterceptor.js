@@ -108,13 +108,27 @@
       .trim();
   }
 
-  // واحد دروس از F1825 (کد درس → واحد)
+  // واحد و اساتید دروس از گزارش‌های بهستان (کد درس → واحد و استاد)
   const unitByCode = Object.create(null);
+  const professorByCode = Object.create(null);
+  const professorByName = Object.create(null);
 
   function rememberCourseUnits(courses) {
     if (!Array.isArray(courses)) return;
     for (const c of courses) {
       if (c && c.code && c.units > 0) unitByCode[String(c.code)] = c.units;
+    }
+  }
+
+  function rememberProfessors(courses) {
+    if (!Array.isArray(courses)) return;
+    for (const c of courses) {
+      if (!c) continue;
+      const prof = c.professor;
+      if (prof && prof !== 'ـ') {
+        if (c.code) professorByCode[String(c.code)] = prof;
+        if (c.name) professorByName[normalizeCourseName(c.name)] = prof;
+      }
     }
   }
 
@@ -232,6 +246,10 @@
       const capacity = capM ? capM[1] : '';
       const units = unitByCode[code] || 0;
 
+      const profM = (title + ' ' + (textHint || '')).match(/(?:نام\s*استاد|استاد|مدرس)\s*:\s*([^<\n\r]+?)(?=\s*(?:محل|امتحان|ساعت|تعداد|شماره|$))/i);
+      const parsedProf = profM ? normalizeCourseName(profM[1].trim()) : '';
+      const resolvedProf = parsedProf || professorByCode[code] || professorByName[courseName] || 'ـ';
+
       const hallM = textHint ? textHint.match(/محل\s*:\s*(.+?)(?=\s*امتحان|$)/) : null;
       const examM = textHint ? textHint.match(/امتحان\s*:\s*([0-9]{4}\/[0-9]{2}\/[0-9]{2})/) : null;
       let examTime = '';
@@ -250,7 +268,7 @@
           group: group || '۰۱',
           units: units,
           type: 'ـ',
-          professor: 'ـ',
+          professor: resolvedProf,
           days: day ? [day] : [],
           time: parseTimeRange(classTime) || 'ـ',
           hall: (hallM ? hallM[1].replace(/\s+/g, ' ').trim() : '') || 'ـ',
@@ -263,6 +281,7 @@
         });
       } else {
         const cur = courseMap.get(key);
+        if (resolvedProf !== 'ـ' && (!cur.professor || cur.professor === 'ـ')) cur.professor = resolvedProf;
         if (day && !cur.days.includes(day)) cur.days.push(day);
         if (units > 0) cur.units = units;
         if (classTime && !cur.timeSlotsRaw.includes(classTime)) {
@@ -369,6 +388,8 @@
       };
     }).filter(e => e.name);
 
+    rememberProfessors(exams);
+
     let termId = termHint || '';
     if (!termId) {
       const bms = String(outpar.BMs || '');
@@ -377,6 +398,51 @@
       else if (bms.includes('06-05')) termId = '4051';
     }
     return { termId, exams };
+  }
+
+  /**
+   * پارس گزارش ۷۷ — «نتیجه ثبت نام دانشجو»
+   * C1=شماره و گروه درس | C2=نام درس | C3=کل واحد | C5=وضعیت | C6=نوع درس | C7=نام استاد | C8=روز و ساعت
+   */
+  function parseReport77(outpar, termHint) {
+    const bmT = String(outpar?.BMt || '');
+    if (!bmT || bmT.indexOf('<row') === -1) {
+      return { termId: termHint || '4051', courses: [] };
+    }
+    const rows = parseBehestanXmlGrid(bmT);
+    const courses = rows.map(row => {
+      const codeGroup = cleanHtml(row.C1 || '');
+      const code = (codeGroup.match(/^(\d+)/) || [])[1] || codeGroup;
+      const group = (codeGroup.match(/_(\d+)/) || [])[1] || '۰۱';
+      const name = normalizeCourseName(cleanHtml(row.C2 || ''));
+      const units = parseFloat(cleanHtml(row.C3 || '0')) || 0;
+      const professor = normalizeCourseName(cleanHtml(row.C7 || '')) || 'ـ';
+      const statusRaw = cleanHtml(row.C5 || '');
+      const typeRaw = cleanHtml(row.C6 || '');
+      return {
+        id: code,
+        code,
+        group,
+        name,
+        units,
+        professor,
+        type: typeRaw,
+        statusRaw,
+        isLive: true,
+      };
+    }).filter(c => c.name);
+
+    rememberProfessors(courses);
+    rememberCourseUnits(courses);
+
+    let termId = termHint || '';
+    if (!termId) {
+      const bms = String(outpar?.BMs || '');
+      if (bms.includes('06-05')) termId = '4051';
+      else if (bms.includes('05-04') && bms.includes('دوم')) termId = '4042';
+      else if (bms.includes('05-04')) termId = '4041';
+    }
+    return { termId: termId || '4051', courses };
   }
 
   /**
@@ -450,6 +516,9 @@
         isRegistration: true
       };
     }).filter(c => c.name);
+
+    rememberProfessors(courses);
+    rememberCourseUnits(courses);
 
     // استخراج ترم از BMs
     let termId = termHint || '';
@@ -553,7 +622,7 @@
         // تشخیص از متن سربرگ گزارش
         if (!formCode && bms.includes('برنامه هفتگي')) formCode = '78';
         if (!formCode && bms.includes('ثبت‌نام') && bms.includes('88')) formCode = '88';
-        if (!formCode && bms.includes('نتيجه ثبت')) formCode = '88';
+        if (!formCode && bms.includes('نتيجه ثبت')) formCode = '77';
 
         let termHint = '';
         try {
@@ -576,16 +645,40 @@
           const courseCount = parsed && parsed.courses ? parsed.courses.length : 0;
           if (courseCount > 0) {
             const termId = parsed.termId || termHint || '4051';
+            // غنی‌سازی با اساتید و واحدهای شناخته‌شده
+            for (const c of parsed.courses) {
+              if (!c.professor || c.professor === 'ـ') {
+                c.professor = professorByCode[c.code] || professorByName[c.name] || 'ـ';
+              }
+              if (!c.units || c.units === 0) {
+                c.units = unitByCode[c.code] || 0;
+              }
+            }
             sendData('schedule', { termId, courses: parsed.courses, source: '78' });
             console.log(
               '[Sarvestan] ✅ Report 78 schedule captured:',
               termId,
               courseCount,
               'courses:',
-              parsed.courses.map(c => c.name).join(' | ')
+              parsed.courses.map(c => `${c.name} (${c.professor})`).join(' | ')
             );
           } else {
             console.log('[Sarvestan] Report 78 empty for term', termHint || parsed?.termId);
+          }
+        } else if (formCode === '77') {
+          const parsed77 = parseReport77(outpar, termHint);
+          if (parsed77.courses.length > 0) {
+            const termId = parsed77.termId || termHint || '4051';
+            sendData('reg77', { termId, courses: parsed77.courses });
+            console.log(
+              '[Sarvestan] ✅ Report 77 registration results captured:',
+              termId,
+              parsed77.courses.length,
+              'professors:',
+              parsed77.courses.map(c => `${c.name} (${c.professor})`).join(' | ')
+            );
+          } else {
+            console.log('[Sarvestan] Report 77 empty for term', termHint || parsed77.termId);
           }
         } else if (formCode === '88') {
           const parsed88 = parseReport88Registration(outpar, termHint);

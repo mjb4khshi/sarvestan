@@ -3,37 +3,70 @@
  */
 
 :root {
-  /* Default: Persian Dark (اصیل) */
-  --theme-color-primary: #0066a4;
-  --theme-color-secondary: #d88f58;
-  --theme-color-accent: #fe28a2;
-  --theme-color-success: #46c93a;
-  --theme-color-warn: #ffba00;
-  --theme-color-info: #00a594;
-  --theme-color-danger: #ff4757;
-  --theme-color-neutral: #94a3b8;
-  --theme-color-neutral-dark: #404040;
-  --theme-color-neutral-darker: #1e1e1e;
+  /* Default: Laboo & White (سفید و لبویی - نسخه محدود تک‌طیف) */
+  --theme-color-primary: #931139;
+  --theme-color-secondary: #aa1d4a;
+  --theme-color-accent: #c4285c;
+  --theme-color-success: #7f0d2f;
+  --theme-color-warn: #b0214e;
+  --theme-color-info: #c4285c;
+  --theme-color-danger: #7f0d2f;
+  --theme-color-neutral: #854b5f;
+  --theme-color-neutral-dark: #f0d3dc;
+  --theme-color-neutral-darker: #fdf4f7;
 
-  --theme-color-base: #000000;
-  --theme-color-base-500: #222222;
-  --theme-color-base-900: #858585;
+  --theme-color-base: #ffffff;
+  --theme-color-base-500: #fdf0f4;
+  --theme-color-base-900: #931139;
 
   --theme-color-primary-content: #ffffff;
   --theme-color-secondary-content: #ffffff;
   --theme-color-accent-content: #ffffff;
   --theme-color-success-content: #ffffff;
-  --theme-color-warn-content: #000000;
+  --theme-color-warn-content: #ffffff;
   --theme-color-danger-content: #ffffff;
   --theme-color-info-content: #ffffff;
   --theme-color-neutral-content: #ffffff;
-  --theme-color-base-content: #ffffff;
+  --theme-color-base-content: #2d0612;
 
-  --theme-shadow-color: 0, 0, 0;
+  --theme-shadow-color: 147, 17, 57;
   --theme-radius-card: 1.15rem;
   --theme-radius-button: 0.85rem;
   --theme-radius-input: 0.85rem;
   --theme-radius-checkbox: 40%;
+}
+
+/* 0. سفید و لبویی (نسخه محدود تک‌طیف) */
+html[datatheme="laboo"],
+html[data-theme="laboo"],
+[datatheme="laboo"],
+[data-theme="laboo"] {
+  --theme-color-primary: #931139;
+  --theme-color-secondary: #aa1d4a;
+  --theme-color-accent: #c4285c;
+  --theme-color-success: #7f0d2f;
+  --theme-color-warn: #b0214e;
+  --theme-color-info: #c4285c;
+  --theme-color-danger: #7f0d2f;
+  --theme-color-neutral: #854b5f;
+  --theme-color-neutral-dark: #f0d3dc;
+  --theme-color-neutral-darker: #fdf4f7;
+  --theme-color-base: #ffffff;
+  --theme-color-base-500: #fdf0f4;
+  --theme-color-base-900: #931139;
+  --theme-color-primary-content: #ffffff;
+  --theme-color-secondary-content: #ffffff;
+  --theme-color-accent-content: #ffffff;
+  --theme-color-success-content: #ffffff;
+  --theme-color-warn-content: #ffffff;
+  --theme-color-danger-content: #ffffff;
+  --theme-color-info-content: #ffffff;
+  --theme-color-neutral-content: #ffffff;
+  --theme-color-base-content: #2d0612;
+  --theme-shadow-color: 147, 17, 57;
+  --theme-radius-card: 1.15rem;
+  --theme-radius-button: 0.85rem;
+  --theme-radius-input: 0.85rem;
 }
 
 /* 1. Persian Dark (اصیل با کنتراست بالا) */

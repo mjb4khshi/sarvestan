@@ -35,14 +35,18 @@ import {
   VolumeX,
   Maximize2,
   Minimize2,
-  CloudRain,
   Radio,
   Moon,
   Sun,
   Target,
+  GraduationCap,
+  MapPin,
+  AlertCircle,
+  CalendarPlus,
+  Pencil,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
-import { getViewModel, getToneForCourse } from '../data/viewModel';
+import { getViewModel, getToneForCourse, getExamsView, jalaliToDate } from '../data/viewModel';
 import { toFaDigits } from '../utils/faDigits';
 import {
   getStudyTasks,
@@ -60,9 +64,6 @@ import {
 } from '../services/studyPlanner';
 import {
   playFocusChime,
-  playGentleClick,
-  startAmbientSound,
-  stopAmbientSound,
   triggerHaptic,
   requestScreenWakeLock,
   releaseScreenWakeLock,
@@ -81,12 +82,22 @@ import {
 } from '../services/shareImages';
 import {
   getPersianMonthGrid,
+  getPersianParts,
   getYearlyHeatmapWeeks,
   formatFullPersianDate,
   formatMinutesHuman,
   toLocalDateString,
 } from '../services/calendarHelper';
 import OdometerNumber from '../components/OdometerNumber';
+import ExamEditModal from '../components/ExamEditModal';
+import {
+  subscribeStore,
+  addExamToStore,
+  updateExamInStore,
+  deleteExamFromStore,
+  resolveCurrentTermId,
+} from '../services/behestan';
+import { exportExamToCalendar } from '../services/classAlarms';
 
 const STUDY_MAIN_TABS = [
   { id: 'pomo', label: 'تایمر', Icon: Clock },
@@ -186,7 +197,7 @@ function NativeCourseSelector({
 }) {
   const [open, setOpen] = useState(false);
   const selectedCourseObj = courses.find((c) => c.name === value);
-  const tone = selectedCourseObj ? getToneForCourse(selectedCourseObj) : 'primary';
+  const tone = selectedCourseObj ? (selectedCourseObj.color || getToneForCourse(selectedCourseObj, courses)) : 'primary';
   const colorMeta = toneColors[tone] || toneColors.primary;
 
   return (
@@ -308,7 +319,7 @@ function NativeCourseSelector({
 
                     {/* لیست دروس بهستان */}
                     {courses.map((c) => {
-                      const cTone = getToneForCourse(c);
+                      const cTone = c.color || getToneForCourse(c, courses);
                       const cMeta = toneColors[cTone] || toneColors.primary;
                       const isSelected = value === c.name;
                       return (
@@ -358,10 +369,36 @@ function NativeCourseSelector({
 
 export default function StudyScreen({ onNavigate }) {
   const { activeThemeMeta } = useTheme();
+  const [storeVer, setStoreVer] = useState(0);
+
+  useEffect(() => {
+    return subscribeStore(() => setStoreVer((v) => v + 1));
+  }, []);
+
   const vm = getViewModel();
   const coursesList = vm.scheduleCourses || [];
+  const examsList = getExamsView() || vm.exams || [];
+
+  // راهکار یکپارچه رنگ دروس جهت تطابق ۱۰۰٪ با برنامه هفتگی و انتخاب کاربر
+  const getCourseColor = (courseOrName) => {
+    if (!courseOrName) return 'primary';
+    if (typeof courseOrName === 'object' && courseOrName.color) return courseOrName.color;
+    const name = typeof courseOrName === 'object'
+      ? (courseOrName.name || courseOrName.courseName || courseOrName.title)
+      : courseOrName;
+    const matched = coursesList.find(
+      (c) => c.name === name || (c.code && courseOrName?.code && c.code === courseOrName.code)
+    );
+    if (matched?.color) return matched.color;
+    return getToneForCourse(courseOrName, coursesList);
+  };
+
+  // استیت ویرایش و افزودن امتحان
+  const [editingExam, setEditingExam] = useState(null);
+  const [isExamModalOpen, setIsExamModalOpen] = useState(false);
 
   const [activeTab, setActiveTab] = useState('pomo'); // 'pomo' | 'kanban' | 'calendar' | 'stats'
+  const [monthSlideDir, setMonthSlideDir] = useState(1);
   const [tasks, setTasks] = useState(() => getStudyTasks());
   const [sessions, setSessions] = useState(() => getStudySessions());
   const [stats, setStats] = useState(() => calculateStudyStats());
@@ -391,7 +428,7 @@ export default function StudyScreen({ onNavigate }) {
   const timerRunning = isCustom ? customRunning : stopwatchRunning;
   const sessionSecondsCount = isCustom ? customSessionSeconds : stopwatchSessionSeconds;
 
-  // ابزارهای پیشرفته تایمر مطالعه (صدای زنگ، بیدارباش صفحه، نویز پس‌زمینه و حالت ذن تمام‌صفحه)
+  // ابزارهای پیشرفته تایمر مطالعه (صدای زنگ، بیدارباش صفحه و حالت تمرکز تمام‌صفحه)
   const [soundEnabled, setSoundEnabled] = useState(() => {
     try {
       const s = localStorage.getItem('sarv_study_sound_v1');
@@ -408,7 +445,6 @@ export default function StudyScreen({ onNavigate }) {
       return true;
     }
   });
-  const [ambientSoundMode, setAmbientSoundMode] = useState('none'); // 'none' | 'rain' | 'pink'
   const [zenModeOpen, setZenModeOpen] = useState(false);
 
   // متغیرهای مرجع زمانی برای مصونیت کامل در برابر قفل شدن گوشی و وقفه مرورگر
@@ -535,11 +571,14 @@ export default function StudyScreen({ onNavigate }) {
       } else if (manualLogModalOpen) {
         setManualLogModalOpen(false);
         e?.preventDefault?.();
+      } else if (isExamModalOpen) {
+        setIsExamModalOpen(false);
+        e?.preventDefault?.();
       }
     };
     window.addEventListener('sarvCloseTopModal', handleCloseTopModal);
     return () => window.removeEventListener('sarvCloseTopModal', handleCloseTopModal);
-  }, [zenModeOpen, sharePreview, taskModalOpen, manualLogModalOpen]);
+  }, [zenModeOpen, sharePreview, taskModalOpen, manualLogModalOpen, isExamModalOpen]);
 
   // اسکرول خودکار و فوری هیت‌مپ به امروز در زمان نمایش
   const scrollToTodayHeatmap = (smooth = false) => {
@@ -625,7 +664,6 @@ export default function StudyScreen({ onNavigate }) {
 
   const handleToggleTimer = () => {
     const now = Date.now();
-    playGentleClick();
     triggerHaptic('light');
 
     if (isCustom) {
@@ -634,7 +672,6 @@ export default function StudyScreen({ onNavigate }) {
         customTargetEndTimeRef.current = null;
         if (!stopwatchRunning) {
           releaseScreenWakeLock();
-          stopAmbientSound();
           clearPersistedTimerState();
         }
       } else {
@@ -642,7 +679,6 @@ export default function StudyScreen({ onNavigate }) {
         customTargetEndTimeRef.current = end;
         setCustomRunning(true);
         if (wakeLockEnabled) requestScreenWakeLock();
-        if (ambientSoundMode !== 'none') startAmbientSound(ambientSoundMode);
         requestNotificationPermission();
 
         persistTimerState({
@@ -664,7 +700,6 @@ export default function StudyScreen({ onNavigate }) {
         stopwatchBaseRef.current = stopwatchSeconds;
         if (!customRunning) {
           releaseScreenWakeLock();
-          stopAmbientSound();
           clearPersistedTimerState();
         }
       } else {
@@ -672,7 +707,6 @@ export default function StudyScreen({ onNavigate }) {
         stopwatchBaseRef.current = stopwatchSeconds;
         setStopwatchRunning(true);
         if (wakeLockEnabled) requestScreenWakeLock();
-        if (ambientSoundMode !== 'none') startAmbientSound(ambientSoundMode);
         requestNotificationPermission();
 
         persistTimerState({
@@ -692,7 +726,6 @@ export default function StudyScreen({ onNavigate }) {
   const handleCustomTimerFinish = () => {
     if (!stopwatchRunning) {
       releaseScreenWakeLock();
-      stopAmbientSound();
       clearPersistedTimerState();
     }
 
@@ -703,7 +736,7 @@ export default function StudyScreen({ onNavigate }) {
 
     const currentTask = tasks.find((t) => t.id === selectedTaskId);
     const matchedCourse = coursesList.find((c) => c.name === selectedCourse);
-    const tone = matchedCourse ? getToneForCourse(matchedCourse) : 'primary';
+    const tone = getCourseColor(matchedCourse || selectedCourse);
 
     const durationMins = Math.max(1, Math.round(customSessionSeconds / 60) || customMinutes);
     logStudySession({
@@ -729,7 +762,6 @@ export default function StudyScreen({ onNavigate }) {
   const handleStopwatchFinish = () => {
     if (!customRunning) {
       releaseScreenWakeLock();
-      stopAmbientSound();
       clearPersistedTimerState();
     }
 
@@ -740,7 +772,7 @@ export default function StudyScreen({ onNavigate }) {
 
     const currentTask = tasks.find((t) => t.id === selectedTaskId);
     const matchedCourse = coursesList.find((c) => c.name === selectedCourse);
-    const tone = matchedCourse ? getToneForCourse(matchedCourse) : 'primary';
+    const tone = getCourseColor(matchedCourse || selectedCourse);
 
     const durationMins = Math.max(1, Math.round(stopwatchSeconds / 60));
     logStudySession({
@@ -776,7 +808,6 @@ export default function StudyScreen({ onNavigate }) {
 
   const switchPomoMode = (modeKey) => {
     if (modeKey === pomoMode) return;
-    playGentleClick();
     triggerHaptic('light');
     setPomoMode(modeKey);
     // مقادیر تایمر دلخواه و کرنومتر آزاد هرگز پاک نمی‌شوند و کاملاً پایدار می‌مانند!
@@ -791,7 +822,6 @@ export default function StudyScreen({ onNavigate }) {
   };
 
   const handleResetTimer = () => {
-    playGentleClick();
     if (isCustom) {
       setCustomRunning(false);
       customTargetEndTimeRef.current = null;
@@ -814,7 +844,6 @@ export default function StudyScreen({ onNavigate }) {
     }
     if (!customRunning && !stopwatchRunning) {
       releaseScreenWakeLock();
-      stopAmbientSound();
       clearPersistedTimerState();
     }
   };
@@ -827,7 +856,7 @@ export default function StudyScreen({ onNavigate }) {
       title: newTaskTitle.trim(),
       courseName: newTaskCourse,
       courseCode: matched?.code || null,
-      color: matched ? getToneForCourse(matched) : 'primary',
+      color: getCourseColor(matched || newTaskCourse),
       priority: newTaskPriority,
       status: 'todo',
     });
@@ -840,7 +869,7 @@ export default function StudyScreen({ onNavigate }) {
   const handleManualLogSubmit = (e) => {
     e.preventDefault();
     const matched = coursesList.find((c) => c.name === manualCourse);
-    const tone = matched ? getToneForCourse(matched) : 'primary';
+    const tone = getCourseColor(matched || manualCourse);
     const mins = Math.max(1, Number(manualMinutes) || 30);
 
     logStudySession({
@@ -997,8 +1026,8 @@ export default function StudyScreen({ onNavigate }) {
           professor: c.professor,
           room: c.hall || c.room,
           units: c.units,
-          time: slotTime,
-          color: getToneForCourse(c),
+          time: toFaDigits(slotTime),
+          color: getCourseColor(c),
         };
       });
   };
@@ -1006,11 +1035,13 @@ export default function StudyScreen({ onNavigate }) {
   // محاسبات تقویم ماهانه
   const monthGrid = getPersianMonthGrid(calendarMonthRefDate);
   const handlePrevMonth = () => {
+    setMonthSlideDir(-1);
     const d = new Date(monthGrid.firstDay);
     d.setDate(d.getDate() - 15);
     setCalendarMonthRefDate(d);
   };
   const handleNextMonth = () => {
+    setMonthSlideDir(1);
     const d = new Date(monthGrid.firstDay);
     d.setDate(d.getDate() + 35);
     setCalendarMonthRefDate(d);
@@ -1046,11 +1077,91 @@ export default function StudyScreen({ onNavigate }) {
     };
   })();
 
-  // اطلاعات روز انتخاب‌شده (جلسات مطالعه + کلاس‌های دانشگاه)
+  // تابع کمکی تطابق امتحانات با روزهای تقویم (رسمی بهستان + دستی کاربر)
+  const getExamsForDay = (isoDate, pYear, pMonth, pDay) => {
+    if (!examsList?.length) return [];
+    let py = pYear;
+    let pm = pMonth;
+    let pd = pDay;
+    if ((!py || !pm || !pd) && isoDate) {
+      try {
+        const parts = getPersianParts(new Date(isoDate));
+        py = parts.year;
+        pm = parts.month;
+        pd = parts.day;
+      } catch {}
+    }
+    return examsList.filter((ex) => {
+      if (isoDate && ex.isoDate && ex.isoDate === isoDate) return true;
+      if (ex.jalaliParts && py && pm && pd) {
+        return (
+          ex.jalaliParts.year === py &&
+          ex.jalaliParts.month === pm &&
+          ex.jalaliParts.day === pd
+        );
+      }
+      return false;
+    });
+  };
+
+  // مدیریت افزودن و ویرایش امتحان مستقیماً از تقویم
+  const handleOpenAddExam = (prefilledDate = null) => {
+    const p = getPersianParts(selectedDayDateObj);
+    const defaultDate =
+      prefilledDate ||
+      (p
+        ? `${p.year}/${String(p.month).padStart(2, '0')}/${String(p.day).padStart(2, '0')}`
+        : '1404/03/20');
+    setEditingExam({
+      id: null,
+      course: coursesList[0]?.name || '',
+      examDate: defaultDate,
+      examTime: '08:30-10:30',
+      room: '',
+      seat: '—',
+      unit: 3,
+    });
+    setIsExamModalOpen(true);
+  };
+
+  const handleOpenEditExam = (exam) => {
+    setEditingExam(exam);
+    setIsExamModalOpen(true);
+  };
+
+  const handleSaveExam = (examData) => {
+    const currentTerm = resolveCurrentTermId();
+    if (editingExam && (editingExam.id || editingExam.code)) {
+      updateExamInStore(currentTerm, editingExam.id || editingExam.code, examData);
+      setShareToast(`امتحان «${examData.course}» به‌روزرسانی شد`);
+    } else {
+      addExamToStore(currentTerm, examData);
+      setShareToast(`امتحان «${examData.course}» به تقویم اضافه شد`);
+    }
+    setStoreVer((v) => v + 1);
+    setTimeout(() => setShareToast(''), 3000);
+  };
+
+  const handleDeleteExam = (examIdOrObj) => {
+    const currentTerm = resolveCurrentTermId();
+    deleteExamFromStore(currentTerm, examIdOrObj);
+    setStoreVer((v) => v + 1);
+    setShareToast('امتحان از تقویم حذف شد');
+    setTimeout(() => setShareToast(''), 3000);
+  };
+
+  // اطلاعات روز انتخاب‌شده (جلسات مطالعه + کلاس‌های دانشگاه + امتحانات)
   const selectedDayActivity = activityMap[selectedDate];
   const selectedDaySessions = selectedDayActivity?.sessions || [];
   const selectedDayDateObj = new Date(selectedDate);
   const selectedDayUniversityClasses = getUniversityClassesForDate(selectedDayDateObj);
+  const selectedDayParts = getPersianParts(selectedDayDateObj);
+  const selectedDayExams = getExamsForDay(
+    selectedDate,
+    selectedDayParts?.year,
+    selectedDayParts?.month,
+    selectedDayParts?.day
+  );
 
   // سشن‌های فیلترشده برای تایم‌لاین
   const filteredSessions = sessions.filter((s) => {
@@ -1095,17 +1206,17 @@ export default function StudyScreen({ onNavigate }) {
       {activeTab === 'pomo' && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
           <div className="sarv-card p-5 border border-base-500/40 flex flex-col items-center text-center relative overflow-hidden">
-            {/* جعبه‌ابزار هوشمند تمرکز (ذن تمام‌صفحه، صفحه روشن، زنگ هشدار و نویز پس‌زمینه) */}
+            {/* جعبه‌ابزار هوشمند تمرکز (حالت تمرکز تمام‌صفحه، صفحه روشن و زنگ هشدار) */}
             <div className="w-full max-w-xs mb-3 flex items-center justify-between gap-1 p-1.5 rounded-2xl bg-base-500/20 border border-base-500/30 text-xs">
-              {/* حالت ذن تمام‌صفحه */}
+              {/* حالت تمرکز تمام‌صفحه */}
               <button
                 type="button"
                 onClick={() => setZenModeOpen(true)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-base-500/30 hover:bg-base-500/50 text-base-content font-bold transition active:scale-95 cursor-pointer"
-                title="حالت تمرکز تمام‌صفحه (ذن)"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-base-500/30 hover:bg-base-500/50 text-base-content font-bold transition active:scale-95 cursor-pointer"
+                title="حالت تمرکز تمام‌صفحه"
               >
                 <Maximize2 className="w-3.5 h-3.5 text-primary" />
-                <span className="text-[11px]">حالت ذن</span>
+                <span className="text-[11px]">حالت تمرکز</span>
               </button>
 
               <div className="flex items-center gap-1">
@@ -1117,7 +1228,6 @@ export default function StudyScreen({ onNavigate }) {
                     setWakeLockEnabled(next);
                     if (next && timerRunning) requestScreenWakeLock();
                     else if (!next) releaseScreenWakeLock();
-                    playGentleClick();
                   }}
                   className={`p-1.5 rounded-xl transition cursor-pointer ${
                     wakeLockEnabled
@@ -1132,10 +1242,7 @@ export default function StudyScreen({ onNavigate }) {
                 {/* صدای زنگ */}
                 <button
                   type="button"
-                  onClick={() => {
-                    setSoundEnabled(!soundEnabled);
-                    playGentleClick();
-                  }}
+                  onClick={() => setSoundEnabled(!soundEnabled)}
                   className={`p-1.5 rounded-xl transition cursor-pointer ${
                     soundEnabled
                       ? 'bg-primary-soft text-primary font-black shadow-xs'
@@ -1144,31 +1251,6 @@ export default function StudyScreen({ onNavigate }) {
                   title={soundEnabled ? 'زنگ پایان فعال است' : 'زنگ پایان بی‌صدا است'}
                 >
                   {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-                </button>
-
-                {/* نویز تمرکز پس‌زمینه */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = ambientSoundMode === 'none' ? 'rain' : ambientSoundMode === 'rain' ? 'pink' : 'none';
-                    setAmbientSoundMode(next);
-                    playGentleClick();
-                    if (timerRunning) {
-                      if (next === 'none') stopAmbientSound();
-                      else startAmbientSound(next);
-                    }
-                  }}
-                  className={`flex items-center gap-1 px-2 py-1.5 rounded-xl transition cursor-pointer text-[10.5px] font-bold ${
-                    ambientSoundMode !== 'none'
-                      ? 'bg-accent-soft text-accent shadow-xs'
-                      : 'text-neutral hover:bg-base-500/30'
-                  }`}
-                  title="صدای پس‌زمینه برای افزایش تمرکز"
-                >
-                  <CloudRain className="w-3.5 h-3.5" />
-                  <span>
-                    {ambientSoundMode === 'none' ? 'صدا' : ambientSoundMode === 'rain' ? 'باران' : 'نویز صورتی'}
-                  </span>
                 </button>
               </div>
             </div>
@@ -1467,11 +1549,12 @@ export default function StudyScreen({ onNavigate }) {
                       {colTasks.map((t) => {
                         const pri = PRIORITY_CONFIG[t.priority] || PRIORITY_CONFIG.medium;
                         const PriIcon = pri.icon;
+                        const taskTone = getCourseColor(t.courseName) || t.color || 'primary';
                         return (
                           <div
                             key={t.id}
                             className={`p-3 rounded-2xl border border-base-500/30 border-r-4 ${
-                              toneClasses[t.color] || 'border-r-primary'
+                              toneClasses[taskTone] || 'border-r-primary'
                             } bg-base-500/10 flex flex-col gap-2 transition hover:bg-base-500/15`}
                           >
                             <div className="flex items-start justify-between gap-2">
@@ -1630,9 +1713,21 @@ export default function StudyScreen({ onNavigate }) {
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
-                  <h4 className="text-[14px] font-black text-base-content">
-                    {monthGrid.monthName} {toFaDigits(monthGrid.year)}
-                  </h4>
+                  <div className="overflow-hidden min-w-[130px] text-center">
+                    <AnimatePresence mode="wait" custom={monthSlideDir}>
+                      <motion.h4
+                        key={`${monthGrid.year}-${monthGrid.monthName}`}
+                        custom={monthSlideDir}
+                        initial={{ opacity: 0, y: monthSlideDir * 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -monthSlideDir * 6 }}
+                        transition={{ duration: 0.16, ease: 'easeOut' }}
+                        className="text-[14px] font-black text-base-content"
+                      >
+                        {monthGrid.monthName} {toFaDigits(monthGrid.year)}
+                      </motion.h4>
+                    </AnimatePresence>
+                  </div>
                   <button
                     type="button"
                     onClick={handleNextMonth}
@@ -1643,17 +1738,94 @@ export default function StudyScreen({ onNavigate }) {
                   </button>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCalendarMonthRefDate(new Date());
-                    setSelectedDate(todayIso);
-                  }}
-                  className="px-2.5 py-1 rounded-xl bg-primary-soft text-primary font-bold text-[11px] border border-primary/30 active:scale-95 transition cursor-pointer"
-                >
-                  امروز
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAddExam()}
+                    className="px-2.5 py-1 rounded-xl bg-danger-soft text-danger hover:bg-danger hover:text-white font-bold text-[11px] border border-danger/30 active:scale-95 transition cursor-pointer flex items-center gap-1"
+                    title="افزودن نوبت امتحان دستی یا ویرایش"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>افزودن امتحان</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMonthSlideDir(1);
+                      setCalendarMonthRefDate(new Date());
+                      setSelectedDate(todayIso);
+                    }}
+                    className="px-2.5 py-1 rounded-xl bg-primary-soft text-primary font-bold text-[11px] border border-primary/30 active:scale-95 transition cursor-pointer"
+                  >
+                    امروز
+                  </button>
+                </div>
               </div>
+
+              {/* نوار موعدهای آزمون و امتحانات این ترم */}
+              {examsList.length > 0 && (
+                <div className="p-2.5 rounded-2xl bg-base-500/15 border border-base-500/25 space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] px-0.5">
+                    <span className="font-bold text-base-content flex items-center gap-1.5">
+                      <GraduationCap className="w-3.5 h-3.5 text-danger" />
+                      <span>امتحانات ({toFaDigits(examsList.length)} عنوان):</span>
+                    </span>
+                    <span className="text-[10px] text-neutral">برای پرش به روز امتحان لمس کنید</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
+                    {examsList.map((ex) => {
+                      const isExamSelected =
+                        (ex.isoDate && ex.isoDate === selectedDate) ||
+                        (ex.jalaliParts &&
+                          selectedDayParts &&
+                          ex.jalaliParts.year === selectedDayParts.year &&
+                          ex.jalaliParts.month === selectedDayParts.month &&
+                          ex.jalaliParts.day === selectedDayParts.day);
+                      const exTone = getCourseColor(ex.course) || ex.color || 'danger';
+                      const cMeta = toneColors[exTone] || toneColors.danger;
+                      return (
+                        <button
+                          key={ex.id || ex.code}
+                          type="button"
+                          onClick={() => {
+                            if (ex.isoDate) setSelectedDate(ex.isoDate);
+                            if (ex.jalaliParts) {
+                              const d = jalaliToDate(ex.jalaliParts.year, ex.jalaliParts.month, ex.jalaliParts.day);
+                              if (d) setCalendarMonthRefDate(d);
+                            }
+                          }}
+                          className={`px-2.5 py-1.5 rounded-xl border flex items-center gap-1.5 shrink-0 transition active:scale-95 cursor-pointer ${
+                            isExamSelected
+                              ? 'bg-danger text-white border-danger shadow-xs'
+                              : 'bg-base-100 hover:bg-base-500/25 text-base-content border-base-500/30'
+                          }`}
+                        >
+                          <span
+                            className={`w-2 h-2 rounded-full shrink-0 ${
+                              isExamSelected ? 'bg-white' : cMeta.dot
+                            }`}
+                          />
+                          <span className="font-bold text-[11px] truncate max-w-[110px]">{ex.course}</span>
+                          <span
+                            className={`text-[9.5px] font-mono px-1 rounded ${
+                              isExamSelected ? 'bg-white/20 text-white' : 'bg-base-500/25 text-neutral'
+                            }`}
+                          >
+                            {ex.daysLeft === 0
+                              ? 'امروز'
+                              : ex.daysLeft === 1
+                              ? 'فردا'
+                              : ex.daysLeft > 0
+                              ? `${toFaDigits(ex.daysLeft)} روز`
+                              : 'برگزار شده'}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* سرستون روزهای هفته — شروع از شنبه در سمت راست تا جمعه در چپ */}
               <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-neutral">
@@ -1664,101 +1836,165 @@ export default function StudyScreen({ onNavigate }) {
                 ))}
               </div>
 
-              {/* خانه روزهای ماه با نشانگرهای تفکیک‌شده رنگی دروس */}
-              <div className="grid grid-cols-7 gap-1.5">
-                {monthGrid.days.map((d, idx) => {
-                  if (!d) {
-                    return <div key={`empty-${idx}`} className="h-11 rounded-xl opacity-0" />;
-                  }
-                  const act = activityMap[d.isoDate];
-                  const hasStudy = act && act.totalMinutes > 0;
-                  const uniClasses = getUniversityClassesForDate(d.date);
-                  const isToday = d.isoDate === todayIso;
-                  const isSelected = d.isoDate === selectedDate;
-
-                  // گردآوری نشانگرهای رنگی دروس برای این روز (کلاس دانشگاه + مطالعه)
-                  const dayDots = [];
-                  const seenCourses = new Set();
-                  for (const uc of uniClasses) {
-                    const key = `u:${uc.name}`;
-                    if (!seenCourses.has(key)) {
-                      seenCourses.add(key);
-                      dayDots.push({ name: uc.name, tone: uc.color || 'info', isUni: true });
-                    }
-                  }
-                  if (act && Array.isArray(act.sessions)) {
-                    for (const s of act.sessions) {
-                      const key = `s:${s.courseName}`;
-                      if (!seenCourses.has(key)) {
-                        seenCourses.add(key);
-                        dayDots.push({ name: s.courseName, tone: s.color || 'primary', isUni: false });
+              {/* خانه روزهای ماه با انیمیشن جابجایی ماه */}
+              <div className="overflow-hidden min-h-[250px]">
+                <AnimatePresence mode="wait" custom={monthSlideDir}>
+                  <motion.div
+                    key={`${monthGrid.year}-${monthGrid.monthName}`}
+                    custom={monthSlideDir}
+                    initial={{ opacity: 0, x: -monthSlideDir * 24 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: monthSlideDir * 24 }}
+                    transition={{ duration: 0.22, ease: [0.25, 1, 0.5, 1] }}
+                    className="grid grid-cols-7 gap-1.5"
+                  >
+                    {monthGrid.days.map((d, idx) => {
+                      if (!d) {
+                        return <div key={`empty-${idx}`} className="h-11 rounded-xl opacity-0" />;
                       }
-                    }
-                  }
+                      const act = activityMap[d.isoDate];
+                      const hasStudy = act && act.totalMinutes > 0;
+                      const uniClasses = getUniversityClassesForDate(d.date);
+                      const dayExams = getExamsForDay(d.isoDate, monthGrid.year, monthGrid.month, d.dayNumber);
+                      const hasExam = dayExams.length > 0;
+                      const isToday = d.isoDate === todayIso;
+                      const isSelected = d.isoDate === selectedDate;
 
-                  return (
-                    <button
-                      key={d.isoDate}
-                      type="button"
-                      onClick={() => setSelectedDate(d.isoDate)}
-                      className={`h-12 rounded-xl flex flex-col items-center justify-between py-1 transition-all active:scale-95 cursor-pointer relative ${
-                        isSelected
-                          ? 'bg-primary text-primary-content font-black shadow-sm ring-2 ring-primary/40'
-                          : isToday
-                          ? 'bg-primary-soft text-primary font-bold border border-primary/40'
-                          : hasStudy
-                          ? 'bg-base-500/25 hover:bg-base-500/40 text-base-content font-bold'
-                          : 'bg-base-500/10 hover:bg-base-500/20 text-neutral'
-                      }`}
-                    >
-                      <span className="text-[12px] font-mono leading-none">
-                        {toFaDigits(d.dayNumber)}
-                      </span>
+                      // گردآوری نشانگرهای رنگی دروس برای این روز (امتحان + کلاس دانشگاه + مطالعه)
+                      const dayDots = [];
+                      const seenCourses = new Set();
+                      for (const ex of dayExams) {
+                        const key = `e:${ex.course}`;
+                        if (!seenCourses.has(key)) {
+                          seenCourses.add(key);
+                          dayDots.push({
+                            name: `امتحان ${ex.course}`,
+                            tone: getCourseColor(ex.course) || ex.color || 'danger',
+                            isExam: true,
+                          });
+                        }
+                      }
+                      for (const uc of uniClasses) {
+                        const key = `u:${uc.name}`;
+                        if (!seenCourses.has(key)) {
+                          seenCourses.add(key);
+                          dayDots.push({ name: uc.name, tone: getCourseColor(uc), isUni: true });
+                        }
+                      }
+                      if (act && Array.isArray(act.sessions)) {
+                        for (const s of act.sessions) {
+                          const key = `s:${s.courseName}`;
+                          if (!seenCourses.has(key)) {
+                            seenCourses.add(key);
+                            dayDots.push({
+                              name: s.courseName,
+                              tone: getCourseColor(s.courseName) || s.color,
+                              isUni: false,
+                            });
+                          }
+                        }
+                      }
 
-                      {/* نشانگرهای تفکیک‌شده درس به درس با رنگ و نقطه ویژه */}
-                      <div className="flex items-center justify-center gap-0.5 mt-0.5 min-h-[8px] max-w-full px-0.5 overflow-hidden">
-                        {dayDots.slice(0, 4).map((dotItem, di) => {
-                          const cMeta = toneColors[dotItem.tone] || toneColors.primary;
-                          return (
-                            <span
-                              key={di}
-                              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                isSelected
-                                  ? 'bg-white shadow-xs'
-                                  : `${cMeta.dot} ring-1 ring-black/20 shadow-xs`
-                              }`}
-                              title={`${dotItem.name} (${dotItem.isUni ? 'کلاس دانشگاه' : 'مطالعه'})`}
-                            />
-                          );
-                        })}
-                        {dayDots.length > 4 && (
-                          <span
-                            className={`text-[8px] font-black leading-none shrink-0 ${
-                              isSelected ? 'text-white' : 'text-neutral'
-                            }`}
-                          >
-                            +{toFaDigits(dayDots.length - 4)}
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
+                      return (
+                        <button
+                          key={d.isoDate}
+                          type="button"
+                          onClick={() => setSelectedDate(d.isoDate)}
+                          className={`h-12 rounded-xl flex flex-col items-center justify-between py-1 transition-all active:scale-95 cursor-pointer relative ${
+                            isSelected
+                              ? 'bg-primary text-primary-content font-black shadow-sm ring-2 ring-primary/40'
+                              : hasExam
+                              ? 'bg-danger-soft/25 hover:bg-danger-soft/45 text-base-content font-black border border-danger/40 ring-1 ring-danger/30'
+                              : isToday
+                              ? 'bg-primary-soft text-primary font-bold border border-primary/40'
+                              : hasStudy
+                              ? 'bg-base-500/25 hover:bg-base-500/40 text-base-content font-bold'
+                              : 'bg-base-500/10 hover:bg-base-500/20 text-neutral'
+                          }`}
+                          title={hasExam ? `امتحان: ${dayExams.map((e) => e.course).join('، ')}` : undefined}
+                        >
+                          <div className="w-full flex items-center justify-between px-1">
+                            {hasExam ? (
+                              <span
+                                className={`w-3.5 h-3.5 rounded-full flex items-center justify-center shrink-0 ${
+                                  isSelected ? 'bg-white text-danger' : 'bg-danger text-white shadow-xs'
+                                }`}
+                                title={`موعد امتحان: ${dayExams.map((e) => e.course).join('، ')}`}
+                              >
+                                <GraduationCap className="w-2.5 h-2.5" />
+                              </span>
+                            ) : (
+                              <span className="w-2" />
+                            )}
+                            <span className="text-[12px] font-mono leading-none">
+                              {toFaDigits(d.dayNumber)}
+                            </span>
+                            <span className="w-2" />
+                          </div>
+
+                          {/* نشانگرهای تفکیک‌شده درس به درس با رنگ و نقطه ویژه */}
+                          <div className="flex items-center justify-center gap-0.5 mt-0.5 min-h-[8px] max-w-full px-0.5 overflow-hidden">
+                            {dayDots.slice(0, 4).map((dotItem, di) => {
+                              const cMeta = toneColors[dotItem.tone] || toneColors.primary;
+                              return (
+                                <span
+                                  key={di}
+                                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                    isSelected
+                                      ? 'bg-white shadow-xs'
+                                      : dotItem.isExam
+                                      ? 'bg-danger ring-1 ring-danger/60 shadow-xs'
+                                      : `${cMeta.dot} ring-1 ring-black/20 shadow-xs`
+                                  }`}
+                                  title={`${dotItem.name} (${
+                                    dotItem.isExam ? 'امتحان' : dotItem.isUni ? 'کلاس دانشگاه' : 'مطالعه'
+                                  })`}
+                                />
+                              );
+                            })}
+                            {dayDots.length > 4 && (
+                              <span
+                                className={`text-[8px] font-black leading-none shrink-0 ${
+                                  isSelected ? 'text-white' : 'text-neutral'
+                                }`}
+                              >
+                                +{toFaDigits(dayDots.length - 4)}
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </motion.div>
+                </AnimatePresence>
               </div>
 
               {/* راهنمای نشانگرهای تقویم */}
               <div className="flex items-center justify-between pt-1.5 border-t border-base-500/20 text-[10.5px] text-neutral flex-wrap gap-2">
-                <span className="flex items-center gap-1.5">
-                  <span className="flex items-center gap-0.5">
-                    <span className="w-2 h-2 rounded-full bg-info" />
-                    <span className="w-2 h-2 rounded-full bg-primary" />
-                    <span className="w-2 h-2 rounded-full bg-accent" />
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3.5 h-3.5 rounded-full bg-danger text-white flex items-center justify-center shadow-xs">
+                      <GraduationCap className="w-2.5 h-2.5" />
+                    </span>
+                    <span className="font-bold text-danger">موعد آزمون و امتحان</span>
                   </span>
-                  <span>نقاط رنگی: کلاس‌های دانشگاه و سشن‌های مطالعه بر اساس رنگ هر درس</span>
-                </span>
-                <span className="text-[10px] text-neutral/70">
-                  برای جزئیات هر روز، روی آن ضربه بزنید
-                </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="flex items-center gap-0.5">
+                      <span className="w-2 h-2 rounded-full bg-info" />
+                      <span className="w-2 h-2 rounded-full bg-primary" />
+                      <span className="w-2 h-2 rounded-full bg-accent" />
+                    </span>
+                    <span>کلاس دانشگاه و مطالعه</span>
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleOpenAddExam()}
+                  className="text-[10.5px] text-primary font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>افزودن امتحان جدید</span>
+                </button>
               </div>
             </div>
           )}
@@ -1838,7 +2074,27 @@ export default function StudyScreen({ onNavigate }) {
                           else if (mins > 30) levelClass = 'bg-primary/55';
                           else if (mins > 0) levelClass = 'bg-primary/35';
 
+                          const dayExams = getExamsForDay(d.isoDate);
+                          const hasExam = dayExams.length > 0;
+
                           if (isFuture) {
+                            if (hasExam) {
+                              return (
+                                <button
+                                  key={d.isoDate}
+                                  type="button"
+                                  onClick={() => setSelectedDate(d.isoDate)}
+                                  className={`w-3.5 h-3.5 rounded-[4px] border border-danger/60 bg-danger-soft/30 flex items-center justify-center transition-all cursor-pointer relative ${
+                                    isSelected
+                                      ? 'ring-2 ring-danger scale-125 z-20 shadow-sm'
+                                      : 'hover:scale-110'
+                                  }`}
+                                  title={`موعد آزمون: ${dayExams.map((e) => e.course).join('، ')} (${d.isoDate})`}
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-danger animate-pulse" />
+                                </button>
+                              );
+                            }
                             return (
                               <div
                                 key={d.isoDate}
@@ -1853,17 +2109,24 @@ export default function StudyScreen({ onNavigate }) {
                               ref={isToday ? todayCellRef : null}
                               type="button"
                               onClick={() => setSelectedDate(d.isoDate)}
-                              className={`w-3.5 h-3.5 rounded-[4px] transition-all cursor-pointer relative ${levelClass} ${
+                              className={`w-3.5 h-3.5 rounded-[4px] transition-all cursor-pointer relative ${
+                                hasExam && !isSelected ? 'border border-danger/50 ring-1 ring-danger/30' : ''
+                              } ${levelClass} ${
                                 isSelected
                                   ? 'ring-2 ring-accent scale-125 z-20'
                                   : isToday
                                   ? 'ring-2 ring-primary ring-offset-1 ring-offset-base scale-125 z-10 shadow-sm'
                                   : 'hover:scale-110'
                               }`}
-                              title={`${d.isoDate} ${isToday ? '(امروز)' : ''}: ${toFaDigits(mins)} دقیقه مطالعه`}
+                              title={`${d.isoDate} ${isToday ? '(امروز)' : ''}${
+                                hasExam ? ` | موعد امتحان: ${dayExams.map((e) => e.course).join('، ')}` : ''
+                              }: ${toFaDigits(mins)} دقیقه مطالعه`}
                             >
                               {isToday && (
                                 <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-warn shadow-xs" />
+                              )}
+                              {hasExam && !isToday && (
+                                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-danger shadow-xs" />
                               )}
                             </button>
                           );
@@ -1930,7 +2193,8 @@ export default function StudyScreen({ onNavigate }) {
               ) : (
                 <div className="space-y-2 max-h-[350px] overflow-y-auto pr-0.5">
                   {filteredSessions.map((s) => {
-                    const cMeta = toneColors[s.color] || toneColors.primary;
+                    const sessionTone = getCourseColor(s.courseName) || s.color || 'primary';
+                    const cMeta = toneColors[sessionTone] || toneColors.primary;
                     const dateFa = new Date(s.timestamp).toLocaleDateString('fa-IR');
                     const timeFa = toFaDigits(
                       new Date(s.timestamp).toLocaleTimeString('fa-IR', {
@@ -1982,7 +2246,15 @@ export default function StudyScreen({ onNavigate }) {
           )}
 
           {/* ۴. پنل تفکیک جامع روز انتخاب‌شده: کلاس‌های دانشگاه + سشن‌های مطالعه */}
-          <div className="sarv-card p-4 border border-base-500/35 space-y-3.5">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={selectedDate}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.16 }}
+              className="sarv-card p-4 border border-base-500/35 space-y-3.5"
+            >
             <div className="flex items-center justify-between pb-2 border-b border-base-500/25">
               <div>
                 <h4 className="text-[13.5px] font-black text-base-content flex items-center gap-1.5">
@@ -1990,16 +2262,167 @@ export default function StudyScreen({ onNavigate }) {
                   <span>{formatFullPersianDate(selectedDayDateObj)}</span>
                 </h4>
                 <p className="text-[10.5px] text-neutral mt-0.5">
+                  {selectedDayExams.length > 0 && (
+                    <span className="text-danger font-bold">
+                      {toFaDigits(selectedDayExams.length)} موعد آزمون ·{' '}
+                    </span>
+                  )}
                   {toFaDigits(selectedDayUniversityClasses.length)} کلاس دانشگاه · {toFaDigits(selectedDaySessions.length)} سشن مطالعه
                 </p>
               </div>
 
-              {selectedDate === todayIso && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary-soft text-primary border border-primary/25">
-                  امروز
-                </span>
-              )}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleOpenAddExam()}
+                  className="px-2 py-1 rounded-xl bg-danger-soft text-danger hover:bg-danger hover:text-white font-bold text-[10.5px] border border-danger/30 active:scale-95 transition cursor-pointer flex items-center gap-1"
+                  title="افزودن نوبت امتحان برای این روز"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>ثبت امتحان</span>
+                </button>
+
+                {selectedDate === todayIso && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary-soft text-primary border border-primary/25">
+                    امروز
+                  </span>
+                )}
+              </div>
             </div>
+
+            {/* بخش ۰: موعدهای آزمون و امتحان در این روز */}
+            {selectedDayExams.length > 0 && (
+              <div className="space-y-2 p-3 rounded-2xl bg-danger-soft/20 border border-danger/35">
+                <div className="flex items-center justify-between">
+                  <h5 className="text-[12.5px] font-black text-danger flex items-center gap-1.5">
+                    <GraduationCap className="w-4 h-4" />
+                    <span>موعد برگزاری امتحان در این روز:</span>
+                  </h5>
+                  <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-danger text-white shadow-xs font-mono">
+                    {toFaDigits(selectedDayExams.length)} آزمون
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {selectedDayExams.map((ex) => {
+                    const exTone = getCourseColor(ex.course) || ex.color || 'danger';
+                    return (
+                      <div
+                        key={ex.id || ex.code}
+                        className={`p-3 rounded-xl border border-base-500/30 border-r-4 ${
+                          toneClasses[exTone] || 'border-r-danger'
+                        } bg-base-100/90 shadow-xs space-y-2`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h6 className="text-[13px] font-black text-base-content truncate">
+                                امتحان {ex.course}
+                              </h6>
+                              {ex.code && (
+                                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-base-500/25 text-neutral">
+                                  کد {toFaDigits(ex.code)}
+                                </span>
+                              )}
+                              {ex.unit > 0 && (
+                                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-base-500/25 text-neutral">
+                                  {toFaDigits(ex.unit)} واحد
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 text-[10.5px] text-neutral mt-1 flex-wrap">
+                              {ex.instructor && ex.instructor !== 'ـ' && (
+                                <span>استاد: {ex.instructor}</span>
+                              )}
+                              {ex.room && ex.room !== 'ـ' && (
+                                <span className="flex items-center gap-0.5">
+                                  <MapPin className="w-3 h-3 text-neutral" />
+                                  مکان: {toFaDigits(ex.room)}
+                                </span>
+                              )}
+                              {ex.seat && ex.seat !== '—' && ex.seat !== 'ـ' && (
+                                <span>صندلی: {toFaDigits(ex.seat)}</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* وضعیت روز آزمون */}
+                          <div className="shrink-0 text-left">
+                            {ex.daysLeft === 0 ? (
+                              <span className="px-2 py-1 rounded-lg bg-danger text-white text-[10.5px] font-black flex items-center gap-1 shadow-xs animate-pulse">
+                                <AlertCircle className="w-3 h-3" />
+                                امروز!
+                              </span>
+                            ) : ex.daysLeft === 1 ? (
+                              <span className="px-2 py-1 rounded-lg bg-warning text-warning-content text-[10.5px] font-bold">
+                                فردا!
+                              </span>
+                            ) : ex.daysLeft > 1 ? (
+                              <span className="px-2 py-1 rounded-lg bg-base-500/25 text-base-content text-[10.5px] font-bold font-mono">
+                                {toFaDigits(ex.daysLeft)} روز مانده
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 rounded-lg bg-base-500/20 text-neutral text-[10px]">
+                                برگزار شده
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* سطر ساعت آزمون و دکمه‌های سریع */}
+                        <div className="flex items-center justify-between pt-1.5 border-t border-base-500/20 text-[11px] gap-2 flex-wrap">
+                          <span className="flex items-center gap-1 text-base-content font-bold">
+                            <Clock className="w-3.5 h-3.5 text-primary" />
+                            ساعت آزمون: {toFaDigits(ex.examTime || 'ـ')}
+                          </span>
+
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditExam(ex)}
+                              className="p-1.5 rounded-lg bg-base-500/20 hover:bg-base-500/35 text-neutral hover:text-base-content transition cursor-pointer"
+                              title="ویرایش یا حذف نوبت آزمون"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const res = await exportExamToCalendar(ex);
+                                if (res?.ok) {
+                                  setShareToast(`امتحان «${ex.course}» به تقویم دستگاه افزوده شد`);
+                                  setTimeout(() => setShareToast(''), 3000);
+                                }
+                              }}
+                              className="px-2 py-1 rounded-lg bg-base-500/20 hover:bg-base-500/35 text-neutral hover:text-base-content text-[10px] font-bold flex items-center gap-1 cursor-pointer active:scale-95 transition"
+                              title="افزودن به تقویم رسمی دستگاه"
+                            >
+                              <CalendarPlus className="w-3 h-3" />
+                              <span>تقویم دستگاه</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedCourse(ex.course);
+                                setActiveTab('pomo');
+                                setShareToast(`درس «${ex.course}» برای مطالعه انتخاب شد`);
+                                setTimeout(() => setShareToast(''), 2500);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-primary text-primary-content text-[10.5px] font-bold flex items-center gap-1 cursor-pointer active:scale-95 transition shadow-xs"
+                            >
+                              <Play className="w-3 h-3 fill-current" />
+                              <span>مطالعه برای امتحان</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* بخش ۱: کلاس‌های دانشگاه در این روز (از سامانه بهستان) */}
             <div className="space-y-2">
@@ -2030,7 +2453,7 @@ export default function StudyScreen({ onNavigate }) {
                         <div className="flex items-center gap-2">
                           <p className="text-[12.5px] font-bold text-base-content truncate">{uc.name}</p>
                           <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-base-500/30 text-neutral">
-                            {uc.time}
+                            {toFaDigits(uc.time)}
                           </span>
                         </div>
                         <p className="text-[10px] text-neutral mt-0.5 truncate">
@@ -2097,7 +2520,8 @@ export default function StudyScreen({ onNavigate }) {
               ) : (
                 <div className="space-y-1.5">
                   {selectedDaySessions.map((s) => {
-                    const cMeta = toneColors[s.color] || toneColors.primary;
+                    const sessionTone = getCourseColor(s.courseName) || s.color || 'primary';
+                    const cMeta = toneColors[sessionTone] || toneColors.primary;
                     const timeStr = toFaDigits(
                       new Date(s.timestamp).toLocaleTimeString('fa-IR', {
                         hour: '2-digit',
@@ -2139,19 +2563,20 @@ export default function StudyScreen({ onNavigate }) {
                 </div>
               )}
             </div>
-          </div>
+          </motion.div>
+        </AnimatePresence>
         </motion.div>
       )}
 
-      {/* ۴. تب آمار و استریک */}
+      {/* ۴. تب آمار و پیوستگی */}
       {activeTab === 'stats' && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-          {/* کارت استریک و خلاصه */}
+          {/* کارت پیوستگی و خلاصه */}
           <div className="grid grid-cols-2 gap-2.5">
             <div className="sarv-card p-4 border border-accent/30 bg-accent-soft flex flex-col items-center justify-center text-center">
               <Flame className="w-7 h-7 text-accent mb-1 animate-bounce" />
               <span className="text-2xl font-black text-accent">{toFaDigits(stats.streak)} روز</span>
-              <span className="text-[11px] font-bold text-neutral mt-0.5">استریک پیوستگی</span>
+              <span className="text-[11px] font-bold text-neutral mt-0.5">پیوستگی مطالعه</span>
             </div>
 
             <div className="sarv-card p-4 border border-primary/30 bg-primary-soft flex flex-col items-center justify-center text-center">
@@ -2224,7 +2649,7 @@ export default function StudyScreen({ onNavigate }) {
         )}
       </AnimatePresence>
 
-      {/* مودال تمام‌صفحه حالت تمرکز ذن — پورتال‌شده به document.body */}
+      {/* مودال تمام‌صفحه حالت تمرکز — پورتال‌شده به document.body */}
       {typeof document !== 'undefined' &&
         createPortal(
           <AnimatePresence>
@@ -2238,13 +2663,13 @@ export default function StudyScreen({ onNavigate }) {
                 <div className="w-full flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-5 h-5 text-primary" />
-                    <span className="text-sm font-bold text-base-content">حالت تمرکز ذن</span>
+                    <span className="text-sm font-bold text-base-content">حالت تمرکز</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setZenModeOpen(false)}
                     className="p-2 rounded-xl bg-base-500/30 text-neutral hover:text-base-content cursor-pointer active:scale-95 transition"
-                    title="خروج از حالت ذن"
+                    title="خروج از حالت تمرکز"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -2609,6 +3034,15 @@ export default function StudyScreen({ onNavigate }) {
           </AnimatePresence>,
           document.body
         )}
+
+      {/* مودال افزودن و ویرایش نوبت امتحان */}
+      <ExamEditModal
+        isOpen={isExamModalOpen}
+        exam={editingExam}
+        onClose={() => setIsExamModalOpen(false)}
+        onSave={handleSaveExam}
+        onDelete={handleDeleteExam}
+      />
     </div>
   );
 }

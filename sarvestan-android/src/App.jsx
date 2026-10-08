@@ -140,7 +140,7 @@ function Shell() {
 
       // ۳. اگر در تب دیگری غیر از خانه (میز کار) هستیم -> بازگشت به خانه
       if (tab !== 'home') {
-        changeTabWithDirection('home', -1);
+        changeTabWithDirection('home');
         e?.preventDefault?.();
         return;
       }
@@ -168,8 +168,16 @@ function Shell() {
     if (explicitDir !== null) {
       setSlideDir(explicitDir);
     } else if (currentIndex >= 0 && nextIndex >= 0) {
-      setSlideDir(nextIndex > currentIndex ? 1 : -1);
+      let dir = nextIndex > currentIndex ? 1 : -1;
+      // اصلاح جهت انیمیشن بین تب اصلی (میز کار) و تب پلنر (مطالعه)
+      if ((tab === 'home' && targetTab === 'study') || (tab === 'study' && targetTab === 'home')) {
+        dir = -dir;
+      }
+      setSlideDir(dir);
     }
+    // پاک کردن باز شدن خودکار هنگام تغییر تب عادی
+    setChartAutoOpen(false);
+    setFinanceAutoOpen(false);
     setTab(targetTab);
   };
 
@@ -181,22 +189,19 @@ function Shell() {
       if (options.view) setScheduleDefaultView(options.view);
       changeTabWithDirection('schedule');
     } else if (targetTab === 'chart') {
+      changeTabWithDirection('more');
       setChartAutoOpen(true);
       setFinanceAutoOpen(false);
-      changeTabWithDirection('more');
     } else if (targetTab === 'finance') {
+      changeTabWithDirection('more');
       setFinanceAutoOpen(true);
       setChartAutoOpen(false);
-      changeTabWithDirection('more');
     } else {
+      changeTabWithDirection(targetTab);
       if (targetTab === 'more') {
         if (options.openChart) setChartAutoOpen(true);
         if (options.openFinance) setFinanceAutoOpen(true);
-      } else {
-        setChartAutoOpen(false);
-        setFinanceAutoOpen(false);
       }
-      changeTabWithDirection(targetTab);
     }
   };
 
@@ -238,9 +243,9 @@ function Shell() {
     // کشیدن به راست (dx > 0) -> تب بعدی سمت چپ (افزایش اندیس)
     // کشیدن به چپ (dx < 0) -> تب قبلی سمت راست (کاهش اندیس)
     if (dx > 0 && currentIndex < TABS_ORDER.length - 1) {
-      changeTabWithDirection(TABS_ORDER[currentIndex + 1], 1);
+      changeTabWithDirection(TABS_ORDER[currentIndex + 1]);
     } else if (dx < 0 && currentIndex > 0) {
-      changeTabWithDirection(TABS_ORDER[currentIndex - 1], -1);
+      changeTabWithDirection(TABS_ORDER[currentIndex - 1]);
     }
   };
 
@@ -287,6 +292,8 @@ function Shell() {
                   onNavigate={handleNavigate}
                   initialChartOpen={chartAutoOpen}
                   initialFinanceOpen={financeAutoOpen}
+                  onCloseChart={() => setChartAutoOpen(false)}
+                  onCloseFinance={() => setFinanceAutoOpen(false)}
                 />
               )}
             </motion.main>

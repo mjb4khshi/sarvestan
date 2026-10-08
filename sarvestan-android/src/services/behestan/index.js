@@ -18,6 +18,7 @@ export {
   resetScheduleAndExamsToBehestan,
   hasScheduleCustomizations,
   resolveCurrentTermId,
+  loadDevDataset,
 } from './store';
 export {
   getSid,

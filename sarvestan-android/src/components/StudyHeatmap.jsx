@@ -47,12 +47,18 @@ export default function StudyHeatmap({
   const heatmapWeeks = getYearlyHeatmapWeeks(52);
 
   // اسکرول نرم یا فوری به سلول امروز
+  // اسکرول نرم یا فوری برای قرار دادن سلول امروز دقیقاً در مرکز هیت‌مپ
   const scrollToToday = (smooth = false) => {
-    if (todayCellRef.current) {
-      todayCellRef.current.scrollIntoView({
+    if (todayCellRef.current && scrollRef.current) {
+      const container = scrollRef.current;
+      const cell = todayCellRef.current;
+      const containerRect = container.getBoundingClientRect();
+      const cellRect = cell.getBoundingClientRect();
+      const currentScroll = container.scrollLeft;
+      const diff = (cellRect.left + cellRect.width / 2) - (containerRect.left + containerRect.width / 2);
+      container.scrollTo({
+        left: currentScroll + diff,
         behavior: smooth ? 'smooth' : 'auto',
-        inline: 'center',
-        block: 'nearest',
       });
     } else if (scrollRef.current) {
       scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
@@ -73,7 +79,7 @@ export default function StudyHeatmap({
 
   return (
     <section className={`sarv-card p-4 space-y-3.5 border border-base-500/35 relative overflow-hidden ${className}`}>
-      {/* هدر هیت‌مپ با دکمه دسترسی به پلنر و بج‌های استریک */}
+      {/* هدر هیت‌مپ با دکمه دسترسی به پلنر و بج‌های پیوستگی */}
       {showTitle && (
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -84,7 +90,7 @@ export default function StudyHeatmap({
               <h3 className="text-[13.5px] font-bold text-base-content flex items-center gap-1.5">
                 <span>ماتریس فعالیت و مطالعه</span>
                 {stats.streak > 0 && (
-                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-accent-soft text-accent text-[10px] font-bold font-mono">
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-accent-soft text-accent text-[10px] font-bold">
                     <Flame className="w-3 h-3 text-accent fill-accent" />
                     {toFaDigits(stats.streak)} روز
                   </span>
@@ -207,12 +213,12 @@ export default function StudyHeatmap({
 
         <div className="flex items-center gap-2">
           {selectedDayMins > 0 ? (
-            <span className="font-mono text-primary font-bold">
+            <span className="text-primary font-bold">
               {selectedDate === todayIso ? 'امروز: ' : ''}
               {toFaDigits(selectedDayMins)} دقیقه
             </span>
           ) : (
-            <span>کل مطالعه: <strong className="text-base-content font-mono">{toFaDigits(stats.totalHours)}</strong> س</span>
+            <span>کل مطالعه: <strong className="text-base-content font-bold">{toFaDigits(stats.totalHours)}</strong> س</span>
           )}
         </div>
       </div>

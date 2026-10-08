@@ -30,7 +30,15 @@ export function resetSyncState() {
 }
 
 function isSessionError(text) {
-  return /نشست|session|50216|پایان رسيده|پایان رسیده|403|forbidden|access is denied/i.test(String(text || ''));
+  return /نشست|session|50216|49493|پایان رسيده|پایان رسیده|مجددا وارد|مجدداً وارد|شناسايي نشست|شناسایی نشست|اشکال در آن|403|forbidden|access is denied/i.test(String(text || ''));
+}
+
+function clearDeadServerSession() {
+  if (!globalThis.Capacitor?.isNativePlatform?.()) {
+    try {
+      fetch('/__sarvestan/session', { method: 'DELETE' }).catch(() => {});
+    } catch {}
+  }
 }
 
 export function getPrecedingTerms(term, count = 5) {
@@ -104,11 +112,20 @@ export async function runFullSync({ force = false } = {}) {
 
   try {
     // ── گام اول: نام و مشخصات دانشجو از ثبت‌نام (گزارش ۸۸) ──
-    let currentTerm = detectCurrentTermId(getSnapshot()?.courses || []) || '4042';
+    let currentTerm = detectCurrentTermId(getSnapshot()?.courses || []) || '4051';
     let sessionDead = false;
 
     try {
-      const r88 = await fetchRegistration88(null);
+      let r88 = await fetchRegistration88(currentTerm);
+      if (!r88?.meta?.fullName && currentTerm !== '4051') {
+        const r88Alt = await fetchRegistration88('4051');
+        if (r88Alt?.meta?.fullName) r88 = r88Alt;
+      }
+      if (!r88?.meta?.fullName && currentTerm !== '4042') {
+        const r88Alt = await fetchRegistration88('4042');
+        if (r88Alt?.meta?.fullName) r88 = r88Alt;
+      }
+
       if (r88?.error) {
         if (isSessionError(r88.error)) sessionDead = true;
         results.errors.push(`۸۸: ${r88.error}`);
@@ -127,6 +144,7 @@ export async function runFullSync({ force = false } = {}) {
 
     if (sessionDead) {
       invalidateSession();
+      clearDeadServerSession();
       markSyncStatus('error', {
         lastResults: results,
         error: 'نشست بهستان به پایان رسیده است. لطفاً دکمهٔ «ورود زندهٔ بهستان» را بزنید.',
@@ -329,6 +347,13 @@ export async function runFullSync({ force = false } = {}) {
     }
 
     try {
+      const r284 = await fetchViewReport('284', null);
+      if (r284?.report) results.curriculum = true;
+    } catch (e) {
+      results.errors.push(`284: ${e?.message || e}`);
+    }
+
+    try {
       await fetchCurriculumStats();
       results.curriculum = true;
     } catch (e) {
@@ -349,6 +374,7 @@ export async function runFullSync({ force = false } = {}) {
       let errText = results.errors[0] || 'پاسخ خالی از بهستان';
       if (results.errors.some((e) => isSessionError(e))) {
         invalidateSession();
+        clearDeadServerSession();
         errText = 'نشست بهستان به پایان رسیده است. لطفاً دکمهٔ «ورود زندهٔ بهستان» را بزنید.';
       }
       markSyncStatus('error', { lastResults: results, error: errText });

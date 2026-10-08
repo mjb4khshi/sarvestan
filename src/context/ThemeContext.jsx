@@ -2,6 +2,18 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 export const SARV_THEMES = [
   {
+    id: 'laboo',
+    name: 'White & Beetroot',
+    persianName: 'سفید و لبویی',
+    badge: 'محدود',
+    isLimited: true,
+    icon: '🍠',
+    mode: 'light',
+    primary: '#931139',
+    base: '#ffffff',
+    description: 'تم اختصاصی سفید و لبویی با کنتراست شفاف و جذاب، نسخه ویژه و محدود',
+  },
+  {
     id: 'sarv',
     name: 'Sarv Signature',
     persianName: 'سَرو (امضای اختصاصی)',
@@ -167,7 +179,14 @@ const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
   const [currentTheme, setCurrentTheme] = useState(() => {
-    return localStorage.getItem('sarvestan_theme') || 'persian-light';
+    const saved = localStorage.getItem('sarvestan_theme');
+    const labooDefaultApplied = localStorage.getItem('sarvestan_laboo_default_v1');
+    if (!labooDefaultApplied) {
+      localStorage.setItem('sarvestan_laboo_default_v1', 'true');
+      localStorage.setItem('sarvestan_theme', 'laboo');
+      return 'laboo';
+    }
+    return saved || 'laboo';
   });
 
   useEffect(() => {

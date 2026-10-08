@@ -9,7 +9,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { toFaDigits } from '../utils/faDigits';
-import { jalaliToDate } from '../data/viewModel';
+import { jalaliToDate, getExamsView } from '../data/viewModel';
 
 const JALALI_MONTHS = [
   'فروردین',
@@ -90,12 +90,14 @@ export default function SarvDatePickerModal({
   onConfirm,
 }) {
   const today = useMemo(() => getTodayJalali(), []);
+  const examsList = useMemo(() => (isOpen ? getExamsView() || [] : []), [isOpen]);
 
   const [viewYear, setViewYear] = useState(1404);
   const [viewMonth, setViewMonth] = useState(3);
   const [selectedYear, setSelectedYear] = useState(1404);
   const [selectedMonth, setSelectedMonth] = useState(3);
   const [selectedDay, setSelectedDay] = useState(1);
+  const [slideDir, setSlideDir] = useState(1);
 
   useEffect(() => {
     if (isOpen) {
@@ -145,6 +147,7 @@ export default function SarvDatePickerModal({
   }, [selectedYear, selectedMonth, selectedDay]);
 
   const handlePrevMonth = () => {
+    setSlideDir(-1);
     if (viewMonth === 1) {
       setViewMonth(12);
       setViewYear((y) => y - 1);
@@ -154,6 +157,7 @@ export default function SarvDatePickerModal({
   };
 
   const handleNextMonth = () => {
+    setSlideDir(1);
     if (viewMonth === 12) {
       setViewMonth(1);
       setViewYear((y) => y + 1);
@@ -234,13 +238,25 @@ export default function SarvDatePickerModal({
                 <ChevronRight className="w-4.5 h-4.5" />
               </button>
 
-              <div className="flex items-center gap-2">
-                <span className="text-[14px] font-black text-base-content">
-                  {JALALI_MONTHS[viewMonth - 1]}
-                </span>
-                <span className="text-[13px] font-bold text-primary font-mono">
-                  {toFaDigits(viewYear)}
-                </span>
+              <div className="flex items-center gap-2 overflow-hidden min-w-[130px] justify-center">
+                <AnimatePresence mode="wait" custom={slideDir}>
+                  <motion.div
+                    key={`${viewYear}-${viewMonth}`}
+                    custom={slideDir}
+                    initial={{ opacity: 0, y: slideDir * 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -slideDir * 6 }}
+                    transition={{ duration: 0.16 }}
+                    className="flex items-center gap-2"
+                  >
+                    <span className="text-[14px] font-black text-base-content">
+                      {JALALI_MONTHS[viewMonth - 1]}
+                    </span>
+                    <span className="text-[13px] font-bold text-primary font-mono">
+                      {toFaDigits(viewYear)}
+                    </span>
+                  </motion.div>
+                </AnimatePresence>
               </div>
 
               <button
@@ -267,48 +283,75 @@ export default function SarvDatePickerModal({
               ))}
             </div>
 
-            {/* شبکه تقویم روزها */}
-            <div className="grid grid-cols-7 gap-1 text-center">
-              {Array.from({ length: startCol }).map((_, i) => (
-                <div key={`empty-${i}`} className="h-9" />
-              ))}
+            {/* شبکه تقویم روزها با انیمیشن لغزش */}
+            <div className="overflow-hidden min-h-[210px]">
+              <AnimatePresence mode="wait" custom={slideDir}>
+                <motion.div
+                  key={`${viewYear}-${viewMonth}`}
+                  custom={slideDir}
+                  initial={{ opacity: 0, x: -slideDir * 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: slideDir * 20 }}
+                  transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
+                  className="grid grid-cols-7 gap-1 text-center"
+                >
+                  {Array.from({ length: startCol }).map((_, i) => (
+                    <div key={`empty-${i}`} className="h-9" />
+                  ))}
 
-              {Array.from({ length: daysInCurrentMonth }, (_, i) => i + 1).map((day) => {
-                const isSelected =
-                  selectedYear === viewYear &&
-                  selectedMonth === viewMonth &&
-                  selectedDay === day;
+                  {Array.from({ length: daysInCurrentMonth }, (_, i) => i + 1).map((day) => {
+                    const isSelected =
+                      selectedYear === viewYear &&
+                      selectedMonth === viewMonth &&
+                      selectedDay === day;
 
-                const isToday =
-                  today.year === viewYear &&
-                  today.month === viewMonth &&
-                  today.day === day;
+                    const isToday =
+                      today.year === viewYear &&
+                      today.month === viewMonth &&
+                      today.day === day;
 
-                const dayIndex = (startCol + day - 1) % 7;
-                const isFriday = dayIndex === 6;
+                    const dayIndex = (startCol + day - 1) % 7;
+                    const isFriday = dayIndex === 6;
 
-                return (
-                  <button
-                    key={day}
-                    type="button"
-                    onClick={() => handleSelectDay(day)}
-                    className={`h-9 rounded-xl text-[12px] font-mono font-bold transition-all relative grid place-items-center active:scale-90 ${
-                      isSelected
-                        ? 'bg-primary text-primary-content shadow-md scale-105 z-10'
-                        : isToday
-                        ? 'bg-primary-soft/60 text-primary border border-primary/30 font-black'
-                        : isFriday
-                        ? 'text-danger/80 hover:bg-danger-soft/20'
-                        : 'text-base-content hover:bg-base-500/20'
-                    }`}
-                  >
-                    <span>{toFaDigits(day)}</span>
-                    {isToday && !isSelected && (
-                      <span className="absolute bottom-1 w-1 h-1 rounded-full bg-primary" />
-                    )}
-                  </button>
-                );
-              })}
+                    const dayExams = examsList.filter(
+                      (e) =>
+                        e.jalaliParts &&
+                        e.jalaliParts.year === viewYear &&
+                        e.jalaliParts.month === viewMonth &&
+                        e.jalaliParts.day === day
+                    );
+                    const hasExam = dayExams.length > 0;
+
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => handleSelectDay(day)}
+                        className={`h-9 rounded-xl text-[12px] font-mono font-bold transition-all relative grid place-items-center active:scale-90 ${
+                          isSelected
+                            ? 'bg-primary text-primary-content shadow-md scale-105 z-10'
+                            : hasExam
+                            ? 'bg-danger-soft/30 text-danger border border-danger/40 font-black'
+                            : isToday
+                            ? 'bg-primary-soft/60 text-primary border border-primary/30 font-black'
+                            : isFriday
+                            ? 'text-danger/80 hover:bg-danger-soft/20'
+                            : 'text-base-content hover:bg-base-500/20'
+                        }`}
+                        title={hasExam ? `موعد آزمون: ${dayExams.map((e) => e.course).join('، ')}` : undefined}
+                      >
+                        <span>{toFaDigits(day)}</span>
+                        {hasExam && !isSelected && (
+                          <span className="absolute top-1 left-1 w-1.5 h-1.5 rounded-full bg-danger shadow-xs" />
+                        )}
+                        {isToday && !isSelected && (
+                          <span className="absolute bottom-1 w-1 h-1 rounded-full bg-primary" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </motion.div>
+              </AnimatePresence>
             </div>
 
             {/* دکمه‌های پرش سریع به دوره‌های مهم */}

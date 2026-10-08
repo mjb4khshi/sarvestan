@@ -4,9 +4,45 @@ import { TrendingUp } from 'lucide-react';
 import { toFaDigits } from '../utils/faDigits';
 
 /**
- * نمودار روند معدل ترم‌به‌ترم (GPA Trend Graph)
- * طراحی مینیمال و روان با SVG، گرادیان اختصاصی تم سرو و نقاط تعاملی
+ * فرمت‌دهی بسیار فشرده و استاندارد نام ترم (مثلاً ۰۲-۱، ۰۲-۲، ۰۲-ت) جهت جلوگیری قطعی از همپوشانی متن‌ها
  */
+function formatCompactTermName(term) {
+  if (!term) return '';
+  const str = String(term.name || term.termLabel || term.title || term.shortName || '').trim();
+
+  // ۱. بررسی کد ترم مثل 4021 یا 4022
+  const code = String(term.id || term.code || '');
+  if (/^40[0-9][1-3]$/.test(code)) {
+    const yr = code.slice(1, 3);
+    const sem = code[3] === '1' ? '۱' : code[3] === '2' ? '۲' : 'ت';
+    return toFaDigits(`${yr}-${sem}`);
+  }
+
+  // ۲. استخراج نوع ترم: ۱، ۲ یا ت
+  let semType = '';
+  if (/تابستان/i.test(str)) semType = 'ت';
+  else if (/دوم|بهمن/i.test(str)) semType = '۲';
+  else if (/اول|مهر/i.test(str)) semType = '۱';
+
+  // ۳. استخراج دو رقم آخر سال تحصیلی
+  const normStr = str
+    .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+    .replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+
+  const mYear = normStr.match(/14?([0-9]{2})/);
+  const yr = mYear ? mYear[1] : '';
+
+  if (yr && semType) {
+    return toFaDigits(`${yr}-${semType}`);
+  }
+
+  if (semType) {
+    return toFaDigits(`ترم ${semType}`);
+  }
+
+  return toFaDigits(str.slice(0, 5));
+}
+
 export default function GpaTrendGraph({ terms = [], selectedTermId, onSelectTerm }) {
   // استخراج ترم‌های دارای معدل معتبر (مرتب‌شده از قدیم به جدید برای روند زمانی)
   const validTerms = useMemo(() => {
@@ -207,23 +243,40 @@ export default function GpaTrendGraph({ terms = [], selectedTermId, onSelectTerm
                   {toFaDigits(p.numGpa.toFixed(2))}
                 </text>
 
-                {/* برچسب نام ترم در پایین */}
+                {/* برچسب نام ترم در پایین با فرمت فوق فشرده بدون تداخل */}
                 <text
                   x={p.x}
-                  y={height - 8}
+                  y={height - 7}
                   textAnchor="middle"
                   fontSize="9.5"
-                  fontWeight={isSelected ? 'bold' : 'normal'}
+                  fontWeight={isSelected ? '900' : '600'}
                   fontFamily="'Arad', var(--font-arad), system-ui, sans-serif"
                   fill={isSelected ? 'var(--theme-color-primary, #0066a4)' : 'var(--theme-color-neutral, #94a3b8)'}
                 >
-                  {toFaDigits(p.shortName || p.name?.slice(0, 8))}
+                  {formatCompactTermName(p)}
                 </text>
               </g>
             );
           })}
         </svg>
       </div>
+
+      {/* نمایش مشخصات ترم انتخاب‌شده در زیر نمودار جهت خوانایی کامل */}
+      {(() => {
+        const activeP = points.find((p) => p.id === selectedTermId) || points[points.length - 1];
+        if (!activeP) return null;
+        return (
+          <div className="flex items-center justify-between text-[11px] pt-1.5 px-0.5 border-t border-base-500/25 text-neutral">
+            <span className="truncate">
+              ترم: <strong className="text-base-content font-bold">{activeP.name || formatCompactTermName(activeP)}</strong>
+            </span>
+            <span className="shrink-0 mr-2">
+              معدل: <strong className="text-primary font-black">{toFaDigits(activeP.numGpa.toFixed(2))}</strong>
+            </span>
+          </div>
+        );
+      })()}
+
     </div>
   );
 }

@@ -22,7 +22,7 @@ export function getExtensionVersion() {
       }
     }
   } catch {}
-  return '1.0.1';
+  return '1.2.0';
 }
 
 export const CURRENT_VERSION = getExtensionVersion();

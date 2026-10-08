@@ -13,9 +13,10 @@ async function loadLoginViaCentralSso() {
   try {
     const file = path.join(process.cwd(), 'scripts', 'sso-login-server.mjs')
     if (!fs.existsSync(file)) return null
-    const mod = await import(pathToFileURL(file).href)
+    const mod = await import(pathToFileURL(file).href + `?t=${Date.now()}`)
     return typeof mod.loginViaCentralSso === 'function' ? mod.loginViaCentralSso : null
-  } catch {
+  } catch (err) {
+    console.error('[loadLoginViaCentralSso error]', err?.message || err)
     return null
   }
 }
@@ -82,7 +83,12 @@ function ssoLoginPlugin() {
               return
             }
             const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}')
-            const result = await loginViaCentralSso(body.username, body.password)
+            console.log(`[sso-login-server] request for user="${body.username}", selectedUserNo="${body.selectedUserNo || ''}"`)
+            const result = await loginViaCentralSso(body.username, body.password, {
+              selectedUserNo: body.selectedUserNo,
+              selectedUserType: body.selectedUserType,
+            })
+            console.log(`[sso-login-server] result: ok=${result?.ok}, code=${result?.code || 'none'}, error=${result?.error || 'none'}, accounts=${result?.accounts?.length || 0}`)
             if (result.ok) {
               fs.writeFileSync(
                 path.join(process.cwd(), '.behestan-session.json'),

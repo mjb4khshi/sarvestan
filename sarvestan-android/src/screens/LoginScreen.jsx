@@ -86,7 +86,12 @@ async function doLogin(username, password, method, options = {}) {
   const r = await fetch('/__sarvestan/sso-login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({
+      username,
+      password,
+      selectedUserNo: options?.selectedUserNo,
+      selectedUserType: options?.selectedUserType,
+    }),
   });
   const text = await r.text();
   if (!text.trim().startsWith('{')) {
@@ -276,8 +281,18 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
 
   const card = (
     <div
-      className={`w-full ${asModal ? 'max-w-full' : 'max-w-[400px]'} sarv-card p-6 space-y-4 border border-primary/25`}
+      className={`w-full ${asModal ? 'max-w-full' : 'max-w-[400px]'} sarv-card p-6 space-y-4 border border-primary/25 relative`}
     >
+      {asModal && !busy && !done && (
+        <button
+          type="button"
+          onClick={handleDismiss}
+          aria-label="بستن"
+          className="absolute top-4 left-4 z-20 w-8 h-8 rounded-full bg-base-500/15 hover:bg-base-500/30 text-neutral hover:text-base-content flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      )}
       <div className="flex flex-col items-center gap-2">
         <img
           src="/sarv-icon.svg"
@@ -540,55 +555,67 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
         </div>
 
         <p className="text-[11.5px] leading-relaxed text-neutral">
-          برای این کدملی دو پرونده تحصیلی در سیستم دانشگاه تعریف شده است. لطفاً جهت ورود، پرونده رشته اصلی را انتخاب کنید:
+          برای این کدملی دو پرونده تحصیلی در سیستم دانشگاه ثبت شده است. با توجه به اینکه پشتیبانی از طرح کهاد و رشته دوم در دست توسعه است، در حال حاضر ورود به پرونده رشته اصلی فعال می‌باشد:
         </p>
 
         <div className="flex flex-col gap-2.5 my-1">
           {kahadAccounts.map((acc, idx) => {
-            const isSecondary = idx > 0;
+            const isKahad = idx > 0 || /کهاد|دوم/.test(String(acc.DegreeName || acc.Degree || ''));
+            const label = isKahad ? 'طرح کهاد / رشته دوم (در دست توسعه)' : (acc.DegreeName || acc.Degree || 'رشته اصلی');
+
+            if (isKahad) {
+              return (
+                <div
+                  key={acc.UserNo || idx}
+                  className="w-full text-right p-3 rounded-2xl border transition-all flex items-center justify-between bg-base-500/10 border-base-500/25 opacity-55 cursor-not-allowed select-none"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-base-500/20 text-neutral">
+                      <BookOpen className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-neutral">
+                        {acc.UserLabel || acc.FacultyName || `دانشجو: ${acc.UserNo}`}
+                      </div>
+                      <div className="text-[10px] text-neutral mt-0.5">
+                        شماره دانشجویی: {acc.UserNo}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[9.5px] px-2 py-0.5 rounded-lg font-bold shrink-0 mr-2 bg-base-500/30 text-neutral">
+                    غیرفعال موقت
+                  </span>
+                </div>
+              );
+            }
+
             return (
               <button
                 key={acc.UserNo || idx}
                 type="button"
-                disabled={isSecondary}
                 onClick={() => {
-                  if (isSecondary) return;
                   const pickedNo = acc.UserNo;
                   const pickedType = acc.UserType || '1';
                   setKahadAccounts(null);
                   handleLogin({ selectedUserNo: pickedNo, selectedUserType: pickedType });
                 }}
-                className={`w-full text-right p-3.5 rounded-2xl border transition-all flex items-center justify-between ${
-                  isSecondary
-                    ? 'opacity-40 cursor-not-allowed bg-base-500/10 border-base-500/20'
-                    : 'bg-base-500/30 hover:bg-base-500/50 border-primary/40 hover:border-primary shadow-sm active:scale-[0.98]'
-                }`}
+                className="w-full text-right p-3.5 rounded-2xl border transition-all flex items-center justify-between bg-primary-soft/20 hover:bg-primary-soft/40 border-primary/40 hover:border-primary shadow-sm active:scale-[0.98] cursor-pointer"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                      isSecondary ? 'bg-base-500/30 text-neutral' : 'bg-primary-soft text-primary'
-                    }`}
-                  >
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-primary-soft text-primary">
                     <BookOpen className="w-4 h-4" />
                   </div>
                   <div>
                     <div className="text-xs font-bold text-base-content">
-                      {acc.UserLabel || `دانشجو: ${acc.UserNo}`}
+                      {acc.UserLabel || acc.FacultyName || `دانشجو: ${acc.UserNo}`}
                     </div>
-                    <div className="text-[10.5px] text-neutral font-mono mt-0.5">
+                    <div className="text-[10.5px] text-neutral mt-0.5">
                       شماره دانشجویی: {acc.UserNo}
                     </div>
                   </div>
                 </div>
-                <span
-                  className={`text-[10px] px-2.5 py-1 rounded-lg font-bold shrink-0 mr-2 ${
-                    isSecondary
-                      ? 'bg-base-500/30 text-neutral'
-                      : 'bg-primary-soft text-primary'
-                  }`}
-                >
-                  {isSecondary ? 'کهاد (به‌زودی)' : 'رشته اصلی'}
+                <span className="text-[10px] px-2.5 py-1 rounded-lg font-bold shrink-0 mr-2 bg-primary text-primary-content">
+                  {label} (انتخاب)
                 </span>
               </button>
             );
@@ -624,19 +651,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
           transition={{ type: 'spring', damping: 28, stiffness: 320 }}
           className="relative z-10 w-full max-w-[430px] px-4 pb-4 sm:pb-0 max-h-[92vh] overflow-y-auto"
         >
-          <div className="relative">
-            {!busy && !done && (
-              <button
-                type="button"
-                onClick={handleDismiss}
-                aria-label="بستن"
-                className="absolute -top-2 -left-2 z-10 w-8 h-8 rounded-full bg-base-500/60 text-neutral hover:text-base-content grid place-items-center"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-            {card}
-          </div>
+          {card}
         </motion.div>
       </div>
     );

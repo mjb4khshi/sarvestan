@@ -2,6 +2,10 @@
  * کش ری‌اکتیو داده‌های بهستان — مثل behestanData دسکتاپ
  * localStorage + listener برای React
  */
+import devDataset from '../../data/devDatasetLoader.js';
+import devCurriculumReport from '../../data/devCurriculumLoader.js';
+import { saveManualSession } from './session.js';
+import { isProjectCourse, isInternshipCourse } from './parsers.js';
 
 const KEYS = {
   PROFILE: 'sarvestan_live_profile',
@@ -13,6 +17,7 @@ const KEYS = {
   WORKFLOWS: 'sarvestan_live_workflows',
   ANNOUNCEMENTS: 'sarvestan_live_announcements',
   CURRICULUM: 'sarvestan_live_curriculum_stats',
+  CURRICULUM_REPORT: 'sarvestan_live_curriculum_report',
   SYNC_META: 'sarvestan_live_sync_meta',
   LOCAL_NOTES: 'sarvestan_local_notes',
   REG77: 'sarvestan_live_reg77',
@@ -73,6 +78,7 @@ let cache = {
   workflows: read(KEYS.WORKFLOWS, []),
   announcements: read(KEYS.ANNOUNCEMENTS, []),
   curriculumStats: read(KEYS.CURRICULUM, null),
+  curriculumReport: read(KEYS.CURRICULUM_REPORT, null),
   syncMeta: read(KEYS.SYNC_META, { lastSyncAt: null, sources: [], status: 'idle' }),
   localNotes: read(KEYS.LOCAL_NOTES, []),
   reg77: read(KEYS.REG77, null),
@@ -124,9 +130,8 @@ export function hasLiveData() {
     (list) => Array.isArray(list) && list.length > 0,
   );
   const hasCourses = Array.isArray(cache.courses) && cache.courses.length > 0;
-  const hasFinance = Boolean(cache.finance && (cache.finance.totalDebtRial != null || cache.finance.termsSummary));
-  const hasProfile = Boolean(cache.profile?.fullName);
-  return hasSchedule || hasCourses || hasFinance || hasProfile;
+  const hasProfile = Boolean(cache.profile?.fullName || cache.profile?.photo || cache.profile?.studentId);
+  return hasProfile || hasCourses || hasSchedule;
 }
 
 export function updatePart(partial) {
@@ -151,11 +156,382 @@ export function updatePart(partial) {
   if (partial.workflows) persist(KEYS.WORKFLOWS, cache.workflows);
   if (partial.announcements) persist(KEYS.ANNOUNCEMENTS, cache.announcements);
   if (partial.curriculumStats) persist(KEYS.CURRICULUM, cache.curriculumStats);
+  if (partial.curriculumReport) persist(KEYS.CURRICULUM_REPORT, cache.curriculumReport);
   if (partial.syncMeta) persist(KEYS.SYNC_META, cache.syncMeta);
   if (partial.localNotes) persist(KEYS.LOCAL_NOTES, cache.localNotes);
   if (partial.reg77) persist(KEYS.REG77, cache.reg77);
   notify();
 }
+
+export function normalizeCourseCode(code) {
+  if (!code) return '';
+  return String(code)
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/_\d+$/, '')
+    .replace(/[^\d]/g, '')
+    .trim();
+}
+
+export function normalizeNameForMatch(name) {
+  if (!name) return '';
+  return String(name)
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[يى]/g, 'ی')
+    .replace(/ك/g, 'ک')
+    .replace(/[\u200c\s_()\-–]+/g, '')
+    .trim();
+}
+
+export function coursesMatch(a, b) {
+  if (!a || !b) return false;
+  if (a.id && b.id && String(a.id) === String(b.id)) return true;
+  const codeA = normalizeCourseCode(a.code || a.id);
+  const codeB = normalizeCourseCode(b.code || b.id);
+  if (codeA && codeB && codeA.length >= 5 && codeA === codeB) {
+    const groupA = String(a.group || '').replace(/\D/g, '');
+    const groupB = String(b.group || '').replace(/\D/g, '');
+    if (groupA && groupB && groupA !== groupB) {
+      return false;
+    }
+    return true;
+  }
+  const nameA = normalizeNameForMatch(a.name || a.course || a.title);
+  const nameB = normalizeNameForMatch(b.name || b.course || b.title);
+  if (nameA && nameB && nameA === nameB) {
+    return true;
+  }
+  return false;
+}
+
+export function findKnownProfessor(course, termId) {
+  if (!course) return '';
+  if (course.professor && course.professor !== 'ـ') return course.professor;
+
+  const targetCode = normalizeCourseCode(course.code || course.id);
+  const targetGroup = String(course.group || '').replace(/\D/g, '');
+  const targetName = normalizeNameForMatch(course.name || course.title);
+
+  // ۱. بررسی گزارش ۷۷ (byCode یا لیست courses)
+  const reg77 = cache.reg77;
+  if (reg77?.byCode && targetCode) {
+    const item = reg77.byCode[targetCode];
+    if (item?.professor && item.professor !== 'ـ') return item.professor;
+  }
+  if (Array.isArray(reg77?.courses)) {
+    const match = reg77.courses.find((c) => coursesMatch(c, course));
+    if (match?.professor && match.professor !== 'ـ') return match.professor;
+  }
+
+  // ۲. بررسی دیتای موجود برنامه ترم جاری در استور
+  const schedule = cache.schedule || {};
+  const currentList = schedule[termId] || [];
+  for (const c of currentList) {
+    if (c?.professor && c.professor !== 'ـ') {
+      const cCode = normalizeCourseCode(c.code || c.id);
+      const cGroup = String(c.group || '').replace(/\D/g, '');
+      if (targetCode && cCode === targetCode && (!targetGroup || !cGroup || targetGroup === cGroup)) {
+        return c.professor;
+      }
+      if (targetName && normalizeNameForMatch(c.name || c.title) === targetName) {
+        return c.professor;
+      }
+    }
+  }
+
+  // ۳. بررسی کارت امتحانات همان ترم (گزارش ۴۲۸)
+  const exams = cache.exams?.[termId] || [];
+  for (const e of exams) {
+    if (e?.professor && e.professor !== 'ـ' && coursesMatch(e, course)) {
+      return e.professor;
+    }
+  }
+
+  // ۴. بررسی همه ترم‌های ذخیره‌شده برنامه
+  for (const t of Object.keys(schedule)) {
+    for (const c of schedule[t] || []) {
+      if (c?.professor && c.professor !== 'ـ') {
+        const cCode = normalizeCourseCode(c.code || c.id);
+        if (targetCode && cCode === targetCode) return c.professor;
+        if (targetName && normalizeNameForMatch(c.name || c.title) === targetName) return c.professor;
+      }
+    }
+  }
+
+  // ۵. بررسی امتحانات سایر ترم‌ها
+  for (const t of Object.keys(cache.exams || {})) {
+    for (const e of cache.exams[t] || []) {
+      if (e?.professor && e.professor !== 'ـ' && coursesMatch(e, course)) {
+        return e.professor;
+      }
+    }
+  }
+
+  // ۶. نسخه آزمایشی/توسعه devDataset
+  try {
+    const devSched = devDataset?.schedule || {};
+    for (const t of Object.keys(devSched)) {
+      for (const c of devSched[t] || []) {
+        if (c?.professor && c.professor !== 'ـ' && coursesMatch(c, course)) {
+          return c.professor;
+        }
+      }
+    }
+    const devExams = devDataset?.exams || {};
+    for (const t of Object.keys(devExams)) {
+      for (const e of devExams[t] || []) {
+        if (e?.professor && e.professor !== 'ـ' && coursesMatch(e, course)) {
+          return e.professor;
+        }
+      }
+    }
+  } catch {}
+
+  return '';
+}
+
+export function findKnownUnits(course, termId) {
+  if (!course) return 0;
+  if (course.units && Number(course.units) > 0) return Number(course.units);
+
+  const targetCode = normalizeCourseCode(course.code || course.id);
+
+  // ۱. گزارش ۷۷
+  const reg77 = cache.reg77;
+  if (reg77?.byCode && targetCode && reg77.byCode[targetCode]?.units > 0) {
+    return Number(reg77.byCode[targetCode].units);
+  }
+  if (Array.isArray(reg77?.courses)) {
+    const match = reg77.courses.find((c) => coursesMatch(c, course));
+    if (match?.units > 0) return Number(match.units);
+  }
+
+  // ۲. کش جامع دروس (F1825)
+  if (Array.isArray(cache.courses)) {
+    const match = cache.courses.find((c) => coursesMatch(c, course));
+    if (match?.units > 0) return Number(match.units);
+  }
+
+  // ۳. برنامه سایر ترم‌ها
+  const schedule = cache.schedule || {};
+  for (const t of Object.keys(schedule)) {
+    for (const c of schedule[t] || []) {
+      if (c?.units > 0 && coursesMatch(c, course)) return Number(c.units);
+    }
+  }
+
+  // ۴. دیتابیس گزارش ۲۸۴ چارت تحصیلی دانشجو
+  const rep = cache.curriculumReport || read(KEYS.CURRICULUM_REPORT, null);
+  if (rep?.categories) {
+    const targetName = normalizeNameForMatch(course.name || course.title);
+    for (const cat of rep.categories) {
+      for (const c of cat.courses || []) {
+        if (c?.units > 0 && (c.code === targetCode || normalizeNameForMatch(c.name) === targetName)) {
+          return Number(c.units);
+        }
+      }
+    }
+  }
+
+  // ۵. پیش‌فرض استاندارد دانشگاه برای پروژه‌ها و کارآموزی
+  if (isProjectCourse(course.name || course.title)) {
+    return 3;
+  }
+  if (isInternshipCourse(course.name || course.title)) {
+    return 2;
+  }
+
+  // ۶. devDataset
+  try {
+    for (const c of devDataset?.courses || []) {
+      if (c?.units > 0 && coursesMatch(c, course)) return Number(c.units);
+    }
+  } catch {}
+
+  return 0;
+}
+
+export function findKnownType(course, termId) {
+  if (!course) return 'ـ';
+  if (course.type && course.type !== 'ـ') return course.type;
+
+  const targetCode = normalizeCourseCode(course.code || course.id);
+  const reg77 = cache.reg77;
+  if (reg77?.byCode && targetCode && reg77.byCode[targetCode]?.type && reg77.byCode[targetCode].type !== 'ـ') {
+    return reg77.byCode[targetCode].type;
+  }
+  if (Array.isArray(cache.courses)) {
+    const match = cache.courses.find((c) => coursesMatch(c, course));
+    if (match?.type && match.type !== 'ـ') return match.type;
+  }
+  return 'ـ';
+}
+
+export function enrichScheduleFromReport77(termId, courses77) {
+  if (!termId || !Array.isArray(courses77) || !courses77.length) return false;
+  const schedule = { ...(cache.schedule || {}) };
+  const currentList = Array.isArray(schedule[termId]) ? [...schedule[termId]] : [];
+  if (!currentList.length) return false;
+
+  let changed = false;
+  const updatedList = currentList.map((c) => {
+    const r77 = courses77.find((item) => coursesMatch(item, c));
+    if (!r77) return c;
+    let prof = c.professor;
+    let units = c.units;
+    let type = c.type;
+    let regStatus = c.regStatus;
+
+    if ((!prof || prof === 'ـ') && r77.professor && r77.professor !== 'ـ') {
+      prof = r77.professor;
+      changed = true;
+    }
+    if ((!units || units === 0) && r77.units > 0) {
+      units = r77.units;
+      changed = true;
+    }
+    if ((!type || type === 'ـ') && r77.type && r77.type !== 'ـ') {
+      type = r77.type;
+      changed = true;
+    }
+    if (r77.regStatus && r77.regStatus !== c.regStatus) {
+      regStatus = r77.regStatus;
+      changed = true;
+    }
+
+    return {
+      ...c,
+      professor: prof,
+      units,
+      type,
+      regStatus,
+    };
+  });
+
+  // همچنین دروسی از فرم ۷۷ که در برنامه هفتگی نبودند (مانند پروژه و کارآموزی فاقد ساعت کلاسی) را اضافه کن
+  for (const c77 of courses77) {
+    if (c77.regStatus === 'dropped' || c77.regStatus === 'waitlist') continue;
+    const exists = updatedList.some((item) => coursesMatch(item, c77));
+    if (!exists) {
+      updatedList.push({
+        id: c77.code || c77.name,
+        code: c77.code,
+        name: c77.name,
+        group: c77.group || '۰۱',
+        units: c77.units || findKnownUnits(c77, termId) || (isProjectCourse(c77.name) ? 3 : 0),
+        type: c77.type || 'ـ',
+        professor: c77.professor || 'ـ',
+        days: c77.days || [],
+        time: c77.time || 'ـ',
+        hall: c77.hall || 'ـ',
+        examDate: c77.examDate || 'ـ',
+        examTime: c77.examTime || 'ـ',
+        classTimeRaw: c77.classTimeRaw || '',
+        timeSlotsRaw: [],
+        daySlots: c77.daySlots || [],
+        isLive: true,
+        isRegistration: true,
+        onSchedule: true,
+        regStatus: 'registered',
+      });
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    schedule[termId] = updatedList;
+    updatePart({ schedule });
+    return true;
+  }
+  return false;
+}
+
+export function enrichScheduleFromExams(termId, exams) {
+  if (!termId || !Array.isArray(exams) || !exams.length) return false;
+  const schedule = { ...(cache.schedule || {}) };
+  const currentList = Array.isArray(schedule[termId]) ? [...schedule[termId]] : [];
+  if (!currentList.length) return false;
+
+  let changed = false;
+  const updatedList = currentList.map((c) => {
+    if (c.professor && c.professor !== 'ـ') return c;
+    const ex = exams.find((e) => coursesMatch(e, c));
+    if (ex && ex.professor && ex.professor !== 'ـ') {
+      changed = true;
+      return { ...c, professor: ex.professor };
+    }
+    return c;
+  });
+
+  if (changed) {
+    schedule[termId] = updatedList;
+    updatePart({ schedule });
+    return true;
+  }
+  return false;
+}
+
+export function hydrateAndHealScheduleProfessors() {
+  const schedule = cache.schedule || {};
+  let anyChanged = false;
+  const newSchedule = { ...schedule };
+
+  for (const termId of Object.keys(newSchedule)) {
+    const list = newSchedule[termId];
+    if (!Array.isArray(list) || !list.length) continue;
+    let termChanged = false;
+
+    const healedList = list.map((c) => {
+      let prof = c.professor;
+      let units = c.units;
+      let type = c.type;
+
+      if (!prof || prof === 'ـ') {
+        const found = findKnownProfessor(c, termId);
+        if (found) {
+          prof = found;
+          termChanged = true;
+        }
+      }
+      if (!units || units === 0) {
+        const foundU = findKnownUnits(c, termId);
+        if (foundU) {
+          units = foundU;
+          termChanged = true;
+        }
+      }
+      if (!type || type === 'ـ') {
+        const foundT = findKnownType(c, termId);
+        if (foundT) {
+          type = foundT;
+          termChanged = true;
+        }
+      }
+
+      return {
+        ...c,
+        professor: prof,
+        units,
+        type,
+      };
+    });
+
+    if (termChanged) {
+      newSchedule[termId] = healedList;
+      anyChanged = true;
+    }
+  }
+
+  if (anyChanged) {
+    cache.schedule = newSchedule;
+    persist(KEYS.SCHEDULE, cache.schedule);
+    rebuildSnapshot();
+  }
+}
+
+// اجرای ترمیم خودکار کش روی بارگذاری اولیه
+hydrateAndHealScheduleProfessors();
 
 export function setScheduleForTerm(termId, courses, source = '') {
   // همیشه نسخه خام سنک شده از بهستان را ذخیره کن
@@ -165,7 +541,45 @@ export function setScheduleForTerm(termId, courses, source = '') {
     persist(KEYS.RAW_SCHEDULE, rawSched);
   } catch {}
 
-  let finalCourses = courses;
+  // غنی‌سازی خودکار درس‌ها با نام استاد، واحد و نوع در صورت فقدان (مثلاً در گزارش ۷۸)
+  const enrichedCourses = (courses || []).map((c) => {
+    let prof = c.professor;
+    if (!prof || prof === 'ـ') {
+      prof = findKnownProfessor(c, termId) || 'ـ';
+    }
+    let units = c.units;
+    if (!units || units === 0) {
+      units = findKnownUnits(c, termId) || 0;
+    }
+    let type = c.type;
+    if (!type || type === 'ـ') {
+      type = findKnownType(c, termId) || 'ـ';
+    }
+    return {
+      ...c,
+      professor: prof,
+      units,
+      type,
+    };
+  });
+
+  // اگر منبع سنک گزارش ۷۸ است (برنامه هفتگی که فقط شامل دروس دارای روز/ساعت است)،
+  // دروسی از ثبت‌نام قبلی (مانند پروژه و کارآموزی فاقد اسلات روز در برنامه هفتگی) نباید حذف شوند
+  const existingTermCourses = Array.isArray(cache.schedule?.[termId]) ? cache.schedule[termId] : [];
+  const unscheduledPreserved = existingTermCourses.filter((ec) => {
+    if (!ec) return false;
+    if (enrichedCourses.some((nc) => coursesMatch(nc, ec))) return false;
+    if (ec.regStatus === 'dropped' || ec.regStatus === 'waitlist') return false;
+    const hasSlots = (Array.isArray(ec.daySlots) && ec.daySlots.length > 0) || (Array.isArray(ec.days) && ec.days.length > 0);
+    const isSpecial = isProjectCourse(ec.name || ec.title) || isInternshipCourse(ec.name || ec.title);
+    return !hasSlots || isSpecial || ec.isRegistration;
+  });
+
+  if (unscheduledPreserved.length > 0) {
+    enrichedCourses.push(...unscheduledPreserved);
+  }
+
+  let finalCourses = enrichedCourses;
 
   // اگر کاربر ویرایش‌های دستی داشته، درس‌های ویرایش‌شده و اضافه‌شده دستی را روی دیتای جدید بهستان نگه دار
   if (hasScheduleCustomizations()) {
@@ -182,7 +596,7 @@ export function setScheduleForTerm(termId, courses, source = '') {
       });
     };
 
-    const mergedFromBehestan = courses
+    const mergedFromBehestan = enrichedCourses
       .filter((c) => !isDeleted(c))
       .map((bc) => {
         const userEdited = currentList.find(
@@ -265,6 +679,7 @@ export function setExamsForTerm(termId, exams) {
   map[termId] = finalExams;
 
   updatePart({ exams: map });
+  enrichScheduleFromExams(termId, finalExams);
 }
 
 export function hasScheduleCustomizations() {
@@ -712,6 +1127,7 @@ export function clearLiveData() {
     workflows: [],
     announcements: [],
     curriculumStats: null,
+    curriculumReport: null,
     syncMeta: { lastSyncAt: null, sources: [], status: 'idle' },
     localNotes: [],
     reg77: null,
@@ -722,6 +1138,30 @@ export function clearLiveData() {
     } catch {}
   });
   notify();
+}
+
+/** بارگذاری دیتاست نمونه/واقعی استخراج‌شده از HAR بهستان (برای حالت آفلاین و توسعه) */
+export function loadDevDataset() {
+  try {
+    if (devDataset.profile?.studentId) {
+      saveManualSession({ studentId: devDataset.profile.studentId });
+    }
+  } catch {}
+  updatePart({
+    profile: devDataset.profile,
+    courses: devDataset.courses,
+    schedule: devDataset.schedule,
+    exams: devDataset.exams,
+    transcripts: devDataset.transcripts,
+    finance: devDataset.finance,
+    curriculumStats: devDataset.curriculumStats,
+    curriculumReport: devCurriculumReport,
+    syncMeta: {
+      lastSyncAt: Date.now(),
+      sources: ['dataset'],
+      status: 'live',
+    },
+  });
 }
 
 // ابزارهای selector برای UI

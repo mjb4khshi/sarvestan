@@ -62,7 +62,7 @@ const statusMeta = {
 const PROFILE_CARD_LAYOUT = 'row';
 
 export default function HomeScreen({ onNavigate }) {
-  const { live, isSessionAlive } = useSarvestanData();
+  const { live, isSessionAlive, syncing } = useSarvestanData();
   const vm = getViewModel();
   const STUDENT = vm.student;
   const SUMMARY = vm.summary;
@@ -129,10 +129,27 @@ export default function HomeScreen({ onNavigate }) {
                   <h2 className="text-[17px] font-black text-base-content leading-snug truncate">
                     {STUDENT.fullName}
                   </h2>
+                ) : syncing ? (
+                  <div className="flex items-center gap-2 text-primary font-bold text-[13.5px]">
+                    <span className="w-2.5 h-2.5 rounded-full bg-primary animate-ping" />
+                    در حال دریافت و همگام‌سازی…
+                  </div>
                 ) : (
-                  <h2 className="text-[17px] font-black text-neutral leading-snug">
-                    {live ? 'در حال دریافت اطلاعات…' : 'بدون اتصال'}
-                  </h2>
+                  <div className="space-y-1">
+                    <h2 className="text-[13.5px] font-bold text-neutral leading-snug">
+                      {isSessionAlive ? 'نشست ثبت شده — در انتظار بارگذاری' : 'عدم اتصال به بهستان'}
+                    </h2>
+                    <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => openLoginModal()}
+                        className="btn btn-primary !py-1 !px-2.5 text-[11px] font-bold shadow-sm inline-flex items-center gap-1"
+                      >
+                        <LogIn className="w-3 h-3" />
+                        ورود به بهستان
+                      </button>
+                    </div>
+                  </div>
                 )}
                 <p className="text-[11.5px] text-neutral font-medium mt-0.5 truncate">
                   {STUDENT.studentId ? (
@@ -195,10 +212,27 @@ export default function HomeScreen({ onNavigate }) {
               <h2 className="text-[19px] font-black text-base-content mt-3 leading-tight">
                 {STUDENT.fullName}
               </h2>
-            ) : (
-              <h2 className="text-[19px] font-black text-base-content mt-3 leading-tight text-neutral">
-                {live ? 'در حال دریافت اطلاعات…' : 'بدون اتصال'}
+            ) : syncing ? (
+              <h2 className="text-[17px] font-black text-primary mt-3 leading-tight flex items-center justify-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-primary animate-ping" />
+                در حال دریافت اطلاعات…
               </h2>
+            ) : (
+              <div className="mt-3 space-y-1.5 flex flex-col items-center">
+                <h2 className="text-[15px] font-bold text-neutral leading-tight">
+                  {isSessionAlive ? 'نشست ثبت شده — در انتظار بارگذاری' : 'عدم اتصال به بهستان'}
+                </h2>
+                <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => openLoginModal()}
+                    className="btn btn-primary !py-1 !px-2.5 text-[11px] font-bold shadow-sm inline-flex items-center gap-1"
+                  >
+                    <LogIn className="w-3 h-3" />
+                    ورود به بهستان
+                  </button>
+                </div>
+              </div>
             )}
             <p className="text-[12px] text-neutral font-medium mt-0.5">
               {STUDENT.studentId ? (

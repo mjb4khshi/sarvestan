@@ -55,7 +55,10 @@ export default function GradesScreen({ onNavigate }) {
   // وضعیت باز/بسته بودن محاسبه‌گر معدل
   const [calcOpen, setCalcOpen] = useState(true);
 
-  // وضعیت دروس شبیه‌سازی‌شده فقط برای آخرین ترم
+  // درسی که هم‌اکنون نمره آن به صورت دستی در حال تایپ است
+  const [editingCourseId, setEditingCourseId] = useState(null);
+
+  // وضعیت دروس شبیه‌سازی‌شده فقط برای آخرین ترم (نمره پیش‌فرض ۲۰ بر اساس درخواست کاربر)
   const [simCourses, setSimCourses] = useState(() => {
     const init = {};
     (TERMS[0]?.courses || []).forEach((c) => {
@@ -64,7 +67,7 @@ export default function GradesScreen({ onNavigate }) {
           c.status !== 'حذف اضطراری' &&
           c.status !== 'در انتظار' &&
           c.includeInGpa !== false,
-        score: c.score ?? 17.0,
+        score: c.score ?? 20.0,
       };
     });
     return init;
@@ -82,7 +85,7 @@ export default function GradesScreen({ onNavigate }) {
               c.status !== 'حذف اضطراری' &&
               c.status !== 'در انتظار' &&
               c.includeInGpa !== false,
-            score: c.score ?? 17.0,
+            score: c.score ?? 20.0,
           };
         } else if (c.includeInGpa === false) {
           next[c.id] = { ...next[c.id], included: false };
@@ -95,7 +98,7 @@ export default function GradesScreen({ onNavigate }) {
   // تاگل حذف/لحاظ کردن یک درس در محاسبه معدل
   const toggleCourseInclusion = (courseId) => {
     setSimCourses((prev) => {
-      const current = prev[courseId] || { included: true, score: 17 };
+      const current = prev[courseId] || { included: true, score: 20 };
       return {
         ...prev,
         [courseId]: { ...current, included: !current.included },
@@ -103,14 +106,33 @@ export default function GradesScreen({ onNavigate }) {
     });
   };
 
-  // تغییر نمره شبیه‌سازی‌شده درس
-  const updateCourseScore = (courseId, newScore) => {
-    const clamped = Math.min(20, Math.max(0, parseFloat(newScore) || 0));
+  // تغییر نمره شبیه‌سازی‌شده درس (پشتیبانی از ارقام فارسی و اعشار دلخواه مثل ۱۹.۹۸)
+  const handleScoreInput = (courseId, rawVal) => {
+    const clean = String(rawVal)
+      .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+      .replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+      .replace(/٫/g, '.')
+      .replace(/,/g, '.')
+      .replace(/[^0-9.]/g, '');
+
+    const num = parseFloat(clean);
+    const score = Number.isFinite(num) ? Math.min(20, Math.max(0, num)) : 0;
     setSimCourses((prev) => {
-      const current = prev[courseId] || { included: true, score: 17 };
+      const current = prev[courseId] || { included: true, score: 20 };
       return {
         ...prev,
-        [courseId]: { ...current, score: Math.round(clamped * 100) / 100 },
+        [courseId]: { ...current, score, rawInput: rawVal },
+      };
+    });
+  };
+
+  const handleScoreBlur = (courseId) => {
+    setSimCourses((prev) => {
+      const current = prev[courseId];
+      if (!current) return prev;
+      return {
+        ...prev,
+        [courseId]: { ...current, rawInput: undefined },
       };
     });
   };
@@ -118,22 +140,23 @@ export default function GradesScreen({ onNavigate }) {
   // افزایش یا کاهش پله‌ای نمره با دکمه‌های چپ و راست
   const stepCourseScore = (courseId, delta) => {
     setSimCourses((prev) => {
-      const current = prev[courseId] || { included: true, score: 17 };
-      const next = Math.min(20, Math.max(0, (current.score ?? 17) + delta));
+      const current = prev[courseId] || { included: true, score: 20 };
+      const base = current.score ?? 20;
+      const next = Math.min(20, Math.max(0, base + delta));
       return {
         ...prev,
-        [courseId]: { ...current, score: Math.round(next * 100) / 100 },
+        [courseId]: { ...current, score: Math.round(next * 100) / 100, rawInput: undefined },
       };
     });
   };
 
-  // ریست کردن شبیه‌ساز به نمرات اولیه آخرین ترم
+  // ریست کردن شبیه‌ساز به نمرات اولیه آخرین ترم (با پیش‌فرض ۲۰)
   const resetSimulator = () => {
     const init = {};
     (TERMS[0]?.courses || []).forEach((c) => {
       init[c.id] = {
         included: c.includeInGpa !== false,
-        score: c.score ?? 17.0,
+        score: c.score ?? 20.0,
       };
     });
     setSimCourses(init);
@@ -385,7 +408,7 @@ export default function GradesScreen({ onNavigate }) {
                   {(TERMS[0]?.courses || []).map((c) => {
                     const sim = simCourses[c.id] || {
                       included: true,
-                      score: c.score ?? 17.0,
+                      score: c.score ?? 20.0,
                     };
                     const isIncluded = sim.included;
 
@@ -422,34 +445,69 @@ export default function GradesScreen({ onNavigate }) {
                           </div>
                         </div>
 
-                        {/* تغییر جذاب نمره با انیمیشن کیلومترشمار، اعداد فارسی و دکمه‌های کم و زیاد در چپ و راست */}
+                        {/* تغییر نمره با امکان تایپ دستی ارقام دلخواه (مثل ۱۹.۹۸) و دکمه‌های کم و زیاد */}
                         {isIncluded ? (
                           <div className="flex items-center gap-1 shrink-0 bg-base border border-base-500/60 rounded-xl p-0.5 shadow-xs">
                             {/* دکمه کاهش نمره (-) */}
                             <button
                               type="button"
                               onClick={() => stepCourseScore(c.id, -0.25)}
-                              className="w-7 h-7 rounded-lg bg-base-500/30 hover:bg-base-500/60 text-base-content grid place-items-center active:scale-90 transition-all outline-none"
-                              title="کاهش ۰٫۲۵ نمره"
+                              className="w-7 h-7 rounded-lg bg-base-500/30 hover:bg-base-500/60 text-base-content grid place-items-center active:scale-90 transition-all outline-none cursor-pointer"
+                              title="کاهش نمره"
                             >
                               <Minus className="w-3.5 h-3.5" />
                             </button>
 
-                            {/* نمایش نمره با انیمیشن کیلومترشمار آنالوگ و ارقام کاملاً فارسی */}
-                            <div className="min-w-[48px] px-1 text-center flex items-center justify-center">
-                              <OdometerNumber
-                                value={sim.score.toFixed(2)}
-                                height={20}
-                                className="text-[14px] text-primary"
-                              />
-                            </div>
+                            {/* نمایش انیمیشن کیلومترشمار نمره با امکان کلیک برای تایپ دستی مستقیم (مثلاً ۱۹.۹۸) */}
+                            {editingCourseId === c.id ? (
+                              <div className="w-[52px] px-1 text-center flex items-center justify-center">
+                                <input
+                                  type="text"
+                                  autoFocus
+                                  inputMode="decimal"
+                                  value={
+                                    sim.rawInput !== undefined
+                                      ? sim.rawInput
+                                      : Number.isInteger(sim.score)
+                                      ? String(sim.score)
+                                      : sim.score.toString()
+                                  }
+                                  onChange={(e) => handleScoreInput(c.id, e.target.value)}
+                                  onBlur={() => {
+                                    handleScoreBlur(c.id);
+                                    setEditingCourseId(null);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      handleScoreBlur(c.id);
+                                      setEditingCourseId(null);
+                                    }
+                                  }}
+                                  onFocus={(e) => e.target.select()}
+                                  className="w-full text-center text-[13.5px] font-black text-primary bg-transparent outline-none border-b border-primary font-mono transition-all selection:bg-primary/25 cursor-text"
+                                  title="تایپ مستقیم نمره دلخواه (مثلاً ۱۹٫۹۸)"
+                                />
+                              </div>
+                            ) : (
+                              <div
+                                onClick={() => setEditingCourseId(c.id)}
+                                className="min-w-[48px] px-1 text-center flex items-center justify-center cursor-pointer hover:bg-base-500/20 rounded-lg transition-colors py-0.5"
+                                title="برای ویرایش دستی نمره کلیک کنید"
+                              >
+                                <OdometerNumber
+                                  value={sim.score.toFixed(2)}
+                                  height={20}
+                                  className="text-[14px] text-primary"
+                                />
+                              </div>
+                            )}
 
                             {/* دکمه افزایش نمره (+) */}
                             <button
                               type="button"
                               onClick={() => stepCourseScore(c.id, 0.25)}
-                              className="w-7 h-7 rounded-lg bg-primary text-primary-content grid place-items-center hover:opacity-90 active:scale-90 transition-all outline-none shadow-xs"
-                              title="افزایش ۰٫۲۵ نمره"
+                              className="w-7 h-7 rounded-lg bg-primary text-primary-content grid place-items-center hover:opacity-90 active:scale-90 transition-all outline-none shadow-xs cursor-pointer"
+                              title="افزایش نمره"
                             >
                               <Plus className="w-3.5 h-3.5" />
                             </button>

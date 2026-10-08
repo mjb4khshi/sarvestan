@@ -23,14 +23,34 @@ android/*.jar
 android/*.pom
 android/*.module
 !android/gradle/wrapper/gradle-wrapper.jar
+android/keystore/
+*.jks
+*.keystore
+*.key
+*.cert
+*.pem
+*.p12
 
-# Sensitive scripts, HAR files, auth tokens and behestan dumps
+# Sensitive scripts, HAR files, auth tokens, student datasets and behestan dumps
 .behestan-session.json
 *.session.json
 scripts/
 public/dev-data/
 *.har
 **/*.har
+src/data/devDataset.*
+src/data/devCurriculumReport.*
+**/devDataset.*
+**/devCurriculumReport.*
+inspect_har_reports.mjs
+test_*.mjs
+test_*.js
+scratch_*
+**/scratch_*
+check_*
+**/check_*
+dump*
+**/dump*
 
 # Environment & Logs
 *.log

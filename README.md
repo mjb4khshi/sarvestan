@@ -11,9 +11,9 @@
 <br/>
 
 [![Website Showcase](https://img.shields.io/badge/Website-Showcase%20%26%20Landing-10b981?style=for-the-badge&logo=googlechrome&logoColor=white)](https://mjb4khshi.github.io/sarvestan/)
-[![Download Android APK](https://img.shields.io/badge/Download-Android%20APK%20(v1.1)-0284c7?style=for-the-badge&logo=android&logoColor=white)](https://mjb4khshi.github.io/sarvestan/sarvestan.apk)
+[![Download Android APK](https://img.shields.io/badge/Download-Android%20APK%20(v1.2)-0284c7?style=for-the-badge&logo=android&logoColor=white)](https://mjb4khshi.github.io/sarvestan/sarvestan.apk)
 [![Download Extension ZIP](https://img.shields.io/badge/Download-Extension%20(.zip)-8b5cf6?style=for-the-badge&logo=googlechrome&logoColor=white)](https://mjb4khshi.github.io/sarvestan/sarvestan-extension.zip)
-[![GitHub Releases](https://img.shields.io/badge/Releases-Latest%20Version%20(v1.1.0)-22c55e?style=for-the-badge&logo=github&logoColor=white)](https://github.com/mjb4khshi/sarvestan/releases)
+[![GitHub Releases](https://img.shields.io/badge/Releases-Latest%20Version%20(v1.2.0%20Pasargad)-22c55e?style=for-the-badge&logo=github&logoColor=white)](https://github.com/mjb4khshi/sarvestan/releases)
 
 <br/>
 

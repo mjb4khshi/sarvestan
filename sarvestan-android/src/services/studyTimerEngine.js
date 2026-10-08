@@ -93,103 +93,20 @@ export function playFocusChime() {
 }
 
 /**
- * کلیک ملایم حین فشردن دکمه‌های تایمر
+ * کلیک ملایم حین فشردن دکمه‌های تایمر (غیرفعال‌شده به درخواست کاربر)
  */
 export function playGentleClick() {
-  try {
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(440, now);
-    osc.frequency.exponentialRampToValueAtTime(220, now + 0.04);
-
-    gain.gain.setValueAtTime(0.08, now);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.04);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start(now);
-    osc.stop(now + 0.05);
-  } catch {}
+  // صدای کلیک کلاً برداشته شد
 }
 
-// ── موتور صدای محیطی و نویز سفید برای تمرکز عمیق (Ambient Focus Noise) ──
-
-let ambientSourceNode = null;
-let ambientGainNode = null;
+// ── موتور صدای محیطی و نویز سفید (غیرفعال‌شده به درخواست کاربر) ──
 
 export function stopAmbientSound() {
-  try {
-    if (ambientGainNode && sharedAudioCtx) {
-      ambientGainNode.gain.linearRampToValueAtTime(0.0001, sharedAudioCtx.currentTime + 0.5);
-      setTimeout(() => {
-        try {
-          if (ambientSourceNode) {
-            ambientSourceNode.stop();
-            ambientSourceNode.disconnect();
-            ambientSourceNode = null;
-          }
-        } catch {}
-      }, 550);
-    }
-  } catch {}
+  // صدای پس‌زمینه کلاً برداشته شد
 }
 
-export function startAmbientSound(mode = 'rain') {
-  stopAmbientSound();
-  if (mode === 'none' || !mode) return;
-
-  try {
-    const ctx = getAudioContext();
-    if (!ctx) return;
-
-    // ایجاد یک بافر صوتی ۵ ثانیه‌ای از نویز تصادفی
-    const bufferSize = ctx.sampleRate * 4;
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-
-    let lastOut = 0.0;
-    for (let i = 0; i < bufferSize; i++) {
-      const white = Math.random() * 2 - 1;
-      if (mode === 'rain') {
-        // فیلتر باران ملایم (Brownian / Pink soft noise)
-        lastOut = (lastOut + 0.02 * white) / 1.02;
-        data[i] = lastOut * 3.5;
-      } else {
-        // نویز صورتی تمرکز
-        lastOut = (lastOut + 0.05 * white) / 1.05;
-        data[i] = lastOut * 2.5;
-      }
-    }
-
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.loop = true;
-
-    // فیلتر پایین‌گذر برای حذف خش‌خش زیر و ساخت صدای باران/محیط دلپذیر
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = mode === 'rain' ? 850 : 1200;
-
-    ambientGainNode = ctx.createGain();
-    ambientGainNode.gain.setValueAtTime(0.0001, ctx.currentTime);
-    ambientGainNode.gain.linearRampToValueAtTime(0.07, ctx.currentTime + 1.2);
-
-    source.connect(filter);
-    filter.connect(ambientGainNode);
-    ambientGainNode.connect(ctx.destination);
-
-    source.start(ctx.currentTime);
-    ambientSourceNode = source;
-  } catch (e) {
-    console.warn('[startAmbientSound]', e);
-  }
+export function startAmbientSound() {
+  // صدای پس‌زمینه/باران کلاً برداشته شد
 }
 
 // ── سیستم لرزش و هپتیک (Haptic Feedback) ──

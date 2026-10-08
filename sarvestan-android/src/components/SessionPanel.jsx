@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link2, RefreshCw, LogIn, LogOut, User, Clock } from 'lucide-react';
+import { Link2, RefreshCw, LogIn, LogOut, User, Clock, Sparkles } from 'lucide-react';
 import { useSarvestanData } from '../hooks/useSarvestanData';
 import { resetSyncState } from '../services/behestan/sync';
 import { openLoginModal, isLoginModalOpen } from '../services/loginFlow';

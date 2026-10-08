@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import UpdateModal from '../components/UpdateModal';
 import ClassAlarmModal from '../components/ClassAlarmModal';
+import CurriculumChartModal from '../components/CurriculumChartModal';
 import SarvSwitch from '../components/SarvSwitch';
 import FinanceScreen from './FinanceScreen';
 import { checkForUpdate, CURRENT_VERSION } from '../services/updater';
@@ -45,7 +46,6 @@ import {
 } from '../services/behestan';
 import { clearSsoCookies } from '../services/behestan/ssoLoginNative';
 import { clearSavedCreds } from '../services/loginFlow';
-import mjbAvatar from '../../public/mjb-avatar.png';
 
 import {
   cancelAllReminders,
@@ -92,10 +92,45 @@ import {
 } from '../services/shareImages';
 import { useAppIcon, SarvIconSvg } from '../services/appIcon';
 
+function DarametDonateCard() {
+  return (
+    <a
+      href="https://daramet.com/mjbkhshi"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="sarv-card p-3 flex items-center justify-between gap-3 border border-rose-500/20 bg-gradient-to-l from-rose-500/5 via-base-100 to-amber-500/5 hover:border-rose-500/40 active:scale-[0.99] transition-all group"
+    >
+      <div className="flex items-center gap-2.5 min-w-0">
+        <span className="w-8 h-8 rounded-xl bg-rose-500/15 text-rose-500 grid place-items-center shrink-0 group-hover:scale-105 transition-transform">
+          <Heart className="w-4 h-4 fill-rose-500" />
+        </span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[13px] font-bold text-base-content truncate">حمایت از توسعه سروستان</span>
+            <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-500 shrink-0">
+              دونیت
+            </span>
+          </div>
+          <p className="text-[10.5px] text-neutral truncate mt-0.5">
+            پروژه رایگان و مستقل؛ با یک قهوه دلگرمی ببخشید ☕
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1 text-[11.5px] font-bold text-rose-600 dark:text-rose-400 shrink-0 px-2.5 py-1.5 rounded-lg bg-rose-500/10 group-hover:bg-rose-500/20 transition-colors">
+        <span>دارمت</span>
+        <ExternalLink className="w-3.5 h-3.5" />
+      </div>
+    </a>
+  );
+}
+
 export default function MoreScreen({
   onNavigate,
   initialChartOpen = false,
   initialFinanceOpen = false,
+  onCloseChart,
+  onCloseFinance,
 }) {
   const vm = getViewModel();
   const { workflows, sync, syncMeta } = useSarvestanData();
@@ -103,6 +138,23 @@ export default function MoreScreen({
   const lastSyncTime = getLastSyncTimestamp(syncMeta);
   const lastSyncFormatted = formatLastSync(lastSyncTime);
   const [financeModalOpen, setFinanceModalOpen] = useState(initialFinanceOpen);
+
+  const closeFinance = () => {
+    setFinanceModalOpen(false);
+    onCloseFinance?.();
+  };
+
+  const closeChart = () => {
+    setChartModalOpen(false);
+    onCloseChart?.();
+  };
+
+  useEffect(() => {
+    return () => {
+      onCloseChart?.();
+      onCloseFinance?.();
+    };
+  }, []);
   const [iconModalOpen, setIconModalOpen] = useState(false);
   const [iconToast, setIconToast] = useState('');
   const [clearDataModalOpen, setClearDataModalOpen] = useState(false);
@@ -267,10 +319,10 @@ export default function MoreScreen({
   useEffect(() => {
     const handleCloseTopModal = (e) => {
       if (financeModalOpen) {
-        setFinanceModalOpen(false);
+        closeFinance();
         e.preventDefault();
       } else if (chartModalOpen) {
-        setChartModalOpen(false);
+        closeChart();
         e.preventDefault();
       } else if (alarmModalOpen) {
         setAlarmModalOpen(false);
@@ -390,7 +442,7 @@ export default function MoreScreen({
 
 
   const INVITE_TEXT =
-    'سلام! 👋\nدیدم هنوز داری با سایت بهستان کلنجار میری، گفتم سروستان رو بهت معرفی کنم 🌿\n\nاپلیکیشن هوشمند دانشجویان خواجه نصیر (نسخه جدید ۱.۱.۰):\n⚡ کارکرد آفلاین برنامه کلاسی + ۳ ویجت زنده برای صفحه اصلی گوشی\n🎓 پشتیبانی کامل از دانشجویان کهاد (دورشته‌ای)\n🔕 حالت سکوت خودکار گوشی سر کلاس (DND)\n🍱 یادآور هفتگی رزرو غذای سماد\n📊 کارنامه، محاسبه‌گر معدل و تحلیل بدهی شهریه\n🔒 ۱۰۰٪ امن و محلی بدون نیاز به سرور یا VPN\n\n📱 دانلود مستقیم نسخه اندروید و افزونه:\nhttps://mjb4khshi.github.io/sarvestan';
+    'سلام! 👋\nدیدم هنوز داری با سامانه بهستان کلنجار میری، گفتم سروستان رو بهت معرفی کنم 🌿\n\nاپلیکیشن هوشمند دانشجویان خواجه نصیر (نسخه جدید ۱.۲ پاسارگاد):\n⚡ کارکرد کاملاً آفلاین برنامه کلاسی و امتحانات\n📱 ۳ ویجت زنده و هوشمند برای صفحه اصلی گوشی\n✨ تایپوگرافی جذاب آراد نقاط ۲ (Dots 2)\n🍠 تم اختصاصی جدید سفید و لبویی (نسخه محدود)\n🎓 پشتیبانی کامل از دانشجویان کهاد (دورشته‌ای)\n🔕 حالت سکوت خودکار گوشی سر کلاس (DND)\n🍱 یادآور هفتگی رزرو غذای سماد\n📊 کارنامه، محاسبه‌گر معدل و تحلیل بدهی شهریه\n🔒 ۱۰۰٪ امن، بدون واسطه و بدون نیاز به سرور یا فیلترشکن\n\n📱 دانلود مستقیم نسخه اندروید و افزونه مرورگر:\nhttps://mjb4khshi.github.io/sarvestan';
 
   const handleCopyInvite = () => {
     navigator.clipboard?.writeText(INVITE_TEXT);
@@ -478,6 +530,15 @@ export default function MoreScreen({
         transition={{ delay: 0.03 }}
       >
         <SessionPanel />
+      </motion.section>
+
+      {/* ۲. بخش حمایت مالی و دونیت (دارمت) */}
+      <motion.section
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.035 }}
+      >
+        <DarametDonateCard />
       </motion.section>
 
       {/* ۲.۵ اشتراک‌گذاری تصویری با تم سرو */}
@@ -651,11 +712,14 @@ export default function MoreScreen({
                 <BookOpenCheck className="w-4.5 h-4.5" />
               </span>
               <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <p className="text-[13.5px] font-bold text-base-content truncate">چارت و وضعیت دروس</p>
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-500 border border-amber-500/25">
+                    آزمایشی
+                  </span>
                   <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-md bg-accent-soft text-accent">
                     {toFaDigits(CURRICULUM?.passedCredits ?? 0)} از{' '}
-                    {toFaDigits(CURRICULUM?.totalCredits ?? 142)} واحد
+                    {toFaDigits(CURRICULUM?.totalCredits || '')} واحد
                   </span>
                 </div>
                 <p className="text-[10.5px] text-neutral mt-0.5">پیش‌نیازها، سرفصل و دروس باقیمانده</p>
@@ -898,7 +962,7 @@ export default function MoreScreen({
         <div className="flex items-center justify-between px-1">
           <h3 className="text-[12.5px] font-bold text-neutral">نسخه و به‌روزرسانی</h3>
           <span className="text-[11px] font-semibold text-neutral/70 font-mono">
-            v{CURRENT_VERSION}
+            v{CURRENT_VERSION} · پاسارگاد
           </span>
         </div>
         <div className="sarv-card overflow-hidden">
@@ -958,8 +1022,8 @@ export default function MoreScreen({
                     : updateState.error
                     ? `${updateState.error} — کلیک برای تلاش دوباره`
                     : updateState.checked
-                    ? `نسخه ${CURRENT_VERSION} آخرین نگارش منتشرشده است ✓`
-                    : `نسخه کنونی شما: ${CURRENT_VERSION} · کلیک برای بررسی`}
+                    ? `نسخه ${CURRENT_VERSION} (پاسارگاد) آخرین نگارش منتشرشده است ✓`
+                    : `نسخه کنونی: ${CURRENT_VERSION} (پاسارگاد) · کلیک برای بررسی`}
                 </p>
               </div>
             </div>
@@ -1096,7 +1160,7 @@ export default function MoreScreen({
           طراحی و توسعه توسط <span className="font-mono font-bold text-base-content">@mjb4khshi</span> با چای و حوصله بسیار ☕
         </p>
         <p className="text-[10px] text-neutral/60 font-mono">
-          نسخه {toFaDigits(CURRENT_VERSION)} سروستان همراه · Sarv UI
+          نسخه {toFaDigits('1.2')} پاسارگاد سروستان همراه · Sarv UI
         </p>
       </div>
 
@@ -1108,7 +1172,7 @@ export default function MoreScreen({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setFinanceModalOpen(false)}
+              onClick={closeFinance}
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             />
 
@@ -1132,7 +1196,7 @@ export default function MoreScreen({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setFinanceModalOpen(false)}
+                  onClick={closeFinance}
                   className="w-8 h-8 rounded-full bg-base-500/30 text-neutral hover:text-base-content grid place-items-center transition-colors"
                 >
                   <X className="w-4 h-4" />
@@ -1148,210 +1212,15 @@ export default function MoreScreen({
         )}
       </AnimatePresence>
 
-      {/* مودال تمام‌صفحه: چارت و وضعیت دروس */}
+      {/* مودال تمام‌صفحه و تعاملی: چارت و نقشه راه تحصیلی */}
       <AnimatePresence>
         {chartModalOpen && (
-          <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setChartModalOpen(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-
-            <motion.div
-              initial={{ y: '100%', opacity: 0.5 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: '100%', opacity: 0.5 }}
-              transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-              className="relative z-10 w-full max-w-[430px] rounded-t-3xl sm:rounded-3xl bg-base border border-base-500/50 p-5 shadow-2xl h-[88vh] flex flex-col"
-            >
-              {/* هدر مودال - کاملاً ثابت */}
-              <div className="flex items-center justify-between pb-3 border-b border-base-500/30 shrink-0">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-accent text-accent-content grid place-items-center shadow-sm">
-                    <BookOpenCheck className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-[15px] font-black text-base-content">چارت و سرفصل دروس</h3>
-                    <p className="text-[11px] text-neutral">
-                      {(STUDENT.major || STUDENT.college || 'دانشجو')} · فرم ۱۱۱۲۶ بهستان
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setChartModalOpen(false)}
-                  className="w-8 h-8 rounded-full bg-base-500/30 text-neutral hover:text-base-content grid place-items-center"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* نوار فیلتر دسته‌بندی دروس - ثابت در بالای محتوا تا با اسکرول یا تغییر لیست تکان نخورد */}
-              <div className="pt-3 pb-2 shrink-0">
-                <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar relative">
-                  {[
-                    { id: 'all', label: 'همه دسته‌ها' },
-                    ...(CURRICULUM?.categories || []).map((c) => ({ id: c.id, label: c.title })),
-                  ].map((cat) => {
-                    const isSelected = activeCategory === cat.id;
-                    return (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => setActiveCategory(cat.id)}
-                        className={`relative px-3.5 py-1.5 rounded-xl text-[11.5px] whitespace-nowrap transition-colors select-none outline-none ${
-                          isSelected
-                            ? 'text-primary-content font-black'
-                            : 'bg-base-500/20 text-neutral hover:bg-base-500/40 font-medium'
-                        }`}
-                      >
-                        {isSelected && (
-                          <motion.span
-                            layoutId="curriculumCatPill"
-                            className="absolute inset-0 bg-primary rounded-xl z-0 shadow-sm"
-                            transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-                          />
-                        )}
-                        <span className="relative z-10">{cat.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* محتوای اسکرول‌پذیر چارت */}
-              <div className="overflow-y-auto py-2 pb-16 space-y-3 flex-1 pr-1">
-                {/* کارت آمار پیشرفت فارغ‌التحصیلی — فقط از دیتای واقعی */}
-                {CURRICULUM ? (
-                <div className="sarv-card p-3.5 bg-accent-soft border-accent-soft shrink-0">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[12px] font-bold text-accent">پیشرفت فارغ‌التحصیلی</span>
-                    <span className="text-[13px] font-black text-accent font-mono">
-                      {(() => {
-                        const total = Number(CURRICULUM.totalCredits) || 0;
-                        const passed = Number(CURRICULUM.passedCredits) || 0;
-                        if (!total || total <= 0) return '—';
-                        const pct = Math.min(100, Math.round((passed / total) * 100));
-                        return toFaDigits(pct) + '٪';
-                      })()}
-                    </span>
-                  </div>
-                  <div className="h-2.5 rounded-full bg-base-500/40 overflow-hidden">
-                    {(() => {
-                      const total = Number(CURRICULUM.totalCredits) || 0;
-                      const passed = Number(CURRICULUM.passedCredits) || 0;
-                      const pct = total > 0 ? Math.min(100, Math.max(0, (passed / total) * 100)) : 0;
-                      return (
-                        <div
-                          className="h-full rounded-full bg-accent transition-all duration-500"
-                          style={{ width: `${pct}%` }}
-                        />
-                      );
-                    })()}
-                  </div>
-                  <div className="mt-2 grid grid-cols-4 gap-1.5 text-center text-[11px]">
-                    <div className="rounded-xl p-2 bg-base/50 border border-base-500/20">
-                      <span className="text-neutral block text-[10px] font-medium mb-0.5">پاس‌شده</span>
-                      <p className="text-success text-[13px] font-black">
-                        {toFaDigits(CURRICULUM.passedCredits ?? 0)}
-                      </p>
-                    </div>
-                    <div className="rounded-xl p-2 bg-base/50 border border-base-500/20">
-                      <span className="text-neutral block text-[10px] font-medium mb-0.5">ترم جاری</span>
-                      <p className="text-info text-[13px] font-black">
-                        {toFaDigits(CURRICULUM.enrolledCredits ?? 0)}
-                      </p>
-                    </div>
-                    <div className="rounded-xl p-2 bg-base/50 border border-base-500/20">
-                      <span className="text-neutral block text-[10px] font-medium mb-0.5">باقیمانده</span>
-                      <p className="text-warn text-[13px] font-black">
-                        {toFaDigits(CURRICULUM.remainingCredits ?? 0)}
-                      </p>
-                    </div>
-                    <div className="rounded-xl p-2 bg-base/50 border border-base-500/20">
-                      <span className="text-neutral block text-[10px] font-medium mb-0.5">کل چارت</span>
-                      <p className="text-accent text-[13px] font-black">
-                        {toFaDigits(CURRICULUM.totalCredits ?? 0)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                ) : (
-                  <p className="text-[12px] text-neutral text-center py-3">
-                    دیتای چارت هنوز نیامده — همگام‌سازی را بزن
-                  </p>
-                )}
-
-                {/* فهرست دسته‌بندی‌ها و دروس با فونت اصلاح‌شده و اعداد فارسی */}
-                <div className="space-y-3 min-h-[300px]">
-                  {filteredCategories.map((cat) => (
-                    <div key={cat.id} className="sarv-card p-3.5 space-y-2.5">
-                      <div className="flex items-center justify-between pb-1.5 border-b border-base-500/30">
-                        <h4 className="text-[13px] font-bold text-base-content flex items-center gap-1.5">
-                          <span
-                            className="w-2.5 h-2.5 rounded-full"
-                            style={{ backgroundColor: `var(--theme-color-${cat.color || 'primary'})` }}
-                          />
-                          {cat.title}
-                        </h4>
-                        <span className="text-[11px] font-bold text-neutral">
-                          {toFaDigits(cat.passed)} از {toFaDigits(cat.total)} واحد
-                        </span>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        {cat.courses.map((course, ci) => (
-                          <div
-                            key={ci}
-                            className="flex items-center justify-between p-2.5 rounded-xl bg-base-500/15 text-[12px]"
-                          >
-                            <div className="min-w-0">
-                              <p className="font-bold text-base-content truncate">{course.name}</p>
-                              {course.prereq && (
-                                <p className="text-[10px] text-neutral mt-0.5">
-                                  پیشنیاز: {toFaDigits(course.prereq)}
-                                </p>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-[11px] text-neutral font-bold">
-                                {toFaDigits(course.unit)} واحد
-                              </span>
-                              {course.status === 'dropped' || course.badge === 'حذف اضطراری' ? (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-danger-soft text-danger">
-                                  حذف اضطراری
-                                </span>
-                              ) : course.status === 'waitlist' || course.badge === 'در انتظار' ? (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-warn-soft text-warn">
-                                  در انتظار
-                                </span>
-                              ) : course.status === 'passed' ? (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-success-soft text-success">
-                                  پاس شده ({toFaDigits(course.grade)})
-                                </span>
-                              ) : course.status === 'enrolled' ? (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-info-soft text-info">
-                                  در حال اخذ
-                                </span>
-                              ) : (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-base-500/40 text-neutral">
-                                  مانده
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          </div>
+          <CurriculumChartModal
+            isOpen={chartModalOpen}
+            onClose={closeChart}
+            curriculumState={CURRICULUM}
+            student={STUDENT}
+          />
         )}
       </AnimatePresence>
 
@@ -1404,16 +1273,20 @@ export default function MoreScreen({
 
                 <div className="grid grid-cols-3 gap-2 text-center">
                   {[
-                    { icon: '⚡', label: 'سریع‌تر' },
-                    { icon: '🎨', label: 'مدرن‌تر' },
-                    { icon: '🔒', label: 'امن‌تر' },
+                    { icon: '⚡', label: 'آفلاین و سریع', sub: 'برنامه و تقویم' },
+                    { icon: '📱', label: 'ویجت‌های زنده', sub: 'صفحه اصلی گوشی' },
+                    { icon: '🎨', label: 'آراد Dots 2', sub: 'تم سفید و لبویی' },
+                    { icon: '🎓', label: 'پشتیبانی کهاد', sub: 'دانشجویان دورشته‌ای' },
+                    { icon: '🔕', label: 'سایلنت خودکار', sub: 'حالت DND سر کلاس' },
+                    { icon: '🔒', label: '۱۰۰٪ امن و محلی', sub: 'بدون سرور و واسطه' },
                   ].map((x) => (
                     <div
                       key={x.label}
-                      className="rounded-xl bg-accent-soft border border-accent-soft py-2.5"
+                      className="rounded-xl bg-accent-soft border border-accent/20 p-2 flex flex-col items-center justify-center text-center"
                     >
-                      <span className="text-lg block leading-none">{x.icon}</span>
-                      <span className="text-[11px] font-bold text-accent mt-1 block">{x.label}</span>
+                      <span className="text-base block leading-none">{x.icon}</span>
+                      <span className="text-[10.5px] font-bold text-base-content mt-1 block">{x.label}</span>
+                      <span className="text-[9px] text-neutral block mt-0.5">{x.sub}</span>
                     </div>
                   ))}
                 </div>
@@ -1421,7 +1294,7 @@ export default function MoreScreen({
                 <div className="sarv-card p-3.5 bg-base-500/15 border border-dashed border-base-500/40 text-[12px] leading-relaxed">
                   <p className="text-base-content font-bold mb-2 flex items-center justify-between">
                     <span>متن آماده برای ارسال:</span>
-                    <span className="text-[10px] text-accent font-mono font-bold bg-accent/15 px-2 py-0.5 rounded-full">نسخه ۱.۱.۰</span>
+                    <span className="text-[10px] text-accent font-mono font-bold bg-accent/15 px-2 py-0.5 rounded-full">نسخه ۱.۲ پاسارگاد</span>
                   </p>
                   <p className="text-neutral select-all whitespace-pre-wrap font-sans text-[11.5px] leading-relaxed">
                     {INVITE_TEXT}
@@ -1551,7 +1424,7 @@ export default function MoreScreen({
                 <div className="p-3.5 rounded-2xl bg-base-500/20 border border-base-500/30 space-y-3">
                   <div className="flex items-center gap-3">
                     <img
-                      src={mjbAvatar}
+                      src="/mjb-avatar.png"
                       alt="محمدجواد بخشی"
                       className="w-12 h-12 rounded-2xl object-cover border-2 border-primary/40 shadow-sm shrink-0"
                       onError={(e) => {
@@ -1605,7 +1478,7 @@ export default function MoreScreen({
                   <span>
                     طراحی و توسعه: <strong className="text-base-content font-mono font-bold">@mjb4khshi</strong>
                   </span>
-                  <span className="font-mono">v1.1.0 · 2026</span>
+                  <span className="font-mono">v1.2.0 · پاسارگاد</span>
                 </div>
               </div>
             </motion.div>

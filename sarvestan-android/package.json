@@ -1,13 +1,14 @@
 {
   "name": "sarvestan-android",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
     "preview": "vite preview",
     "proxy": "node scripts/behestan-proxy.mjs",
+    "build:apk": "node scripts/build-apk.cjs",
     "test:fixes": "node scripts/verify_all_fixes.mjs && node scripts/verify_finance_and_share.mjs",
     "seed:har": "node scripts/seed_from_har.mjs"
   },

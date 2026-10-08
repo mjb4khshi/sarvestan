@@ -2,6 +2,7 @@
  * پارسرهای خروجی بهستان — همان منطق behestanInterceptor.js
  * بدون وابستگی به chrome / window اضافه
  */
+import { simplifyRoomName } from '../../utils/roomUtils.js';
 
 export function parseBehestanXmlGrid(xmlStr) {
   if (!xmlStr || typeof xmlStr !== 'string') return [];
@@ -73,6 +74,18 @@ export function extractCourseCode(...parts) {
     if (m) return m[1];
   }
   return '';
+}
+
+export function isProjectCourse(name) {
+  if (!name) return false;
+  const s = String(name).trim();
+  if (/مديريت\s*پروژه|مدیریت\s*پروژه|کنترل\s*پروژه|كنترل\s*پروژه/i.test(s)) return false;
+  return /پروژه/i.test(s);
+}
+
+export function isInternshipCourse(name) {
+  if (!name) return false;
+  return /کارآموزی|كارآموزي|کارورزی|كارورزي/i.test(String(name));
 }
 
 /**
@@ -155,7 +168,7 @@ export function parseReport77(outpar, termHint) {
       code,
       group: (codeGroup.match(/_(\d+)/) || [])[1] || '',
       name,
-      units: toNum(row.C3) || 0,
+      units: toNum(row.C3) || (isProjectCourse(name) ? 3 : isInternshipCourse(name) ? 2 : 0),
       professor: normalizeCourseName(cleanHtml(row.C7 || '')) || 'ـ',
       type: typeRaw || 'ثبت‌نام',
       days,
@@ -208,24 +221,27 @@ export function normalizeCourseName(name) {
 
 export function normalizeDayName(raw) {
   if (!raw) return '';
-  let d = cleanHtml(String(raw))
+  const s = cleanHtml(String(raw))
     .replace(/[يى]/g, 'ی')
     .replace(/ك/g, 'ک')
-    .replace(/\s+/g, ' ')
+    .replace(/[\u200c\s]+/g, ' ')
     .trim();
-  d = d
-    .replace(/^یک\s*شنبه\b/i, 'یکشنبه')
-    .replace(/^يك\s*شنبه\b/i, 'یکشنبه')
-    .replace(/^دو\s*شنبه\b/i, 'دوشنبه')
-    .replace(/^سه\s*شنبه\b/i, 'سه‌شنبه')
-    .replace(/^چهار\s*شنبه\b/i, 'چهارشنبه')
-    .replace(/^پنج\s*شنبه\b/i, 'پنجشنبه')
-    .replace(/^شنبه\b/i, 'شنبه');
-  const token = d.split(/\s+/)[0] || '';
-  const days = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه'];
-  if (days.includes(token)) return token;
-  if (days.includes(d)) return d;
-  return d;
+  if (/^یک\s*شنبه/i.test(s)) return 'یکشنبه';
+  if (/^سه\s*شنبه/i.test(s)) return 'سه‌شنبه';
+  if (/^دو\s*شنبه/i.test(s)) return 'دوشنبه';
+  if (/^چهار\s*شنبه/i.test(s)) return 'چهارشنبه';
+  if (/^پنج\s*شنبه/i.test(s)) return 'پنجشنبه';
+  if (/^جمعه/i.test(s)) return 'جمعه';
+  if (/^شنبه/i.test(s)) return 'شنبه';
+
+  if (/یک\s*شنبه/i.test(s)) return 'یکشنبه';
+  if (/سه\s*شنبه/i.test(s)) return 'سه‌شنبه';
+  if (/دو\s*شنبه/i.test(s)) return 'دوشنبه';
+  if (/چهار\s*شنبه/i.test(s)) return 'چهارشنبه';
+  if (/پنج\s*شنبه/i.test(s)) return 'پنجشنبه';
+  if (/جمعه/i.test(s)) return 'جمعه';
+  if (/شنبه/i.test(s)) return 'شنبه';
+  return s;
 }
 
 export function parseTimeRange(raw) {
@@ -317,6 +333,8 @@ export function parseReport78Schedule(outpar, termHint) {
     const classTime = timeM ? timeM[1].trim() : '';
     const capacity = capM ? capM[1] : '';
 
+    const profM = (title + ' ' + (textHint || '')).match(/(?:نام\s*استاد|استاد|مدرس)\s*:\s*([^<\n\r]+?)(?=\s*(?:محل|امتحان|ساعت|تعداد|شماره|$))/i);
+    const parsedProf = profM ? normalizeCourseName(profM[1].trim()) : '';
     const hallM = textHint ? textHint.match(/محل\s*:\s*(.+?)(?=\s*امتحان|$)/) : null;
     const examM = textHint ? textHint.match(/امتحان\s*:\s*([0-9]{4}\/[0-9]{2}\/[0-9]{2})/) : null;
     let examTime = '';
@@ -327,29 +345,41 @@ export function parseReport78Schedule(outpar, termHint) {
     }
 
     const key = code + '|' + group + '|' + courseName;
+    const normTime = normalizeTimeRange(classTime);
+    const normHall = (hallM ? simplifyRoomName(hallM[1].replace(/\s+/g, ' ').trim()) : '') || 'ـ';
+    const initialSlot = day && normTime ? [{ day, time: normTime, hall: normHall }] : [];
+
     if (!courseMap.has(key)) {
       courseMap.set(key, {
         id: code || courseName,
         code,
         name: courseName,
         group: group || '۰۱',
-        units: 0,
+        units: isProjectCourse(courseName) ? 3 : isInternshipCourse(courseName) ? 2 : 0,
         type: 'ـ',
-        professor: 'ـ',
+        professor: parsedProf || 'ـ',
         days: day ? [day] : [],
-        time: normalizeTimeRange(classTime) || 'ـ',
-        hall: (hallM ? hallM[1].replace(/\s+/g, ' ').trim() : '') || 'ـ',
+        time: normTime || 'ـ',
+        hall: normHall,
         examDate: examM ? faDigits(examM[1]) : 'ـ',
         examTime: examTime ? normalizeTimeRange(examTime) : 'ـ',
         capacity: capacity || 'ـ',
         classTimeRaw: classTime,
         timeSlotsRaw: classTime ? [classTime] : [],
+        daySlots: initialSlot,
         isLive: true,
       });
     } else {
       const cur = courseMap.get(key);
+      if (parsedProf && (!cur.professor || cur.professor === 'ـ')) cur.professor = parsedProf;
       if (day && !cur.days.includes(day)) cur.days.push(day);
       if (classTime && !cur.timeSlotsRaw.includes(classTime)) cur.timeSlotsRaw.push(classTime);
+      if (day && normTime) {
+        if (!cur.daySlots) cur.daySlots = [];
+        if (!cur.daySlots.some((s) => s.day === day && s.time === normTime)) {
+          cur.daySlots.push({ day, time: normTime, hall: normHall || cur.hall || 'ـ' });
+        }
+      }
     }
   }
 
@@ -358,7 +388,7 @@ export function parseReport78Schedule(outpar, termHint) {
   let dcm;
   while ((dcm = dayCellRe.exec(body)) !== null) {
     const candidate = normalizeDayName(dcm[1]);
-    if (['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه'].includes(candidate)) {
+    if (['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'].includes(candidate)) {
       const plain = cleanHtml(dcm[1]);
       if (plain.length < 25) dayMarkers.push({ index: dcm.index, day: candidate });
     }
@@ -382,7 +412,26 @@ export function parseReport78Schedule(outpar, termHint) {
 
   const courses = [...courseMap.values()];
   const termId = termHint || mapTermFromTitle(outpar?.BMs || '');
-  return { termId, courses };
+
+  // استخراج متادیتای دانشجو از متغیرهای ردیف گزارش ۷۸
+  const pick = (k) => {
+    const m = bmT.match(new RegExp(`(?:\\b${k}\\b)=["']([^"']*)["']`, 'i'));
+    return m ? cleanHtml(decodeEntities(m[1])) : '';
+  };
+  const photoMatch = bmT.match(/SRC=['"](data:image\/[^'"]+)['"]/i);
+  const meta = {
+    auwId: pick('B1') || undefined,
+    studentId: pick('B1') || undefined,
+    fullName: pick('B2') || undefined,
+    facultyCode: pick('B3') || undefined,
+    faculty: pick('B4') || undefined,
+    term: pick('B5') || undefined,
+    level: pick('B6') || undefined,
+    major: pick('B8') || pick('B4') || undefined,
+    photo: photoMatch ? photoMatch[1] : undefined,
+  };
+
+  return { termId, courses, meta };
 }
 
 /** گزارش ۸۸ — برنامه هنگام ثبت‌نام */
@@ -417,7 +466,8 @@ export function parseReport88Registration(outpar, termHint) {
       const cell = cleanHtml(row[col] || '');
       if (!cell) continue;
       const timeM = cell.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
-      const hall = cell.replace(/\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}/, '').trim() || 'ـ';
+      const rawHall = cell.replace(/\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}/, '').trim() || 'ـ';
+      const hall = simplifyRoomName(rawHall) || rawHall;
       if (timeM) {
         const t = normalizeTimeRange(timeM[1] + '-' + timeM[2]);
         days.push(day);
@@ -439,7 +489,7 @@ export function parseReport88Registration(outpar, termHint) {
       code,
       group: group || '۰۱',
       name: normalizeCourseName(cleanHtml(row.C2 || '')),
-      units: parseInt(cleanHtml(row.C3 || '0'), 10) || 0,
+      units: parseInt(cleanHtml(row.C3 || '0'), 10) || (isProjectCourse(cleanHtml(row.C2 || '')) ? 3 : isInternshipCourse(cleanHtml(row.C2 || '')) ? 2 : 0),
       professor: normalizeCourseName(cleanHtml(row.C5 || '')) || 'ـ',
       type: 'ثبت‌نام',
       days: days.length ? days : examDay ? [normalizeDayName(examDay)] : [],
@@ -485,7 +535,7 @@ export function parseReport428Exams(outpar, termHint) {
         day,
         examDate: dateM ? faDigits(dateM[1]) : day,
         examTime: timeM ? faDigits(timeM[1]) + ' - ' + faDigits(timeM[2]) : faDigits(when),
-        hall: normalizeCourseName(cleanHtml(row.C6 || '')) || 'ـ',
+        hall: simplifyRoomName(cleanHtml(row.C6 || '')) || normalizeCourseName(cleanHtml(row.C6 || '')) || 'ـ',
         invigilator: normalizeCourseName(cleanHtml(row.C7 || '')) || 'ـ',
         isLive: true,
       };
@@ -500,7 +550,7 @@ export function parseReport88Meta(outpar) {
   const bmT = outpar?.BMt || '';
   if (!bmT) return null;
   const pick = (key) => {
-    const m = bmT.match(new RegExp(`${key}="([^"]*)"`));
+    const m = bmT.match(new RegExp(`(?:\\b${key}\\b)=["']([^"']*)["']`, 'i'));
     return m ? cleanHtml(decodeEntities(m[1])) : '';
   };
   const auwId = pick('B1');
@@ -513,8 +563,8 @@ export function parseReport88Meta(outpar) {
     faculty: pick('B4'),
     term: pick('B5'),
     level: pick('B6'),
-    // رشته از L1 (گروه آموزشی) — مثل افزونه
-    major: pick('L1'),
+    // رشته از L1 (گروه آموزشی) یا B4 دانشکده
+    major: pick('L1') || pick('B4'),
   };
 }
 
@@ -634,7 +684,7 @@ export function parseF1825(data) {
           code,
           name: normalizeCourseName(cleanHtml(row.F1)),
           group: cleanHtml(row.F2).match(/گروه\s*(\S+)/)?.[1] || cleanHtml(row.F6) || '',
-          units: toNum(row.F7),
+          units: toNum(row.F7) || (isProjectCourse(cleanHtml(row.F1)) ? 3 : isInternshipCourse(cleanHtml(row.F1)) ? 2 : 0),
           grade: gradeRaw,
           // برای UI کارنامه: قبول/مردود/حذف اضطراری/در انتظار
           status: status || '',
@@ -802,4 +852,95 @@ export function parseF1814CurriculumStats(data) {
     byGradeStatus: pick(2),
     byStanding: pick(3),
   };
+}
+
+/**
+ * گزارش ۲۸۴ بهستان — «چارت درسی و وضعیت پیشرفت دانشجو» (مخصوص همان دانشجو و رشته‌اش)
+ * هر ردیف = یک جدول HTML در C1: یا سرفصل (حداقل/حداکثر درس و واحد) یا یک درس
+ * L1=معدل، L2=واحد گذرانده، L3=کل واحدهای مصوب دوره
+ * کاملاً مستقل از رشته — هیچ دیتای هاردکد ندارد.
+ */
+export function parseReport284Curriculum(outpar) {
+  const bmT = String(outpar?.BMt || '');
+  if (!bmT || bmT.indexOf('<row') === -1) return null;
+  const rows = parseBehestanXmlGrid(bmT);
+  if (!rows.length) return null;
+
+  const num = (v) => {
+    if (v === null || v === undefined) return null;
+    const s = String(v).trim();
+    // اگر بازه‌ای مانند 140-145، 140/145 یا 140 الی 145 بود، عدد اولیه بازه را بردار
+    const rangeM = s.match(/(\d+(?:\.\d+)?)\s*(?:-|–|—|\/|تا|الی)\s*(\d+(?:\.\d+)?)/);
+    if (rangeM) {
+      const n1 = parseFloat(rangeM[1]);
+      if (Number.isFinite(n1)) return n1;
+    }
+    const n = parseFloat(s.replace(/[^\d.]/g, ''));
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const first = rows[0];
+  let totalReq = num(first?.L3);
+  if (totalReq && totalReq > 200) {
+    const saneM = String(totalReq).match(/^(1[3-5]\d)/);
+    if (saneM) totalReq = Number(saneM[1]);
+    else totalReq = 140;
+  }
+
+  const result = {
+    studentId: cleanHtml(first.B1 || ''),
+    fullName: cleanHtml(first.B2 || ''),
+    advisor: cleanHtml(first.B4 || ''),
+    gpa: num(first.L1),
+    passedUnits: num(first.L2),
+    totalUnitsRequired: totalReq,
+    categories: [],
+    fetchedAt: Date.now(),
+  };
+
+  let cur = null;
+  for (const row of rows) {
+    const html = row.C1 || '';
+    if (!html) continue;
+    const cells = [...html.matchAll(/<TD\b[^>]*>([\s\S]*?)<\/TD>/gi)].map((m) => cleanHtml(m[1]));
+    if (!cells.length) continue;
+
+    // سرفصل: «<عنوان> حداقل درس n حداکثر درس n تعداد درس گذرانده از برنامه n حداقل واحد n حداکثر واحد n تعداد واحد گذرانده از برنامه n»
+    if (cells[1] && /حداقل\s*درس/.test(cells[1])) {
+      cur = {
+        title: cells[0],
+        minCourses: num(cells[2]),
+        maxCourses: num(cells[4]),
+        passedCourses: num(cells[6]),
+        minUnits: num(cells[8]),
+        maxUnits: num(cells[10]),
+        passedUnits: num(cells[12]),
+        isOutside: /خارج\s*از\s*برنامه/.test(cells[0]),
+        courses: [],
+      };
+      result.categories.push(cur);
+      continue;
+    }
+
+    // درس: [کد، نام، واحد، نوع(مصوب|معادل|گذرانده|''), کد معادل، نام معادل، واحد گذرانده، ترم، وضعیت، نوع درس]
+    const code = (cells[0] || '').match(/\d{5,}/)?.[0];
+    if (!code || !cur) continue;
+    const kind = cells[3] || '';
+    const status = cells[8] || '';
+    cur.courses.push({
+      code,
+      name: cells[1] || '',
+      units: num(cells[2]) ?? 0,
+      kind,
+      equivCode: (cells[4] || '').match(/\d{5,}/)?.[0] || null,
+      equivName: cells[5] || '',
+      takenUnits: num(cells[6]),
+      termId: /^\d{4}$/.test(cells[7] || '') ? cells[7] : null,
+      status,
+      isPassed: /قبول|گذرانده/.test(status) || (!!kind && /مصوب|معادل|گذرانده/.test(kind) && !!cells[7]),
+      type: cells[9] || cur.title,
+    });
+  }
+
+  return result.categories.length ? result : null;
 }

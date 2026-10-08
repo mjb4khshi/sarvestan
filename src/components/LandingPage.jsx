@@ -1320,6 +1320,27 @@ export default function LandingPage() {
 
   const showcaseThemes = [
     {
+      id: 'laboo',
+      name: 'سفید و لبویی',
+      badge: 'محدود',
+      isLimited: true,
+      color: '#931139',
+      mode: 'light',
+      icon: '🍠',
+      primary: '#931139',
+      primaryContent: '#ffffff',
+      accent: '#c4285c',
+      success: '#7f0d2f',
+      warn: '#b0214e',
+      base: '#ffffff',
+      base500: '#fdf0f4',
+      cardBg: '#ffffff',
+      cardBorder: 'rgba(147, 17, 57, 0.2)',
+      baseContent: '#2d0612',
+      neutral: '#854b5f',
+      neutralLight: '#a36d80',
+    },
+    {
       id: 'persian-light',
       name: 'ایرانی روشن',
       color: '#0066a4',
@@ -1639,7 +1660,7 @@ export default function LandingPage() {
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <span className="font-black text-base sm:text-xl tracking-tight text-base-content">سَروستان</span>
                 <span className="text-[9px] sm:text-[10px] font-mono px-1.5 sm:px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                  v1.1.0
+                  v1.2.0 · پاسارگاد
                 </span>
               </div>
               <p className="text-[11px] text-neutral hidden sm:block whitespace-nowrap">
@@ -1713,7 +1734,14 @@ export default function LandingPage() {
                                 {t.icon}
                               </span>
                               <div className="min-w-0">
-                                <p className="truncate font-medium">{t.name}</p>
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <p className="truncate font-medium">{t.name}</p>
+                                  {t.badge && (
+                                    <span className="px-1.5 py-0.2 rounded text-[8.5px] font-black bg-rose-600 text-white shrink-0 animate-pulse">
+                                      {t.badge}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
@@ -1753,7 +1781,7 @@ export default function LandingPage() {
               title="مشاهده انتشار نسخه جدید در گیت‌هاب"
             >
               <Sparkles className="w-3.5 h-3.5 text-primary" />
-              <span className="text-xs font-mono">v1.1.0</span>
+              <span className="text-xs font-mono">v1.2.0</span>
             </a>
 
             {/* Flagship: Download Android APK (Theme Success Green) */}
@@ -1764,7 +1792,7 @@ export default function LandingPage() {
             >
               <Smartphone className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
               <span>دانلود APK اندروید</span>
-              <span className="text-[10px] bg-black/20 text-success-content px-1.5 py-0.2 rounded font-mono font-bold hidden xs:inline">v1.1.0</span>
+              <span className="text-[10px] bg-black/20 text-success-content px-1.5 py-0.2 rounded font-mono font-bold hidden xs:inline">v1.2.0</span>
             </a>
 
             {/* Download Extension ZIP (Theme Primary) */}
@@ -2064,6 +2092,11 @@ export default function LandingPage() {
                 >
                   <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: st.color }} />
                   <span>{st.name.split(' ')[0]}</span>
+                  {st.badge && (
+                    <span className="text-[8px] font-black px-1 rounded bg-rose-600 text-white leading-none py-0.5">
+                      {st.badge}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -2406,7 +2439,7 @@ export default function LandingPage() {
                         title="مشاهده انتشار نسخه در گیت‌هاب"
                       >
                         <GithubIcon className="w-3.5 h-3.5" />
-                        <span>ریلیز گیت‌هاب (v1.1.0)</span>
+                        <span>ریلیز گیت‌هاب (v1.2.0 · پاسارگاد)</span>
                       </a>
                       <a
                         href={LATEST_APK_URL}
@@ -2418,7 +2451,7 @@ export default function LandingPage() {
                     </div>
                   </div>
                   <p className="text-xs sm:text-sm text-neutral leading-relaxed">
-                    فایل APK نسخه ۱.۱.۰ را از دکمه بالا مستقیماً دریافت کنید. این اپلیکیشن نیتیو بوده و روی تمام گوشی‌های هوشمند اندروید (اندروید نسخه ۸ به بالا) بدون نیاز به گوگل‌پلی یا VPN به راحتی کار می‌کند.
+                    فایل APK نسخه ۱.۲ پاسارگاد را از دکمه بالا مستقیماً دریافت کنید. این اپلیکیشن نیتیو بوده و روی تمام گوشی‌های هوشمند اندروید (اندروید نسخه ۸ به بالا) بدون نیاز به گوگل‌پلی یا VPN به راحتی کار می‌کند.
                   </p>
                 </div>
               </div>
@@ -2661,11 +2694,11 @@ export default function LandingPage() {
               },
               {
                 q: 'آیا سروستان روی گوشی موبایل هم کار می‌کند؟',
-                a: 'بله! نسخه رسمی ۱.۱.۰ اپلیکیشن اندروید سروستان منتشر شده و فایل APK مستقیم آن در دسترس است. نسخه اندروید دارای قابلیت کارکرد کاملاً آفلاین برای برنامه کلاسی، پشتیبانی از دانشجویان کهاد (دو رشته‌ای)، حالت سکوت خودکار سر کلاس (DND)، یادآور سماد، ورود امن، ویجت‌های تعاملی صفحه اصلی گوشی (کلاس بعدی، معدل کل و کارت ترکیبی)، به‌روزرسانی هوشمند درون‌برنامه‌ای و ۱۲ پالت رنگی آیکون لانچر اختصاصی است.'
+                a: 'بله! نسخه رسمی ۱.۲ (پاسارگاد) اپلیکیشن اندروید سروستان منتشر شده و فایل APK مستقیم آن در دسترس است. نسخه اندروید دارای قابلیت کارکرد کاملاً آفلاین برای برنامه کلاسی، فونت اختصاصی آراد نقاط ۲، پشتیبانی از دانشجویان کهاد (دو رشته‌ای)، حالت سکوت خودکار سر کلاس (DND)، یادآور سماد، ورود امن، ویجت‌های تعاملی صفحه اصلی گوشی (کلاس بعدی، معدل کل و کارت ترکیبی)، به‌روزرسانی هوشمند درون‌برنامه‌ای و ۱۲ پالت رنگی آیکون لانچر اختصاصی است.'
               },
               {
                 q: 'آیا این سامانه برای سایر دانشگاه‌هایی که از سامانه بهستان استفاده می‌کنند هم کاربرد دارد؟',
-                a: 'بله؛ معماری هسته سروستان اختصاصاً بر پایه پروتکل و ساختار مدرن سامانه بهستان مهندسی شده است. در نسخه ۱.۱.۰ فرم‌ها و فیلدها با بهستان دانشگاه صنعتی خواجه نصیرالدین طوسی هماهنگ شده‌اند و در حال گسترش آن برای تمامی دانشگاه‌های دارای سامانه بهستان هستیم.'
+                a: 'بله؛ معماری هسته سروستان اختصاصاً بر پایه پروتکل و ساختار مدرن سامانه بهستان مهندسی شده است. در نسخه ۱.۲ فرم‌ها و فیلدها با بهستان دانشگاه صنعتی خواجه نصیرالدین طوسی هماهنگ شده‌اند و در حال گسترش آن برای تمامی دانشگاه‌های دارای سامانه بهستان هستیم.'
               }
             ].map((faq, idx) => (
 
@@ -2833,7 +2866,7 @@ export default function LandingPage() {
                 title="دانلود و مشاهده جزییات انتشار v1.1.0 در گیت‌هاب"
               >
                 <Sparkles className="w-3.5 h-3.5 text-accent" />
-                <span>جدیدترین انتشار (v1.1.0)</span>
+                <span>جدیدترین انتشار (v1.2.0 · پاسارگاد)</span>
               </a>
               <span className="opacity-30">•</span>
               <a

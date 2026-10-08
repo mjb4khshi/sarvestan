@@ -5,21 +5,48 @@ node_modules/
 dist/
 *.apk
 *.aab
-!**/sarvestan.apk
+!/sarvestan.apk
 
-# Private / sensitive HAR files and personal dumps — NEVER commit
+# Private / sensitive HAR files, student datasets, and personal dumps — NEVER commit
 *.har
 **/*.har
 HAR/
+**/HAR/
 parse_grades.js
 .behestan-session.json
 *.session.json
 **/dev-data/
+**/devDataset.*
+**/devCurriculumReport.*
 mockup.png
 scripts/*
 !scripts/pack-extension.ps1
 package/
 sarvestan-extension.zip
+
+# Keystores, Certificates & Signing Keys — NEVER commit
+*.jks
+*.keystore
+*.key
+*.cert
+*.pem
+*.p12
+**/keystore/
+
+# Scratch, inspection, dump, and local test scripts — NEVER commit
+scratch_*
+**/scratch_*
+check_*
+**/check_*
+dump*
+**/dump*
+inspect*
+**/inspect*
+find_reports.*
+test_*.mjs
+test_*.js
+**/test_*.mjs
+**/test_*.js
 
 # Logs & Environment
 *.log

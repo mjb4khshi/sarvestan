@@ -87,3 +87,18 @@ export function getLastSyncTimestamp(syncMeta) {
   } catch {}
   return null;
 }
+
+/**
+ * اصلاح حروف عربی (ی و ک) و تبدیل ارقام انگلیسی به فارسی در عناوین دروس
+ */
+export function toPersianCourseName(name) {
+  if (!name) return '';
+  return String(name)
+    .replace(/ي/g, 'ی')
+    .replace(/ك/g, 'ک')
+    .replace(/[\u200B-\u200D\uFEFF]/g, ' ')
+    .replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)])
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+

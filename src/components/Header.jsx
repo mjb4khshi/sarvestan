@@ -201,12 +201,17 @@ export default function Header({
                           isSelected ? 'bg-primary text-primary-content font-semibold' : 'hover:bg-base-500/50 text-base-content'
                         }`}
                       >
-                        <span className="flex items-center gap-2">
+                        <span className="flex items-center gap-2 min-w-0">
                           <span
-                            className="w-3 h-3 rounded-[4px] border border-black/10"
+                            className="w-3 h-3 rounded-[4px] border border-black/10 shrink-0"
                             style={{ backgroundColor: theme.primary }}
                           />
-                          {theme.persianName}
+                          <span className="truncate">{theme.persianName}</span>
+                          {theme.badge && (
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-rose-600 text-white shrink-0">
+                              {theme.badge}
+                            </span>
+                          )}
                         </span>
                         {isSelected && <Check className="w-3.5 h-3.5" />}
                       </button>

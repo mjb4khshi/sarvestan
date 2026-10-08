@@ -22,15 +22,20 @@ import {
   parseReport88Meta,
   parseReport428Exams,
   parseReport77,
+  parseReport284Curriculum,
   examsFromRegistration,
 } from './parsers';
 import {
   updatePart,
   setScheduleForTerm,
   setExamsForTerm,
+  enrichScheduleFromReport77,
+  enrichScheduleFromExams,
   mergeCourses,
   markSyncStatus,
+  getSnapshot,
 } from './store';
+import devDataset from '../../data/devDatasetLoader.js';
 
 const RP_BASE = () => ({
   ft: '0',
@@ -109,11 +114,15 @@ function mergeProfile(partial) {
   try {
     prev = JSON.parse(localStorage.getItem('sarvestan_live_profile') || 'null');
   } catch {}
+  const curSid = partial?.studentId || partial?.auwId || prev?.studentId || getStudentId();
+  const isDev = !curSid || curSid === devDataset?.profile?.studentId;
+  const fallback = isDev ? (devDataset?.profile || {}) : {};
+
   const clean = {};
   for (const [k, v] of Object.entries(partial || {})) {
     if (v !== undefined && v !== null && v !== '') clean[k] = v;
   }
-  updatePart({ profile: { ...(prev || {}), ...clean } });
+  updatePart({ profile: { ...fallback, ...(prev || {}), ...clean } });
 }
 
 /**
@@ -126,13 +135,14 @@ export function canSync() {
 
 /** گزارش ۸۸ — ثبت‌نام ترم جاری: برنامه + امتحانات + متادیتای دانشجو (AUW/نام/دانشکده) */
 export async function fetchRegistration88(term = null) {
-  const res = await fetchViewReport('88', term);
+  const activeTerm = term || '4051';
+  const res = await fetchViewReport('88', activeTerm);
   if (res?.error) return res;
   const meta = parseReport88Meta(res.outpar);
   if (meta) {
     mergeProfile({
       auwId: meta.auwId || undefined,
-      // شناسهٔ AUW همان شمارهٔ دانشجویی بهستان است (مثل 40417343) — جایگزین کد ملی (نام کاربری SSO)
+      // شناسهٔ AUW همان شمارهٔ دانشجویی بهستان است (مثل 40123456) — جایگزین کد ملی (نام کاربری SSO)
       studentId: meta.auwId || undefined,
       fullName: meta.fullName || undefined,
       faculty: meta.faculty || undefined,
@@ -142,7 +152,7 @@ export async function fetchRegistration88(term = null) {
     });
   }
   // امتحانات ترم جاری از C14 همین گزارش (۴۲۸ ترم جاری خالی است)
-  const ex = examsFromRegistration(res.courses || [], res.termId || term);
+  const ex = examsFromRegistration(res.courses || [], res.termId || activeTerm);
   if (ex.exams.length) setExamsForTerm(ex.termId, ex.exams);
   return { ...res, meta };
 }
@@ -357,6 +367,18 @@ export async function fetchViewReport(formCode, term) {
     if (parsed.courses.length) {
       setScheduleForTerm(parsed.termId || term || '4051', parsed.courses, '78');
     }
+    if (parsed.meta?.fullName) {
+      mergeProfile({
+        auwId: parsed.meta.auwId || undefined,
+        studentId: parsed.meta.studentId || undefined,
+        fullName: parsed.meta.fullName || undefined,
+        faculty: parsed.meta.faculty || undefined,
+        level: parsed.meta.level || undefined,
+        major: parsed.meta.major || undefined,
+        photo: parsed.meta.photo || undefined,
+        isLoggedIn: true,
+      });
+    }
     return { ...parsed, outpar };
   }
   if (String(formCode) === '88') {
@@ -369,17 +391,26 @@ export async function fetchViewReport(formCode, term) {
   if (String(formCode) === '428') {
     const parsed = parseReport428Exams(outpar, term);
     if (parsed.exams.length) {
-      setExamsForTerm(parsed.termId || term || '4051', parsed.exams);
+      const termKey = parsed.termId || term || '4051';
+      setExamsForTerm(termKey, parsed.exams);
+      enrichScheduleFromExams(termKey, parsed.exams);
     }
     return { ...parsed, outpar };
   }
+  if (String(formCode) === '284') {
+    // چارت درسی اختصاصی دانشجو (همهٔ رشته‌ها) — بدون هیچ هاردکد
+    const report = parseReport284Curriculum(outpar);
+    if (report) updatePart({ curriculumReport: report });
+    return { report, outpar };
+  }
   if (String(formCode) === '77') {
-    // فقط وضعیت دروس — هرگز برنامهٔ هفتگی را بازنویسی نکن
+    // وضعیت دروس، اساتید و لیست انتظار — غنی‌سازی برنامه هفتگی با نام استاد و واحد
     const parsed = parseReport77(outpar, term);
     if (parsed.courses.length) {
+      const termKey = parsed.termId || term || '4051';
       updatePart({
         reg77: {
-          termId: parsed.termId || term || '4051',
+          termId: termKey,
           byCode: Object.fromEntries(
             parsed.courses.map((c) => [
               String(c.code),
@@ -387,15 +418,20 @@ export async function fetchViewReport(formCode, term) {
                 regStatus: c.regStatus,
                 name: c.name,
                 units: c.units,
+                group: c.group,
+                professor: c.professor,
+                type: c.type,
                 statusRaw: c.statusRaw || '',
               },
             ]),
           ),
+          courses: parsed.courses,
           waitlistUnits: parsed.waitlistUnits,
           waitlistCount: parsed.waitlistCount,
           enrolledUnits: parsed.enrolledUnits,
         },
       });
+      enrichScheduleFromReport77(termKey, parsed.courses);
     }
     return { ...parsed, outpar };
   }

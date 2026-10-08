@@ -10,11 +10,12 @@ import {
   getTodayClasses,
   getLocalNotes,
 } from '../services/behestan/store.js';
-import { termIdToLabel, detectCurrentTermId } from '../services/behestan/parsers.js';
-import { toFaDigits as faDigits } from '../utils/faDigits.js';
-
-/** کل واحد مورد نیاز رشتهٔ مهندسی کامپیوتر (بر اساس دیتای کاربر) */
-const DEFAULT_TOTAL_CREDITS = 142;
+import { termIdToLabel, detectCurrentTermId, isProjectCourse, isInternshipCourse } from '../services/behestan/parsers.js';
+import { resolveTotalDegreeCredits, buildCurriculumState } from '../services/curriculumEngine.js';
+import { toFaDigits, toFaDigits as faDigits } from '../utils/faDigits.js';
+import { simplifyRoomName, formatRoomTag } from '../utils/roomUtils.js';
+import { getStudentId } from '../services/behestan/session.js';
+import devDataset from './devDatasetLoader.js';
 
 function faNum(n, digits = 0) {
   const x = Number(n);
@@ -68,17 +69,21 @@ function cleanCourseName(name) {
     .trim();
 }
 
-export function getToneForCourse(courseOrNameOrCode, allCourses = []) {
+export function getToneForCourse(courseOrNameOrCode, allCourses = null) {
   if (!courseOrNameOrCode) return COURSE_TONES[0];
   const raw = typeof courseOrNameOrCode === 'object' ? courseOrNameOrCode : { name: courseOrNameOrCode };
   if (raw.color) return raw.color;
 
+  const targetList = (Array.isArray(allCourses) && allCourses.length > 0)
+    ? allCourses
+    : (getCurrentTermSchedule() || []);
+
   const cCode = cleanCourseCode(raw.code);
   const cName = cleanCourseName(raw.name || raw.course || raw.title || '');
 
-  // تطبیق با ترتیب دروس ترم جاری تا رنگ درس در تمام بخش‌ها (جدول هفتگی، نمای روزانه، امتحانات) کاملاً یکسان باشد
-  if (Array.isArray(allCourses) && allCourses.length > 0) {
-    const matched = allCourses.find((sc) => {
+  // تطبیق با ترتیب دروس ترم جاری تا رنگ درس در تمام بخش‌ها (جدول هفتگی، پلنر، ابزارها، امتحانات) کاملاً یکسان باشد
+  if (Array.isArray(targetList) && targetList.length > 0) {
+    const matched = targetList.find((sc) => {
       const scCode = cleanCourseCode(sc.code);
       const scName = cleanCourseName(sc.name || sc.course || sc.title || '');
       if (cCode && scCode && cCode === scCode) return true;
@@ -86,9 +91,11 @@ export function getToneForCourse(courseOrNameOrCode, allCourses = []) {
       return false;
     });
     if (matched?.color) return matched.color;
-    const idx = allCourses.indexOf(matched);
-    if (idx >= 0) {
-      return COURSE_TONES[idx % COURSE_TONES.length];
+    if (matched) {
+      const idx = targetList.indexOf(matched);
+      if (idx >= 0) {
+        return COURSE_TONES[idx % COURSE_TONES.length];
+      }
     }
   }
 
@@ -256,7 +263,7 @@ function buildViewModel() {
       title: c.name,
       code: c.code ? faDigits(c.code) : '',
       time: c.time || c.classTimeRaw || 'ـ',
-      room: c.hall ? faDigits(c.hall) : 'ـ',
+      room: c.hall ? (formatRoomTag(c.hall) || faDigits(c.hall)) : 'ـ',
       professor: c.professor,
       units: c.units,
       status,
@@ -346,7 +353,7 @@ function buildViewModel() {
         title: first.name,
         code: first.code ? faDigits(first.code) : '',
         time: first.time || first.classTimeRaw || 'ـ',
-        room: first.hall ? faDigits(first.hall) : 'ـ',
+        room: first.hall ? (formatRoomTag(first.hall) || faDigits(first.hall)) : 'ـ',
         professor: first.professor,
         units: first.units,
         status: 'upcoming',
@@ -466,34 +473,35 @@ function buildViewModel() {
     })(),
   };
 
-  const fullName = profile.fullName || '';
+  const devProf = devDataset?.profile || {};
+  const currentSid = profile.studentId || profile.auwId || getStudentId() || '';
+  const isDevStudent = !currentSid || currentSid === devProf.studentId;
+
+  const fullName = profile.fullName || (isDevStudent ? devProf.fullName : '') || '';
+  const resolvedStudentId = currentSid || (isDevStudent ? devProf.studentId : '');
+  const college = profile.faculty || (isDevStudent ? devProf.faculty : '') || '';
+  const major = profile.major || (isDevStudent ? devProf.major : '') || '';
+  const level = profile.level || (isDevStudent ? devProf.level : '') || '';
+  const term = profile.term || (isDevStudent ? devProf.term : '') || '';
+  const photo = profile.photo || (isDevStudent ? devProf.photo : null);
 
   // واحد اخذشدهٔ ترم جاری: فقط دروس ثبت‌شده — حذف اضطراری و در انتظار حساب نمی‌شوند
   const curriculum = getCurriculumView();
-  const scheduleUnits = allCourses.reduce((s, c) => s + (parseNum(c.units ?? c.unit) || 0), 0);
+  const scheduleUnits = allCourses.reduce(
+    (s, c) => s + (parseNum(c.units ?? c.unit) || (isProjectCourse(c.name || c.title) ? 3 : isInternshipCourse(c.name || c.title) ? 2 : 0)),
+    0
+  );
 
-  // واحد اخذشدهٔ ترم جاری: دقیقاً هماهنگ با متد معتبر چارت (بدون دروس حذف/انتظار و بدون تکرار کد درس)
-  let enrolledUnits = curriculum?.enrolledCredits;
-  if (enrolledUnits == null || enrolledUnits <= 0) {
-    const byCode = new Map();
-    for (const c of (snap.courses || [])) {
-      if (!c?.code) continue;
-      const prev = byCode.get(String(c.code));
-      if (!prev || String(c.termId || '') >= String(prev.termId || '')) {
-        byCode.set(String(c.code), {
-          ...c,
-          units: parseNum(c.units ?? c.unit) || 0,
-        });
-      }
-    }
-    const currentTermCourses = [...byCode.values()].filter((c) => {
-      if (c.termId && c.termId !== currentTerm && !c.isRegistration) return false;
-      const st = courseState(c, currentTerm);
-      return st === 'enrolled';
-    });
-    const calcUnits = currentTermCourses.reduce((s, c) => s + (parseNum(c.units ?? c.unit) || 0), 0);
-    enrolledUnits = calcUnits > 0 ? calcUnits : (scheduleUnits > 0 ? scheduleUnits : (parseNum(sum.credits) || 0));
-  }
+  const liveTerms = buildTermsFromLive(snap);
+  const activeTermUnits = Number(liveTerms[0]?.totalUnits) || 0;
+
+  // واحد اخذشدهٔ ترم جاری: جامع‌ترین و دقیق‌ترین مقدار ممکن از تمامی منابع
+  let enrolledUnits = Math.max(
+    scheduleUnits,
+    curriculum?.enrolledCredits || 0,
+    activeTermUnits,
+    parseNum(sum.credits) || 0
+  );
 
   const droppedCourses = (snap.courses || []).filter(
     (c) => c.termId === currentTerm && courseState(c) === 'dropped',
@@ -506,17 +514,19 @@ function buildViewModel() {
     live: true,
     student: {
       fullName,
-      studentId: profile.studentId ? faDigits(profile.studentId) : '',
-      college: profile.faculty || '',
-      major: profile.major || '',
-      level: profile.level || '',
-      term: profile.term || '',
+      studentId: resolvedStudentId ? faDigits(resolvedStudentId) : '',
+      college,
+      major,
+      level,
+      term,
       greeting: fullName ? `سلام ${fullName.split(' ')[0]}` : 'سلام',
-      photo: profile.photo || null,
+      photo,
     },
     summary: {
       gpa: sum.gpa && sum.gpa !== 'ـ' ? faDigits(sum.gpa) : 'ـ',
       credits: faNum(enrolledUnits || 0),
+      rawCredits: Number(enrolledUnits) || 0,
+      enrolledCredits: Number(enrolledUnits) || 0,
       unpaid: faNum(sum.unpaidRial != null ? sum.unpaid : 0),
       unpaidRial: sum.unpaidRial || 0,
       debtToman: fin?.totalDebtToman ?? (sum.unpaidRial ? Math.floor(sum.unpaidRial / 10) : 0),
@@ -546,9 +556,12 @@ function buildViewModel() {
     localNotes,
     grades,
     finance,
-    scheduleCourses: allCourses,
+    scheduleCourses: allCourses.map((c, i) => ({
+      ...c,
+      color: c.color || getToneForCourse(c, allCourses),
+    })),
     profile,
-    termsData: buildTermsFromLive(snap),
+    termsData: liveTerms,
     curriculum,
     exams: getExamsView(),
     nextClass,
@@ -600,134 +613,91 @@ function courseState(c, activeTermId = '4051') {
 }
 
 /**
- * چارت و وضعیت دروس
- * - total: F1814 یا totalUnitsRequired یا حداقل max(known, 142)
- * - هرگز total از passed کمتر نمی‌شود
+ * چارت و نقشه راه تحصیلی
+ * محاسبه کاملاً پویا برای تمامی رشته‌ها بر اساس دیتای بهستان بدون هرگونه هاردکد
  */
 export function getCurriculumView() {
   if (!hasLiveData()) return null;
   const snap = getSnapshot();
-  const all = snap.courses || [];
-  if (!all.length) return null;
+  const currentTerm = detectCurrentTermId(snap?.courses || []) || '4051';
+  const scheduleCourses = getCurrentTermSchedule(currentTerm) || [];
 
-  const byCode = new Map();
-  for (const c of all) {
-    if (!c?.code) continue;
-    const prev = byCode.get(String(c.code));
-    if (!prev || String(c.termId || '') >= String(prev.termId || '')) {
-      byCode.set(String(c.code), {
-        ...c,
-        type: normalizeType(c.type),
-        units: parseNum(c.units) || 0,
+  const all = [...(snap.courses || [])];
+
+  // ادغام دروس ثبت‌نام‌شدهٔ ترم جاری از برنامه هفتگی (گزارش ۷۸ و ۸۸) با کارنامه
+  for (const sc of scheduleCourses) {
+    if (!sc) continue;
+    const scCode = cleanCourseCode(sc.code);
+    const scName = cleanCourseName(sc.name || sc.course || sc.title || '');
+
+    const existing = all.find((c) => {
+      const cCode = cleanCourseCode(c.code);
+      const cName = cleanCourseName(c.name || c.title || '');
+      const matchTerm = !c.termId || c.termId === currentTerm;
+      const matchIdentity = (scCode && cCode && scCode === cCode) || (scName && cName && scName === cName);
+      return matchTerm && matchIdentity;
+    });
+
+    if (existing) {
+      if (!existing.grade && !existing.isPassed) {
+        existing.isRegistration = true;
+        existing.regStatus = existing.regStatus || 'registered';
+        existing.onSchedule = true;
+      }
+    } else {
+      all.push({
+        ...sc,
+        termId: currentTerm,
+        isRegistration: true,
+        regStatus: 'registered',
+        status: 'در حال اخذ',
+        onSchedule: true,
       });
     }
   }
-  const list = [...byCode.values()];
 
-  const colors = ['accent', 'primary', 'info', 'secondary', 'success', 'warn'];
-  const groups = new Map();
-  for (const c of list) {
-    if (!groups.has(c.type)) groups.set(c.type, []);
-    groups.get(c.type).push(c);
-  }
+  if (!all.length) return null;
 
-  const categories = [...groups.entries()].map(([title, cs], i) => {
-    const courses = cs.map((c) => ({
-      name: c.name,
-      unit: c.units,
-      status: courseState(c),
-      grade:
-        courseState(c) === 'passed' && c.grade && c.grade !== 'ـ'
-          ? faDigits(String(c.grade))
-          : 'جاری',
-    }));
-    return {
-      id: `t${i}`,
-      title,
-      color: colors[i % colors.length],
-      passed: courses
-        .filter((x) => x.status === 'passed')
-        .reduce((s, x) => s + (x.unit || 0), 0),
-      // واحد چارت: دروس حذف/انتظار را در «کل» نیاور — فقط ثبت‌شده + پاس‌شده + مانده از قبل
-      total: cs
-        .filter((c) => {
-          const st = courseState(c);
-          return st !== 'dropped' && st !== 'waitlist';
-        })
-        .reduce((s, c) => s + (c.units || 0), 0),
-      courses: courses.map((x, xi) => ({
-        ...x,
-        badge:
-          x.status === 'dropped'
-            ? 'حذف اضطراری'
-            : x.status === 'waitlist'
-              ? 'در انتظار'
-              : x.status === 'enrolled'
-                ? 'در حال اخذ'
-                : x.status === 'passed'
-                  ? 'پاس شده'
-                  : x.status === 'failed'
-                    ? 'مردود'
-                    : '',
-      })),
-    };
-  });
-
-  const calcPassed = categories.reduce((s, c) => s + c.passed, 0);
-  const profilePassed = Number(snap.profile?.totalUnitsPassed) || 0;
-  // اولویت با واحدهای محاسبه‌شدهٔ کارنامه چارت بدون دروس حذف و انتظار؛ در غیر این صورت مقدار رسمی پروفایل
-  const passedCredits = calcPassed > 0 ? calcPassed : profilePassed;
-
-  const currentTerm = detectCurrentTermId(all) || '4051';
-
-  // واحد اخذشدهٔ ترم جاری: فقط enrolled — حذف و انتظار حساب نمی‌شوند
-  const enrolledCredits = list
-    .filter((c) => {
-      if (c.termId !== currentTerm && !c.isRegistration) return false;
-      const st = courseState(c);
-      return st === 'enrolled';
-    })
-    .reduce((s, c) => s + (c.units || 0), 0);
-
-  // F1814 byType ممکن است فقط واحدهای «اخذشده» باشد (≈passed) نه کل چارت
-  // پس statsTotal کوچک را به‌عنوان کل چارت قبول نکن
-  const statsTotal = (snap.curriculumStats?.byType || []).reduce(
-    (s, x) => s + (Number(x.units) || parseNum(x.units) || 0),
-    0,
-  );
-  const knownTotal = categories.reduce((s, c) => s + c.total, 0);
-  const required = Number(snap.profile?.totalUnitsRequired) || 0;
-
-  // کل چارت: حداقل ۱۴۲ (مهندسی کامپیوتر) یا required/F1814 اگر واقعاً کل هستند
-  const CHART_MIN = DEFAULT_TOTAL_CREDITS; // 142
-  let totalCredits = Math.max(CHART_MIN, passedCredits + enrolledCredits, knownTotal);
-  if (required >= CHART_MIN && required >= passedCredits) {
-    totalCredits = required;
-  } else if (statsTotal >= CHART_MIN && statsTotal >= passedCredits) {
-    totalCredits = statsTotal;
-  }
-
-  // هرگز total از passed+enrolled کمتر نشود
-  if (totalCredits < passedCredits + enrolledCredits) {
-    totalCredits = Math.max(CHART_MIN, passedCredits + enrolledCredits);
-  }
-
-  const remainingCredits = Math.max(0, totalCredits - passedCredits - enrolledCredits);
-
-  return {
-    passedCredits,
-    enrolledCredits,
-    totalCredits,
-    remainingCredits,
-    categories,
-  };
+  return buildCurriculumState(all, snap.profile, snap.curriculumStats, snap.curriculumReport);
 }
 
 function buildTermsFromLive(snap) {
-  const courses = snap.courses || [];
+  const currentTerm = detectCurrentTermId(snap?.courses || []) || '4051';
+  const scheduleCourses = getCurrentTermSchedule(currentTerm) || [];
+
+  const allCourses = [...(snap.courses || [])];
+
+  // ادغام دروس برنامه جاری در کارنامه برای اطمینان از حضور دروس بدون نمره مانند پروژه و کارآموزی
+  for (const sc of scheduleCourses) {
+    if (!sc) continue;
+    const scCode = cleanCourseCode(sc.code);
+    const scName = cleanCourseName(sc.name || sc.course || sc.title || '');
+
+    const existing = allCourses.find((c) => {
+      const matchTerm = !c.termId || c.termId === currentTerm;
+      const cCode = cleanCourseCode(c.code);
+      const cName = cleanCourseName(c.name || c.title || '');
+      return matchTerm && ((scCode && cCode && scCode === cCode) || (scName && cName && scName === cName));
+    });
+
+    if (existing) {
+      if (!existing.units || Number(existing.units) === 0) {
+        existing.units = sc.units || (isProjectCourse(sc.name) ? 3 : isInternshipCourse(sc.name) ? 2 : 0);
+      }
+    } else {
+      allCourses.push({
+        ...sc,
+        termId: currentTerm,
+        units: sc.units || (isProjectCourse(sc.name) ? 3 : isInternshipCourse(sc.name) ? 2 : 0),
+        status: 'در حال اخذ',
+        regStatus: 'registered',
+      });
+    }
+  }
+
   const transMap = new Map((snap.transcripts || []).map((t) => [String(t.termId), t]));
   const byTerm = new Map();
-  for (const c of courses) {
+  for (const c of allCourses) {
     const tid = c.termId || 'unknown';
     if (!byTerm.has(tid)) byTerm.set(tid, []);
     byTerm.get(tid).push(c);
@@ -757,12 +727,14 @@ function buildTermsFromLive(snap) {
         ? tr.passedUnits
         : scored.reduce((s, c) => s + (c.units || 0), 0);
 
+    const calculatedTotal = list
+      .filter((c) => courseState(c) !== 'dropped' && courseState(c) !== 'waitlist')
+      .reduce((s, c) => s + (c.units || (isProjectCourse(c.name) ? 3 : isInternshipCourse(c.name) ? 2 : 0)), 0);
+
     const totalUnits =
-      tr?.registeredUnits != null
-        ? tr.registeredUnits
-        : list
-            .filter((c) => courseState(c) !== 'dropped' && courseState(c) !== 'waitlist')
-            .reduce((s, c) => s + (c.units || 0), 0);
+      ti === 0
+        ? Math.max(tr?.registeredUnits || 0, calculatedTotal)
+        : (tr?.registeredUnits != null ? tr.registeredUnits : calculatedTotal);
 
     return {
       id: tid,
@@ -828,7 +800,7 @@ function buildTermsFromLive(snap) {
           id: c.code || c.id || `c${i}`,
           code: c.code ? faDigits(c.code) : String(i + 1),
           course: c.name,
-          unit: c.units || 0,
+          unit: c.units || (isProjectCourse(c.name) ? 3 : isInternshipCourse(c.name) ? 2 : 0),
           score: raw,
           displayScore,
           status,
@@ -968,7 +940,7 @@ export function getScheduleMatrix() {
         id: c.id || c.code || `course_${ci}`,
         code: c.code,
         title: c.name || c.title || 'درس',
-        room: s.hall || c.hall || 'ـ',
+        room: formatRoomTag(s.hall || c.hall) || s.hall || c.hall || 'ـ',
         professor: c.professor || 'ـ',
         time: s.time || c.time || '',
         color: c.color || tone,
@@ -1071,17 +1043,33 @@ function toLatinDigits(s) {
 
 export function getExamsView() {
   try {
-    if (!hasLiveData()) return [];
     const snap = getSnapshot();
-    const currentTerm = detectCurrentTermId(snap.courses || []) || '4051';
+    if (!snap) return [];
+    const currentTerm = (snap.courses && detectCurrentTermId(snap.courses)) || '4051';
     const allCourses = getCurrentTermSchedule(currentTerm) || [];
     const examsMap = snap.exams || {};
-    const list =
+
+    const targetList =
+      (Array.isArray(examsMap[currentTerm]) && examsMap[currentTerm].length ? examsMap[currentTerm] : null) ||
       (Array.isArray(examsMap['4051']) && examsMap['4051'].length ? examsMap['4051'] : null) ||
       (Array.isArray(examsMap['4042']) && examsMap['4042'].length ? examsMap['4042'] : null) ||
-      Object.values(examsMap)
-        .filter((x) => Array.isArray(x))
-        .flat();
+      [];
+
+    // ادغام امتحانات ثبت‌شده یا ویرایش‌شده توسط کاربر
+    const allExamsEntries = Object.values(examsMap).filter(Array.isArray).flat();
+    const customExams = allExamsEntries.filter((e) => e && (e.customAdded || e.customEdited));
+
+    const combinedList = [...targetList];
+    for (const ce of customExams) {
+      const exists = combinedList.some(
+        (x) => x && (x.id === ce.id || (x.code && ce.code && String(x.code) === String(ce.code)))
+      );
+      if (!exists) {
+        combinedList.push(ce);
+      }
+    }
+
+    const list = combinedList.length > 0 ? combinedList : allExamsEntries;
     if (!Array.isArray(list) || !list.length) return [];
 
     const today = new Date();
@@ -1091,14 +1079,24 @@ export function getExamsView() {
       .filter((e) => e && typeof e === 'object')
       .map((e, idx) => {
         const latin = toLatinDigits(e.examDate || '');
-        const dm = latin.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
-        let daysLeft = null;
-        if (dm) {
-          const d = jalaliToDate(parseInt(dm[1], 10), parseInt(dm[2], 10), parseInt(dm[3], 10));
-          if (d && !isNaN(d)) daysLeft = Math.round((d - today) / 86400000);
-        }
+        const dm = latin.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+        if (!dm) return null;
+
+        const jy = parseInt(dm[1], 10);
+        const jm = parseInt(dm[2], 10);
+        const jd = parseInt(dm[3], 10);
+        const d = jalaliToDate(jy, jm, jd);
+        if (!d || isNaN(d)) return null;
+
+        const daysLeft = Math.round((d - today) / 86400000);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const isoDate = `${y}-${m}-${day}`;
+        const jalaliParts = { year: jy, month: jm, day: jd };
+
         return {
-          id: e.id || e.code || Math.random(),
+          id: e.id || e.code || `exam_${idx}`,
           course: e.name || e.course || '',
           code: e.code ? faDigits(e.code) : '',
           unit: e.units || e.unit || 0,
@@ -1106,16 +1104,25 @@ export function getExamsView() {
           day: e.day || '',
           examDate: e.examDate || 'ـ',
           examTime: e.examTime || 'ـ',
-          room: e.hall || e.room || 'ـ',
+          room: formatRoomTag(e.hall || e.room) || e.hall || e.room || 'ـ',
           seat: e.chairNumber || e.seatNumber ? faDigits(e.chairNumber || e.seatNumber) : '—',
-          daysLeft: daysLeft ?? 0,
+          daysLeft,
           color: getToneForCourse(e, allCourses),
-          isUrgent: daysLeft != null && daysLeft <= 7,
-          isCritical: daysLeft != null && daysLeft <= 3,
+          isUrgent: daysLeft >= 0 && daysLeft <= 7,
+          isCritical: daysLeft >= 0 && daysLeft <= 3,
+          jalaliParts,
+          isoDate,
         };
       })
-      .filter((e) => e.course)
-      .sort((a, b) => (a.daysLeft ?? 0) - (b.daysLeft ?? 0));
+      .filter((e) => Boolean(e && e.course && e.daysLeft !== null && e.isoDate))
+      .sort((a, b) => {
+        const aUpcoming = a.daysLeft >= 0;
+        const bUpcoming = b.daysLeft >= 0;
+        if (aUpcoming && !bUpcoming) return -1;
+        if (!aUpcoming && bUpcoming) return 1;
+        if (aUpcoming && bUpcoming) return a.daysLeft - b.daysLeft;
+        return b.daysLeft - a.daysLeft;
+      });
   } catch (e) {
     console.warn('[getExamsView]', e);
     return [];

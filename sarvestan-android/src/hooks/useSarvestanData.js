@@ -7,6 +7,7 @@ import {
   getCurrentTermSchedule,
   markSyncStatus,
   clearLiveData,
+  loadDevDataset,
 } from '../services/behestan/store';
 import { detectCurrentTermId } from '../services/behestan/parsers';
 import {
@@ -107,5 +108,6 @@ export function useSarvestanData() {
     hardResetSession,
     adapter,
     isSessionAlive: isSessionAlive(),
+    loadDevDataset,
   };
 }

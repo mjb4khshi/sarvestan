@@ -11,10 +11,10 @@ android {
     namespace "ir.mjbakhshi.sarvestan"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "ir.mjbakhshi.sarvestan"
+        applicationId "ir.mjb4khshi.sarvestan.kntu"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 5
+        versionCode 7
         versionName "1.1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

@@ -1,6 +1,6 @@
 # Pack extension for testers and release - dist only
 $ErrorActionPreference = 'Stop'
-$root = 'W:\sarv dashboard'
+$root = Split-Path -Parent $PSScriptRoot
 $dist = Join-Path $root 'dist'
 $out = Join-Path $root 'sarvestan-extension.zip'
 $manifest = Join-Path $dist 'manifest.json'

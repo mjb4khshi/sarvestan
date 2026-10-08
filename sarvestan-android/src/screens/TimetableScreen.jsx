@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Clock, MapPin, Table2 } from 'lucide-react';
 import { getScheduleMatrix } from '../data/viewModel';
+import { formatRoomTag } from '../utils/roomUtils';
 
 const cellTone = {
   primary: 'color-wash-primary text-primary border-primary/35',
@@ -36,16 +37,16 @@ export default function TimetableScreen() {
           aria-label="جدول برنامه هفتگی"
         >
           <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <table className="w-full text-center border-collapse min-w-[720px]">
+            <table className="w-full text-center border-collapse min-w-[640px] table-fixed">
               <thead>
                 <tr className="bg-base-500/30">
-                  <th className="sticky right-0 z-10 bg-base-500/70 backdrop-blur px-2 py-3 text-[11px] font-bold text-neutral min-w-[72px] border-b border-base-500/50">
+                  <th className="sticky right-0 z-10 bg-base-500/70 backdrop-blur px-2 py-3 text-[11px] font-bold text-neutral w-[74px] min-w-[74px] max-w-[74px] border-b border-base-500/50">
                     ساعت
                   </th>
                   {days.map((d) => (
                     <th
                       key={d}
-                      className="px-2 py-3 text-[12px] font-bold text-base-content border-b border-base-500/50 min-w-[120px]"
+                      className="px-2 py-3 text-[12px] font-bold text-base-content border-b border-base-500/50 min-w-[105px] max-w-[135px] w-[115px]"
                     >
                       {d}
                     </th>
@@ -69,7 +70,7 @@ export default function TimetableScreen() {
                       }
                       const items = Array.isArray(cell.items) && cell.items.length ? cell.items : [cell];
                       return (
-                        <td key={di} className="p-1.5 border-b border-base-500/25 align-top min-w-[110px]">
+                        <td key={di} className="p-1.5 border-b border-base-500/25 align-top min-w-[105px] max-w-[135px] w-[115px]">
                           <div className="space-y-1.5">
                             {items.map((item, idx) => (
                               <div
@@ -81,9 +82,9 @@ export default function TimetableScreen() {
                                 <p className="text-[11px] font-bold leading-tight text-base-content line-clamp-2">
                                   {item.title}
                                 </p>
-                                <p className="text-[10px] text-neutral mt-1 flex items-center gap-1">
+                                <p className="text-[10px] text-neutral mt-1 flex items-center gap-1 min-w-0" title={item.room}>
                                   <MapPin className="w-3 h-3 shrink-0" />
-                                  <span className="truncate">{item.room}</span>
+                                  <span className="truncate">{formatRoomTag(item.room) || item.room}</span>
                                 </p>
                                 <p className="text-[9px] text-neutral/90 truncate">{item.professor}</p>
                               </div>

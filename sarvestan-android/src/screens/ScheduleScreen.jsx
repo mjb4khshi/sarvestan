@@ -40,6 +40,8 @@ import {
 import { isNativeAlarms, hasClassAlarmPlugin, exportExamToCalendar, syncCurrentDndState } from '../services/classAlarms';
 import { getScheduleMatrix, getExamsView, parseClassTime, getToneForCourse } from '../data/viewModel';
 import { toFaDigits } from '../utils/faDigits';
+import { formatRoomTag } from '../utils/roomUtils';
+import { isProjectCourse } from '../services/behestan/parsers';
 import ClassAlarmModal from '../components/ClassAlarmModal';
 import CourseEditModal from '../components/CourseEditModal';
 import ExamEditModal from '../components/ExamEditModal';
@@ -577,6 +579,43 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                 </button>
               );
             })}
+
+            {(() => {
+              const allSchedNow = getCurrentTermSchedule() || [];
+              const unsched = allSchedNow.filter((c) => {
+                const sList = c.daySlots || [];
+                return !sList.length && (!Array.isArray(c.days) || !c.days.length);
+              });
+              if (!unsched.length) return null;
+              const isSelected = selectedDayIndex === 'unscheduled';
+              return (
+                <button
+                  type="button"
+                  onClick={() => setSelectedDayIndex(isSelected ? null : 'unscheduled')}
+                  className={`relative px-3 py-1.5 rounded-xl text-[11px] whitespace-nowrap flex items-center gap-1.5 transition-colors select-none cursor-pointer shrink-0 ${
+                    isSelected
+                      ? 'text-primary-content font-bold'
+                      : 'text-neutral hover:text-base-content font-medium'
+                  }`}
+                >
+                  {isSelected && (
+                    <motion.span
+                      layoutId="dayActivePill"
+                      className="absolute inset-0 bg-primary rounded-xl z-0 shadow-sm"
+                      transition={{ type: 'tween', duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
+                    />
+                  )}
+                  <span className="relative z-10">پروژه و سایر</span>
+                  <span
+                    className={`relative z-10 w-4 h-4 rounded-full text-[9px] grid place-items-center font-mono ${
+                      isSelected ? 'bg-black/25 text-white' : 'bg-base-500/50 text-neutral'
+                    }`}
+                  >
+                    {toFaDigits(unsched.length)}
+                  </span>
+                </button>
+              );
+            })()}
             </div>
           </div>
 
@@ -595,10 +634,11 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                 .map((c) => {
                   const specificSlot = (c.daySlots || []).find((s) => s.day === day);
                   const time = specificSlot?.time || c.time || c.classTimeRaw || '';
-                  const room =
+                  const rawRoom =
                     specificSlot?.hall && specificSlot.hall !== 'ـ'
                       ? specificSlot.hall
                       : c.hall || 'ـ';
+                  const room = formatRoomTag(rawRoom) || rawRoom;
                   return {
                     id: c.id || c.code,
                     code: c.code,
@@ -741,15 +781,16 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                                 {toFaDigits(c.time || '—')}
                               </span>
                             </div>
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 min-w-0 max-w-[65%]">
                               <span
                                 style={isHex ? { backgroundColor: `${c.color}22`, color: c.color } : undefined}
-                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-bold border-0 ${
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-bold border-0 truncate max-w-full ${
                                   isHex ? '' : (softBadgeTone[c.color] || 'bg-primary-soft text-primary')
                                 }`}
+                                title={c.room || '—'}
                               >
                                 <MapPin className="w-3 h-3 shrink-0" />
-                                <span>{toFaDigits(c.room || '—')}</span>
+                                <span className="truncate">{formatRoomTag(c.room) || toFaDigits(c.room || '—')}</span>
                               </span>
                             </div>
                           </div>
@@ -760,6 +801,90 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                 </section>
               );
             })}
+
+            {/* بخش دروس بدون ساعت هفتگی (پروژه، کارآموزی و ...) */}
+            {(() => {
+              const allSchedNow = getCurrentTermSchedule() || [];
+              const unsched = allSchedNow.filter((c) => {
+                const sList = c.daySlots || [];
+                return !sList.length && (!Array.isArray(c.days) || !c.days.length);
+              });
+              if (!unsched.length) return null;
+              if (selectedDayIndex !== null && selectedDayIndex !== 'unscheduled') return null;
+
+              return (
+                <section className="space-y-2.5 pt-2">
+                  <div className="flex items-center justify-between px-1">
+                    <h3 className="text-[13px] font-bold text-accent flex items-center gap-1.5">
+                      <GraduationCap className="w-4 h-4 text-accent" />
+                      دروس بدون جلسه هفتگی ({toFaDigits(unsched.length)})
+                    </h3>
+                    <span className="text-[11px] text-neutral">
+                      پروژه، کارآموزی یا فاقد ساعت هفتگی
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {unsched.map((c, ci) => {
+                      const units = c.units || (isProjectCourse(c.name || c.title) ? 3 : 2);
+                      return (
+                        <article
+                          key={`unsched-${c.id || c.code || ci}`}
+                          className="sarv-card p-4 border-r-4 border-r-accent hover:border-accent/60 transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-[14px] font-bold text-base-content truncate">
+                                  {c.name || c.title || 'درس'}
+                                </h4>
+                                <span className="px-2 py-0.5 rounded-full bg-accent-soft text-accent text-[10px] font-bold shrink-0">
+                                  {toFaDigits(units)} واحد
+                                </span>
+                              </div>
+                              <div className="mt-1 flex items-center gap-2 text-[11.5px] text-neutral">
+                                <span className="flex items-center gap-1">
+                                  <User className="w-3 h-3 text-accent/70" />
+                                  {c.professor && c.professor !== 'ـ' ? c.professor : 'استاد راهنما / تعیین‌نشده'}
+                                </span>
+                                {c.code && (
+                                  <>
+                                    <span className="opacity-40">·</span>
+                                    <span className="font-mono text-[10.5px]">کد {toFaDigits(c.code)}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditCourse(c.course || c)}
+                              className="p-1.5 rounded-lg bg-base-500/20 hover:bg-base-500/35 text-neutral hover:text-base-content transition active:scale-90 cursor-pointer"
+                              title="ویرایش این درس"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <div className="mt-3 pt-2.5 border-t border-base-500/30 flex items-center justify-between text-[11.5px] text-base-content/90">
+                            <div className="flex items-center gap-1.5 text-neutral font-medium">
+                              <Info className="w-3.5 h-3.5 text-accent" />
+                              <span>جلسه هفتگی کلاسی ندارد (هماهنگی با استاد)</span>
+                            </div>
+                            {c.examDate && c.examDate !== 'ـ' && (
+                              <div className="flex items-center gap-1 text-neutral text-[10.5px]">
+                                <CalendarDays className="w-3.5 h-3.5 text-accent" />
+                                <span>دفاع/امتحان: {toFaDigits(c.examDate)}</span>
+                              </div>
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              );
+            })()}
           </div>
         </motion.div>
       )}
@@ -786,16 +911,16 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
           {/* محفظه اسکرول جدول */}
           <div className="sarv-card overflow-hidden shadow-sm">
             <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
-              <table className="w-full text-center border-collapse min-w-[680px]">
+              <table className="w-full text-center border-collapse min-w-[640px] table-fixed">
                 <thead>
                   <tr className="bg-base-500/25 border-b border-base-500/40">
-                    <th className="sticky right-0 z-20 bg-base/95 backdrop-blur-md px-2.5 py-3 text-[11px] font-bold text-neutral min-w-[78px] border-b border-base-500/40 shadow-[2px_0_6px_-2px_rgba(0,0,0,0.2)]">
+                    <th className="sticky right-0 z-20 bg-base/95 backdrop-blur-md px-2 py-3 text-[11px] font-bold text-neutral w-[74px] min-w-[74px] max-w-[74px] border-b border-base-500/40 shadow-[2px_0_6px_-2px_rgba(0,0,0,0.2)]">
                       ساعت
                     </th>
                     {days.map((d) => (
                       <th
                         key={d}
-                        className="px-2 py-3 text-[12px] font-bold text-base-content min-w-[115px]"
+                        className="px-2 py-3 text-[12px] font-bold text-base-content min-w-[105px] max-w-[135px] w-[115px]"
                       >
                         {d}
                       </th>
@@ -825,7 +950,7 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                         const hasConflict = items.length > 1;
 
                         return (
-                          <td key={di} className="p-1 align-top min-w-[110px]">
+                          <td key={di} className="p-1 align-top min-w-[105px] max-w-[135px] w-[115px]">
                             {hasConflict && (
                               <div className="mb-1.5 px-2 py-0.5 rounded-lg bg-danger/15 border border-danger/30 text-[9.5px] font-bold text-danger flex items-center justify-between">
                                 <span>⚠️ تداخل ({toFaDigits(items.length)})</span>
@@ -848,9 +973,9 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                                       {item.title}
                                     </p>
                                     <div className="mt-1 flex items-center justify-between gap-1 text-[10px] opacity-85">
-                                      <span className="flex items-center gap-1 truncate">
+                                      <span className="flex items-center gap-1 min-w-0 flex-1 truncate" title={item.room}>
                                         <MapPin className="w-2.5 h-2.5 shrink-0" />
-                                        <span className="truncate">{toFaDigits(item.room)}</span>
+                                        <span className="truncate">{formatRoomTag(item.room) || toFaDigits(item.room)}</span>
                                       </span>
                                       {(item.course?.absences > 0 || item.absences > 0) && (
                                         <span
@@ -899,32 +1024,56 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
           className="space-y-3.5"
         >
           {/* کارت وضعیت کلی امتحانات — فقط اگر دیتا باشد */}
-          {EXAMS_DATA.length > 0 && EXAMS_DATA[0] && (
-          <div className="sarv-card p-4 border border-primary-soft bg-primary-soft/40">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <span className="w-9 h-9 rounded-xl bg-primary text-primary-content grid place-items-center shadow-sm">
-                  <Timer className="w-5 h-5" />
-                </span>
-                <div>
-                  <h3 className="text-[13.5px] font-bold text-base-content">روزشمار امتحانات پایان‌ترم</h3>
-                  <p className="text-[11px] text-neutral">
-                    اولین امتحان: {EXAMS_DATA[0].course || '—'} ({toFaDigits(EXAMS_DATA[0].daysLeft ?? 0)} روز دیگر)
-                  </p>
+          {(() => {
+            if (EXAMS_DATA.length === 0) return null;
+            const nextExam = EXAMS_DATA.find((e) => e.daysLeft >= 0);
+            if (!nextExam) {
+              return (
+                <div className="sarv-card p-4 border border-base-500/30 bg-base-500/10">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-9 h-9 rounded-xl bg-base-500/20 text-neutral grid place-items-center shadow-sm">
+                        <Timer className="w-5 h-5" />
+                      </span>
+                      <div>
+                        <h3 className="text-[13.5px] font-bold text-base-content">روزشمار امتحانات پایان‌ترم</h3>
+                        <p className="text-[11px] text-neutral">تمامی امتحانات ثبت‌شده این دوره برگزار شده‌اند.</p>
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-black px-2.5 py-1 rounded-xl bg-base-500/20 text-neutral font-mono">
+                      پایان امتحانات
+                    </span>
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <div className="sarv-card p-4 border border-primary-soft bg-primary-soft/40">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-9 h-9 rounded-xl bg-primary text-primary-content grid place-items-center shadow-sm">
+                      <Timer className="w-5 h-5" />
+                    </span>
+                    <div>
+                      <h3 className="text-[13.5px] font-bold text-base-content">روزشمار امتحانات پایان‌ترم</h3>
+                      <p className="text-[11px] text-neutral">
+                        امتحان بعدی: {nextExam.course || '—'} ({nextExam.daysLeft === 0 ? 'امروز!' : `${toFaDigits(nextExam.daysLeft)} روز دیگر`})
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-black px-2.5 py-1 rounded-xl bg-primary text-primary-content font-mono shadow-sm">
+                    {nextExam.daysLeft === 0 ? 'امروز' : `${toFaDigits(nextExam.daysLeft)} روز مانده`}
+                  </span>
                 </div>
               </div>
-              <span className="text-[11px] font-black px-2.5 py-1 rounded-xl bg-primary text-primary-content font-mono shadow-sm">
-                {toFaDigits(EXAMS_DATA[0].daysLeft ?? 0)} روز مانده
-              </span>
-            </div>
-          </div>
-          )}
+            );
+          })()}
 
           {EXAMS_DATA.length === 0 && (
             <div className="sarv-card p-6 text-center">
               <p className="text-[13px] font-bold text-base-content">امتحانی ثبت نشده</p>
               <p className="text-[12px] text-neutral mt-1">
-                بعد از همگام‌سازی، روزشمار امتحانات اینجا می‌آید.
+                دروسی که تاریخ امتحان ندارند (مانند پروژه و آزمایشگاه) اینجا نمایش داده نمی‌شوند.
               </p>
             </div>
           )}
@@ -977,7 +1126,9 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                       </button>
                       <span
                         className={`text-[10.5px] font-black px-2.5 py-1 rounded-xl font-mono flex items-center gap-1 shadow-xs ${
-                          exam.isCritical
+                          exam.daysLeft < 0
+                            ? 'bg-base-500/20 text-neutral border border-base-500/30'
+                            : exam.isCritical
                             ? 'bg-danger-soft text-danger border border-danger/25'
                             : exam.isUrgent
                             ? 'bg-warn-soft text-warn border border-warn/25'
@@ -985,7 +1136,11 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                         }`}
                       >
                         <Clock className="w-3 h-3" />
-                        {toFaDigits(exam.daysLeft)} روز مانده
+                        {exam.daysLeft < 0
+                          ? 'برگزار شده'
+                          : exam.daysLeft === 0
+                          ? 'امروز'
+                          : `${toFaDigits(exam.daysLeft)} روز مانده`}
                       </span>
                     </div>
                   </div>

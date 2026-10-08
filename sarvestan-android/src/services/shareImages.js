@@ -1,8 +1,10 @@
 /**
  * تصویر اشتراک‌گذاری استوری سروستان — هماهنگ با هویت بصری Sarv Design و ارقام کاملاً فارسی
  */
-import { toFaDigits } from '../utils/faDigits.js';
+import { toFaDigits, toPersianCourseName } from '../utils/faDigits.js';
+import { formatRoomTag } from '../utils/roomUtils.js';
 import { getScheduleMatrix, getViewModel, getToneForCourse } from '../data/viewModel.js';
+import { computeTopologicalStages, normName } from './curriculumEngine.js';
 
 const DAYS = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه'];
 
@@ -77,14 +79,42 @@ export function buildPalette(theme) {
   };
 }
 
-function roundRect(ctx, x, y, w, h, r) {
-  const rr = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+function roundRect(ctx, x, y, w, h, r = 0) {
+  let tl = 0, tr = 0, br = 0, bl = 0;
+  if (typeof r === 'number') {
+    tl = tr = br = bl = r;
+  } else if (r && typeof r === 'object') {
+    tl = Number(r.tl) || 0;
+    tr = Number(r.tr) || 0;
+    br = Number(r.br) || 0;
+    bl = Number(r.bl) || 0;
+  }
+  const maxR = Math.min(Math.abs(w) / 2, Math.abs(h) / 2);
+  tl = Math.max(0, Math.min(tl, maxR));
+  tr = Math.max(0, Math.min(tr, maxR));
+  br = Math.max(0, Math.min(br, maxR));
+  bl = Math.max(0, Math.min(bl, maxR));
+
   ctx.beginPath();
-  ctx.moveTo(x + rr, y);
-  ctx.arcTo(x + w, y, x + w, y + h, rr);
-  ctx.arcTo(x + w, y + h, x, y + h, rr);
-  ctx.arcTo(x, y + h, x, y, rr);
-  ctx.arcTo(x, y, x + w, y, rr);
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(x, y, w, h, [tl, tr, br, bl]);
+    ctx.closePath();
+    return;
+  }
+
+  ctx.moveTo(x + tl, y);
+  ctx.lineTo(x + w - tr, y);
+  if (tr > 0) ctx.arcTo(x + w, y, x + w, y + tr, tr);
+  else ctx.lineTo(x + w, y);
+  ctx.lineTo(x + w, y + h - br);
+  if (br > 0) ctx.arcTo(x + w, y + h, x + w - br, y + h, br);
+  else ctx.lineTo(x + w, y + h);
+  ctx.lineTo(x + bl, y + h);
+  if (bl > 0) ctx.arcTo(x, y + h, x, y + h - bl, bl);
+  else ctx.lineTo(x, y + h);
+  ctx.lineTo(x, y + tl);
+  if (tl > 0) ctx.arcTo(x, y, x + tl, y, tl);
+  else ctx.lineTo(x, y);
   ctx.closePath();
 }
 
@@ -201,15 +231,6 @@ function drawFooter(ctx, W, H, p) {
   ctx.textAlign = 'right';
 }
 
-function formatRoomTag(room) {
-  if (!room || room === 'ـ' || room === '-' || room === 'نامشخص') return '';
-  const r = String(room).trim();
-  if (/(کلاس|ساختمان|ساختمون|سایت|آزمایشگاه|کارگاه|آمفی|اتاق|مرکز)/.test(r)) {
-    return toFaDigits(r);
-  }
-  return `کلاس ${toFaDigits(r)}`;
-}
-
 
 /**
  * تولید تصویر پوستر افقی برنامه هفتگی — کاملاً فلت، هماهنگ با هویت بصری Sarv Design و کارت‌های متناسب
@@ -293,8 +314,29 @@ export async function renderScheduleImage({ theme } = {}) {
   // آمار کلی جلسات در وسط نوار بالا
   const { days, slots, cells } = getScheduleMatrix();
   const totalClasses = Object.keys(cells).length;
-  const cur = vm?.curriculum || {};
-  const enrolledUnits = cur.enrolledCredits ?? 18;
+
+  // دریافت مستقیم تعداد واحدهای اخذشده از دیتای خود برنامه
+  const schedCourses = vm?.scheduleCourses || [];
+  const schedUnits = schedCourses.reduce((sum, c) => sum + (Number(c.units ?? c.unit) || 0), 0);
+  const appUnitsRaw = vm?.summary?.rawCredits ?? vm?.summary?.credits;
+  let enrolledUnits = 0;
+  if (typeof appUnitsRaw === 'number' && appUnitsRaw > 0) {
+    enrolledUnits = appUnitsRaw;
+  } else if (appUnitsRaw) {
+    const parsed = parseInt(
+      String(appUnitsRaw).replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)),
+      10,
+    );
+    if (!isNaN(parsed) && parsed > 0) {
+      enrolledUnits = parsed;
+    }
+  }
+  enrolledUnits = Math.max(
+    enrolledUnits || 0,
+    schedUnits || 0,
+    Number(vm?.curriculum?.enrolledCredits) || 0,
+    Number(vm?.termsData?.[0]?.totalUnits) || 0
+  );
 
   const statsText = `${toFaDigits(totalClasses)} جلسه کلاس در هفته · ${toFaDigits(enrolledUnits)} واحد اخذشده`;
   ctx.font = 'bold 13.5px Arad, "Arad", sans-serif';
@@ -563,15 +605,35 @@ export async function renderScheduleImage({ theme } = {}) {
         const roomStr = formatRoomTag(cell.room);
         if (roomStr) {
           ctx.font = 'bold 12px Arad, "Arad", sans-serif';
-          const rw = ctx.measureText(roomStr).width + 16;
-          ctx.fillStyle = hexToRgba(tone, 0.16);
-          roundRect(ctx, cardX + 12, botY - 18, rw, 24, 6);
-          ctx.fill();
+          let profW = 0;
+          if (cell.professor && cell.professor !== 'ـ') {
+            ctx.font = '13px Arad, "Arad", sans-serif';
+            profW = ctx.measureText(cell.professor).width;
+          }
+          ctx.font = 'bold 12px Arad, "Arad", sans-serif';
 
-          ctx.direction = 'rtl';
-          ctx.textAlign = 'center';
-          ctx.fillStyle = p.content;
-          ctx.fillText(roomStr, cardX + 12 + rw / 2, botY - 1);
+          // جلوگیری قاطع از هم‌پوشانی بج اتاق با نام استاد (حداقل فاصله ایمن ۱۶ پیکسل)
+          const maxRw = profW > 0 ? Math.max(30, cardW - 14 - profW - 20) : (cardW - 28);
+          let displayRoom = roomStr;
+          let rw = ctx.measureText(displayRoom).width + 16;
+          if (rw > maxRw && maxRw > 40) {
+            while (displayRoom.length > 2 && ctx.measureText(displayRoom + '…').width + 16 > maxRw) {
+              displayRoom = displayRoom.slice(0, -1);
+            }
+            displayRoom = displayRoom.trim() + '…';
+            rw = ctx.measureText(displayRoom).width + 16;
+          }
+
+          if (rw <= maxRw || profW === 0) {
+            ctx.fillStyle = hexToRgba(tone, 0.16);
+            roundRect(ctx, cardX + 12, botY - 18, rw, 24, 6);
+            ctx.fill();
+
+            ctx.direction = 'rtl';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = p.content;
+            ctx.fillText(displayRoom, cardX + 12 + rw / 2, botY - 1);
+          }
         }
       } else {
         // چند درس در یک اسلات زمانی (تقسیم ارتفاع سطر میان درس‌ها)
@@ -599,9 +661,11 @@ export async function renderScheduleImage({ theme } = {}) {
           ctx.fillText(title, cardX + cardW - 10, cy + 20);
 
           const botY = cy + cardH - 10;
+          let profW = 0;
           if (cell.professor && cell.professor !== 'ـ') {
             ctx.fillStyle = p.muted;
             ctx.font = '11px Arad, "Arad", sans-serif';
+            profW = ctx.measureText(cell.professor).width;
             ctx.fillText(cell.professor, cardX + cardW - 10, botY);
           }
           const roomStr = formatRoomTag(cell.room);
@@ -610,7 +674,15 @@ export async function renderScheduleImage({ theme } = {}) {
             ctx.textAlign = 'left';
             ctx.fillStyle = p.content;
             ctx.font = 'bold 11px Arad, "Arad", sans-serif';
-            ctx.fillText(roomStr, cardX + 10, botY);
+            const maxRw = profW > 0 ? Math.max(20, cardW - 10 - profW - 16) : (cardW - 20);
+            let displayRoom = roomStr;
+            if (ctx.measureText(displayRoom).width > maxRw && maxRw > 30) {
+              while (displayRoom.length > 2 && ctx.measureText(displayRoom + '…').width > maxRw) {
+                displayRoom = displayRoom.slice(0, -1);
+              }
+              displayRoom = displayRoom.trim() + '…';
+            }
+            ctx.fillText(displayRoom, cardX + 10, botY);
           }
         });
       }
@@ -1078,7 +1150,7 @@ export async function renderStudyStoryImage({ stats, student, theme }) {
 
   // کپسول وضعیت زیر عدد
   const badgeText = stats?.streak > 1
-    ? `★ استریک پیوسته: ${toFaDigits(stats.streak)} روز متوالی در اوج تمرکز ★`
+    ? `★ پیوستگی مطالعه: ${toFaDigits(stats.streak)} روز متوالی در اوج تمرکز ★`
     : '✓ تعهد به انجام تکالیف و آمادگی تحصیلی';
   ctx.font = 'bold 19px Arad, "Arad", sans-serif';
   const bw = ctx.measureText(badgeText).width + 48;
@@ -1094,7 +1166,7 @@ export async function renderStudyStoryImage({ stats, student, theme }) {
   ctx.fillStyle = pal.primary;
   ctx.fillText(badgeText, W / 2, by + 28);
 
-  // ۴. شبکه ۲×۲ کارت‌های کلیدی عملکرد (استریک، ساعات کل، سشن‌ها، تسک‌ها)
+  // ۴. شبکه ۲×۲ کارت‌های کلیدی عملکرد (پیوستگی، ساعات کل، سشن‌ها، تسک‌ها)
   const gridY = 690;
   const colW = (W - 130) / 2;
   const rowH = 105;
@@ -1102,7 +1174,7 @@ export async function renderStudyStoryImage({ stats, student, theme }) {
 
   const metrics = [
     {
-      title: 'استریک فعال',
+      title: 'پیوستگی فعال',
       value: `${toFaDigits(stats?.streak || 1)} روز پیاپی`,
       sub: 'پیوستگی مداوم در مطالعه',
       tone: pal.accent,
@@ -1265,3 +1337,433 @@ export async function renderStudyStoryImage({ stats, student, theme }) {
 
   return canvas;
 }
+
+/**
+ * پوستر افقی باکیفیت و گرافیکی چارت تحصیلی و نقشه راه دوره (۱۹۲۰×۱۰۸۰ افقی)
+ * پشتیبانی کامل از تمامی رشته‌ها با فلوچارت ورک‌فلو و خطوط جریان پیش‌نیازها
+ */
+export async function renderCurriculumPoster({ theme, curriculumState, student }) {
+  await ensureFont();
+  const W = 1920;
+  const H = 1080;
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return canvas;
+
+  const pal = buildPalette(theme);
+
+  // ۱. پس‌زمینه فلت متناسب با رنگ تم (دقیقاً هماهنگ با استایل برنامه هفتگی و معدل)
+  ctx.fillStyle = pal.base;
+  ctx.fillRect(0, 0, W, H);
+
+
+  const MARGIN = 42;
+  const CONTENT_W = W - MARGIN * 2;
+
+  // ۲. نوار هدر برندینگ و اطلاعات دانشجو
+  const headerY = 24;
+  const headerH = 80;
+  ctx.fillStyle = hexToRgba(pal.surface, pal.isLight ? 0.95 : 0.72);
+  roundRect(ctx, MARGIN, headerY, CONTENT_W, headerH, 20);
+  ctx.fill();
+  ctx.strokeStyle = hexToRgba(pal.primary, 0.28);
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+
+  // راست هدر: لوگوی سروستان و تیتر ورک‌فلو
+  drawSarvLogo(ctx, W - MARGIN - 32, headerY + 40, 32, pal.primary);
+
+  ctx.direction = 'rtl';
+  ctx.textAlign = 'right';
+  ctx.fillStyle = pal.content;
+  ctx.font = '900 25px Arad, "Arad", sans-serif';
+  ctx.fillText('سروستان', W - MARGIN - 74, headerY + 36);
+
+  ctx.font = 'bold 13px Arad, "Arad", sans-serif';
+  ctx.fillStyle = pal.muted;
+  ctx.fillText('نقشه راه و گراف جریان تحصیلی (ورک‌فلو) · نسخه آزمایشی', W - MARGIN - 74, headerY + 58);
+
+  // مرکز هدر: هویت دانشجو
+  const sName = student?.fullName || curriculumState?.studentName || 'دانشجو';
+  const sMajor = student?.major || curriculumState?.degreeTitle || 'مهندسی';
+  const sId = student?.studentId || curriculumState?.studentId || '';
+  const sGpa = student?.gpa || curriculumState?.gpa || '';
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = pal.content;
+  ctx.font = '900 24px Arad, "Arad", sans-serif';
+  ctx.fillText(sName, W / 2, headerY + 35);
+
+  ctx.font = 'bold 14px Arad, "Arad", sans-serif';
+  ctx.fillStyle = pal.primary;
+  const subInfoParts = [
+    sMajor,
+    sId ? `شماره دانشجویی: ${toFaDigits(sId)}` : null,
+    sGpa ? `معدل کل: ${toFaDigits(sGpa)}` : null,
+  ].filter(Boolean);
+  ctx.fillText(subInfoParts.join('  ·  '), W / 2, headerY + 60);
+
+  // چپ هدر: دانشگاه صنعتی خواجه نصیرالدین طوسی
+  ctx.textAlign = 'left';
+  ctx.fillStyle = pal.content;
+  ctx.font = 'bold 15px Arad, "Arad", sans-serif';
+  ctx.fillText('دانشگاه صنعتی خواجه نصیرالدین طوسی', MARGIN + 26, headerY + 36);
+
+  ctx.fillStyle = pal.muted;
+  ctx.font = '12px Arad, "Arad", sans-serif';
+  ctx.fillText('چارت مصوب دوره کارشناسی پیوسته', MARGIN + 26, headerY + 58);
+
+  // ۳. نوار آمار و پیشرفت تحصیلی (کاملاً پویا بدون هاردکد)
+  const statsY = headerY + headerH + 14;
+  const statsH = 70;
+  ctx.fillStyle = hexToRgba(pal.surface, pal.isLight ? 0.95 : 0.7);
+  roundRect(ctx, MARGIN, statsY, CONTENT_W, statsH, 18);
+  ctx.fill();
+  ctx.strokeStyle = hexToRgba(pal.surface2, 0.85);
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  const totalCredits = curriculumState?.totalCredits || 140;
+  const passedCredits = curriculumState?.passedCredits || 0;
+  const enrolledCredits = curriculumState?.enrolledCredits || 0;
+  const remainingCredits = curriculumState?.remainingCredits || Math.max(0, totalCredits - passedCredits - enrolledCredits);
+  const progressPercent = curriculumState?.progressPercent || Math.min(100, Math.round((passedCredits / Math.max(1, totalCredits)) * 100));
+  const availableCount = curriculumState?.availableCount || 0;
+
+  // سمت چپ نوار آمار: نوار گرافیکی پیشرفت
+  const barW = 260;
+  const barH = 10;
+  const barX = MARGIN + 24;
+  const barY = statsY + 38;
+
+  ctx.textAlign = 'left';
+  ctx.font = 'bold 13px Arad, "Arad", sans-serif';
+  ctx.fillStyle = pal.content;
+  ctx.fillText(`پیشرفت فارغ‌التحصیلی: ${toFaDigits(progressPercent)}٪`, barX, barY - 10);
+
+  ctx.fillStyle = pal.surface2;
+  roundRect(ctx, barX, barY, barW, barH, 5);
+  ctx.fill();
+
+  const fillW = Math.max(8, Math.min(barW, (barW * progressPercent) / 100));
+  ctx.fillStyle = pal.primary;
+  roundRect(ctx, barX, barY, fillW, barH, 5);
+  ctx.fill();
+
+  // سمت راست نوار آمار: ۵ برچسب شاخص کلیدی
+  const statBadges = [
+    { label: 'کل واحد مصوب', value: `${toFaDigits(totalCredits)} و`, color: pal.content },
+    { label: 'پاس‌شده', value: `${toFaDigits(passedCredits)} و`, color: '#10b981' },
+    { label: 'ترم جاری', value: `${toFaDigits(enrolledCredits)} و`, color: pal.accent },
+    { label: 'باقیمانده', value: `${toFaDigits(remainingCredits)} و`, color: pal.muted },
+    { label: 'مجاز ترم بعد ⭐', value: `${toFaDigits(availableCount)} درس`, color: '#eab308' },
+  ];
+
+  const badgesStartX = barX + barW + 40;
+  const badgesAreaW = W - MARGIN - badgesStartX - 10;
+  const badgeColW = badgesAreaW / statBadges.length;
+
+  statBadges.forEach((sb, idx) => {
+    const cx = W - MARGIN - (idx + 0.5) * badgeColW;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = pal.muted;
+    ctx.font = '12px Arad, "Arad", sans-serif';
+    ctx.fillText(sb.label, cx, statsY + 28);
+
+    ctx.fillStyle = sb.color;
+    ctx.font = '900 19px Arad, "Arad", sans-serif';
+    ctx.fillText(sb.value, cx, statsY + 53);
+  });
+
+  // ۴. گراف ورک‌فلو ۴ مرحله‌ای (افقی از راست به چپ)
+  const graphY = statsY + statsH + 16;
+  const COL_GAP = 26;
+  const COL_W = (CONTENT_W - 3 * COL_GAP) / 4;
+
+  const allCourses = curriculumState?.allCourses || [];
+  const stages = computeTopologicalStages(allCourses);
+
+  // ساخت مپ سریع برای یافتن درس‌ها بر اساس کد و نام نرمال‌شده
+  const courseLookup = new Map();
+  for (const c of allCourses) {
+    if (!c) continue;
+    if (c.code) courseLookup.set(String(c.code), c);
+    courseLookup.set(normName(c.name || ''), c);
+  }
+
+  // ثبت مختصات کارت‌های ترسیم‌شده برای محاسبه اتصال خطوط و فلش‌ها
+  const renderedCards = new Map(); // key -> { x, y, w, h, colIdx, course }
+  const connections = []; // { fromKey, toKey, fromCard, toCard, status }
+
+  const cardH = 66;
+  const cardGap = 8;
+  const maxCardsPerStage = 9;
+
+  // ترسیم ۴ ستون مراحل جریان
+  for (let sIdx = 0; sIdx < 4; sIdx++) {
+    const stg = stages[sIdx] || { title: `مرحله ${toFaDigits(sIdx + 1)}`, courses: [] };
+    // در RTL ستون ۰ در راست‌ترین نقطه قرار دارد
+    const colX = W - MARGIN - (sIdx + 1) * COL_W - sIdx * COL_GAP;
+
+    // هدر ستون مرحله
+    const colHeaderH = 38;
+    ctx.fillStyle = hexToRgba(pal.primary, 0.14);
+    roundRect(ctx, colX, graphY, COL_W, colHeaderH, 12);
+    ctx.fill();
+    ctx.strokeStyle = hexToRgba(pal.primary, 0.35);
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.direction = 'rtl';
+    ctx.textAlign = 'right';
+    ctx.font = '900 13.5px Arad, "Arad", sans-serif';
+    ctx.fillStyle = pal.content;
+    ctx.fillText(stg.title, colX + COL_W - 14, graphY + 24);
+
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 11.5px Arad, "Arad", sans-serif';
+    ctx.fillStyle = pal.primary;
+    ctx.fillText(`${toFaDigits(stg.courses.length)} درس`, colX + 14, graphY + 24);
+
+    // اولویت‌بندی دروس برای نمایش بهینه در پوستر
+    const sortedCourses = [...stg.courses].sort((a, b) => {
+      const order = { enrolled: 0, available: 1, passed: 2, locked: 3 };
+      return (order[a.status] ?? 4) - (order[b.status] ?? 4);
+    });
+
+    const displayCourses = sortedCourses.slice(0, maxCardsPerStage);
+    const hiddenCount = sortedCourses.length - displayCourses.length;
+
+    let currentCardY = graphY + colHeaderH + 10;
+
+    displayCourses.forEach((course) => {
+      const cKey = course.code ? String(course.code) : normName(course.name || '');
+
+      // رنگ و ظاهر کارت بر اساس وضعیت واقعی درس
+      let cardBg = hexToRgba(pal.surface, 0.85);
+      let cardBorder = hexToRgba(pal.surface2, 0.8);
+      let statusIcon = '🔒';
+      let statusColor = pal.muted;
+
+      if (course.status === 'passed') {
+        cardBg = hexToRgba('#10b981', 0.12);
+        cardBorder = hexToRgba('#10b981', 0.45);
+        statusIcon = '✓';
+        statusColor = '#10b981';
+      } else if (course.status === 'enrolled') {
+        cardBg = hexToRgba(pal.accent, 0.16);
+        cardBorder = hexToRgba(pal.accent, 0.55);
+        statusIcon = '⏳';
+        statusColor = pal.accent;
+      } else if (course.status === 'available') {
+        cardBg = hexToRgba('#eab308', 0.14);
+        cardBorder = hexToRgba('#eab308', 0.5);
+        statusIcon = '⭐';
+        statusColor = '#eab308';
+      }
+
+      // بدنه کارت
+      ctx.fillStyle = cardBg;
+      roundRect(ctx, colX, currentCardY, COL_W, cardH, 12);
+      ctx.fill();
+      ctx.strokeStyle = cardBorder;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // آیکون وضعیت در سمت راست
+      ctx.textAlign = 'right';
+      ctx.font = 'bold 13px Arad, "Arad", sans-serif';
+      ctx.fillStyle = statusColor;
+      ctx.fillText(statusIcon, colX + COL_W - 14, currentCardY + 25);
+
+      // نام درس
+      ctx.font = '900 13px Arad, "Arad", sans-serif';
+      ctx.fillStyle = pal.content;
+      const cleanName = toPersianCourseName(course.name);
+      const nameTrunc = cleanName.length > 25 ? cleanName.slice(0, 24) + '…' : cleanName;
+      ctx.fillText(nameTrunc, colX + COL_W - 32, currentCardY + 25);
+
+      // زیرنویس (تعداد واحد + نمره یا دسته‌بندی)
+      ctx.font = '11px Arad, "Arad", sans-serif';
+      ctx.fillStyle = pal.muted;
+      let subTxt = `${toFaDigits(course.units || 3)} واحد`;
+      if (course.status === 'passed' && course.gradeDisplay && course.gradeDisplay !== 'قبول') {
+        subTxt += ` · نمره: ${toFaDigits(course.gradeDisplay)}`;
+      } else if (course.category) {
+        subTxt += ` · ${course.category}`;
+      }
+      ctx.fillText(subTxt, colX + COL_W - 32, currentCardY + 48);
+
+      // نشانگر کوچک واحد/کد درس در سمت چپ کارت
+      if (course.code) {
+        ctx.textAlign = 'left';
+        ctx.font = '10px Arad, "Arad", sans-serif';
+        ctx.fillStyle = hexToRgba(pal.muted, 0.7);
+        ctx.fillText(toFaDigits(course.code), colX + 12, currentCardY + 48);
+      }
+
+      renderedCards.set(cKey, {
+        x: colX,
+        y: currentCardY,
+        w: COL_W,
+        h: cardH,
+        colIdx: sIdx,
+        course,
+      });
+
+      currentCardY += cardH + cardGap;
+    });
+
+    // اگر دروسی بیش از ظرفیت کارت‌ها در این مرحله مانده، پیل کوچک راهنما
+    if (hiddenCount > 0) {
+      ctx.fillStyle = hexToRgba(pal.surface2, 0.4);
+      roundRect(ctx, colX, currentCardY, COL_W, 28, 8);
+      ctx.fill();
+
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 11px Arad, "Arad", sans-serif';
+      ctx.fillStyle = pal.muted;
+      ctx.fillText(`+ ${toFaDigits(hiddenCount)} درس دیگر در این مرحله`, colX + COL_W / 2, currentCardY + 18);
+    }
+  }
+
+  // ۵. ایجاد خطوط جریان و اتصالات Bezier بین مراحل مجاور
+  for (const [cKey, card] of renderedCards.entries()) {
+    if (card.colIdx === 0) continue; // دروس ورودی پیش‌نیاز قبلی در چارت ندارند
+
+    for (const p of card.course.prerequisites || []) {
+      const pKey = p.code ? String(p.code) : normName(p.name || '');
+      const parentCard = renderedCards.get(pKey);
+      if (parentCard && parentCard.colIdx < card.colIdx) {
+        connections.push({
+          fromKey: pKey,
+          toKey: cKey,
+          fromCard: parentCard,
+          toCard: card,
+          status: card.course.status,
+        });
+        break; // جهت شفافیت و زیبایی، ۱ اتصال مستقیم تمیز برای هر درس
+      }
+    }
+  }
+
+  // محاسبه پورت‌های خروجی و ورودی برای جلوگیری قطعی از همپوشانی خطوط و فلش‌ها
+  const srcUsage = new Map();
+  const tgtUsage = new Map();
+  connections.forEach((conn) => {
+    srcUsage.set(conn.fromKey, (srcUsage.get(conn.fromKey) || 0) + 1);
+    tgtUsage.set(conn.toKey, (tgtUsage.get(conn.toKey) || 0) + 1);
+  });
+
+  const srcCount = new Map();
+  const tgtCount = new Map();
+
+  const getPort = (idx, total) => {
+    if (total <= 1) return 0.5;
+    if (total === 2) return idx === 0 ? 0.35 : 0.65;
+    if (total === 3) return idx === 0 ? 0.25 : idx === 1 ? 0.5 : 0.75;
+    return 0.2 + (0.6 * idx) / (total - 1);
+  };
+
+  // رسم خطوط منحنی Bezier جریان و سرپیکان‌های فلش
+  connections.forEach((conn) => {
+    const sTotal = srcUsage.get(conn.fromKey) || 1;
+    const sIdx = srcCount.get(conn.fromKey) || 0;
+    srcCount.set(conn.fromKey, sIdx + 1);
+
+    const tTotal = tgtUsage.get(conn.toKey) || 1;
+    const tIdx = tgtCount.get(conn.toKey) || 0;
+    tgtCount.set(conn.toKey, tIdx + 1);
+
+    const sPort = getPort(sIdx, sTotal);
+    const tPort = getPort(tIdx, tTotal);
+
+    // مختصات مبدأ (سمت چپ کارت پیش‌نیاز در ستون راست)
+    const x1 = conn.fromCard.x;
+    const y1 = conn.fromCard.y + conn.fromCard.h * sPort;
+
+    // مختصات مقصد (سمت راست کارت فرزند در ستون چپ)
+    const x2 = conn.toCard.x + conn.toCard.w;
+    const y2 = conn.toCard.y + conn.toCard.h * tPort;
+
+    // رنگ خط بر اساس وضعیت درس مقصد
+    let strokeColor = hexToRgba(pal.content, 0.22);
+    let arrowColor = hexToRgba(pal.content, 0.35);
+    let lineWidth = 1.5;
+
+    if (conn.status === 'passed') {
+      strokeColor = hexToRgba('#10b981', 0.6);
+      arrowColor = '#10b981';
+      lineWidth = 2;
+    } else if (conn.status === 'enrolled') {
+      strokeColor = hexToRgba(pal.accent, 0.75);
+      arrowColor = pal.accent;
+      lineWidth = 2.2;
+    } else if (conn.status === 'available') {
+      strokeColor = hexToRgba('#eab308', 0.7);
+      arrowColor = '#eab308';
+      lineWidth = 2;
+    }
+
+    const dx = (x1 - x2) * 0.45;
+
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.bezierCurveTo(x1 - dx, y1, x2 + dx, y2, x2, y2);
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = lineWidth;
+    ctx.stroke();
+
+    // رسم سرپیکان فلش تمیز به سمت کارت مقصد (جهت چپ)
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 + 7, y2 - 4.5);
+    ctx.lineTo(x2 + 7, y2 + 4.5);
+    ctx.closePath();
+    ctx.fillStyle = arrowColor;
+    ctx.fill();
+  });
+
+  // ۶. نوار راهنمای وضعیت‌ها و فوتر رسمی سروستان
+  const footerY = 1010;
+  const footerH = 50;
+  ctx.fillStyle = pal.surface;
+  roundRect(ctx, MARGIN, footerY, CONTENT_W, footerH, 16);
+  ctx.fill();
+  ctx.strokeStyle = hexToRgba(pal.surface2, 0.9);
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // راست فوتر: راهنمای وضعیت رنگ‌ها
+  const legends = [
+    { icon: '✓', label: 'گذرانده', color: '#10b981' },
+    { icon: '⏳', label: 'در حال اخذ (ترم جاری)', color: pal.accent },
+    { icon: '⭐', label: 'مجاز به اخذ ترم بعد', color: '#eab308' },
+    { icon: '🔒', label: 'قفل (پیش‌نیاز مانده)', color: pal.muted },
+  ];
+
+  let legX = W - MARGIN - 20;
+  legends.forEach((lg) => {
+    ctx.textAlign = 'right';
+    ctx.font = 'bold 12.5px Arad, "Arad", sans-serif';
+    ctx.fillStyle = lg.color;
+    const txt = `${lg.icon} ${lg.label}`;
+    ctx.fillText(txt, legX, footerY + 31);
+    legX -= ctx.measureText(txt).width + 36;
+  });
+
+  // چپ فوتر: متن برندینگ سروستان
+  const footerText = 'تولیدشده با سروستان · دستیار هوشمند دانشگاه صنعتی خواجه نصیرالدین طوسی (نسخه آزمایشی چارت)';
+  ctx.textAlign = 'left';
+  ctx.font = 'bold 13px Arad, "Arad", sans-serif';
+  ctx.fillStyle = pal.content;
+  ctx.fillText(footerText, MARGIN + 42, footerY + 31);
+
+  drawSarvLogo(ctx, MARGIN + 24, footerY + footerH / 2, 18, pal.primary);
+
+  return canvas;
+}
+
+
