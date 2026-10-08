@@ -2824,6 +2824,56 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
+
+          {/* Contributors & Beta Testers Appreciation */}
+          <div className="sarv-card p-5 sm:p-6 rounded-3xl border border-base-500/30 bg-base-500/10 mb-10">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-base-500/20">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0">
+                  <Heart className="w-4 h-4 fill-primary/20 text-primary" />
+                </div>
+                <div>
+                  <h4 className="font-black text-sm sm:text-base text-base-content flex items-center gap-2">
+                    <span>قدردانی از همراهان، مشارکت‌کنندگان و تسترها</span>
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                      v1.2 · پاسارگاد
+                    </span>
+                  </h4>
+                  <p className="text-xs text-neutral mt-0.5 leading-relaxed">
+                    با سپاس صمیمانه از همراهان و دانشجویان عزیزی که با گزارش باگ، بازخورد فنی و تست نسخه‌های اولیه در توسعه سروستان سهیم بودند:
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2.5 pt-4">
+              {[
+                { name: 'سید محمدحسین حائری', role: 'تستر و همراه نسخه بتا' },
+                { name: 'اشکان جلالی', role: 'تستر و همراه نسخه بتا' },
+                { name: 'پارسا شکیبایی', role: 'تستر و همراه نسخه بتا' },
+                { name: 'حسام خانی', role: 'تستر و همراه نسخه بتا' },
+                { name: 'محمدحسین صفدری', role: 'تستر و همراه نسخه بتا' },
+                { name: 'امیر صالحی', role: 'تستر و همراه نسخه بتا' },
+                { name: 'صدرا زینال زاده', role: 'تستر و همراه نسخه بتا' },
+              ].map((contributor, idx) => (
+                <div
+                  key={idx}
+                  className="p-3 rounded-2xl bg-base border border-base-500/30 hover:border-primary/40 transition-all flex flex-col items-center text-center gap-1.5 group shadow-xs hover:shadow-md"
+                >
+                  <div className="w-8 h-8 rounded-xl bg-base-500/30 group-hover:bg-primary/15 group-hover:text-primary transition-colors flex items-center justify-center text-xs font-black">
+                    {contributor.name.split(' ')[0][0]}
+                  </div>
+                  <span className="text-xs font-bold text-base-content leading-tight group-hover:text-primary transition-colors">
+                    {contributor.name}
+                  </span>
+                  <span className="text-[10px] text-neutral/80 font-medium">
+                    {contributor.role}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
               <img
