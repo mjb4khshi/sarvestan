@@ -24,6 +24,7 @@ android/*.pom
 android/*.module
 !android/gradle/wrapper/gradle-wrapper.jar
 android/keystore/
+android/*keystore*
 *.jks
 *.keystore
 *.key
