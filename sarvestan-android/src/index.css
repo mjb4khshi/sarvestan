@@ -1,7 +1,7 @@
 @import "tailwindcss";
-@plugin "sarv-ui";
 @import "sarv-ui/sarv.css";
 @import "./sarv-themes.css";
+@plugin "sarv-ui";
 
 @font-face {
   font-family: 'Arad';

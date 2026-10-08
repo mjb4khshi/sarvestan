@@ -1,6 +1,6 @@
 @import "tailwindcss";
-@plugin "sarv-ui";
 @import "sarv-ui/sarv.css";
+@plugin "sarv-ui";
 
 /* =========================================================
    Arad Font Family Definition
@@ -77,6 +77,12 @@
     --theme-color-base-content: #f8fafc;
     --theme-color-base-500: #1f222e;
     --theme-color-neutral: #94a3b8;
+    --theme-color-primary-content: #ffffff;
+    --theme-color-secondary-content: #ffffff;
+    --theme-color-accent-content: #ffffff;
+    --theme-color-success-content: #ffffff;
+    --theme-color-warn-content: #ffffff;
+    --theme-color-danger-content: #ffffff;
   }
 
   html, body {
@@ -96,6 +102,12 @@
     --theme-color-base-500: #fdf0f4;
     --theme-color-base-content: #2d0612;
     --theme-color-neutral: #854b5f;
+    --theme-color-primary-content: #ffffff;
+    --theme-color-secondary-content: #ffffff;
+    --theme-color-accent-content: #ffffff;
+    --theme-color-success-content: #ffffff;
+    --theme-color-warn-content: #ffffff;
+    --theme-color-danger-content: #ffffff;
   }
 
   /* Persian Dark explicit mapping */

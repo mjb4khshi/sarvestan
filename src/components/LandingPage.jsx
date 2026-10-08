@@ -1865,7 +1865,7 @@ export default function LandingPage() {
               <Smartphone className="w-6 h-6 shrink-0 group-hover:rotate-6 transition-transform" />
               <div className="text-right">
                 <div className="leading-tight">دانلود مستقیم اپلیکیشن اندروید</div>
-                <div className="text-[11px] font-mono opacity-90 font-bold">نسخه رسمی ۱.۱.۰ • فایل نصبی APK (۵٫۲ مگابایت)</div>
+                <div className="text-[11px] font-mono opacity-90 font-bold">نسخه رسمی ۱.۲ (پاسارگاد) • فایل نصبی APK (۵٫۳ مگابایت)</div>
               </div>
               <span className="text-xs bg-black/20 text-success-content px-2 py-0.5 rounded-lg font-mono font-bold mr-1">رایگان</span>
             </a>
@@ -2317,7 +2317,7 @@ export default function LandingPage() {
               </div>
               <div className="flex items-center gap-2 mb-2">
                 <h3 className="font-bold text-base text-base-content">اپلیکیشن اندروید و ویجت‌های زنده</h3>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-accent/20 text-accent font-mono">v1.1.0</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-accent/20 text-accent font-mono">v1.2.0</span>
               </div>
               <p className="text-xs sm:text-sm text-neutral leading-relaxed">
                 پشتیبانی از دانشجویان کهاد (دو رشته‌ای)، سایلنت خودکار سر کلاس (DND)، یادآور سماد، دسترسی آفلاین به برنامه و ۳ ویجت تعاملی هوم‌اسکرین.
@@ -2402,7 +2402,7 @@ export default function LandingPage() {
             >
               <Smartphone className="w-4 h-4" />
               <span>نصب اپلیکیشن اندروید (APK مستقیم)</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-white/20 font-mono">v1.1.0</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-white/20 font-mono">v1.2.0</span>
             </button>
             <button
               type="button"
@@ -2513,7 +2513,7 @@ export default function LandingPage() {
                         title="مشاهده پکیج‌های انتشار در گیت‌هاب"
                       >
                         <GithubIcon className="w-3.5 h-3.5" />
-                        <span>پکیج‌های ریلیز (v1.1.0)</span>
+                        <span>پکیج‌های ریلیز (v1.2.0)</span>
                       </a>
                       <a
                         href="./sarvestan-extension.zip"
@@ -2863,7 +2863,7 @@ export default function LandingPage() {
                 target="_blank"
                 rel="noreferrer"
                 className="hover:text-accent font-bold transition-colors flex items-center gap-1.5"
-                title="دانلود و مشاهده جزییات انتشار v1.1.0 در گیت‌هاب"
+                title="دانلود و مشاهده جزییات انتشار v1.2.0 در گیت‌هاب"
               >
                 <Sparkles className="w-3.5 h-3.5 text-accent" />
                 <span>جدیدترین انتشار (v1.2.0 · پاسارگاد)</span>
