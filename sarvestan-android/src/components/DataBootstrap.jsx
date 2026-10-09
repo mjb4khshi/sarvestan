@@ -52,9 +52,11 @@ export default function DataBootstrap() {
     }
   }, [applyManualSession]);
 
+  const syncingRef = useRef(false);
+
   useEffect(() => {
     if (live || hasLiveData()) {
-      triesRef.current = 0;
+      syncingRef.current = false;
       // ویجت
       if (isNativeCapacitor()) {
         try {
@@ -65,18 +67,23 @@ export default function DataBootstrap() {
     }
     if (!isSessionAlive) return;
     if (isLoginModalOpen()) return;
-    if (triesRef.current >= 3) return;
+    if (syncingRef.current) return;
 
-    triesRef.current += 1;
+    syncingRef.current = true;
     const t = setTimeout(async () => {
-      if (isLoginModalOpen() || hasLiveData()) return;
+      if (isLoginModalOpen() || hasLiveData()) {
+        syncingRef.current = false;
+        return;
+      }
       try {
         if (isSyncing()) resetSyncState();
         await sync(true);
-      } catch {}
-    }, 500);
+      } catch {
+        syncingRef.current = false;
+      }
+    }, 400);
     return () => clearTimeout(t);
-  }, [live, isSessionAlive, sync, syncMeta?.status, syncMeta?.lastSyncAt]);
+  }, [live, isSessionAlive, sync]);
 
   return null;
 }

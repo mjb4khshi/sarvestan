@@ -34,7 +34,7 @@ const statusMeta = {
 const PROFILE_CARD_LAYOUT = 'row';
 
 export default function HomeScreen({ onNavigate }) {
-  const { live, isSessionAlive, syncing } = useSarvestanData();
+  const { live, isSessionAlive, syncing, sync } = useSarvestanData();
   const vm = getViewModel();
   const STUDENT = vm.student;
   const SUMMARY = vm.summary;
@@ -112,13 +112,24 @@ export default function HomeScreen({ onNavigate }) {
                       {isSessionAlive ? 'نشست ثبت شده — در انتظار بارگذاری' : 'عدم اتصال به بهستان'}
                     </h2>
                     <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                      {isSessionAlive ? (
+                        <button
+                          type="button"
+                          onClick={() => sync(true)}
+                          disabled={syncing}
+                          className="btn btn-primary !py-1 !px-2.5 text-[11px] font-bold shadow-sm inline-flex items-center gap-1"
+                        >
+                          <Sparkles className="w-3 h-3" />
+                          {syncing ? 'در حال دریافت…' : 'دریافت اطلاعات زنده'}
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => openLoginModal()}
-                        className="btn btn-primary !py-1 !px-2.5 text-[11px] font-bold shadow-sm inline-flex items-center gap-1"
+                        className={`btn ${isSessionAlive ? 'btn-ghost' : 'btn-primary'} !py-1 !px-2.5 text-[11px] font-bold shadow-sm inline-flex items-center gap-1`}
                       >
                         <LogIn className="w-3 h-3" />
-                        ورود به بهستان
+                        {isSessionAlive ? 'ورود مجدد / تغییر دانشگاه' : 'ورود به بهستان'}
                       </button>
                     </div>
                   </div>
@@ -294,12 +305,32 @@ export default function HomeScreen({ onNavigate }) {
         <button
           type="button"
           onClick={() => {
-            openLoginModal();
+            if (isSessionAlive) {
+              if (isSyncing()) resetSyncState();
+              sync(true);
+            } else {
+              openLoginModal();
+            }
           }}
+          disabled={syncing}
           className="w-full sarv-card p-3.5 flex items-center justify-center gap-2 border border-primary/30 bg-primary-soft text-primary font-bold text-[13px] active:scale-[0.98] transition-all"
         >
-          <LogIn className="w-4 h-4" />
-          ورود زندهٔ بهستان
+          {syncing ? (
+            <>
+              <span className="w-3.5 h-3.5 rounded-full bg-primary animate-ping" />
+              در حال دریافت و همگام‌سازی اطلاعات بهستان…
+            </>
+          ) : isSessionAlive ? (
+            <>
+              <Sparkles className="w-4 h-4" />
+              دریافت و بارگذاری اطلاعات زنده بهستان
+            </>
+          ) : (
+            <>
+              <LogIn className="w-4 h-4" />
+              ورود زندهٔ بهستان
+            </>
+          )}
         </button>
       )}
 
