@@ -16,6 +16,7 @@ import { useSarvestanData } from '../hooks/useSarvestanData';
 import { toFaDigits } from '../utils/faDigits';
 import { getLocalNotes, clearLocalNotes } from '../services/behestan/store';
 import { useAppIcon } from '../services/appIcon';
+import { getSelectedUniversity } from '../services/behestan/session';
 
 export default function TopBar({ title, onBack }) {
   const { currentTheme, setTheme, themes, activeThemeMeta } = useTheme();
@@ -92,7 +93,11 @@ export default function TopBar({ title, onBack }) {
                 )}
               </h1>
               <span className="text-[10px] text-neutral truncate">
-                {title ? 'سامانه هوشمند دانشجویی' : 'دانشگاه صنعتی خواجه نصیر طوسی'}
+                {title
+                  ? 'سامانه هوشمند دانشجویی'
+                  : getSelectedUniversity() === 'sbu'
+                    ? 'دانشگاه شهید بهشتی'
+                    : 'دانشگاه صنعتی خواجه نصیر طوسی'}
               </span>
             </div>
           </div>

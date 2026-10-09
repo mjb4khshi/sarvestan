@@ -134,4 +134,46 @@ export function getSessionSnapshot() {
   };
 }
 
+export const UNIVERSITIES = [
+  {
+    id: 'kntu',
+    name: 'دانشگاه صنعتی خواجه نصیرالدین طوسی',
+    shortName: 'خواجه نصیر',
+    origin: 'https://behestan.kntu.ac.ir',
+    authMethod: 'sso',
+  },
+  {
+    id: 'sbu',
+    name: 'دانشگاه شهید بهشتی',
+    shortName: 'شهید بهشتی',
+    origin: 'https://ems.sbu.ac.ir',
+    authMethod: 'direct_captcha',
+  },
+];
+
+const UNI_KEY = 'sarvestan_selected_university';
+
+export function getSelectedUniversity() {
+  try {
+    const manual = loadManual();
+    if (manual?.university) return manual.university;
+    return localStorage.getItem(UNI_KEY) || 'kntu';
+  } catch {
+    return 'kntu';
+  }
+}
+
+export function setSelectedUniversity(uniId) {
+  try {
+    localStorage.setItem(UNI_KEY, uniId);
+    saveManualSession({ university: uniId });
+  } catch {}
+}
+
+export function getUniversityOrigin(uniId = getSelectedUniversity()) {
+  if (uniId === 'sbu') return 'https://ems.sbu.ac.ir';
+  return 'https://behestan.kntu.ac.ir';
+}
+
 export const BEHESTAN_ORIGIN = 'https://behestan.kntu.ac.ir';
+

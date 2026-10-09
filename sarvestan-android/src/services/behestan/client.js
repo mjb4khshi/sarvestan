@@ -50,13 +50,13 @@ const RP_BASE = () => ({
 });
 
 const URLS = {
-  sys: serviceUrl('/frm/sys/sys.svc/'),
-  f1825: serviceUrl('/frm/F1825_PROCESS_STDTOTALINFOTrmStat_BEH/F1825_PROCESS_STDTOTALINFOTrmStat_BEH.svc/'),
-  f1825rr: serviceUrl('/frm/F1825_PROCESS_STDTOTALINFO_BEH/F1825_PROCESS_STDTOTALINFO_BEH.svc/'),
-  f1809: serviceUrl('/frm/F1809_PROCESS_STD_Personally_BH/F1809_PROCESS_STD_Personally_BH.svc/'),
-  f6524: serviceUrl('/frm/F6524_PROCESS_DASHBOARD_BEH/F6524_PROCESS_DASHBOARD_BEH.svc/'),
-  f1814: serviceUrl('/frm/F1814_PROCESS_STDAllCrs/F1814_PROCESS_STDAllCrs.svc/'),
-  viewReport: serviceUrl('/frm/BAS0237_CMP_ViewReport/BAS0237_CMP_ViewReport.svc/'),
+  get sys() { return serviceUrl('/frm/sys/sys.svc/'); },
+  get f1825() { return serviceUrl('/frm/F1825_PROCESS_STDTOTALINFOTrmStat_BEH/F1825_PROCESS_STDTOTALINFOTrmStat_BEH.svc/'); },
+  get f1825rr() { return serviceUrl('/frm/F1825_PROCESS_STDTOTALINFO_BEH/F1825_PROCESS_STDTOTALINFO_BEH.svc/'); },
+  get f1809() { return serviceUrl('/frm/F1809_PROCESS_STD_Personally_BH/F1809_PROCESS_STD_Personally_BH.svc/'); },
+  get f6524() { return serviceUrl('/frm/F6524_PROCESS_DASHBOARD_BEH/F6524_PROCESS_DASHBOARD_BEH.svc/'); },
+  get f1814() { return serviceUrl('/frm/F1814_PROCESS_STDAllCrs/F1814_PROCESS_STDAllCrs.svc/'); },
+  get viewReport() { return serviceUrl('/frm/BAS0237_CMP_ViewReport/BAS0237_CMP_ViewReport.svc/'); },
 };
 
 function parseJsonSafe(text) {
