@@ -20,7 +20,7 @@ import { toFaDigits } from '../utils/faDigits';
 import OdometerNumber from '../components/OdometerNumber';
 import SarvCheckbox from '../components/SarvCheckbox';
 import GpaTrendGraph from '../components/GpaTrendGraph';
-import { getGpaStatusBadge } from './HomeScreen';
+import { getGpaStatusBadge } from '../utils/gpaBadge';
 
 function scoreColor(scoreVal, status) {
   if (status === 'حذف اضطراری') {

@@ -20,7 +20,7 @@ import { getSelectedUniversity } from '../services/behestan/session';
 
 export default function TopBar({ title, onBack }) {
   const { currentTheme, setTheme, themes, activeThemeMeta } = useTheme();
-  const { workflows, live } = useSarvestanData();
+  const { workflows, live, session } = useSarvestanData();
   const { currentIcon } = useAppIcon();
   const [themeSheetOpen, setThemeSheetOpen] = useState(false);
   const [notifySheetOpen, setNotifySheetOpen] = useState(false);
@@ -95,7 +95,7 @@ export default function TopBar({ title, onBack }) {
               <span className="text-[10px] text-neutral truncate">
                 {title
                   ? 'سامانه هوشمند دانشجویی'
-                  : getSelectedUniversity() === 'sbu'
+                  : (session?.university || getSelectedUniversity()) === 'sbu'
                     ? 'دانشگاه شهید بهشتی'
                     : 'دانشگاه صنعتی خواجه نصیر طوسی'}
               </span>

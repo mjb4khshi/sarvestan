@@ -130,6 +130,7 @@ export function getSessionSnapshot() {
     studentId: getStudentId(),
     userId: getUserId(),
     cookies: loadManual()?.cookies || null,
+    university: getSelectedUniversity(),
     alive: isSessionAlive(),
   };
 }

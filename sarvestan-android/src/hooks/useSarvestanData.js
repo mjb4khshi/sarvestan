@@ -107,7 +107,7 @@ export function useSarvestanData() {
     logout,
     hardResetSession,
     adapter,
-    isSessionAlive: isSessionAlive(),
+    isSessionAlive: Boolean(session?.alive),
     loadDevDataset,
   };
 }

@@ -91,18 +91,23 @@ async function navForm(fid, { cmpId = null, fop = null, ft = '0' } = {}) {
     sid: getSid(),
   };
   if (fop) rp.fop = fop;
-  const txt = await enqueuePost(URLS.sys, { r, act: 'nav', rp, t: getTicket() });
-  const data = parseJsonSafe(txt);
-  const err = extractBehestanError(data);
-  if (err) console.warn('[client] nav', fid, err);
-  return data;
+  try {
+    const txt = await enqueuePost(URLS.sys, { r, act: 'nav', rp, t: getTicket() });
+    const data = parseJsonSafe(txt);
+    const err = extractBehestanError(data);
+    if (err) console.warn('[client] nav', fid, err);
+    return data;
+  } catch (e) {
+    console.warn('[client] nav warning:', fid, e?.message || e);
+    return null;
+  }
 }
 
 /** شناسهٔ AUW از کش پروفایل — از B1 گزارش ۸۸ یا شماره دانشجویی نشست می‌آید */
 function getAuwId() {
   try {
     const p = JSON.parse(localStorage.getItem('sarvestan_live_profile') || 'null');
-    return p?.auwId || getStudentId() || '';
+    return p?.auwId || p?.studentId || getStudentId() || '';
   } catch {
     return getStudentId() || '';
   }
@@ -135,8 +140,8 @@ export function canSync() {
 
 /** گزارش ۸۸ — ثبت‌نام ترم جاری: برنامه + امتحانات + متادیتای دانشجو (AUW/نام/دانشکده) */
 export async function fetchRegistration88(term = null) {
-  const activeTerm = term || '4051';
-  const res = await fetchViewReport('88', activeTerm);
+  // اگر ترم مشخص نشده باشد، فیلتر ارسال نمی‌شود تا بهستان ترم فعال جاری دانشجو را برگرداند
+  const res = await fetchViewReport('88', term || null);
   if (res?.error) return res;
   const meta = parseReport88Meta(res.outpar);
   if (meta) {
@@ -151,10 +156,16 @@ export async function fetchRegistration88(term = null) {
       isLoggedIn: true,
     });
   }
+  // ذخیره دروس در برنامه هفتگی و لیست دروس
+  const termKey = res.termId || term || '4051';
+  if (res.courses?.length) {
+    setScheduleForTerm(termKey, res.courses, '88');
+    mergeCourses(res.courses);
+  }
   // امتحانات ترم جاری از C14 همین گزارش (۴۲۸ ترم جاری خالی است)
-  const ex = examsFromRegistration(res.courses || [], res.termId || activeTerm);
-  if (ex.exams.length) setExamsForTerm(ex.termId, ex.exams);
-  return { ...res, meta };
+  const ex = examsFromRegistration(res.courses || [], termKey);
+  if (ex.exams.length) setExamsForTerm(termKey, ex.exams);
+  return { ...res, meta, termId: termKey };
 }
 
 /** F1825 — جامع دانشجو (توالی کامل مرورگر: nav → RR با c:110379 → act 20 با c:110381) */
@@ -337,7 +348,9 @@ export async function fetchViewReport(formCode, term) {
       sid,
       ct: '',
       sp: '{"UsrType":"0","TrmType":"2"}',
+      loc: 'fa',
       ut: '0',
+      c: 110015,
     },
     t,
     r: { Ra3: '0', BMu: '<Root/>', BMv: bmv, AFek: '1' },
@@ -385,6 +398,7 @@ export async function fetchViewReport(formCode, term) {
     const parsed = parseReport88Registration(outpar, term);
     if (parsed.courses.length) {
       setScheduleForTerm(parsed.termId || term || '4051', parsed.courses, '88');
+      mergeCourses(parsed.courses);
     }
     return { ...parsed, outpar };
   }

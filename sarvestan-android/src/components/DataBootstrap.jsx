@@ -7,6 +7,7 @@ import {
 } from '../services/loginFlow';
 import { resetSyncState, isSyncing } from '../services/behestan/sync';
 import { hasLiveData } from '../services/behestan/store';
+import { setSelectedUniversity } from '../services/behestan/session';
 import { getViewModel } from '../data/viewModel';
 import { updateAndroidWidget, isNativeCapacitor } from '../services/androidWidget';
 
@@ -34,13 +35,15 @@ export default function DataBootstrap() {
         .then((s) => {
           if (s?.sid && s?.ticket) {
             const cur = JSON.parse(localStorage.getItem('sarvestan_mobile_session') || '{}');
-            if (cur?.sid !== s.sid || cur?.ticket !== s.ticket) {
-              console.log('[bootstrap] Loaded server session into localStorage:', s.sid);
+            if (cur?.sid !== s.sid || cur?.ticket !== s.ticket || (s.university && cur?.university !== s.university)) {
+              console.log('[bootstrap] Loaded server session into localStorage:', s.sid, s.university);
+              if (s.university) setSelectedUniversity(s.university);
               applyManualSession({
                 sid: s.sid,
                 ticket: s.ticket,
                 studentId: s.studentId || undefined,
                 cookies: s.cookies || undefined,
+                university: s.university || undefined,
               });
             }
           }

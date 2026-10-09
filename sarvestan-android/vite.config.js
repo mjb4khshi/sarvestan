@@ -98,6 +98,7 @@ function ssoLoginPlugin() {
                     ticket: result.ticket,
                     studentId: result.studentId || null,
                     cookies: result.cookies || '',
+                    university: 'kntu',
                     updatedAt: new Date().toISOString(),
                     source: 'sso-form',
                   },
@@ -417,6 +418,19 @@ export default defineConfig({
             } else {
               console.log(`[sbu-proxy res] ${proxyRes.statusCode} ${req.url}`);
             }
+
+            const chunks = [];
+            proxyRes.on('data', (c) => chunks.push(c));
+            proxyRes.on('end', () => {
+              const text = Buffer.concat(chunks).toString('utf8');
+              if (proxyRes.statusCode >= 400) {
+                const titleM = text.match(/<title[^>]*>([^<]+)<\/title>/i);
+                const h2M = text.match(/<h[123][^>]*>([\s\S]*?)<\/h[123]>/i);
+                console.error(`[sbu-proxy ${proxyRes.statusCode} HTML] ${req.url}: Title="${titleM?.[1]?.trim()}" H="${h2M?.[1]?.replace(/<[^>]+>/g, '').trim()}" Snippet: ${text.slice(0, 350).replace(/\s+/g, ' ')}`);
+              } else if (req.url.includes('ViewReport') || req.url.includes('F1825') || req.url.includes('F1809')) {
+                console.log(`[sbu-proxy OK] ${req.url} snippet: ${text.slice(0, 250).replace(/\s+/g, ' ')}`);
+              }
+            });
 
             try {
               res.setHeader('Access-Control-Allow-Origin', '*');

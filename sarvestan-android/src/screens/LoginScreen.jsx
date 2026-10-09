@@ -247,7 +247,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
         try {
           await Promise.race([
             runFullSync({ force: true }),
-            sleep(8000).then(() => ({ ok: false, reason: 'timeout' })),
+            sleep(14000).then(() => ({ ok: false, reason: 'timeout' })),
           ]);
         } catch (e) {
           console.warn('[sbu initial sync error]', e);
@@ -377,7 +377,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
       try {
         const syncRes = await Promise.race([
           runFullSync({ force: true }),
-          sleep(8000).then(() => ({ ok: false, reason: 'timeout' })),
+          sleep(14000).then(() => ({ ok: false, reason: 'timeout' })),
         ]);
         if (syncRes?.reason === 'session-expired' || syncRes?.reason === 'no-session') {
           syncBlocked = true;

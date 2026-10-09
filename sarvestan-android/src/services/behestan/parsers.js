@@ -195,7 +195,9 @@ export function parseReport77(outpar, termHint) {
     detectTermFromCourses(courses) ||
     '4051';
 
-  return { termId, courses, waitlistUnits, waitlistCount, enrolledUnits };
+  const coursesWithTerm = courses.map((c) => ({ ...c, termId }));
+
+  return { termId, courses: coursesWithTerm, waitlistUnits, waitlistCount, enrolledUnits };
 }
 
 function detectTermFromCourses(courses) {
@@ -296,9 +298,15 @@ function extractPhotoDataUrl(raw) {
 
 export function mapTermFromTitle(bms) {
   const s = String(bms || '');
-  if (s.includes('06-05') || s.includes('۰۶-۰۵')) return '4051';
-  if (s.includes('05-04') && s.includes('دوم')) return '4042';
-  if (s.includes('05-04') && s.includes('اول')) return '4041';
+  if (s.includes('06-05') || s.includes('۰۶-۰۵') || s.includes('1406-1405') || s.includes('۱۴۰۶-۱۴۰۵')) return '4051';
+  if ((s.includes('05-04') || s.includes('1405-1404') || s.includes('۱۴۰۵-۱۴۰۴')) && s.includes('دوم')) return '4042';
+  if ((s.includes('05-04') || s.includes('1405-1404') || s.includes('۱۴۰۵-۱۴۰۴')) && s.includes('اول')) return '4041';
+  const yearM = s.match(/(?:140|۱۴۰)([0-9۰-۹])\s*[-–]\s*(?:140|۱۴۰)([0-9۰-۹])/);
+  if (yearM) {
+    const y = '۰۱۲۳۴۵۶۷۸۹'.indexOf(yearM[1]) !== -1 ? '۰۱۲۳۴۵۶۷۸۹'.indexOf(yearM[1]) : yearM[1];
+    const sem = s.includes('دوم') ? '2' : s.includes('تابستان') ? '3' : '1';
+    return `40${y}${sem}`;
+  }
   return '';
 }
 
@@ -451,6 +459,7 @@ export function parseReport88Registration(outpar, termHint) {
     C12: 'جمعه',
   };
 
+  const termId = termHint || mapTermFromTitle(String(outpar?.BMs || '')) || '4051';
   const rows = parseBehestanXmlGrid(bmT);
   const courses = rows.map((row) => {
     const codeGroup = cleanHtml(row.C1 || '');
@@ -488,6 +497,7 @@ export function parseReport88Registration(outpar, termHint) {
       id: code,
       code,
       group: group || '۰۱',
+      termId,
       name: normalizeCourseName(cleanHtml(row.C2 || '')),
       units: parseInt(cleanHtml(row.C3 || '0'), 10) || (isProjectCourse(cleanHtml(row.C2 || '')) ? 3 : isInternshipCourse(cleanHtml(row.C2 || '')) ? 2 : 0),
       professor: normalizeCourseName(cleanHtml(row.C5 || '')) || 'ـ',
@@ -507,7 +517,6 @@ export function parseReport88Registration(outpar, termHint) {
     };
   }).filter((c) => c.name);
 
-  const termId = termHint || mapTermFromTitle(String(outpar?.BMs || '')) || '4051';
   return { termId, courses };
 }
 

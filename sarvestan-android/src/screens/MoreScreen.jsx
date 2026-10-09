@@ -80,7 +80,7 @@ import { useSarvestanData } from '../hooks/useSarvestanData';
 import { useTheme } from '../context/ThemeContext';
 import SessionPanel from '../components/SessionPanel';
 import { toFaDigits, formatLastSync, getLastSyncTimestamp } from '../utils/faDigits';
-import { getGpaStatusBadge } from './HomeScreen';
+import { getGpaStatusBadge } from '../utils/gpaBadge';
 import {
   renderScheduleImage,
   renderGpaStoryImage,

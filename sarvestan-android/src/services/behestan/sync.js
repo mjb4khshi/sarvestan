@@ -14,7 +14,13 @@ import {
 } from './client';
 import { markSyncStatus, getSnapshot, addLocalNote } from './store';
 import { detectCurrentTermId, termIdToLabel } from './parsers';
-import { isSessionAlive, saveManualSession, getStudentId, invalidateSession } from './session';
+import {
+  isSessionAlive,
+  saveManualSession,
+  getStudentId,
+  invalidateSession,
+  setSelectedUniversity,
+} from './session';
 
 let running = false;
 let lastRunAt = 0;
@@ -70,11 +76,13 @@ export async function runFullSync({ force = false } = {}) {
     try {
       const s = await fetch('/__sarvestan/session').then((r) => r.json());
       if (s?.sid && s?.ticket) {
+        if (s.university) setSelectedUniversity(s.university);
         saveManualSession({
           sid: s.sid,
           ticket: s.ticket,
           studentId: s.studentId || undefined,
           cookies: s.cookies || undefined,
+          university: s.university || undefined,
         });
       }
     } catch {}
@@ -112,29 +120,38 @@ export async function runFullSync({ force = false } = {}) {
 
   try {
     // ── گام اول: نام و مشخصات دانشجو از ثبت‌نام (گزارش ۸۸) ──
-    let currentTerm = detectCurrentTermId(getSnapshot()?.courses || []) || '4051';
     let sessionDead = false;
+    let r88 = null;
 
     try {
-      let r88 = await fetchRegistration88(currentTerm);
-      if (!r88?.meta?.fullName && currentTerm !== '4051') {
-        const r88Alt = await fetchRegistration88('4051');
-        if (r88Alt?.meta?.fullName) r88 = r88Alt;
-      }
-      if (!r88?.meta?.fullName && currentTerm !== '4042') {
-        const r88Alt = await fetchRegistration88('4042');
-        if (r88Alt?.meta?.fullName) r88 = r88Alt;
+      // ابتدا بدون فیلتر ترم (term=null) تا بهستان ترم فعال جاری دانشجو را برگرداند
+      r88 = await fetchRegistration88(null);
+      if (!r88?.meta?.fullName && !r88?.courses?.length) {
+        // فال‌بک با ترم ۴۰۵۱ و سپس ۴۰۴۲
+        const r88_4051 = await fetchRegistration88('4051');
+        if (r88_4051?.meta?.fullName || r88_4051?.courses?.length) {
+          r88 = r88_4051;
+        } else {
+          const r88_4042 = await fetchRegistration88('4042');
+          if (r88_4042?.meta?.fullName || r88_4042?.courses?.length) {
+            r88 = r88_4042;
+          }
+        }
       }
 
       if (r88?.error) {
         if (isSessionError(r88.error)) sessionDead = true;
         results.errors.push(`۸۸: ${r88.error}`);
-      } else if (r88?.meta?.fullName) {
-        results.profile = true;
-        markSyncStatus('live', { phase: 'registration', lastResults: results });
-      }
-      if (r88?.courses?.length) {
-        results.schedule += r88.courses.length;
+      } else {
+        if (r88?.meta?.fullName) {
+          results.profile = true;
+        }
+        if (r88?.courses?.length) {
+          results.schedule += r88.courses.length;
+        }
+        if (r88?.meta?.fullName || r88?.courses?.length) {
+          markSyncStatus('live', { phase: 'registration', lastResults: results });
+        }
       }
     } catch (e) {
       console.warn('[sync] r88 error:', e?.message || e);
@@ -142,9 +159,7 @@ export async function runFullSync({ force = false } = {}) {
       results.errors.push(`۸۸: ${e?.message || e}`);
     }
 
-    if (sessionDead) {
-      invalidateSession();
-      clearDeadServerSession();
+    if (sessionDead && !results.profile && !results.schedule) {
       markSyncStatus('error', {
         lastResults: results,
         error: 'نشست بهستان به پایان رسیده است. لطفاً دکمهٔ «ورود زندهٔ بهستان» را بزنید.',
@@ -156,18 +171,16 @@ export async function runFullSync({ force = false } = {}) {
     try {
       const pData = await fetchPersonal();
       if (pData?.error && isSessionError(pData.error)) {
-        sessionDead = true;
-      } else if (pData?.photo) {
+        if (!results.profile && !results.schedule) sessionDead = true;
+      } else if (pData?.photo || pData?.name) {
         results.profile = true;
         markSyncStatus('live', { phase: 'profile', lastResults: results });
       }
     } catch (e) {
       console.warn('[sync] F1809 photo error:', e?.message || e);
-      if (isSessionError(e?.message)) sessionDead = true;
     }
 
-    if (sessionDead) {
-      invalidateSession();
+    if (sessionDead && !results.profile && !results.schedule) {
       markSyncStatus('error', {
         lastResults: results,
         error: 'نشست بهستان به پایان رسیده است. لطفاً دکمهٔ «ورود زندهٔ بهستان» را بزنید.',
@@ -175,14 +188,19 @@ export async function runFullSync({ force = false } = {}) {
       return { ok: false, reason: 'session-expired', results };
     }
 
-    // ── گام سوم: برنامه هفتگی (گزارش ۷۸) برای ۴۰۴۲ و جاری ──
-    for (const t of ['4042', currentTerm]) {
+    // تشخیص ترم جاری از گزارش ۸۸ یا دروس موجود
+    let currentTerm = r88?.termId || detectCurrentTermId(getSnapshot()?.courses || []) || '4051';
+
+    // ── گام سوم: برنامه هفتگی (گزارش ۷۸) ──
+    for (const t of [currentTerm, '4042']) {
       if (sessionDead) break;
       try {
         const p78 = await fetchViewReport('78', t);
         if (p78?.error && isSessionError(p78.error)) {
-          sessionDead = true;
-          break;
+          if (!results.profile && !results.schedule) {
+            sessionDead = true;
+            break;
+          }
         }
         if (p78?.courses?.length) {
           results.schedule += p78.courses.length;
@@ -190,59 +208,38 @@ export async function runFullSync({ force = false } = {}) {
         }
       } catch (e) {
         console.warn(`[sync] p78 (${t}) error:`, e?.message || e);
-        if (isSessionError(e?.message)) {
-          sessionDead = true;
-          break;
-        }
       }
-    }
-
-    if (sessionDead) {
-      invalidateSession();
-      markSyncStatus('error', {
-        lastResults: results,
-        error: 'نشست بهستان به پایان رسیده است. لطفاً دکمهٔ «ورود زندهٔ بهستان» را بزنید.',
-      });
-      return { ok: false, reason: 'session-expired', results };
     }
 
     // ── جامع دانشجو (F1825) — نمرات، معدل، واحدها، شهریه ──
     try {
       const totals = await fetchStudentTotals();
       if (totals?.error && isSessionError(totals.error)) {
-        sessionDead = true;
+        if (!results.profile && !results.schedule) sessionDead = true;
       } else if (totals?.error) {
         results.errors.push(totals.error);
       } else if (totals) {
         results.courses = totals.courses?.length || 0;
         results.finance = Boolean(totals.finance);
-        results.profile = Boolean(totals.profile);
+        if (totals.profile) results.profile = true;
         markSyncStatus('live', { phase: 'core', lastResults: results });
       }
     } catch (e) {
       console.warn('[sync] F1825 error:', e?.message || e);
-      if (isSessionError(e?.message)) sessionDead = true;
       results.errors.push(`F1825: ${e?.message || e}`);
-    }
-
-    if (sessionDead) {
-      invalidateSession();
-      markSyncStatus('error', {
-        lastResults: results,
-        error: 'نشست بهستان به پایان رسیده است. لطفاً دکمهٔ «ورود زندهٔ بهستان» را بزنید.',
-      });
-      return { ok: false, reason: 'session-expired', results };
     }
 
     if (results.courses || results.schedule || results.finance || results.profile) {
       markSyncStatus('live', { phase: 'ready', lastResults: results });
-      // ترم جاری را از دیتای تازه دوباره تشخیص بده
       currentTerm = detectCurrentTermId(getSnapshot()?.courses || []) || currentTerm;
     }
 
     // ── وضعیت دروس (فرم ۷۷) — فقط برای چارت/معدل، نه برنامه ──
     try {
       const r77 = await fetchViewReport('77', currentTerm);
+      if (r77?.courses?.length && !results.schedule) {
+        results.schedule += r77.courses.length;
+      }
       if (r77?.waitlistCount > 0) {
         addLocalNote(
           `لیست انتظار: ${r77.waitlistCount} درس (${r77.waitlistUnits} واحد)`,
@@ -372,12 +369,7 @@ export async function runFullSync({ force = false } = {}) {
       markSyncStatus('live', { lastResults: results, error: undefined });
     } else {
       let errText = results.errors[0] || 'پاسخ خالی از بهستان';
-      if (results.errors.some((e) => isSessionError(e))) {
-        invalidateSession();
-        clearDeadServerSession();
-        errText = 'نشست بهستان به پایان رسیده است. لطفاً دکمهٔ «ورود زندهٔ بهستان» را بزنید.';
-      }
-      markSyncStatus('error', { lastResults: results, error: errText });
+      markSyncStatus('idle', { lastResults: results, error: errText });
     }
 
     return { ok: anyData, results };
