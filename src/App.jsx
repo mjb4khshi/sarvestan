@@ -226,7 +226,12 @@ function DashboardContent() {
 }
 
 export default function App() {
-  const isExtension = typeof window !== 'undefined' && window.location.protocol === 'chrome-extension:';
+  const isExtension =
+    typeof window !== 'undefined' &&
+    (window.location.protocol.includes('extension') ||
+      Boolean(window.chrome?.runtime?.id) ||
+      window.location.search.includes('dashboard') ||
+      window.location.hash.includes('dashboard'));
 
   return (
     <ThemeProvider>
