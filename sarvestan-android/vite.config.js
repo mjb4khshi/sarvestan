@@ -143,20 +143,26 @@ function sbuLoginPlugin() {
   return {
     name: 'sarvestan-sbu-login',
     configureServer(server) {
-      server.middlewares.use('/__sarvestan/sbu-captcha', async (req, res) => {
+      server.middlewares.use('/__sarvestan/direct-captcha', async (req, res) => {
         if (req.method !== 'GET' && req.method !== 'POST') {
           res.statusCode = 405;
           return res.end('GET/POST only');
         }
         try {
-          const upstream = await fetch('https://ems.sbu.ac.ir/frm/loginapi/loginapi.svc/', {
+          const urlObj = new URL(req.url, 'http://localhost');
+          const uniId = urlObj.searchParams.get('uni') || 'kntu';
+          let targetOrigin = 'https://behestan.kntu.ac.ir';
+          if (uniId === 'sbu') targetOrigin = 'https://ems.sbu.ac.ir';
+          else if (uniId === 'ut') targetOrigin = 'https://ems2.ut.ac.ir';
+
+          const upstream = await fetch(`${targetOrigin}/frm/loginapi/loginapi.svc/`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'User-Agent':
                 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-              Origin: 'https://ems.sbu.ac.ir',
-              Referer: 'https://ems.sbu.ac.ir/browser/fa/',
+              Origin: targetOrigin,
+              Referer: `${targetOrigin}/browser/fa/`,
             },
             body: JSON.stringify({ r: {}, rp: {}, act: '00' }),
           });
@@ -173,7 +179,13 @@ function sbuLoginPlugin() {
         }
       });
 
-      server.middlewares.use('/__sarvestan/sbu-login', (req, res) => {
+      // سازگاری برای درخواست‌های قبلی sbu-captcha
+      server.middlewares.use('/__sarvestan/sbu-captcha', (req, res) => {
+        req.url = '/__sarvestan/direct-captcha?uni=sbu';
+        server.middlewares.handle(req, res);
+      });
+
+      server.middlewares.use('/__sarvestan/direct-login', (req, res) => {
         if (req.method !== 'POST') {
           res.statusCode = 405;
           return res.end('POST only');
@@ -183,16 +195,20 @@ function sbuLoginPlugin() {
         req.on('end', async () => {
           try {
             const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
-            const { username, password, captcha, cookie } = body;
-            console.log(`[sbu-login-server] request for user="${username}"`);
-            const upstream = await fetch('https://ems.sbu.ac.ir/frm/loginapi/loginapi.svc/', {
+            const { username, password, captcha, cookie, uniId = 'kntu' } = body;
+            let targetOrigin = 'https://behestan.kntu.ac.ir';
+            if (uniId === 'sbu') targetOrigin = 'https://ems.sbu.ac.ir';
+            else if (uniId === 'ut') targetOrigin = 'https://ems2.ut.ac.ir';
+
+            console.log(`[direct-login-server] request for uni=${uniId} user="${username}"`);
+            const upstream = await fetch(`${targetOrigin}/frm/loginapi/loginapi.svc/`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 'User-Agent':
                   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                Origin: 'https://ems.sbu.ac.ir',
-                Referer: 'https://ems.sbu.ac.ir/browser/fa/',
+                Origin: targetOrigin,
+                Referer: `${targetOrigin}/browser/fa/`,
                 ...(cookie ? { Cookie: cookie } : {})
               },
               body: JSON.stringify({
@@ -205,7 +221,7 @@ function sbuLoginPlugin() {
             const data = await upstream.json();
             const errors = data?.msg?.errors || [];
             if (errors.length > 0) {
-              console.warn(`[sbu-login-server] failed: ${errors.join(' - ')}`);
+              console.warn(`[direct-login-server] failed: ${errors.join(' - ')}`);
               res.setHeader('Content-Type', 'application/json; charset=utf-8');
               res.setHeader('Access-Control-Allow-Origin', '*');
               res.end(JSON.stringify({ ok: false, error: errors.join(' - '), newCaptcha: data.capt }));
@@ -215,52 +231,17 @@ function sbuLoginPlugin() {
             const sid = data?.oaut?.rp?.sid;
             let ticket = data?.t;
             if (!sid || !ticket) {
-              console.warn('[sbu-login-server] invalid response', data);
+              console.warn('[direct-login-server] invalid response', data);
               res.setHeader('Content-Type', 'application/json; charset=utf-8');
               res.setHeader('Access-Control-Allow-Origin', '*');
-              res.end(JSON.stringify({ ok: false, error: 'پاسخ نامعتبر از سامانه شهید بهشتی', raw: data }));
+              res.end(JSON.stringify({ ok: false, error: 'پاسخ نامعتبر از سرور دانشگاه', raw: data }));
               return;
             }
 
-            // ناوبری به میزکار پیش‌فرض بهستان (فرم ۱۱۱۳۰) جهت فعال‌سازی نشست در سامانه
             let jar = mergeCookies(cookie, setCookiePairs(upstream.headers));
             if (!/ASP\.NET_SessionId=/i.test(jar)) jar = mergeCookies(jar, [`ASP.NET_SessionId=${sid}`]);
             let detectedStd = username;
             let detectedUid = null;
-            try {
-              const navUpstream = await fetch('https://ems.sbu.ac.ir/frm/sys/sys.svc/', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'User-Agent':
-                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                  Origin: 'https://ems.sbu.ac.ir',
-                  Referer: 'https://ems.sbu.ac.ir/browser/fa/',
-                  Cookie: jar,
-                },
-                body: JSON.stringify({
-                  r: { fid: '11130', ft: '0', subfrm: '' },
-                  act: 'nav',
-                  rp: {
-                    sp: '{"BrnNo":"0","BrnLimit":"0","UsrType":"0"}',
-                    loc: 'fa',
-                    ut: '0',
-                    b: '0',
-                    sid,
-                  },
-                  t: ticket,
-                }),
-              });
-              jar = mergeCookies(jar, setCookiePairs(navUpstream.headers));
-              if (!navUpstream.ok) throw new Error(`HTTP ${navUpstream.status}`);
-              const navData = await navUpstream.json();
-              if (navData?.t) ticket = navData.t;
-              if (navData?.outpar?.std) detectedStd = String(navData.outpar.std);
-              if (navData?.outpar?.u) detectedUid = String(navData.outpar.u);
-              console.log(`[sbu-login-server] nav 11130 OK: std=${detectedStd}, uid=${detectedUid}`);
-            } catch (navErr) {
-              console.warn('[sbu-login-server] nav 11130 warning:', navErr?.message || navErr);
-            }
 
             const sessionData = {
               sid,
@@ -268,27 +249,33 @@ function sbuLoginPlugin() {
               studentId: detectedStd || username,
               userId: detectedUid || undefined,
               cookies: jar,
-              university: 'sbu',
+              university: uniId,
               updatedAt: new Date().toISOString(),
-              source: 'sbu-form',
+              source: `${uniId}-direct-form`,
             };
             fs.writeFileSync(
               path.join(process.cwd(), '.behestan-session.json'),
               JSON.stringify(sessionData, null, 2),
             );
 
-            console.log(`[sbu-login-server] login success: sid=${sid}, studentId=${detectedStd}`);
+            console.log(`[direct-login-server] login success (${uniId}): sid=${sid}, studentId=${detectedStd}`);
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
             res.setHeader('Access-Control-Allow-Origin', '*');
             res.end(JSON.stringify({ ok: true, sid, ticket, studentId: detectedStd || username, userId: detectedUid, cookies: jar }));
           } catch (err) {
-            console.error('[sbu-login-server] error:', err);
+            console.error('[direct-login-server] error:', err);
             res.statusCode = 500;
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
             res.setHeader('Access-Control-Allow-Origin', '*');
             res.end(JSON.stringify({ ok: false, error: String(err?.message || err) }));
           }
         });
+      });
+
+      // سازگاری برای درخواست‌های قبلی sbu-login
+      server.middlewares.use('/__sarvestan/sbu-login', (req, res) => {
+        req.url = '/__sarvestan/direct-login';
+        server.middlewares.handle(req, res);
       });
     },
   };

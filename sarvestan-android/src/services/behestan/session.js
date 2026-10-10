@@ -144,7 +144,7 @@ export const UNIVERSITIES = [
     name: 'دانشگاه صنعتی خواجه نصیرالدین طوسی',
     shortName: 'خواجه نصیر',
     origin: 'https://behestan.kntu.ac.ir',
-    authMethod: 'sso',
+    authMethod: 'direct_captcha',
     logo: '/kntu-logo.svg',
     systemName: 'سامانه بهستان',
   },
@@ -156,6 +156,15 @@ export const UNIVERSITIES = [
     authMethod: 'direct_captcha',
     logo: '/sbu-logo.svg',
     systemName: 'سامانه آموزشی بهستان',
+  },
+  {
+    id: 'ut',
+    name: 'دانشگاه تهران',
+    shortName: 'دانشگاه تهران',
+    origin: 'https://ems2.ut.ac.ir',
+    authMethod: 'direct_captcha',
+    logo: '/ut-logo.svg',
+    systemName: 'سامانه گلستان / بهستان ۲',
   },
 ];
 
@@ -169,7 +178,9 @@ export function getSelectedUniversity() {
     if (stored) return stored;
     const profile = JSON.parse(localStorage.getItem('sarvestan_live_profile') || 'null');
     if (profile?.studentId && /^40\d{7}$/.test(String(profile.studentId))) return 'sbu';
+    if (profile?.studentId && /^(51|81|41|61)\d{7}$/.test(String(profile.studentId))) return 'ut';
     if (profile?.faculty && /ریاضی|بهشتی|کامپیوتر/i.test(profile.faculty)) return 'sbu';
+    if (profile?.faculty && /تهران|دانشکدگان/i.test(profile.faculty)) return 'ut';
     return 'kntu';
   } catch {
     return 'kntu';
@@ -185,6 +196,7 @@ export function setSelectedUniversity(uniId) {
 
 export function getUniversityOrigin(uniId = getSelectedUniversity()) {
   if (uniId === 'sbu') return 'https://ems.sbu.ac.ir';
+  if (uniId === 'ut') return 'https://ems2.ut.ac.ir';
   return 'https://behestan.kntu.ac.ir';
 }
 

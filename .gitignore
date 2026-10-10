@@ -45,8 +45,14 @@ inspect*
 find_reports.*
 test_*.mjs
 test_*.js
+test_*.cjs
 **/test_*.mjs
 **/test_*.js
+**/test_*.cjs
+analyze_*
+**/analyze_*
+payload.json
+**/payload.json
 
 # Logs & Environment
 *.log

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useCallback, useSyncExternalStore } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LogIn,
@@ -25,7 +25,12 @@ import {
   getSelectedUniversity,
   setSelectedUniversity,
 } from '../services/behestan/session';
-import { fetchSbuCaptcha, loginViaSbuDirect } from '../services/behestan/sbuLogin';
+import {
+  fetchDirectCaptcha,
+  loginViaBehestanDirect,
+  fetchSbuCaptcha,
+  loginViaSbuDirect,
+} from '../services/behestan/sbuLogin';
 import { runFullSync, resetSyncState } from '../services/behestan/sync';
 import { isNativeCapacitor, loginAndroid, loginViaSsoWebView, loginViaNativeSso, clearSsoCookies } from '../services/behestan/ssoLoginNative';
 import {
@@ -126,17 +131,20 @@ async function doLogin(username, password, method, options = {}) {
 export default function LoginScreen({ onSuccess, asModal = false }) {
   const flow = useSyncExternalStore(subscribeLogin, getLoginSnapshot, getLoginSnapshot);
   const busyRef = useRef(false);
-  const [method, setMethod] = useState('sso'); // 'sso' | 'webview'
   const [selectedUni, setSelectedUni] = useState(() => {
     const u = getSelectedUniversity();
     if (u === 'sbu') return 'sbu';
+    if (u === 'ut') return 'ut';
     try {
       const p = JSON.parse(localStorage.getItem('sarvestan_live_profile') || 'null');
       if (p?.studentId && /^40\d{7}$/.test(String(p.studentId))) return 'sbu';
+      if (p?.studentId && /^(51|81|41|61)\d{7}$/.test(String(p.studentId))) return 'ut';
       if (p?.faculty && /ریاضی|بهشتی|کامپیوتر/i.test(p.faculty)) return 'sbu';
+      if (p?.faculty && /تهران|دانشکدگان/i.test(p.faculty)) return 'ut';
     } catch {}
     return u || 'kntu';
   });
+  const [authMethod, setAuthMethod] = useState('direct_captcha'); // 'direct_captcha' | 'sso'
   const [uniDropdownOpen, setUniDropdownOpen] = useState(false);
   const uniDropdownRef = useRef(null);
 
@@ -153,37 +161,44 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
     return () => document.removeEventListener('pointerdown', handleClickOutside);
   }, [uniDropdownOpen]);
 
-  const [sbuCaptchaImg, setSbuCaptchaImg] = useState('');
-  const [sbuCaptchaCookie, setSbuCaptchaCookie] = useState('');
-  const [sbuCaptchaInput, setSbuCaptchaInput] = useState('');
+  // ساختار تک‌وضعیتی و اتمیک برای کپچا تا مسابقهٔ کوکی/تصویر هرگز رخ ندهد
+  const [captchaData, setCaptchaData] = useState({ img: '', cookie: '', timestamp: 0 });
+  const captchaDataRef = useRef({ img: '', cookie: '' });
+  const inFlightCaptchaRef = useRef(false);
+  const [captchaInput, setCaptchaInput] = useState('');
   const [loadingCaptcha, setLoadingCaptcha] = useState(false);
   const [kahadAccounts, setKahadAccounts] = useState(null);
-  // رمزی که برای تلاش جاری معتبر است — بعد از شکست، ورود وب‌ویو دوباره با آن نمی‌کوبد
   const lastTriedRef = useRef({ method: '', username: '', password: '', failed: false });
 
-  const loadSbuCaptcha = async () => {
+  const loadDirectCaptcha = useCallback(async (uniId = selectedUni, force = false) => {
+    if (inFlightCaptchaRef.current && !force) return;
+    inFlightCaptchaRef.current = true;
     setLoadingCaptcha(true);
     try {
-      const res = await fetchSbuCaptcha();
+      const res = await fetchDirectCaptcha(uniId);
       if (res?.ok && res?.captcha) {
-        setSbuCaptchaImg(res.captcha);
-        setSbuCaptchaCookie(res.cookie || '');
-        setSbuCaptchaInput('');
+        const c = res.cookie || '';
+        const payload = { img: res.captcha, cookie: c, timestamp: Date.now() };
+        captchaDataRef.current = payload;
+        setCaptchaData(payload);
+        setCaptchaInput('');
       } else {
-        console.warn('Captcha load warning:', res?.error);
+        console.warn(`[loadDirectCaptcha ${uniId}] warning:`, res?.error);
       }
     } catch (err) {
-      console.error('[loadSbuCaptcha error]', err);
+      console.error(`[loadDirectCaptcha ${uniId} error]`, err);
     } finally {
+      inFlightCaptchaRef.current = false;
       setLoadingCaptcha(false);
     }
-  };
-
-  useEffect(() => {
-    if (selectedUni === 'sbu' && !sbuCaptchaImg) {
-      loadSbuCaptcha();
-    }
   }, [selectedUni]);
+
+  // تنها مکان فراخوانی خودکار کپچا: زمانی که نیاز باشد و تصویر موجود نباشد
+  useEffect(() => {
+    if (authMethod === 'direct_captcha' && !captchaData.img && !inFlightCaptchaRef.current) {
+      loadDirectCaptcha(selectedUni);
+    }
+  }, [selectedUni, authMethod, captchaData.img, loadDirectCaptcha]);
 
   // هنگام باز شدن مجدد مدال، دانشگاه انتخاب‌شده را مجدد چک کن
   useEffect(() => {
@@ -197,8 +212,12 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
     if (busyRef.current) return;
     setSelectedUni(uniId);
     setSelectedUniversity(uniId);
-    if (uniId === 'sbu' && !sbuCaptchaImg) {
-      loadSbuCaptcha();
+    // پاک کردن امن کپچا برای درخواست تمیز و منفرد دانشگاه جدید
+    captchaDataRef.current = { img: '', cookie: '' };
+    setCaptchaData({ img: '', cookie: '', timestamp: 0 });
+    setCaptchaInput('');
+    if (uniId === 'sbu') {
+      setAuthMethod('direct_captcha');
     }
   };
 
@@ -231,9 +250,9 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
     const u = String(username || '').trim();
     const p = password;
 
-    // مسیر ورود مستقیم دانشگاه شهید بهشتی
-    if (selectedUni === 'sbu') {
-      const c = String(sbuCaptchaInput || '').trim();
+    // مسیر ۱: ورود مستقیم بهستان (کپچا) برای همه دانشگاه‌ها (KNTU, SBU, UT)
+    if (authMethod === 'direct_captcha') {
+      const c = String(captchaInput || '').trim();
       if (!u || !p || !c) {
         failLoginFlow(-1, 'شماره دانشجویی، رمز عبور و کد امنیتی الزامی است.');
         return;
@@ -245,12 +264,20 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
       try {
         setLoginStep(0);
         const t0 = Date.now();
-        const j = await loginViaSbuDirect(u, p, c, sbuCaptchaCookie);
+        const activeCookie = captchaDataRef.current?.cookie || captchaData.cookie;
+        const j = await loginViaBehestanDirect(u, p, c, activeCookie, selectedUni);
 
         if (!j?.ok || !j?.sid || !j?.ticket) {
           busyRef.current = false;
           try { clearSession(); } catch {}
-          loadSbuCaptcha();
+          if (j?.newCaptcha) {
+            const updated = { img: j.newCaptcha, cookie: j.cookies || activeCookie, timestamp: Date.now() };
+            captchaDataRef.current = updated;
+            setCaptchaData(updated);
+            setCaptchaInput('');
+          } else {
+            loadDirectCaptcha(selectedUni, true);
+          }
           failLoginFlow(-1, j?.error || 'ورود ناموفق — اطلاعات را بررسی کنید.');
           return;
         }
@@ -258,7 +285,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
         if (remember) {
           commitCredsOnSuccess(u, p);
         }
-        setSelectedUniversity('sbu');
+        setSelectedUniversity(selectedUni);
 
         applyManualSession(
           {
@@ -266,7 +293,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
             ticket: j.ticket,
             studentId: j.studentId || u,
             cookies: j.cookies || undefined,
-            university: 'sbu',
+            university: selectedUni,
           },
           { replace: true },
         );
@@ -274,7 +301,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
         if (!isSessionAlive()) {
           busyRef.current = false;
           try { clearSession(); } catch {}
-          failLoginFlow(-1, 'نشست شهید بهشتی ثبت نشد. دوباره تلاش کنید.');
+          failLoginFlow(-1, 'نشست سامانه ثبت نشد. دوباره تلاش کنید.');
           return;
         }
 
@@ -292,7 +319,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
             sleep(14000).then(() => ({ ok: false, reason: 'timeout' })),
           ]);
         } catch (e) {
-          console.warn('[sbu initial sync error]', e);
+          console.warn('[initial sync error]', e);
         }
 
         setLoginStep(3);
@@ -317,150 +344,155 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
         }
       } catch (err) {
         busyRef.current = false;
-        loadSbuCaptcha();
+        loadDirectCaptcha(selectedUni, true);
         failLoginFlow(-1, networkErrorMessage(err));
       }
       return;
     }
 
-    // مسیر ورود خواجه نصیرالدین طوسی (KNTU)
-    setSelectedUniversity('kntu');
-    if (method === 'sso' && (!u || !p)) {
-      failLoginFlow(-1, 'نام کاربری و رمز عبور الزامی است.');
-      return;
-    }
-
-    busyRef.current = true;
-    const prevTried = lastTriedRef.current;
-    const stripFailedPass =
-      method === 'webview' && prevTried.failed && prevTried.password === p && prevTried.username === u;
-    lastTriedRef.current = { method, username: u, password: p, failed: false };
-    beginLoginFlow();
-
-    try {
-      if (!loginOptions?.selectedUserNo) {
-        try {
-          beginFreshLoginSession();
-          await clearSsoCookies();
-        } catch {}
-      }
-
-      setLoginStep(0);
-      const t0 = Date.now();
-
-      let j = await doLogin(u, stripFailedPass ? '' : p, method, loginOptions);
-
-      // اگر کاربر کهاد/دو رشته‌ای بود و لیست اکانت‌ها برگشت
-      if (!j?.ok && j?.code === 'needs-kahad-selection' && j?.accounts?.length > 0) {
-        busyRef.current = false;
-        failLoginFlow(-1, '');
-        setKahadAccounts(j.accounts);
+    // مسیر ۲: احراز هویت مرکزی (SSO)
+    if (authMethod === 'sso') {
+      if (!u || !p) {
+        failLoginFlow(-1, 'نام کاربری و رمز عبور الزامی است.');
         return;
       }
 
-      // فال‌بک وب‌ویو اگر نیاز به انتخاب تعاملی باشد
-      if (!j?.ok && j?.code === 'needs-account-selection' && isNativeCapacitor()) {
-        try {
-          setMethod('webview');
-          j = await loginViaSsoWebView({ username: u, password: p });
-        } catch (err) {
-          j = { ok: false, error: 'انصراف یا خطا در انتخاب رشته کهاد' };
-        }
+      if (selectedUni === 'ut') {
+        failLoginFlow(
+          -1,
+          'برای دانشگاه تهران در حال حاضر از گزینه «ورود مستقیم بهستان» با وارد کردن کد امنیتی استفاده کنید.',
+        );
+        return;
       }
 
-      if (!j?.ok || !j?.sid || !j?.ticket) {
-        lastTriedRef.current.failed = true;
-        busyRef.current = false;
-        // نشست ناقص قبلی نماند
-        try { clearSession(); } catch {}
-        const failMsg = authErrorMessage(j);
-        // رمز ذخیره‌شده اگر همین بار رد شد، دوباره خودکار پر نشود
-        if (j?.code === 'bad-credentials' || /اشتباه|نادرست/.test(failMsg)) {
+      setSelectedUniversity('kntu');
+      busyRef.current = true;
+      const prevTried = lastTriedRef.current;
+      const stripFailedPass =
+        prevTried.failed && prevTried.password === p && prevTried.username === u;
+      lastTriedRef.current = { method: 'sso', username: u, password: p, failed: false };
+      beginLoginFlow();
+
+      try {
+        if (!loginOptions?.selectedUserNo) {
           try {
-            const saved = loadSavedCreds();
-            if (saved && saved.username === u) clearSavedCreds();
+            beginFreshLoginSession();
+            await clearSsoCookies();
           } catch {}
         }
-        failLoginFlow(-1, failMsg);
-        return;
-      }
 
-      commitCredsOnSuccess(u, p);
+        setLoginStep(0);
+        const t0 = Date.now();
 
-      applyManualSession(
-        {
-          sid: j.sid,
-          ticket: j.ticket,
-          studentId: j.studentId || undefined,
-          userId: j.userId || parseUidFromCookies(j.cookies) || undefined,
-          cookies: j.cookies || undefined,
-        },
-        { replace: true },
-      );
+        let j = await doLogin(u, stripFailedPass ? '' : p, 'sso', loginOptions);
 
-      if (!isSessionAlive()) {
+        if (!j?.ok && j?.code === 'needs-kahad-selection' && j?.accounts?.length > 0) {
+          busyRef.current = false;
+          failLoginFlow(-1, '');
+          setKahadAccounts(j.accounts);
+          return;
+        }
+
+        if (!j?.ok && j?.code === 'needs-account-selection' && isNativeCapacitor()) {
+          try {
+            j = await loginViaSsoWebView({ username: u, password: p });
+          } catch (err) {
+            j = { ok: false, error: 'انصراف یا خطا در انتخاب رشته کهاد' };
+          }
+        }
+
+        if (!j?.ok || !j?.sid || !j?.ticket) {
+          lastTriedRef.current.failed = true;
+          busyRef.current = false;
+          try { clearSession(); } catch {}
+          const failMsg = authErrorMessage(j);
+          if (j?.code === 'bad-credentials' || /اشتباه|نادرست/.test(failMsg)) {
+            try {
+              const saved = loadSavedCreds();
+              if (saved && saved.username === u) clearSavedCreds();
+            } catch {}
+          }
+          failLoginFlow(-1, failMsg);
+          return;
+        }
+
+        commitCredsOnSuccess(u, p);
+
+        applyManualSession(
+          {
+            sid: j.sid,
+            ticket: j.ticket,
+            studentId: j.studentId || undefined,
+            userId: j.userId || parseUidFromCookies(j.cookies) || undefined,
+            cookies: j.cookies || undefined,
+            university: 'kntu',
+          },
+          { replace: true },
+        );
+
+        if (!isSessionAlive()) {
+          lastTriedRef.current.failed = true;
+          busyRef.current = false;
+          try { clearSession(); } catch {}
+          failLoginFlow(-1, 'نشست ثبت نشد. رمز را بررسی و دوباره تلاش کنید.');
+          return;
+        }
+
+        const wait0 = MIN_STEP_MS - (Date.now() - t0);
+        if (wait0 > 0) await sleep(wait0);
+
+        setLoginStep(1);
+        resetSyncState();
+        await sleep(350);
+
+        setLoginStep(2);
+        let syncBlocked = false;
+        try {
+          const syncRes = await Promise.race([
+            runFullSync({ force: true }),
+            sleep(14000).then(() => ({ ok: false, reason: 'timeout' })),
+          ]);
+          if (syncRes?.reason === 'session-expired' || syncRes?.reason === 'no-session') {
+            syncBlocked = true;
+          }
+        } catch (e) {
+          if (/نشست|session|50216|403/i.test(String(e?.message || e))) syncBlocked = true;
+        }
+
+        if (syncBlocked) {
+          lastTriedRef.current.failed = true;
+          busyRef.current = false;
+          try { clearSession(); } catch {}
+          failLoginFlow(-1, 'نشست معتبر نشد. رمز یا وضعیت حساب را بررسی کنید.');
+          return;
+        }
+
+        setLoginStep(3);
+        setLoginDone(true);
+        busyRef.current = false;
+        try {
+          sessionStorage.removeItem('sarvestan_manual_logout');
+        } catch {}
+        try {
+          const url = new URL(window.location.href);
+          if (url.searchParams.has('login')) {
+            url.searchParams.delete('login');
+            window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+          }
+        } catch {}
+        await sleep(400);
+        closeLoginModal();
+        if (typeof onSuccess === 'function') {
+          onSuccess();
+        } else if (!asModal) {
+          window.location.replace(window.location.origin + window.location.pathname);
+        }
+      } catch (err) {
         lastTriedRef.current.failed = true;
         busyRef.current = false;
         try { clearSession(); } catch {}
-        failLoginFlow(-1, 'نشست ثبت نشد. رمز را بررسی و دوباره تلاش کنید.');
-        return;
+        failLoginFlow(-1, networkErrorMessage(err));
       }
-
-      const wait0 = MIN_STEP_MS - (Date.now() - t0);
-      if (wait0 > 0) await sleep(wait0);
-
-      setLoginStep(1);
-      resetSyncState();
-      await sleep(350);
-
-      setLoginStep(2);
-      // تلاش برای سنک اولیه — اگر نشست مرد باشد خطا نشان بده، وگرنه timeout بی‌خیال
-      let syncBlocked = false;
-      try {
-        const syncRes = await Promise.race([
-          runFullSync({ force: true }),
-          sleep(14000).then(() => ({ ok: false, reason: 'timeout' })),
-        ]);
-        if (syncRes?.reason === 'session-expired' || syncRes?.reason === 'no-session') {
-          syncBlocked = true;
-        }
-      } catch (e) {
-        if (/نشست|session|50216|403/i.test(String(e?.message || e))) syncBlocked = true;
-      }
-
-      if (syncBlocked) {
-        lastTriedRef.current.failed = true;
-        busyRef.current = false;
-        try { clearSession(); } catch {}
-        failLoginFlow(-1, 'نشست معتبر نشد. رمز یا وضعیت حساب را بررسی کنید.');
-        return;
-      }
-
-      setLoginStep(3);
-      setLoginDone(true);
-      busyRef.current = false;
-      try {
-        sessionStorage.removeItem('sarvestan_manual_logout');
-      } catch {}
-      try {
-        const url = new URL(window.location.href);
-        if (url.searchParams.has('login')) {
-          url.searchParams.delete('login');
-          window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
-        }
-      } catch {}
-      await sleep(400);
-      closeLoginModal();
-      if (typeof onSuccess === 'function') {
-        onSuccess();
-      } else if (!asModal) {
-        window.location.replace(window.location.origin + window.location.pathname);
-      }
-    } catch (e) {
-      lastTriedRef.current.failed = true;
-      busyRef.current = false;
-      try { clearSession(); } catch {}
-      failLoginFlow(-1, networkErrorMessage(e));
     }
   };
 
@@ -599,143 +631,50 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
         </AnimatePresence>
       </div>
 
-      {/* فرم خواجه نصیر */}
-      {selectedUni === 'kntu' && (
-        <>
-          {native && (
-            <div className="grid grid-cols-2 p-1 bg-base-500/20 rounded-2xl border border-white/5 text-[12px] font-medium">
-              <button
-                type="button"
-                onClick={() => {
-                  if (lastTriedRef.current.failed && lastTriedRef.current.password) {
-                    lastTriedRef.current = { ...lastTriedRef.current, password: '' };
-                    setLoginPassword('');
-                  }
-                  setMethod('sso');
-                }}
-                disabled={busy}
-                className={`py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  method === 'sso'
-                    ? 'bg-primary text-white shadow-md font-bold'
-                    : 'text-neutral hover:text-base-content'
-                }`}
-              >
-                <KeyRound className="w-3.5 h-3.5" />
-                <span>ورود مرکزی (SSO)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (lastTriedRef.current.failed && lastTriedRef.current.password) {
-                    lastTriedRef.current = { ...lastTriedRef.current, password: '' };
-                    setLoginPassword('');
-                  }
-                  setMethod('webview');
-                }}
-                disabled={busy}
-                className={`py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  method === 'webview'
-                    ? 'bg-primary text-white shadow-md font-bold'
-                    : 'text-neutral hover:text-base-content'
-                }`}
-              >
-                <Globe className="w-3.5 h-3.5" />
-                <span>وب‌ویو بهستان</span>
-              </button>
-            </div>
-          )}
-
-          {method === 'sso' && (
-            <div className="space-y-2.5 pt-1">
-              <div className="flex items-center gap-1.5 px-1 text-[11px] text-primary/90 font-medium">
-                <ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0" />
-                <span>احراز هویت مرکزی دانشگاه (sso.kntu.ac.ir — بدون کپچا)</span>
-              </div>
-
-              <div className="input-wrap input-primary w-full">
-                <div className="input-box">
-                  <span className="input-icon-left">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                      <circle cx="12" cy="7" r="4" />
-                    </svg>
-                  </span>
-                  <input
-                    type="text"
-                    value={username}
-                    onChange={(e) => setLoginUsername(e.target.value)}
-                    placeholder=" "
-                    autoComplete="username"
-                    dir="ltr"
-                    id="sarv-login-user"
-                    disabled={busy}
-                    className="input"
-                  />
-                  <label htmlFor="sarv-login-user" className="input-label-placeholder">
-                    نام کاربری (کد ملی / شماره دانشجویی)
-                  </label>
-                </div>
-              </div>
-
-              <div className="input-wrap input-primary w-full">
-                <div className="input-box">
-                  <span className="input-icon-left">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </span>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    placeholder=" "
-                    autoComplete="current-password"
-                    dir="ltr"
-                    id="sarv-login-pass"
-                    disabled={busy}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleLogin();
-                    }}
-                    className="input"
-                  />
-                  <label htmlFor="sarv-login-pass" className="input-label-placeholder">
-                    رمز عبور
-                  </label>
-                </div>
-              </div>
-
-              <div className="pt-1 px-1">
-                <SarvCheckbox
-                  checked={remember}
-                  disabled={busy}
-                  onChange={(checked) => setLoginRemember(checked)}
-                  label="مرا به خاطر بسپار"
-                  description="ورود سریع بدون تایپ مجدد رمز"
-                  variant="primary"
-                />
-              </div>
-            </div>
-          )}
-
-          {method === 'webview' && (
-            <div className="rounded-2xl bg-primary-soft border border-primary-soft p-3.5 space-y-2">
-              <p className="text-[12px] font-bold text-primary">راهنمای ورود با وب‌ویو</p>
-              <ol className="text-[11.5px] text-neutral leading-relaxed list-decimal pr-4 space-y-1.5">
-                <li>روی دکمهٔ <strong className="text-base-content">«ورود با سامانهٔ دانشگاه»</strong> بزن</li>
-                <li>پنجرهٔ سامانه دانشگاه باز می‌شود و اطلاعات خود را وارد کن</li>
-                <li>پس از ورود موفق، نشست به صورت خودکار شناسایی و همگام‌سازی می‌شود</li>
-              </ol>
-            </div>
-          )}
-        </>
+      {/* انتخاب روش ورود برای دانشگاه‌هایی که چند متد دارند (خواجه نصیر و تهران) */}
+      {(selectedUni === 'kntu' || selectedUni === 'ut') && (
+        <div className="grid grid-cols-2 p-1 bg-base-500/20 rounded-2xl border border-white/5 text-[12px] font-medium">
+          <button
+            type="button"
+            onClick={() => setAuthMethod('direct_captcha')}
+            disabled={busy}
+            className={`py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              authMethod === 'direct_captcha'
+                ? 'bg-primary text-white shadow-md font-bold'
+                : 'text-neutral hover:text-base-content'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>ورود مستقیم بهستان</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAuthMethod('sso')}
+            disabled={busy}
+            className={`py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              authMethod === 'sso'
+                ? 'bg-primary text-white shadow-md font-bold'
+                : 'text-neutral hover:text-base-content'
+            }`}
+          >
+            <KeyRound className="w-3.5 h-3.5" />
+            <span>ورود مرکزی (SSO)</span>
+          </button>
+        </div>
       )}
 
-      {/* فرم دانشگاه شهید بهشتی */}
-      {selectedUni === 'sbu' && (
+      {/* ۱. فرم ورود مستقیم بهستان (کپچا) — مشترک برای خواجه نصیر، بهشتی و تهران */}
+      {authMethod === 'direct_captcha' && (
         <div className="space-y-2.5 pt-1">
           <div className="flex items-center gap-1.5 px-1 text-[11px] text-primary/90 font-medium">
             <ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0" />
-            <span>سامانه بهستان دانشگاه شهید بهشتی (ems.sbu.ac.ir)</span>
+            <span>
+              {selectedUni === 'kntu'
+                ? 'سامانه بهستان دانشگاه صنعتی خواجه نصیر (behestan.kntu.ac.ir)'
+                : selectedUni === 'sbu'
+                ? 'سامانه بهستان دانشگاه شهید بهشتی (ems.sbu.ac.ir)'
+                : 'سامانه بهستان دانشگاه تهران (ems2.ut.ac.ir)'}
+            </span>
           </div>
 
           <div className="input-wrap input-primary w-full">
@@ -753,11 +692,11 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
                 placeholder=" "
                 autoComplete="username"
                 dir="ltr"
-                id="sarv-sbu-user"
+                id="sarv-direct-user"
                 disabled={busy}
                 className="input"
               />
-              <label htmlFor="sarv-sbu-user" className="input-label-placeholder">
+              <label htmlFor="sarv-direct-user" className="input-label-placeholder">
                 شماره دانشجویی / نام کاربری
               </label>
             </div>
@@ -777,11 +716,11 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
                 placeholder=" "
                 autoComplete="current-password"
                 dir="ltr"
-                id="sarv-sbu-pass"
+                id="sarv-direct-pass"
                 disabled={busy}
                 className="input"
               />
-              <label htmlFor="sarv-sbu-pass" className="input-label-placeholder">
+              <label htmlFor="sarv-direct-pass" className="input-label-placeholder">
                 رمز عبور بهستان
               </label>
             </div>
@@ -793,24 +732,24 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
               <div className="input-box">
                 <input
                   type="text"
-                  value={sbuCaptchaInput}
+                  value={captchaInput}
                   onChange={(e) => {
                     const raw = e.target.value || '';
                     const en = raw.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
                                   .replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
-                    setSbuCaptchaInput(en);
+                    setCaptchaInput(en);
                   }}
                   placeholder=" "
                   autoComplete="off"
                   dir="ltr"
-                  id="sarv-sbu-captcha"
+                  id="sarv-direct-captcha"
                   disabled={busy}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleLogin();
                   }}
                   className="input font-mono text-[16px] tracking-widest font-bold"
                 />
-                <label htmlFor="sarv-sbu-captcha" className="input-label-placeholder">
+                <label htmlFor="sarv-direct-captcha" className="input-label-placeholder">
                   کد تصویر امنیتی
                 </label>
               </div>
@@ -822,18 +761,18 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
                 <div className="w-24 h-full flex items-center justify-center">
                   <Loader2 className="w-4 h-4 animate-spin text-primary" />
                 </div>
-              ) : sbuCaptchaImg ? (
+              ) : captchaData.img ? (
                 <img
-                  src={`data:image/jpeg;base64,${sbuCaptchaImg}`}
+                  src={`data:image/jpeg;base64,${captchaData.img}`}
                   alt="کد امنیتی"
                   className="h-full rounded-xl object-contain bg-white px-1 select-none cursor-pointer"
-                  onClick={loadSbuCaptcha}
+                  onClick={() => loadDirectCaptcha(selectedUni, true)}
                   title="کلیک برای نوسازی کد"
                 />
               ) : (
                 <button
                   type="button"
-                  onClick={loadSbuCaptcha}
+                  onClick={() => loadDirectCaptcha(selectedUni, true)}
                   className="text-[11px] text-primary px-2 font-medium cursor-pointer"
                 >
                   دریافت کد
@@ -841,7 +780,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
               )}
               <button
                 type="button"
-                onClick={loadSbuCaptcha}
+                onClick={() => loadDirectCaptcha(selectedUni, true)}
                 disabled={loadingCaptcha || busy}
                 className="w-8 h-8 rounded-xl bg-base-500/25 hover:bg-base-500/40 text-neutral hover:text-base-content flex items-center justify-center transition active:scale-95 cursor-pointer"
                 title="تغییر کد امنیتی"
@@ -857,7 +796,90 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
               disabled={busy}
               onChange={(checked) => setLoginRemember(checked)}
               label="مرا به خاطر بسپار"
-              description="ذخیره امن شماره دانشجویی و رمز"
+              description="ذخیره امن اطلاعات ورود روی این دستگاه"
+              variant="primary"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ۲. فرم ورود مرکزی (SSO) */}
+      {authMethod === 'sso' && (
+        <div className="space-y-2.5 pt-1">
+          <div className="flex items-center gap-1.5 px-1 text-[11px] text-primary/90 font-medium">
+            <ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0" />
+            <span>
+              {selectedUni === 'kntu'
+                ? 'احراز هویت مرکزی دانشگاه خواجه نصیر (sso.kntu.ac.ir — بدون کپچا)'
+                : 'سامانه احراز هویت مرکزی دانشگاه تهران (sso1.ut.ac.ir)'}
+            </span>
+          </div>
+
+          <div className="input-wrap input-primary w-full">
+            <div className="input-box">
+              <span className="input-icon-left">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setLoginUsername(e.target.value)}
+                placeholder=" "
+                autoComplete="username"
+                dir="ltr"
+                id="sarv-sso-user"
+                disabled={busy}
+                className="input"
+              />
+              <label htmlFor="sarv-sso-user" className="input-label-placeholder">
+                نام کاربری (کد ملی / شماره دانشجویی)
+              </label>
+            </div>
+          </div>
+
+          <div className="input-wrap input-primary w-full">
+            <div className="input-box">
+              <span className="input-icon-left">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </span>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                placeholder=" "
+                autoComplete="current-password"
+                dir="ltr"
+                id="sarv-sso-pass"
+                disabled={busy}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleLogin();
+                }}
+                className="input"
+              />
+              <label htmlFor="sarv-sso-pass" className="input-label-placeholder">
+                رمز عبور
+              </label>
+            </div>
+          </div>
+
+          {selectedUni === 'ut' && (
+            <div className="rounded-2xl bg-primary-soft/40 border border-primary/20 p-2.5 text-[11px] text-neutral leading-relaxed">
+              پیشنهاد: برای اتصال پرسرعت به گلستان/بهستان دانشگاه تهران، از روش <strong className="text-primary font-bold">«ورود مستقیم بهستان»</strong> استفاده فرمایید.
+            </div>
+          )}
+
+          <div className="pt-1 px-1">
+            <SarvCheckbox
+              checked={remember}
+              disabled={busy}
+              onChange={(checked) => setLoginRemember(checked)}
+              label="مرا به خاطر بسپار"
+              description="ورود سریع بدون تایپ مجدد رمز"
               variant="primary"
             />
           </div>
@@ -883,20 +905,15 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
             <Loader2 className="w-4 h-4 animate-spin" />
             در حال ورود و همگام‌سازی…
           </>
-        ) : selectedUni === 'sbu' ? (
+        ) : authMethod === 'direct_captcha' ? (
           <>
             <LogIn className="w-4 h-4" />
-            ورود به بهستان شهید بهشتی
-          </>
-        ) : method === 'webview' ? (
-          <>
-            <Globe className="w-4 h-4" />
-            ورود با سامانهٔ دانشگاه
+            ورود مستقیم به بهستان ({UNIVERSITIES.find((u) => u.id === selectedUni)?.shortName || 'دانشگاه'})
           </>
         ) : (
           <>
             <LogIn className="w-4 h-4" />
-            ورود و دریافت دیتای زنده
+            ورود از طریق احراز هویت مرکزی
           </>
         )}
       </motion.button>
@@ -937,23 +954,16 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
           <p className="text-[11.5px] text-danger bg-danger-soft border border-danger-soft rounded-xl px-3 py-2 leading-relaxed">
             {error}
           </p>
-          {native && method !== 'webview' && (
+          {authMethod === 'sso' && (
             <button
               type="button"
               onClick={() => {
-                // رمز شکست‌خورده را از state هم بردار تا وب‌ویو پر/کوب نشود
-                lastTriedRef.current = {
-                  ...lastTriedRef.current,
-                  failed: true,
-                  password: '',
-                };
-                setLoginPassword('');
-                setMethod('webview');
+                setAuthMethod('direct_captcha');
               }}
-              className="w-full py-2 px-3 text-[12px] font-bold text-primary bg-primary-soft hover:bg-primary/20 border border-primary/25 rounded-xl transition flex items-center justify-center gap-1.5"
+              className="w-full py-2 px-3 text-[12px] font-bold text-primary bg-primary-soft hover:bg-primary/20 border border-primary/25 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <Globe className="w-3.5 h-3.5" />
-              <span>تغییر روش ورود: وب‌ویو مستقیم دانشگاه</span>
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>تغییر روش ورود: ورود مستقیم بهستان (کد امنیتی)</span>
             </button>
           )}
         </div>
