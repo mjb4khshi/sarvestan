@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BookOpenCheck,
@@ -147,15 +148,15 @@ export default function CurriculumChartModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[75] flex items-end sm:items-center justify-center p-0 sm:p-4">
+  const modalContent = (
+    <div className="fixed inset-0 z-[999] flex items-end sm:items-center justify-center p-0 sm:p-4">
       {/* لایه تاریک پشت‌زمینه */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="absolute inset-0 bg-black/70 backdrop-blur-md"
+        className="absolute inset-0 bg-black/75 backdrop-blur-md"
       />
 
       {/* کانتینر اصلی مودال تمام‌صفحه */}
@@ -782,4 +783,7 @@ export default function CurriculumChartModal({
       </motion.div>
     </div>
   );
+
+  if (typeof document === 'undefined') return modalContent;
+  return createPortal(modalContent, document.body);
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileCheck2,
@@ -46,6 +47,7 @@ import {
 } from '../services/behestan';
 import { clearSsoCookies } from '../services/behestan/ssoLoginNative';
 import { clearSavedCreds } from '../services/loginFlow';
+import { getUniversityOrigin } from '../services/behestan/session';
 
 import {
   cancelAllReminders,
@@ -731,7 +733,7 @@ export default function MoreScreen({
           {/* نامه‌ها و گواهی‌ها */}
           <button
             type="button"
-            onClick={() => window.open('https://behestan.kntu.ac.ir/', '_blank')}
+            onClick={() => window.open(getUniversityOrigin() + '/', '_blank')}
             className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors"
           >
             <div className="flex items-start gap-3 min-w-0">
@@ -755,7 +757,7 @@ export default function MoreScreen({
           {/* درخواست‌های آموزشی */}
           <button
             type="button"
-            onClick={() => window.open('https://behestan.kntu.ac.ir/', '_blank')}
+            onClick={() => window.open(getUniversityOrigin() + '/', '_blank')}
             className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors"
           >
             <div className="flex items-start gap-3 min-w-0">
@@ -1164,52 +1166,55 @@ export default function MoreScreen({
         </p>
       </div>
 
-      {/* مودال تمام‌صفحه: امور مالی و شهریه */}
+      {/* مودال تمام‌صفحه: امور مالی و شهریه با پورتال مستقیم به document.body */}
       <AnimatePresence>
-        {financeModalOpen && (
-          <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={closeFinance}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
+        {financeModalOpen &&
+          typeof document !== 'undefined' &&
+          createPortal(
+            <div className="fixed inset-0 z-[999] flex items-end sm:items-center justify-center">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={closeFinance}
+                className="absolute inset-0 bg-black/75 backdrop-blur-md"
+              />
 
-            <motion.div
-              initial={{ y: '100%', opacity: 0.5 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: '100%', opacity: 0.5 }}
-              transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-              className="relative z-10 w-full max-w-[440px] rounded-t-3xl sm:rounded-3xl bg-base border border-base-500/50 p-4 shadow-2xl h-[90vh] flex flex-col"
-            >
-              {/* هدر مودال امور مالی */}
-              <div className="flex items-center justify-between pb-3 border-b border-base-500/30 shrink-0">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-success-soft text-success grid place-items-center shadow-sm">
-                    <CreditCard className="w-4 h-4" />
+              <motion.div
+                initial={{ y: '100%', opacity: 0.5 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: '100%', opacity: 0.5 }}
+                transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+                className="relative z-10 w-full max-w-[440px] rounded-t-3xl sm:rounded-3xl bg-base border border-base-500/50 p-4 shadow-2xl h-[90vh] flex flex-col"
+              >
+                {/* هدر مودال امور مالی */}
+                <div className="flex items-center justify-between pb-3 border-b border-base-500/30 shrink-0">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-success-soft text-success grid place-items-center shadow-sm">
+                      <CreditCard className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-[15px] font-black text-base-content">امور مالی و شهریه</h3>
+                      <p className="text-[11px] text-neutral">ریز تراز مالی، شهریه و رسید رسمی سرو</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-[15px] font-black text-base-content">امور مالی و شهریه</h3>
-                    <p className="text-[11px] text-neutral">ریز تراز مالی، شهریه و رسید رسمی سرو</p>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={closeFinance}
+                    className="w-8 h-8 rounded-full bg-base-500/30 text-neutral hover:text-base-content grid place-items-center transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={closeFinance}
-                  className="w-8 h-8 rounded-full bg-base-500/30 text-neutral hover:text-base-content grid place-items-center transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
 
-              {/* بدنه محتوا */}
-              <div className="overflow-y-auto flex-1 no-scrollbar pt-1 pb-4">
-                <FinanceScreen onNavigate={onNavigate} />
-              </div>
-            </motion.div>
-          </div>
-        )}
+                {/* بدنه محتوا */}
+                <div className="overflow-y-auto flex-1 no-scrollbar pt-1 pb-4">
+                  <FinanceScreen onNavigate={onNavigate} />
+                </div>
+              </motion.div>
+            </div>,
+            document.body,
+          )}
       </AnimatePresence>
 
       {/* مودال تمام‌صفحه و تعاملی: چارت و نقشه راه تحصیلی */}

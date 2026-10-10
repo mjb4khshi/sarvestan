@@ -1,6 +1,20 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { motion } from 'framer-motion';
-import { LogIn, Loader2, X, CheckCircle2, KeyRound, Globe, ShieldCheck, GraduationCap, BookOpen, RefreshCw } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  LogIn,
+  Loader2,
+  X,
+  CheckCircle2,
+  KeyRound,
+  Globe,
+  ShieldCheck,
+  GraduationCap,
+  BookOpen,
+  RefreshCw,
+  ChevronDown,
+  Check,
+  Building2,
+} from 'lucide-react';
 import SarvCheckbox from '../components/SarvCheckbox';
 import {
   applyManualSession,
@@ -113,7 +127,32 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
   const flow = useSyncExternalStore(subscribeLogin, getLoginSnapshot, getLoginSnapshot);
   const busyRef = useRef(false);
   const [method, setMethod] = useState('sso'); // 'sso' | 'webview'
-  const [selectedUni, setSelectedUni] = useState(() => getSelectedUniversity());
+  const [selectedUni, setSelectedUni] = useState(() => {
+    const u = getSelectedUniversity();
+    if (u === 'sbu') return 'sbu';
+    try {
+      const p = JSON.parse(localStorage.getItem('sarvestan_live_profile') || 'null');
+      if (p?.studentId && /^40\d{7}$/.test(String(p.studentId))) return 'sbu';
+      if (p?.faculty && /ریاضی|بهشتی|کامپیوتر/i.test(p.faculty)) return 'sbu';
+    } catch {}
+    return u || 'kntu';
+  });
+  const [uniDropdownOpen, setUniDropdownOpen] = useState(false);
+  const uniDropdownRef = useRef(null);
+
+  // بستن لیست کشویی با کلیک خارج از آن
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (uniDropdownRef.current && !uniDropdownRef.current.contains(e.target)) {
+        setUniDropdownOpen(false);
+      }
+    };
+    if (uniDropdownOpen) {
+      document.addEventListener('pointerdown', handleClickOutside);
+    }
+    return () => document.removeEventListener('pointerdown', handleClickOutside);
+  }, [uniDropdownOpen]);
+
   const [sbuCaptchaImg, setSbuCaptchaImg] = useState('');
   const [sbuCaptchaCookie, setSbuCaptchaCookie] = useState('');
   const [sbuCaptchaInput, setSbuCaptchaInput] = useState('');
@@ -145,6 +184,14 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
       loadSbuCaptcha();
     }
   }, [selectedUni]);
+
+  // هنگام باز شدن مجدد مدال، دانشگاه انتخاب‌شده را مجدد چک کن
+  useEffect(() => {
+    const u = getSelectedUniversity();
+    if (u && u !== selectedUni) {
+      setSelectedUni(u);
+    }
+  }, [asModal]);
 
   const handleSelectUni = (uniId) => {
     if (busyRef.current) return;
@@ -203,12 +250,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
         if (!j?.ok || !j?.sid || !j?.ticket) {
           busyRef.current = false;
           try { clearSession(); } catch {}
-          if (j?.newCaptcha) {
-            setSbuCaptchaImg(j.newCaptcha);
-            setSbuCaptchaInput('');
-          } else {
-            loadSbuCaptcha();
-          }
+          loadSbuCaptcha();
           failLoginFlow(-1, j?.error || 'ورود ناموفق — اطلاعات را بررسی کنید.');
           return;
         }
@@ -450,34 +492,111 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
         </p>
       </div>
 
-      {/* انتخاب دانشگاه */}
-      <div className="grid grid-cols-2 p-1 bg-base-500/20 rounded-2xl border border-white/5 text-[12px] font-medium">
+      {/* لیست کشویی انتخاب دانشگاه با لوگوی رسمی هر دانشگاه */}
+      <div className="relative w-full" ref={uniDropdownRef}>
+        <label className="block text-[11px] font-bold text-neutral mb-1.5 px-1">
+          انتخاب دانشگاه و سامانه آموزشی
+        </label>
+
+        {/* دکمه انتخابگر اصلی */}
         <button
           type="button"
-          onClick={() => handleSelectUni('kntu')}
+          onClick={() => !busy && setUniDropdownOpen((prev) => !prev)}
           disabled={busy}
-          className={`py-2 px-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-            selectedUni === 'kntu'
-              ? 'bg-primary text-white shadow-md font-bold'
-              : 'text-neutral hover:text-base-content'
+          className={`w-full p-2.5 rounded-2xl bg-base-500/15 hover:bg-base-500/25 border border-base-500/30 flex items-center justify-between gap-2.5 transition-all outline-none select-none active:scale-[0.99] ${
+            uniDropdownOpen ? 'ring-2 ring-primary/40 border-primary/50' : ''
           }`}
         >
-          <GraduationCap className="w-3.5 h-3.5 shrink-0" />
-          <span className="truncate">خواجه نصیر</span>
+          {(() => {
+            const current = UNIVERSITIES.find((u) => u.id === selectedUni) || UNIVERSITIES[0];
+            return (
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-white p-1 shadow-xs border border-black/5 flex items-center justify-center shrink-0 overflow-hidden">
+                  <img
+                    src={current.logo}
+                    alt={current.name}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div className="text-right min-w-0">
+                  <p className="text-[13px] font-bold text-base-content truncate">
+                    {current.name}
+                  </p>
+                  <p className="text-[10px] text-neutral mt-0.5 truncate">
+                    {current.systemName || 'سامانه آموزشی بهستان'}
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
+
+          <div className="flex items-center gap-1.5 shrink-0 pl-1 text-neutral">
+            <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-lg bg-base-500/30 text-neutral">
+              {UNIVERSITIES.find((u) => u.id === selectedUni)?.shortName}
+            </span>
+            <ChevronDown
+              className={`w-4 h-4 transition-transform duration-200 ${
+                uniDropdownOpen ? 'rotate-180 text-primary' : ''
+              }`}
+            />
+          </div>
         </button>
-        <button
-          type="button"
-          onClick={() => handleSelectUni('sbu')}
-          disabled={busy}
-          className={`py-2 px-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-            selectedUni === 'sbu'
-              ? 'bg-primary text-white shadow-md font-bold'
-              : 'text-neutral hover:text-base-content'
-          }`}
-        >
-          <BookOpen className="w-3.5 h-3.5 shrink-0" />
-          <span className="truncate">شهید بهشتی</span>
-        </button>
+
+        {/* منوی کشویی بازشونده */}
+        <AnimatePresence>
+          {uniDropdownOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -6, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.98 }}
+              transition={{ duration: 0.16, ease: 'easeOut' }}
+              className="absolute top-full inset-x-0 mt-2 z-30 p-1.5 rounded-2xl bg-base/95 backdrop-blur-xl border border-base-500/50 shadow-2xl space-y-1 overflow-hidden"
+            >
+              {UNIVERSITIES.map((uni) => {
+                const isSelected = selectedUni === uni.id;
+                return (
+                  <button
+                    key={uni.id}
+                    type="button"
+                    onClick={() => {
+                      handleSelectUni(uni.id);
+                      setUniDropdownOpen(false);
+                    }}
+                    className={`w-full p-2.5 rounded-xl flex items-center justify-between gap-3 text-right transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-primary-soft text-primary font-bold'
+                        : 'hover:bg-base-500/15 text-base-content'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-white p-1 shadow-xs border border-black/5 flex items-center justify-center shrink-0 overflow-hidden">
+                        <img
+                          src={uni.logo}
+                          alt={uni.name}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <p className={`text-[12.5px] truncate ${isSelected ? 'font-black text-primary' : 'font-bold'}`}>
+                          {uni.name}
+                        </p>
+                        <p className="text-[10px] text-neutral mt-0.5 truncate">
+                          {uni.systemName || 'سامانه آموزشی بهستان'} · {uni.shortName}
+                        </p>
+                      </div>
+                    </div>
+
+                    {isSelected && (
+                      <span className="w-6 h-6 rounded-lg bg-primary text-primary-content grid place-items-center shrink-0 shadow-xs">
+                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* فرم خواجه نصیر */}
@@ -675,7 +794,12 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
                 <input
                   type="text"
                   value={sbuCaptchaInput}
-                  onChange={(e) => setSbuCaptchaInput(e.target.value)}
+                  onChange={(e) => {
+                    const raw = e.target.value || '';
+                    const en = raw.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+                                  .replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+                    setSbuCaptchaInput(en);
+                  }}
                   placeholder=" "
                   autoComplete="off"
                   dir="ltr"

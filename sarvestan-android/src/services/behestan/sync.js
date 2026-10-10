@@ -76,14 +76,17 @@ export async function runFullSync({ force = false } = {}) {
     try {
       const s = await fetch('/__sarvestan/session').then((r) => r.json());
       if (s?.sid && s?.ticket) {
-        if (s.university) setSelectedUniversity(s.university);
-        saveManualSession({
-          sid: s.sid,
-          ticket: s.ticket,
-          studentId: s.studentId || undefined,
-          cookies: s.cookies || undefined,
-          university: s.university || undefined,
-        });
+        const curUni = getSelectedUniversity();
+        if (!(curUni === 'sbu' && s.university !== 'sbu' && isSessionAlive())) {
+          if (s.university) setSelectedUniversity(s.university);
+          saveManualSession({
+            sid: s.sid,
+            ticket: s.ticket,
+            studentId: s.studentId || undefined,
+            cookies: s.cookies || undefined,
+            university: s.university || undefined,
+          });
+        }
       }
     } catch {}
   }

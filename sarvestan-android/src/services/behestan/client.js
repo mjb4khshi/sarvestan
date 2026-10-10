@@ -9,6 +9,7 @@ import {
   getTicket,
   getStudentId,
   getUserId,
+  getSelectedUniversity,
   isSessionAlive,
   updateTicket,
 } from './session';
@@ -37,10 +38,10 @@ import {
 } from './store';
 import devDataset from '../../data/devDatasetLoader.js';
 
-const RP_BASE = () => ({
+const RP_BASE = (seq = nextSeq()) => ({
   ft: '0',
   f: '11147',
-  seq: nextSeq(),
+  seq: String(seq),
   subfrm: '',
   sid: getSid(),
   ct: '',
@@ -48,6 +49,11 @@ const RP_BASE = () => ({
   loc: 'fa',
   ut: '0',
 });
+
+/** فعال‌سازی نشست پیش‌فرض میزکار بهستان (فرم ۱۱۱۳۰) */
+export async function initDesktopSession() {
+  return await navForm('11130', { ft: '0' });
+}
 
 const URLS = {
   get sys() { return serviceUrl('/frm/sys/sys.svc/'); },
@@ -57,6 +63,8 @@ const URLS = {
   get f6524() { return serviceUrl('/frm/F6524_PROCESS_DASHBOARD_BEH/F6524_PROCESS_DASHBOARD_BEH.svc/'); },
   get f1814() { return serviceUrl('/frm/F1814_PROCESS_STDAllCrs/F1814_PROCESS_STDAllCrs.svc/'); },
   get viewReport() { return serviceUrl('/frm/BAS0237_CMP_ViewReport/BAS0237_CMP_ViewReport.svc/'); },
+  get repMultiFilter() { return serviceUrl('/frm/BAS0203_CMP_REP_MultiFilter/BAS0203_CMP_REP_MultiFilter.svc/'); },
+  get repSort() { return serviceUrl('/frm/BAS0203_CMP_Sort_REP_FILTER2/BAS0203_CMP_Sort_REP_FILTER2.svc/'); },
 };
 
 function parseJsonSafe(text) {
@@ -177,8 +185,10 @@ export async function fetchStudentTotals() {
     return { error: 'شناسهٔ AUW نیست — گزارش ۸۸ اول زده شود', courses: [], finance: null, transcripts: [], profile: null };
   }
 
+  let seq11147 = nextSeq();
   try {
-    await navForm('11147');
+    const navRes = await navForm('11147');
+    if (navRes?.oaut?.rp?.seq) seq11147 = String(navRes.oaut.rp.seq);
   } catch (e) {
     console.warn('[client] nav 11147 warning:', e?.message || e);
   }
@@ -188,7 +198,7 @@ export async function fetchStudentTotals() {
       r: { ATxW: auwId },
       act: 'RR',
       rp: {
-        ...RP_BASE(),
+        ...RP_BASE(seq11147),
         ct: '',
         c: '110379',
         b: '0',
@@ -204,7 +214,7 @@ export async function fetchStudentTotals() {
     r: { AUWo: auwId },
     act: '20',
     rp: {
-      ...RP_BASE(),
+      ...RP_BASE(seq11147),
       ct: '',
       c: '110381',
       sp: '{"TrmType":"2","UsrType":"0"}',
@@ -239,17 +249,19 @@ export async function fetchPersonal() {
   const auwId = getAuwId();
   const studentId = getStudentId();
   const t = getTicket();
-  const body = {
-    r: { AUWs: auwId || studentId },
-    act: '08',
-    rp: { ...RP_BASE(), f: '11141', ct: '', c: '110383' },
-    t,
-  };
+  let seq11141 = nextSeq();
   try {
-    await navForm('11141');
+    const navRes = await navForm('11141');
+    if (navRes?.oaut?.rp?.seq) seq11141 = String(navRes.oaut.rp.seq);
   } catch (e) {
     console.warn('[client] nav 11141 warning:', e?.message || e);
   }
+  const body = {
+    r: { AUWs: auwId || studentId },
+    act: '08',
+    rp: { ...RP_BASE(seq11141), f: '11141', ct: '', c: '110383' },
+    t,
+  };
   const txt = await enqueuePost(URLS.f1809, body);
   const data = parseJsonSafe(txt);
   if (!data) return null;
@@ -334,6 +346,46 @@ export async function fetchCurriculumStats() {
 
 /** ViewReport — 78 / 88 / 428 */
 export async function fetchViewReport(formCode, term) {
+  let seq = nextSeq();
+  try {
+    const navRes = await navForm(formCode, { ft: '1' });
+    if (navRes?.oaut?.rp?.seq) {
+      seq = String(navRes.oaut.rp.seq);
+    }
+    const navErr = extractBehestanError(navRes);
+    if (navErr) {
+      console.warn('[client] nav for ViewReport error:', formCode, navErr);
+      return { error: navErr, courses: [], exams: [], termId: term, outpar: {} };
+    }
+  } catch (e) {
+    console.warn('[client] nav for ViewReport warning:', formCode, e?.message || e);
+  }
+
+  // SBU: توالی مرورگر بین nav و ViewReport — فیلتر (c:110001) و مرتب‌سازی (c:110067)
+  if (getSelectedUniversity() === 'sbu') {
+    const filterRp = (c) => ({
+      ft: '1',
+      f: String(formCode),
+      seq,
+      subfrm: '0',
+      sid: getSid(),
+      ct: '',
+      sp: '{"UsrType":"0","TrmType":"2"}',
+      ut: '0',
+      c,
+    });
+    try {
+      parseJsonSafe(await enqueuePost(URLS.repMultiFilter, {
+        rp: filterRp('110001'), t: getTicket(), r: { AFZ6: '0' }, act: '00', MaxHlp: 200,
+      }));
+      parseJsonSafe(await enqueuePost(URLS.repSort, {
+        rp: filterRp('110067'), t: getTicket(), r: {}, act: '08', MaxHlp: 200,
+      }));
+    } catch (e) {
+      console.warn('[client] report filter steps warning:', formCode, e?.message || e);
+    }
+  }
+
   const t = getTicket();
   const sid = getSid();
   const bmv = term
@@ -343,7 +395,7 @@ export async function fetchViewReport(formCode, term) {
     rp: {
       ft: '1',
       f: String(formCode),
-      seq: nextSeq(),
+      seq,
       subfrm: '0',
       sid,
       ct: '',

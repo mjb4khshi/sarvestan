@@ -4,7 +4,7 @@
  * - WebView/اندروید: origin مستقیم بهستان یا CapacitorHttp
  */
 
-import { BEHESTAN_ORIGIN, getUniversityOrigin, getSelectedUniversity } from './session';
+import { getUniversityOrigin } from './session';
 
 let chain = Promise.resolve();
 let seq = 800000100;
@@ -64,6 +64,7 @@ async function rawPost(url, bodyObj) {
     sid = parsed?.sid || '';
   } catch {}
 
+  // sid همان مقدار کوکی ASP.NET_SessionId است؛ بدون آن IIS (هم KNTU هم SBU) نشست را نمی‌شناسد
   let fullCookie = cookie;
   if (sid && !fullCookie.includes('ASP.NET_SessionId')) {
     fullCookie = fullCookie ? `${fullCookie}; ASP.NET_SessionId=${sid}` : `ASP.NET_SessionId=${sid}`;
@@ -87,6 +88,8 @@ async function rawPost(url, bodyObj) {
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json, text/plain, */*',
+        Origin: origin,
+        Referer: `${origin}/browser/fa/`,
         ...(fullCookie ? { Cookie: fullCookie } : {}),
       },
       connectTimeout: 20000,

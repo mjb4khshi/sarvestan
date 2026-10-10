@@ -23,6 +23,7 @@ import {
   closeLoginModal,
   isLoginModalOpen,
 } from './services/loginFlow';
+import { getUniversityOrigin } from './services/behestan/session';
 import { isSessionAlive } from './services/behestan/session';
 import { hasLiveData } from './services/behestan/store';
 import UpdateModal from './components/UpdateModal';
@@ -36,6 +37,34 @@ const TITLES = {
 };
 
 const TABS_ORDER = ['schedule', 'grades', 'home', 'study', 'more'];
+
+const pageVariants = {
+  enter: (direction) => ({
+    x: direction > 0 ? -28 : 28,
+    opacity: 0,
+    scale: 0.99,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+    scale: 1,
+    transition: {
+      x: { type: 'spring', stiffness: 380, damping: 34, mass: 0.8 },
+      opacity: { duration: 0.16, ease: 'easeOut' },
+      scale: { duration: 0.16, ease: 'easeOut' },
+    },
+  },
+  exit: (direction) => ({
+    x: direction > 0 ? 28 : -28,
+    opacity: 0,
+    scale: 0.99,
+    transition: {
+      x: { duration: 0.14, ease: [0.32, 0, 0.67, 0] },
+      opacity: { duration: 0.12, ease: 'linear' },
+      scale: { duration: 0.14 },
+    },
+  }),
+};
 
 function SsoCallbackBridge() {
   useEffect(() => {
@@ -81,7 +110,7 @@ function Shell() {
       if (target === 'schedule') {
         handleNavigate('schedule');
       } else if (target === 'behestan') {
-        window.open('https://behestan.kntu.ac.ir/', '_blank');
+        window.open(getUniversityOrigin() + '/', '_blank');
       } else if (target === 'vc') {
         window.open('https://vc.kntu.ac.ir/', '_blank');
       }
@@ -168,11 +197,7 @@ function Shell() {
     if (explicitDir !== null) {
       setSlideDir(explicitDir);
     } else if (currentIndex >= 0 && nextIndex >= 0) {
-      let dir = nextIndex > currentIndex ? 1 : -1;
-      // اصلاح جهت انیمیشن بین تب اصلی (میز کار) و تب پلنر (مطالعه)
-      if ((tab === 'home' && targetTab === 'study') || (tab === 'study' && targetTab === 'home')) {
-        dir = -dir;
-      }
+      const dir = nextIndex > currentIndex ? 1 : -1;
       setSlideDir(dir);
     }
     // پاک کردن باز شدن خودکار هنگام تغییر تب عادی
@@ -240,8 +265,8 @@ function Shell() {
     const currentIndex = TABS_ORDER.indexOf(tab);
     if (currentIndex < 0) return;
 
-    // کشیدن به راست (dx > 0) -> تب بعدی سمت چپ (افزایش اندیس)
-    // کشیدن به چپ (dx < 0) -> تب قبلی سمت راست (کاهش اندیس)
+    // کشیدن انگشت به راست (dx > 0): رفتن به تب بعدی
+    // کشیدن انگشت به چپ (dx < 0): رفتن به تب قبلی
     if (dx > 0 && currentIndex < TABS_ORDER.length - 1) {
       changeTabWithDirection(TABS_ORDER[currentIndex + 1]);
     } else if (dx < 0 && currentIndex > 0) {
@@ -268,13 +293,14 @@ function Shell() {
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerCancel}
         >
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="wait" custom={slideDir}>
             <motion.main
               key={tab}
-              initial={{ opacity: 0, x: -slideDir * 12 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: slideDir * 12 }}
-              transition={{ duration: 0.14, ease: 'easeOut' }}
+              custom={slideDir}
+              variants={pageVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
               className="flex-1 min-w-0"
             >
               {tab === 'home' && <HomeScreen onNavigate={handleNavigate} />}

@@ -40,7 +40,10 @@ export const applyManualSession = saveManualSession;
 
 export function clearSession() {
   try {
+    const m = loadManual();
+    const curUni = m?.university || localStorage.getItem(UNI_KEY);
     localStorage.removeItem(MANUAL_KEY);
+    if (curUni) localStorage.setItem(UNI_KEY, curUni);
   } catch {}
   try {
     localStorage.removeItem('sid');
@@ -142,6 +145,8 @@ export const UNIVERSITIES = [
     shortName: 'خواجه نصیر',
     origin: 'https://behestan.kntu.ac.ir',
     authMethod: 'sso',
+    logo: '/kntu-logo.svg',
+    systemName: 'سامانه بهستان',
   },
   {
     id: 'sbu',
@@ -149,6 +154,8 @@ export const UNIVERSITIES = [
     shortName: 'شهید بهشتی',
     origin: 'https://ems.sbu.ac.ir',
     authMethod: 'direct_captcha',
+    logo: '/sbu-logo.svg',
+    systemName: 'سامانه آموزشی بهستان',
   },
 ];
 
@@ -158,7 +165,12 @@ export function getSelectedUniversity() {
   try {
     const manual = loadManual();
     if (manual?.university) return manual.university;
-    return localStorage.getItem(UNI_KEY) || 'kntu';
+    const stored = localStorage.getItem(UNI_KEY);
+    if (stored) return stored;
+    const profile = JSON.parse(localStorage.getItem('sarvestan_live_profile') || 'null');
+    if (profile?.studentId && /^40\d{7}$/.test(String(profile.studentId))) return 'sbu';
+    if (profile?.faculty && /ریاضی|بهشتی|کامپیوتر/i.test(profile.faculty)) return 'sbu';
+    return 'kntu';
   } catch {
     return 'kntu';
   }

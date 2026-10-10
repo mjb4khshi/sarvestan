@@ -5,6 +5,23 @@ import fs from 'fs'
 import path from 'path'
 import { pathToFileURL } from 'url'
 
+/** جفت‌های name=value از Set-Cookie پاسخ fetch */
+function setCookiePairs(headers) {
+  const list = typeof headers.getSetCookie === 'function' ? headers.getSetCookie() : []
+  return list.map((s) => s.split(';')[0].trim()).filter((s) => s.includes('='))
+}
+
+/** ادغام کوکی‌ها مثل مرورگر: مقدار جدید هم‌نام، قبلی را جایگزین می‌کند */
+function mergeCookies(base, pairs) {
+  const jar = new Map()
+  for (const p of [...String(base || '').split(';'), ...pairs]) {
+    const s = p.trim()
+    const i = s.indexOf('=')
+    if (i > 0) jar.set(s.slice(0, i), s.slice(i + 1))
+  }
+  return [...jar].map(([k, v]) => `${k}=${v}`).join('; ')
+}
+
 /**
  * ماژول SSO فقط برای dev server لازم است و در CI gitignore شده.
  * اگر فایل نبود، بیلد/کانفیگ نباید بشکند.
@@ -143,9 +160,7 @@ function sbuLoginPlugin() {
             },
             body: JSON.stringify({ r: {}, rp: {}, act: '00' }),
           });
-          const rawCookie = upstream.headers.get('set-cookie') || '';
-          const m = rawCookie.match(/ASP\.NET_SessionId=[^;]+/i);
-          const cookie = m ? m[0] : rawCookie;
+          const cookie = mergeCookies('', setCookiePairs(upstream.headers));
           const data = await upstream.json();
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
           res.setHeader('Access-Control-Allow-Origin', '*');
@@ -169,6 +184,7 @@ function sbuLoginPlugin() {
           try {
             const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
             const { username, password, captcha, cookie } = body;
+            console.log(`[sbu-login-server] request for user="${username}"`);
             const upstream = await fetch('https://ems.sbu.ac.ir/frm/loginapi/loginapi.svc/', {
               method: 'POST',
               headers: {
@@ -189,6 +205,7 @@ function sbuLoginPlugin() {
             const data = await upstream.json();
             const errors = data?.msg?.errors || [];
             if (errors.length > 0) {
+              console.warn(`[sbu-login-server] failed: ${errors.join(' - ')}`);
               res.setHeader('Content-Type', 'application/json; charset=utf-8');
               res.setHeader('Access-Control-Allow-Origin', '*');
               res.end(JSON.stringify({ ok: false, error: errors.join(' - '), newCaptcha: data.capt }));
@@ -196,19 +213,61 @@ function sbuLoginPlugin() {
             }
 
             const sid = data?.oaut?.rp?.sid;
-            const ticket = data?.t;
+            let ticket = data?.t;
             if (!sid || !ticket) {
+              console.warn('[sbu-login-server] invalid response', data);
               res.setHeader('Content-Type', 'application/json; charset=utf-8');
               res.setHeader('Access-Control-Allow-Origin', '*');
               res.end(JSON.stringify({ ok: false, error: 'پاسخ نامعتبر از سامانه شهید بهشتی', raw: data }));
               return;
             }
 
+            // ناوبری به میزکار پیش‌فرض بهستان (فرم ۱۱۱۳۰) جهت فعال‌سازی نشست در سامانه
+            let jar = mergeCookies(cookie, setCookiePairs(upstream.headers));
+            if (!/ASP\.NET_SessionId=/i.test(jar)) jar = mergeCookies(jar, [`ASP.NET_SessionId=${sid}`]);
+            let detectedStd = username;
+            let detectedUid = null;
+            try {
+              const navUpstream = await fetch('https://ems.sbu.ac.ir/frm/sys/sys.svc/', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'User-Agent':
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                  Origin: 'https://ems.sbu.ac.ir',
+                  Referer: 'https://ems.sbu.ac.ir/browser/fa/',
+                  Cookie: jar,
+                },
+                body: JSON.stringify({
+                  r: { fid: '11130', ft: '0', subfrm: '' },
+                  act: 'nav',
+                  rp: {
+                    sp: '{"BrnNo":"0","BrnLimit":"0","UsrType":"0"}',
+                    loc: 'fa',
+                    ut: '0',
+                    b: '0',
+                    sid,
+                  },
+                  t: ticket,
+                }),
+              });
+              jar = mergeCookies(jar, setCookiePairs(navUpstream.headers));
+              if (!navUpstream.ok) throw new Error(`HTTP ${navUpstream.status}`);
+              const navData = await navUpstream.json();
+              if (navData?.t) ticket = navData.t;
+              if (navData?.outpar?.std) detectedStd = String(navData.outpar.std);
+              if (navData?.outpar?.u) detectedUid = String(navData.outpar.u);
+              console.log(`[sbu-login-server] nav 11130 OK: std=${detectedStd}, uid=${detectedUid}`);
+            } catch (navErr) {
+              console.warn('[sbu-login-server] nav 11130 warning:', navErr?.message || navErr);
+            }
+
             const sessionData = {
               sid,
               ticket,
-              studentId: username,
-              cookies: cookie || `ASP.NET_SessionId=${sid}`,
+              studentId: detectedStd || username,
+              userId: detectedUid || undefined,
+              cookies: jar,
               university: 'sbu',
               updatedAt: new Date().toISOString(),
               source: 'sbu-form',
@@ -218,10 +277,12 @@ function sbuLoginPlugin() {
               JSON.stringify(sessionData, null, 2),
             );
 
+            console.log(`[sbu-login-server] login success: sid=${sid}, studentId=${detectedStd}`);
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
             res.setHeader('Access-Control-Allow-Origin', '*');
-            res.end(JSON.stringify({ ok: true, sid, ticket, studentId: username, cookies: cookie }));
+            res.end(JSON.stringify({ ok: true, sid, ticket, studentId: detectedStd || username, userId: detectedUid, cookies: jar }));
           } catch (err) {
+            console.error('[sbu-login-server] error:', err);
             res.statusCode = 500;
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
             res.setHeader('Access-Control-Allow-Origin', '*');
@@ -390,24 +451,21 @@ export default defineConfig({
           proxy.on('proxyReq', (proxyReq, req) => {
             let cookie = req.headers['x-behestan-cookie'] || '';
             let sid = req.headers['x-behestan-sid'] || '';
-            if (!cookie) {
+            if (!cookie && !sid) {
               try {
-                const sessionFile = path.join(process.cwd(), '.behestan-session.json');
-                if (fs.existsSync(sessionFile)) {
-                  const s = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
-                  cookie = s?.cookies || '';
-                  if (!sid && s?.sid) sid = s.sid;
+                const s = JSON.parse(fs.readFileSync(path.join(process.cwd(), '.behestan-session.json'), 'utf8'));
+                if (s?.university === 'sbu') {
+                  cookie = s.cookies || '';
+                  sid = s.sid || '';
                 }
               } catch {}
             }
-            if (sid && !cookie.includes('ASP.NET_SessionId')) {
-              cookie = cookie ? `${cookie}; ASP.NET_SessionId=${sid}` : `ASP.NET_SessionId=${sid}`;
-            }
-            if (cookie) {
-              proxyReq.setHeader('Cookie', cookie);
-              console.log(`[sbu-proxy cookie injected] ${cookie.slice(0, 60)}...`);
-            }
-            console.log(`[sbu-proxy req] ${req.method} ${req.url}`);
+            if (sid && !/ASP\.NET_SessionId=/i.test(cookie)) cookie = mergeCookies(cookie, [`ASP.NET_SessionId=${sid}`]);
+            proxyReq.removeHeader('x-behestan-cookie');
+            proxyReq.removeHeader('x-behestan-sid');
+            proxyReq.removeHeader('cookie');
+            if (cookie) proxyReq.setHeader('Cookie', cookie);
+            console.log(`[sbu-proxy req] ${req.method} ${req.url} cookie=${cookie ? 'yes' : 'NO'}`);
           });
           proxy.on('proxyRes', (proxyRes, req, res) => {
             const loc = proxyRes.headers['location'];

@@ -11,6 +11,7 @@ import {
 import PrinterReceipt from '../components/PrinterReceipt';
 import { getViewModel } from '../data/viewModel';
 import { toFaDigits } from '../utils/faDigits';
+import { getUniversityOrigin } from '../services/behestan/session';
 
 export default function FinanceScreen({ onNavigate }) {
   const vm = getViewModel();
@@ -72,7 +73,7 @@ export default function FinanceScreen({ onNavigate }) {
           isPaid={FINANCE.isPaid}
           dateLabel={FINANCE.dateLabel}
           timeLabel={FINANCE.timeLabel}
-          onOpenBehestan={() => window.open('https://behestan.kntu.ac.ir/', '_blank')}
+          onOpenBehestan={() => window.open(getUniversityOrigin() + '/', '_blank')}
         />
       </motion.section>
 
@@ -122,7 +123,7 @@ export default function FinanceScreen({ onNavigate }) {
         <div className="mt-4">
           <button
             type="button"
-            onClick={() => window.open('https://behestan.kntu.ac.ir/', '_blank')}
+            onClick={() => window.open(getUniversityOrigin() + '/', '_blank')}
             className="w-full py-2.5 rounded-xl bg-primary text-primary-content font-bold text-[13px] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md"
           >
             <CreditCard className="w-4 h-4" />

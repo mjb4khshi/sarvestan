@@ -40,10 +40,10 @@ function scoreColor(scoreVal, status) {
 }
 
 export default function GradesScreen({ onNavigate }) {
-  const vm = getViewModel();
-  const TERMS = vm.termsData?.length ? vm.termsData : [];
+  const vm = useMemo(() => getViewModel(), []);
+  const TERMS = useMemo(() => (vm.termsData?.length ? vm.termsData : []), [vm]);
   // ترم انتخاب‌شده — پیش‌فرض آخرین ترم جاری
-  const [selectedTermId, setSelectedTermId] = useState(TERMS[0]?.id);
+  const [selectedTermId, setSelectedTermId] = useState(() => TERMS[0]?.id);
   const activeTerm = useMemo(
     () => TERMS.find((t) => t.id === selectedTermId) || TERMS[0],
     [selectedTermId, TERMS],
@@ -458,7 +458,7 @@ export default function GradesScreen({ onNavigate }) {
                               <Minus className="w-3.5 h-3.5" />
                             </button>
 
-                            {/* نمایش انیمیشن کیلومترشمار نمره با امکان کلیک برای تایپ دستی مستقیم (مثلاً ۱۹.۹۸) */}
+                            {/* نمایش نمره با فونت مونو تمیز و تبولار با امکان کلیک برای تایپ دستی مستقیم (مثلاً ۱۹.۹۸) */}
                             {editingCourseId === c.id ? (
                               <div className="w-[52px] px-1 text-center flex items-center justify-center">
                                 <input
@@ -491,14 +491,12 @@ export default function GradesScreen({ onNavigate }) {
                             ) : (
                               <div
                                 onClick={() => setEditingCourseId(c.id)}
-                                className="min-w-[48px] px-1 text-center flex items-center justify-center cursor-pointer hover:bg-base-500/20 rounded-lg transition-colors py-0.5"
+                                className="min-w-[48px] px-1.5 text-center flex items-center justify-center cursor-pointer hover:bg-base-500/20 rounded-lg transition-colors py-0.5"
                                 title="برای ویرایش دستی نمره کلیک کنید"
                               >
-                                <OdometerNumber
-                                  value={sim.score.toFixed(2)}
-                                  height={20}
-                                  className="text-[14px] text-primary"
-                                />
+                                <span className="text-[13.5px] font-black font-mono text-primary tabular-nums tracking-wide">
+                                  {toFaDigits(sim.score.toFixed(2))}
+                                </span>
                               </div>
                             )}
 

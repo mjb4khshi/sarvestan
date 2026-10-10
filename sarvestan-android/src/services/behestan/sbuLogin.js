@@ -15,6 +15,31 @@ function getCapacitorHttp() {
 
 const SBU_LOGINAPI_URL = 'https://ems.sbu.ac.ir/frm/loginapi/loginapi.svc/';
 
+/** تبدیل Set-Cookie (رشته‌ی ادغام‌شده یا آرایه) به جفت‌های name=value */
+function setCookiePairs(setCookie) {
+  const list = Array.isArray(setCookie)
+    ? setCookie
+    : String(setCookie || '').split(/,(?=\s*[^;,=\s]+=)/);
+  return list
+    .map((s) => String(s).split(';')[0].trim())
+    .filter((s) => s.includes('='));
+}
+
+/** ادغام کوکی‌ها مثل مرورگر: مقدار جدید هم‌نام، قبلی را جایگزین می‌کند */
+function mergeCookies(base, pairs) {
+  const jar = new Map();
+  for (const p of [...String(base || '').split(';'), ...pairs]) {
+    const s = p.trim();
+    const i = s.indexOf('=');
+    if (i > 0) jar.set(s.slice(0, i), s.slice(i + 1));
+  }
+  return [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
+}
+
+function responseSetCookie(headers) {
+  return headers?.['set-cookie'] || headers?.['Set-Cookie'] || '';
+}
+
 /**
  * دریافت تصویر کپچای تازه برای شهید بهشتی
  * @returns {Promise<{ ok: boolean, captcha?: string, cookie?: string, error?: string }>}
@@ -23,6 +48,27 @@ export async function fetchSbuCaptcha() {
   const http = getCapacitorHttp();
   if (http?.post) {
     try {
+      let cookie = '';
+      // گام پیش‌گرمایش: دریافت سشن اولیه ASP.NET از صفحه اصلی سامانه بهشتی
+      try {
+        const warm = await http.get({
+          url: 'https://ems.sbu.ac.ir/browser/fa/',
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          },
+          connectTimeout: 8000,
+          readTimeout: 10000,
+        });
+        const warmCookies = responseSetCookie(warm.headers);
+        if (warmCookies) {
+          cookie = mergeCookies('', setCookiePairs(warmCookies));
+        }
+      } catch (warmErr) {
+        console.warn('[fetchSbuCaptcha warm-up warning]', warmErr?.message || warmErr);
+      }
+
       const res = await http.post({
         url: SBU_LOGINAPI_URL,
         data: { r: {}, rp: {}, act: '00' },
@@ -31,14 +77,14 @@ export async function fetchSbuCaptcha() {
           Accept: 'application/json, text/plain, */*',
           Origin: 'https://ems.sbu.ac.ir',
           Referer: 'https://ems.sbu.ac.ir/browser/fa/',
+          ...(cookie ? { Cookie: cookie } : {}),
         },
         connectTimeout: 15000,
         readTimeout: 20000,
       });
 
-      const setCookie = res.headers?.['set-cookie'] || res.headers?.['Set-Cookie'] || '';
-      const m = String(setCookie).match(/ASP\.NET_SessionId=[^;]+/i);
-      const cookie = m ? m[0] : (setCookie || '');
+      const setCookie = responseSetCookie(res.headers);
+      cookie = mergeCookies(cookie, setCookiePairs(setCookie));
       const capt = res.data?.capt || (typeof res.data === 'string' ? JSON.parse(res.data)?.capt : null);
 
       return {
@@ -105,31 +151,74 @@ export async function loginViaSbuDirect(username, password, captcha, cookie) {
       });
 
       const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+      const resCookie = mergeCookies(cookie, setCookiePairs(responseSetCookie(res.headers)));
       const errors = data?.msg?.errors || [];
       if (errors.length > 0) {
         return {
           ok: false,
           error: errors.join(' - '),
           newCaptcha: data?.capt || null,
+          newCookie: resCookie || cookie,
         };
       }
 
       const sid = data?.oaut?.rp?.sid;
-      const ticket = data?.t;
+      let ticket = data?.t;
       if (!sid || !ticket) {
         return {
           ok: false,
           error: 'پاسخ نامعتبر از سرور دانشگاه شهید بهشتی',
           newCaptcha: data?.capt || null,
+          newCookie: resCookie || cookie,
         };
+      }
+
+      let jar = mergeCookies(cookie, setCookiePairs(responseSetCookie(res.headers)));
+      if (!/ASP\.NET_SessionId=/i.test(jar)) jar = mergeCookies(jar, [`ASP.NET_SessionId=${sid}`]);
+
+      let detectedStd = cleanU;
+      let detectedUid = null;
+      try {
+        const navRes = await http.post({
+          url: 'https://ems.sbu.ac.ir/frm/sys/sys.svc/',
+          data: {
+            r: { fid: '11130', ft: '0', subfrm: '' },
+            act: 'nav',
+            rp: {
+              sp: '{"BrnNo":"0","BrnLimit":"0","UsrType":"0"}',
+              loc: 'fa',
+              ut: '0',
+              b: '0',
+              sid,
+            },
+            t: ticket,
+          },
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json, text/plain, */*',
+            Origin: 'https://ems.sbu.ac.ir',
+            Referer: 'https://ems.sbu.ac.ir/browser/fa/',
+            Cookie: jar,
+          },
+          connectTimeout: 10000,
+          readTimeout: 15000,
+        });
+        jar = mergeCookies(jar, setCookiePairs(responseSetCookie(navRes.headers)));
+        const navData = typeof navRes.data === 'string' ? JSON.parse(navRes.data) : navRes.data;
+        if (navData?.t) ticket = navData.t;
+        if (navData?.outpar?.std) detectedStd = String(navData.outpar.std);
+        if (navData?.outpar?.u) detectedUid = String(navData.outpar.u);
+      } catch (e) {
+        console.warn('[sbuLogin native] nav 11130 warning:', e?.message || e);
       }
 
       return {
         ok: true,
         sid,
         ticket,
-        studentId: cleanU,
-        cookies: cookie || `ASP.NET_SessionId=${sid}`,
+        studentId: detectedStd,
+        userId: detectedUid,
+        cookies: jar,
       };
     } catch (err) {
       console.error('[loginViaSbuDirect native error]', err);

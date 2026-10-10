@@ -35,6 +35,11 @@ export default function DataBootstrap() {
         .then((s) => {
           if (s?.sid && s?.ticket) {
             const cur = JSON.parse(localStorage.getItem('sarvestan_mobile_session') || '{}');
+            const curUni = cur?.university || localStorage.getItem('sarvestan_selected_university');
+            if (curUni === 'sbu' && s.university !== 'sbu' && cur?.sid) {
+              console.log('[bootstrap] Skipping stale non-SBU server session');
+              return;
+            }
             if (cur?.sid !== s.sid || cur?.ticket !== s.ticket || (s.university && cur?.university !== s.university)) {
               console.log('[bootstrap] Loaded server session into localStorage:', s.sid, s.university);
               if (s.university) setSelectedUniversity(s.university);
