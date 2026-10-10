@@ -117,6 +117,7 @@ async function doLogin(username, password, method, options = {}) {
     body: JSON.stringify({
       username,
       password,
+      uniId: options?.uniId || 'kntu',
       selectedUserNo: options?.selectedUserNo,
       selectedUserType: options?.selectedUserType,
     }),
@@ -357,15 +358,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
         return;
       }
 
-      if (selectedUni === 'ut') {
-        failLoginFlow(
-          -1,
-          'برای دانشگاه تهران در حال حاضر از گزینه «ورود مستقیم بهستان» با وارد کردن کد امنیتی استفاده کنید.',
-        );
-        return;
-      }
-
-      setSelectedUniversity('kntu');
+      setSelectedUniversity(selectedUni);
       busyRef.current = true;
       const prevTried = lastTriedRef.current;
       const stripFailedPass =
@@ -384,7 +377,10 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
         setLoginStep(0);
         const t0 = Date.now();
 
-        let j = await doLogin(u, stripFailedPass ? '' : p, 'sso', loginOptions);
+        let j = await doLogin(u, stripFailedPass ? '' : p, 'sso', {
+          ...loginOptions,
+          uniId: selectedUni,
+        });
 
         if (!j?.ok && j?.code === 'needs-kahad-selection' && j?.accounts?.length > 0) {
           busyRef.current = false;
@@ -425,7 +421,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
             studentId: j.studentId || undefined,
             userId: j.userId || parseUidFromCookies(j.cookies) || undefined,
             cookies: j.cookies || undefined,
-            university: 'kntu',
+            university: selectedUni,
           },
           { replace: true },
         );
@@ -869,7 +865,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
 
           {selectedUni === 'ut' && (
             <div className="rounded-2xl bg-primary-soft/40 border border-primary/20 p-2.5 text-[11px] text-neutral leading-relaxed">
-              پیشنهاد: برای اتصال پرسرعت به گلستان/بهستان دانشگاه تهران، از روش <strong className="text-primary font-bold">«ورود مستقیم بهستان»</strong> استفاده فرمایید.
+              احراز هویت از طریق درگاه مرکزی دانشگاه تهران (<span className="text-primary font-bold">sso1.ut.ac.ir</span> — بدون نیاز به کپچا)
             </div>
           )}
 

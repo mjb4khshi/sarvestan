@@ -100,8 +100,10 @@ function ssoLoginPlugin() {
               return
             }
             const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}')
-            console.log(`[sso-login-server] request for user="${body.username}", selectedUserNo="${body.selectedUserNo || ''}"`)
+            const uniId = body.uniId || 'kntu'
+            console.log(`[sso-login-server] request for uni="${uniId}", user="${body.username}", selectedUserNo="${body.selectedUserNo || ''}"`)
             const result = await loginViaCentralSso(body.username, body.password, {
+              uniId,
               selectedUserNo: body.selectedUserNo,
               selectedUserType: body.selectedUserType,
             })
@@ -115,9 +117,9 @@ function ssoLoginPlugin() {
                     ticket: result.ticket,
                     studentId: result.studentId || null,
                     cookies: result.cookies || '',
-                    university: 'kntu',
+                    university: uniId,
                     updatedAt: new Date().toISOString(),
-                    source: 'sso-form',
+                    source: `${uniId}-sso-form`,
                   },
                   null,
                   2,
