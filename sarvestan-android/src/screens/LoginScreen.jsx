@@ -136,12 +136,15 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
   const busyRef = useRef(false);
   const [selectedUni, setSelectedUni] = useState(() => {
     const u = getSelectedUniversity();
+    if (u === 'aut') return 'aut';
     if (u === 'sbu') return 'sbu';
     if (u === 'ut') return 'ut';
     try {
       const p = JSON.parse(localStorage.getItem('sarvestan_live_profile') || 'null');
+      if (p?.studentId && /^40\d{6}$/.test(String(p.studentId))) return 'aut';
       if (p?.studentId && /^40\d{7}$/.test(String(p.studentId))) return 'sbu';
       if (p?.studentId && /^(51|81|41|61)\d{7}$/.test(String(p.studentId))) return 'ut';
+      if (p?.faculty && /امیرکبیر|پلی‌تکنیک/i.test(p.faculty)) return 'aut';
       if (p?.faculty && /ریاضی|بهشتی|کامپیوتر/i.test(p.faculty)) return 'sbu';
       if (p?.faculty && /تهران|دانشکدگان/i.test(p.faculty)) return 'ut';
     } catch {}
@@ -608,18 +611,23 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
             >
               {UNIVERSITIES.map((uni) => {
                 const isSelected = selectedUni === uni.id;
+                const isDisabled = Boolean(uni.disabled);
                 return (
                   <button
                     key={uni.id}
                     type="button"
+                    disabled={isDisabled || busy}
                     onClick={() => {
+                      if (isDisabled) return;
                       handleSelectUni(uni.id);
                       setUniDropdownOpen(false);
                     }}
-                    className={`w-full p-2.5 rounded-xl flex items-center justify-between gap-3 text-right transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-primary-soft text-primary font-bold'
-                        : 'hover:bg-base-500/15 text-base-content'
+                    className={`w-full p-2.5 rounded-xl flex items-center justify-between gap-3 text-right transition-all ${
+                      isDisabled
+                        ? 'opacity-40 cursor-not-allowed bg-base-500/5 text-neutral'
+                        : isSelected
+                        ? 'bg-primary-soft text-primary font-bold cursor-pointer'
+                        : 'hover:bg-base-500/15 text-base-content cursor-pointer'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -631,9 +639,16 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
                         />
                       </div>
                       <div className="min-w-0">
-                        <p className={`text-[12.5px] truncate ${isSelected ? 'font-black text-primary' : 'font-bold'}`}>
-                          {uni.name}
-                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <p className={`text-[12.5px] truncate ${isSelected ? 'font-black text-primary' : 'font-bold'}`}>
+                            {uni.name}
+                          </p>
+                          {isDisabled && (
+                            <span className="text-[9.5px] font-normal px-1.5 py-0.2 rounded bg-neutral/15 text-neutral">
+                              غیرفعال
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[10px] text-neutral mt-0.5 truncate">
                           {uni.systemName || 'سامانه آموزشی بهستان'} · {uni.shortName}
                         </p>
@@ -653,8 +668,8 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
         </AnimatePresence>
       </div>
 
-      {/* انتخاب روش ورود: برای خواجه‌نصیر هر دو روش (ورود مرکزی SSO و ورود بهستان با کپچا) در دسترس است */}
-      {selectedUni === 'kntu' && (
+      {/* انتخاب روش ورود: برای خواجه‌نصیر و امیرکبیر هر دو روش (ورود مرکزی SSO و ورود بهستان با کپچا) در دسترس است */}
+      {(selectedUni === 'kntu' || selectedUni === 'aut') && (
         <div className="grid grid-cols-2 p-1 bg-base-500/20 rounded-2xl border border-white/5 text-[12px] font-medium">
           <button
             type="button"
@@ -685,7 +700,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
         </div>
       )}
 
-      {/* ۱. فرم ورود مستقیم بهستان (کپچا) — مشترک برای خواجه نصیر، بهشتی و تهران */}
+      {/* ۱. فرم ورود مستقیم بهستان (کپچا) — مشترک برای خواجه نصیر، امیرکبیر، بهشتی و تهران */}
       {authMethod === 'direct_captcha' && (
         <div className="space-y-2.5 pt-1">
           <div className="flex items-center gap-1.5 px-1 text-[11px] text-primary/90 font-medium">
@@ -693,6 +708,8 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
             <span>
               {selectedUni === 'kntu'
                 ? 'سامانه بهستان دانشگاه صنعتی خواجه نصیر (behestan.kntu.ac.ir)'
+                : selectedUni === 'aut'
+                ? 'سامانه بهستان دانشگاه صنعتی امیرکبیر (portal.aut.ac.ir)'
                 : selectedUni === 'sbu'
                 ? 'سامانه بهستان دانشگاه شهید بهشتی (ems.sbu.ac.ir)'
                 : selectedUni === 'iust'
@@ -835,6 +852,8 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
             <span>
               {selectedUni === 'kntu'
                 ? 'احراز هویت مرکزی دانشگاه خواجه نصیر (sso.kntu.ac.ir — بدون کپچا)'
+                : selectedUni === 'aut'
+                ? 'سامانه یکپارچه احراز هویت دانشگاه امیرکبیر (accounts.aut.ac.ir — بدون کپچا)'
                 : 'سامانه احراز هویت مرکزی دانشگاه تهران (sso1.ut.ac.ir)'}
             </span>
           </div>
@@ -894,6 +913,12 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
           {selectedUni === 'ut' && (
             <div className="rounded-2xl bg-primary-soft/40 border border-primary/20 p-2.5 text-[11px] text-neutral leading-relaxed">
               احراز هویت از طریق درگاه مرکزی دانشگاه تهران (<span className="text-primary font-bold">sso1.ut.ac.ir</span> — بدون نیاز به کپچا)
+            </div>
+          )}
+
+          {selectedUni === 'aut' && (
+            <div className="rounded-2xl bg-primary-soft/40 border border-primary/20 p-2.5 text-[11px] text-neutral leading-relaxed">
+              احراز هویت از درگاه یکپارچه دانشگاه صنعتی امیرکبیر (<span className="text-primary font-bold">accounts.aut.ac.ir</span> — بدون نیاز به کپچا)
             </div>
           )}
 

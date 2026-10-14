@@ -148,6 +148,15 @@ export const UNIVERSITIES = [
     systemName: 'سامانه بهستان',
   },
   {
+    id: 'aut',
+    name: 'دانشگاه صنعتی امیرکبیر (پلی‌تکنیک تهران)',
+    shortName: 'امیرکبیر',
+    origin: 'https://portal.aut.ac.ir',
+    authMethod: 'sso',
+    logo: '/aut-logo.png',
+    systemName: 'سامانه بهستان امیرکبیر',
+  },
+  {
     id: 'sbu',
     name: 'دانشگاه شهید بهشتی',
     shortName: 'شهید بهشتی',
@@ -172,7 +181,8 @@ export const UNIVERSITIES = [
     origin: 'https://golestan.iust.ac.ir',
     authMethod: 'direct_captcha',
     logo: '/iust-logo.png',
-    systemName: 'سامانه گلستان',
+    systemName: 'سامانه گلستان (غیرفعال)',
+    disabled: true,
   },
 ];
 
@@ -181,12 +191,14 @@ const UNI_KEY = 'sarvestan_selected_university';
 export function getSelectedUniversity() {
   try {
     const manual = loadManual();
-    if (manual?.university) return manual.university;
+    if (manual?.university && manual.university !== 'iust') return manual.university;
     const stored = localStorage.getItem(UNI_KEY);
-    if (stored) return stored;
+    if (stored && stored !== 'iust') return stored;
     const profile = JSON.parse(localStorage.getItem('sarvestan_live_profile') || 'null');
+    if (profile?.studentId && /^40\d{6}$/.test(String(profile.studentId))) return 'aut';
     if (profile?.studentId && /^40\d{7}$/.test(String(profile.studentId))) return 'sbu';
     if (profile?.studentId && /^(51|81|41|61)\d{7}$/.test(String(profile.studentId))) return 'ut';
+    if (profile?.faculty && /امیرکبیر|پلی‌تکنیک/i.test(profile.faculty)) return 'aut';
     if (profile?.faculty && /ریاضی|بهشتی|کامپیوتر/i.test(profile.faculty)) return 'sbu';
     if (profile?.faculty && /تهران|دانشکدگان/i.test(profile.faculty)) return 'ut';
     return 'kntu';
@@ -203,6 +215,7 @@ export function setSelectedUniversity(uniId) {
 }
 
 export function getUniversityOrigin(uniId = getSelectedUniversity()) {
+  if (uniId === 'aut') return 'https://portal.aut.ac.ir';
   if (uniId === 'sbu') return 'https://ems.sbu.ac.ir';
   if (uniId === 'ut') return 'https://ems2.ut.ac.ir';
   if (uniId === 'iust') return 'https://golestan.iust.ac.ir';

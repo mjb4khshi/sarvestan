@@ -37,7 +37,7 @@ export function resetSyncState() {
 }
 
 function isSessionError(text) {
-  return /نشست|session|50216|49493|پایان رسيده|پایان رسیده|مجددا وارد|مجدداً وارد|شناسايي نشست|شناسایی نشست|اشکال در آن|403|forbidden|access is denied/i.test(String(text || ''));
+  return /نشست|session|50216|49493|پایان رسيده|پایان رسیده|شناسايي نشست|شناسایی نشست|403|forbidden|access is denied/i.test(String(text || ''));
 }
 
 function clearDeadServerSession() {
@@ -180,15 +180,33 @@ export async function runFullSync({ force = false } = {}) {
       results.errors.push(`۸۸: ${e?.message || e}`);
     }
 
-    if (sessionDead && !results.profile && !results.schedule) {
-      markSyncStatus('error', {
-        lastResults: results,
-        error: 'نشست بهستان به پایان رسیده است. لطفاً دکمهٔ «ورود زندهٔ بهستان» را بزنید.',
-      });
-      return { ok: false, reason: 'session-expired', results };
+    // تشخیص ترم جاری از گزارش ۸۸ یا دروس موجود
+    let currentTerm = r88?.termId || detectCurrentTermId(getSnapshot()?.courses || []) || '4051';
+
+    // ── گام دوم: برنامه هفتگی (گزارش ۷۸) ──
+    for (const t of [currentTerm, '4042']) {
+      try {
+        const p78 = await fetchViewReport('78', t);
+        if (p78?.error && isSessionError(p78.error)) {
+          if (!results.profile && !results.schedule) {
+            sessionDead = true;
+            break;
+          }
+        }
+        if (p78?.courses?.length) {
+          results.schedule += p78.courses.length;
+          markSyncStatus('live', { phase: 'schedule', lastResults: results });
+        }
+        if (p78?.meta?.fullName || p78?.meta?.studentId) {
+          results.profile = true;
+          markSyncStatus('live', { phase: 'profile', lastResults: results });
+        }
+      } catch (e) {
+        console.warn(`[sync] p78 (${t}) error:`, e?.message || e);
+      }
     }
 
-    // ── گام دوم: عکس پرسنلی دانشجو (فرم F1809) ──
+    // ── گام سوم: عکس و مشخصات تکمیلی دانشجو (فرم F1809) ──
     try {
       const pData = await fetchPersonal();
       if (pData?.error && isSessionError(pData.error)) {
@@ -207,29 +225,6 @@ export async function runFullSync({ force = false } = {}) {
         error: 'نشست بهستان به پایان رسیده است. لطفاً دکمهٔ «ورود زندهٔ بهستان» را بزنید.',
       });
       return { ok: false, reason: 'session-expired', results };
-    }
-
-    // تشخیص ترم جاری از گزارش ۸۸ یا دروس موجود
-    let currentTerm = r88?.termId || detectCurrentTermId(getSnapshot()?.courses || []) || '4051';
-
-    // ── گام سوم: برنامه هفتگی (گزارش ۷۸) ──
-    for (const t of [currentTerm, '4042']) {
-      if (sessionDead) break;
-      try {
-        const p78 = await fetchViewReport('78', t);
-        if (p78?.error && isSessionError(p78.error)) {
-          if (!results.profile && !results.schedule) {
-            sessionDead = true;
-            break;
-          }
-        }
-        if (p78?.courses?.length) {
-          results.schedule += p78.courses.length;
-          markSyncStatus('live', { phase: 'schedule', lastResults: results });
-        }
-      } catch (e) {
-        console.warn(`[sync] p78 (${t}) error:`, e?.message || e);
-      }
     }
 
     // ── جامع دانشجو (F1825) — نمرات، معدل، واحدها، شهریه ──

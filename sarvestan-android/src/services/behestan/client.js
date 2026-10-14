@@ -268,7 +268,7 @@ export async function fetchPersonal() {
   const apiErr = extractBehestanError(data);
   if (apiErr) return { error: apiErr };
   const parsed = parseF1809(data);
-  // studentId را از session (احتمالاً کدملی SSO) روی پروفایل مینویسیم — فقط اگر از قبل نباشد
+  // studentId را از پارس یا نشست (یا کد ملی) روی پروفایل می‌نویسیم
   let existingId = '';
   try {
     existingId = JSON.parse(localStorage.getItem('sarvestan_live_profile') || 'null')?.studentId || '';
@@ -277,7 +277,10 @@ export async function fetchPersonal() {
     photo: parsed.photo || undefined,
     fullName: parsed.name || undefined,
     major: parsed.major || undefined,
-    studentId: existingId || undefined,
+    faculty: parsed.faculty || undefined,
+    studentId: existingId || parsed.studentId || getStudentId() || undefined,
+    gpa: parsed.gpa != null ? parsed.gpa : undefined,
+    totalUnitsPassed: parsed.totalUnitsPassed != null ? parsed.totalUnitsPassed : undefined,
     isLoggedIn: true,
   });
   return parsed;
@@ -361,8 +364,9 @@ export async function fetchViewReport(formCode, term) {
     console.warn('[client] nav for ViewReport warning:', formCode, e?.message || e);
   }
 
-  // SBU: توالی مرورگر بین nav و ViewReport — فیلتر (c:110001) و مرتب‌سازی (c:110067)
-  if (getSelectedUniversity() === 'sbu') {
+  // SBU و AUT: توالی مرورگر بین nav و ViewReport — فیلتر (c:110001) و مرتب‌سازی (c:110067)
+  const currentUni = getSelectedUniversity();
+  if (currentUni === 'sbu' || currentUni === 'aut') {
     const filterRp = (c) => ({
       ft: '1',
       f: String(formCode),
@@ -429,8 +433,13 @@ export async function fetchViewReport(formCode, term) {
 
   if (String(formCode) === '78') {
     const parsed = parseReport78Schedule(outpar, term);
+    const tid = parsed.termId || term || '4051';
     if (parsed.courses.length) {
-      setScheduleForTerm(parsed.termId || term || '4051', parsed.courses, '78');
+      setScheduleForTerm(tid, parsed.courses, '78');
+      const examObj = examsFromRegistration(parsed.courses, tid);
+      if (examObj?.exams?.length) {
+        setExamsForTerm(tid, examObj.exams);
+      }
     }
     if (parsed.meta?.fullName) {
       mergeProfile({

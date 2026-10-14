@@ -60,6 +60,7 @@ public class SsoWebViewPlugin extends Plugin {
         inputPassword = call.getString("password", "");
         currentUniId = call.getString("uniId", "kntu");
         boolean isUt = "ut".equalsIgnoreCase(currentUniId);
+        boolean isAut = "aut".equalsIgnoreCase(currentUniId);
         String ssoUrl;
         if (isUt) {
             String state = "st" + System.currentTimeMillis();
@@ -67,6 +68,8 @@ public class SsoWebViewPlugin extends Plugin {
                 "?client_id=golestanSSO-xRwHTGSHGtjmLJbqr2k9GDSOoai-TCc.apigateway.ut.ac.ir" +
                 "&redirect_uri=https%3A%2F%2Fems2.ut.ac.ir%2Findex.html" +
                 "&response_type=code&scope=openid&state=" + state;
+        } else if (isAut) {
+            ssoUrl = "https://accounts.aut.ac.ir/cas/login?service=https%3A%2F%2Fportal.aut.ac.ir%2Findex.html%3Fsso%3D101";
         } else {
             ssoUrl = SSO_AUTH;
         }
@@ -221,8 +224,8 @@ public class SsoWebViewPlugin extends Plugin {
     private void onUrlSettled(WebView view, String url) {
         if (resolved || view == null || url == null) return;
 
-        if (url.contains("behestan.kntu.ac.ir") || url.contains("ems2.ut.ac.ir")) {
-            // کد را از URL بگیر
+        if (url.contains("behestan.kntu.ac.ir") || url.contains("ems2.ut.ac.ir") || url.contains("portal.aut.ac.ir")) {
+            // کد یا تیکت را از URL بگیر
             try {
                 int i = url.indexOf("code=");
                 if (i > 0) {
@@ -233,13 +236,13 @@ public class SsoWebViewPlugin extends Plugin {
                 }
             } catch (Exception ignore) {}
 
-            // از داخل دامنهٔ گلستان: oauth2 بزن و در localStorage بگذار
+            // از داخل دامنهٔ گلستان: احراز هویت را بزن و در localStorage بگذار
             runBehestanOauth(view, capturedCode, 0);
         }
     }
 
     /**
-     * fetch oauth2 از خود WebView (same-origin بهستان)
+     * fetch oauth2 / CAS از خود WebView (same-origin بهستان)
      * و ذخیره sid/t در localStorage — سپس خواندن و resolve
      */
     private void runBehestanOauth(WebView view, String code, int attempt) {
@@ -259,14 +262,28 @@ public class SsoWebViewPlugin extends Plugin {
                 "    window.__Ssv=JSON.stringify({ok:true,sid:sid,ticket:t,from:'ls'});" +
                 "    return;" +
                 "  }" +
-                "  var code=" + jsonStr(code) + ";" +
-                "  if(!code){" +
-                "    var m=location.href.match(/[?&]code=([^&]+)/);" +
-                "    code=m?decodeURIComponent(m[1]):null;" +
-                "  }" +
-                "  if(!code){" +
-                "    window.__Ssv=JSON.stringify({ok:false,wait:true});" +
-                "    return;" +
+                "  var isUt = location.hostname.indexOf('ut.ac.ir') >= 0;" +
+                "  var isAut = location.hostname.indexOf('aut.ac.ir') >= 0;" +
+                "  var verifyEndpoint = isAut ? '/frmc/Authentication/CAS/' : '/frmc/Authentication/oauth2/';" +
+                "  var rscVal = isAut ? '101' : (isUt ? '120' : '112');" +
+                "  var ticketParam = '';" +
+                "  var codeParam = " + jsonStr(code) + ";" +
+                "  if (isAut) {" +
+                "    var tm = location.href.match(/[?&]ticket=([^&]+)/);" +
+                "    ticketParam = tm ? decodeURIComponent(tm[1]) : '';" +
+                "    if (!ticketParam) {" +
+                "      window.__Ssv=JSON.stringify({ok:false,wait:true});" +
+                "      return;" +
+                "    }" +
+                "  } else {" +
+                "    if (!codeParam) {" +
+                "      var m = location.href.match(/[?&]code=([^&]+)/);" +
+                "      codeParam = m ? decodeURIComponent(m[1]) : null;" +
+                "    }" +
+                "    if (!codeParam) {" +
+                "      window.__Ssv=JSON.stringify({ok:false,wait:true});" +
+                "      return;" +
+                "    }" +
                 "  }" +
                 "  if (" + attempt + " < 3) {" +
                 "    window.__Ssv=JSON.stringify({ok:false,wait:true});" +
@@ -274,12 +291,10 @@ public class SsoWebViewPlugin extends Plugin {
                 "  }" +
                 "  if(window.__SsvBusy) return;" +
                 "  window.__SsvBusy=1;" +
-                "  var isUt = location.hostname.indexOf('ut.ac.ir') >= 0;" +
-                "  var rscVal = isUt ? '120' : '112';" +
-                "  fetch('/frmc/Authentication/oauth2/',{" +
+                "  fetch(verifyEndpoint, {" +
                 "    method:'POST'," +
                 "    headers:{'Content-Type':'application/json','Accept':'application/json'}," +
-                "    body:JSON.stringify({act:'09',r:{code:code,ticket:'',l:'',p:'',d:'0',c:'',rsc:rscVal},rp:{}})" +
+                "    body:JSON.stringify({act:'09',r:{code:isAut ? '' : codeParam,ticket:ticketParam,l:'',p:'',d:'0',c:'',rsc:rscVal},rp:{}})" +
                 "  }).then(function(r){return r.text();}).then(function(txt){" +
                 "    window.__SsvBusy=0;" +
                 "    try{" +
@@ -288,7 +303,7 @@ public class SsoWebViewPlugin extends Plugin {
                 "      var tk=d&&d.t;" +
                 "      if(sid&&tk){" +
                 "        try{localStorage.setItem('sid',sid);localStorage.setItem('t',tk);}catch(e){}" +
-                "        window.__Ssv=JSON.stringify({ok:true,sid:sid,ticket:tk,from:'oauth2'});" +
+                "        window.__Ssv=JSON.stringify({ok:true,sid:sid,ticket:tk,from:'verify'});" +
                 "      }else{" +
                 "        var er=d&&d.msg&&d.msg.errors&&d.msg.errors[0];" +
                 "        window.__Ssv=JSON.stringify({ok:false,err:er||'no-sid',body:txt.slice(0,120)});" +

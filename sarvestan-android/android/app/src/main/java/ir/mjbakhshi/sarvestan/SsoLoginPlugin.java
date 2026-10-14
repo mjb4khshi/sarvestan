@@ -192,6 +192,8 @@ public class SsoLoginPlugin extends Plugin {
 
         if ("ut".equalsIgnoreCase(uniId)) {
             loginUt(call, username, password);
+        } else if ("aut".equalsIgnoreCase(uniId)) {
+            loginAut(call, username, password);
         } else {
             loginKntu(call, username, password);
         }
@@ -882,6 +884,128 @@ public class SsoLoginPlugin extends Plugin {
             } catch (Exception ex) {
                 Log.e(TAG, "UT login error", ex);
                 call.reject("خطای ورود دانشگاه تهران: " + ex.getMessage());
+            }
+        }).start();
+    }
+
+    private void loginAut(PluginCall call, String username, String password) {
+        new Thread(() -> {
+            try {
+                Map<String, String> cookies = new LinkedHashMap<>();
+                String entryUrl = "https://accounts.aut.ac.ir/cas/login?service=https%3A%2F%2Fportal.aut.ac.ir%2Findex.html%3Fsso%3D101";
+                HttpResponse page1 = executeHttp(entryUrl, "GET", null, null, null, cookies);
+
+                Pattern execPat = Pattern.compile("name=[\"']execution[\"']\\s+value=[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
+                Matcher execMat = execPat.matcher(page1.body != null ? page1.body : "");
+                String execution = "";
+                if (execMat.find()) {
+                    execution = execMat.group(1);
+                } else {
+                    Pattern execPat2 = Pattern.compile("value=[\"']([^\"']+)[\"']\\s+name=[\"']execution[\"']", Pattern.CASE_INSENSITIVE);
+                    Matcher execMat2 = execPat2.matcher(page1.body != null ? page1.body : "");
+                    if (execMat2.find()) {
+                        execution = execMat2.group(1);
+                    }
+                }
+
+                StringBuilder formBody = new StringBuilder();
+                formBody.append("username=").append(URLEncoder.encode(username, "UTF-8"));
+                formBody.append("&password=").append(URLEncoder.encode(password, "UTF-8"));
+                formBody.append("&execution=").append(URLEncoder.encode(execution, "UTF-8"));
+                formBody.append("&_eventId=").append(URLEncoder.encode("submit", "UTF-8"));
+                formBody.append("&geolocation=");
+
+                HttpResponse loginRes = executeHttp("https://accounts.aut.ac.ir/cas/login", "POST", formBody.toString(), "application/x-www-form-urlencoded", entryUrl, cookies);
+
+                String ticket = null;
+                if (loginRes.location != null) {
+                    Matcher tm = Pattern.compile("[?&]ticket=([^&]+)").matcher(loginRes.location);
+                    if (tm.find()) ticket = URLDecoder.decode(tm.group(1), "UTF-8");
+                }
+                if (ticket == null && loginRes.body != null) {
+                    Matcher tm = Pattern.compile("[?&]ticket=([^&\"'\\s]+)").matcher(loginRes.body);
+                    if (tm.find()) ticket = URLDecoder.decode(tm.group(1), "UTF-8");
+                }
+
+                if (ticket == null) {
+                    Pattern alertPat = Pattern.compile("class=[\"'][^\"']*alert[^\"']*[\"'][^>]*>([\\s\\S]*?)</div>", Pattern.CASE_INSENSITIVE);
+                    Matcher am = alertPat.matcher(loginRes.body != null ? loginRes.body : "");
+                    String errMsg = "نام کاربری یا رمز عبور اشتباه است.";
+                    if (am.find()) {
+                        errMsg = am.group(1).replaceAll("<[^>]+>", "").trim();
+                    }
+                    JSObject ret = new JSObject();
+                    ret.put("ok", false);
+                    ret.put("error", errMsg);
+                    ret.put("code", "bad-credentials");
+                    call.resolve(ret);
+                    return;
+                }
+
+                // Step 4: گرم کردن نشست وب بهستان (loginapi act 00)
+                try {
+                    executeHttp("https://portal.aut.ac.ir/frm/loginapi/loginapi.svc/", "POST", "{\"r\":{},\"rp\":{},\"act\":\"00\"}", "application/json", "https://portal.aut.ac.ir/browser/fa/", cookies);
+                } catch (Exception ignore) {}
+
+                // Step 5: تبادل بلیط در سامانه بهستان امیرکبیر
+                String verifyUrl = "https://portal.aut.ac.ir/frmc/Authentication/CAS/";
+                String verifyBody = "{\"act\":\"09\",\"r\":{\"code\":\"\",\"ticket\":\"" + ticket + "\",\"l\":\"\",\"p\":\"\",\"d\":\"0\",\"c\":\"\",\"rsc\":\"101\"},\"rp\":{}}";
+                HttpResponse verifyRes = executeHttp(verifyUrl, "POST", verifyBody, "application/json", "https://portal.aut.ac.ir/browser/fa/?sso=101&ticket=" + URLEncoder.encode(ticket, "UTF-8"), cookies);
+
+                JSONObject verifyJson = new JSONObject(verifyRes.body);
+                String sid = verifyJson.optJSONObject("oaut") != null && verifyJson.getJSONObject("oaut").optJSONObject("rp") != null
+                    ? verifyJson.getJSONObject("oaut").getJSONObject("rp").optString("sid", "")
+                    : "";
+                String behestanTicket = verifyJson.optString("t", "");
+
+                if (sid.isEmpty() || behestanTicket.isEmpty()) {
+                    JSObject ret = new JSObject();
+                    ret.put("ok", false);
+                    ret.put("error", "نشست از سامانه بهستان امیرکبیر دریافت نشد");
+                    call.resolve(ret);
+                    return;
+                }
+
+                // Step 6: فعال‌سازی نشست کاری + دریافت شماره دانشجویی
+                String currentTicket = behestanTicket;
+                String resolvedStudentId = username;
+                String resolvedUserId = null;
+                try {
+                    String navBody = "{\"r\":{\"fid\":\"11130\",\"ft\":\"0\",\"subfrm\":\"\"},\"act\":\"nav\",\"rp\":{\"sp\":\"{\\\"BrnNo\\\":\\\"0\\\",\\\"BrnLimit\\\":\\\"0\\\",\\\"UsrType\\\":\\\"0\\\",\\\"TrmType\\\":\\\"2\\\"}\",\"loc\":\"fa\",\"ut\":\"0\",\"b\":\"0\",\"sid\":\"" + sid + "\"},\"t\":" + JSONObject.quote(currentTicket) + "}";
+                    HttpResponse navRes = executeHttp("https://portal.aut.ac.ir/frm/sys/sys.svc/", "POST", navBody, "application/json", "https://portal.aut.ac.ir/browser/fa/", cookies);
+                    JSONObject navJson = new JSONObject(navRes.body);
+                    if (navJson.has("t")) currentTicket = navJson.getString("t");
+                    JSONObject outpar = navJson.optJSONObject("outpar");
+                    if (outpar != null) {
+                        if (outpar.has("std") && !outpar.isNull("std")) resolvedStudentId = outpar.getString("std");
+                        if (outpar.has("u") && !outpar.isNull("u")) resolvedUserId = outpar.getString("u");
+                    }
+                } catch (Exception ignore) {}
+
+                StringBuilder cookieHeader = new StringBuilder();
+                for (Map.Entry<String, String> entry : cookies.entrySet()) {
+                    if (entry.getKey().toLowerCase().contains("sso")) continue;
+                    if (cookieHeader.length() > 0) cookieHeader.append("; ");
+                    cookieHeader.append(entry.getKey()).append("=").append(entry.getValue());
+                }
+                if (!cookieHeader.toString().contains("ASP.NET_SessionId=")) {
+                    if (cookieHeader.length() > 0) cookieHeader.append("; ");
+                    cookieHeader.append("ASP.NET_SessionId=").append(sid);
+                }
+
+                JSObject ret = new JSObject();
+                ret.put("ok", true);
+                ret.put("sid", sid);
+                ret.put("ticket", currentTicket);
+                ret.put("studentId", resolvedStudentId);
+                if (resolvedUserId != null) ret.put("userId", resolvedUserId);
+                ret.put("university", "aut");
+                ret.put("cookies", cookieHeader.toString());
+                ret.put("source", "native_java");
+                call.resolve(ret);
+            } catch (Exception ex) {
+                Log.e(TAG, "AUT login error", ex);
+                call.reject("خطا در احراز هویت دانشگاه صنعتی امیرکبیر: " + ex.getMessage());
             }
         }).start();
     }

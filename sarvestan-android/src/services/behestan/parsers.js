@@ -311,10 +311,20 @@ function extractPhotoDataUrl(raw) {
 
 export function mapTermFromTitle(bms) {
   const s = String(bms || '');
+  if (/05[_-]06|۰۵[_-]۰۶|1405[_-]1406|۱۴۰۵[_-]۱۴۰۶|06[_-]05|۰۶[_-]۰۵|1406[_-]1405|۱۴۰۶[_-]۱۴۰۵/.test(s)) {
+    if (s.includes('دوم')) return '4052';
+    if (s.includes('تابستان')) return '4053';
+    return '4051';
+  }
+  if (/04[_-]05|۰۴[_-]۰۵|1404[_-]1405|۱۴۰۴[_-]۱۴۰۵|05[_-]04|۰۵[_-]۰۴|1405[_-]1404|۱۴۰۵[_-]۱۴۰۴/.test(s)) {
+    if (s.includes('دوم')) return '4042';
+    if (s.includes('تابستان')) return '4043';
+    return '4041';
+  }
   if (s.includes('06-05') || s.includes('۰۶-۰۵') || s.includes('1406-1405') || s.includes('۱۴۰۶-۱۴۰۵')) return '4051';
   if ((s.includes('05-04') || s.includes('1405-1404') || s.includes('۱۴۰۵-۱۴۰۴')) && s.includes('دوم')) return '4042';
   if ((s.includes('05-04') || s.includes('1405-1404') || s.includes('۱۴۰۵-۱۴۰۴')) && s.includes('اول')) return '4041';
-  const yearM = s.match(/(?:140|۱۴۰)([0-9۰-۹])\s*[-–]\s*(?:140|۱۴۰)([0-9۰-۹])/);
+  const yearM = s.match(/(?:140|۱۴۰)([0-9۰-۹])\s*[-–_]\s*(?:140|۱۴۰)([0-9۰-۹])/);
   if (yearM) {
     const y = '۰۱۲۳۴۵۶۷۸۹'.indexOf(yearM[1]) !== -1 ? '۰۱۲۳۴۵۶۷۸۹'.indexOf(yearM[1]) : yearM[1];
     const sem = s.includes('دوم') ? '2' : s.includes('تابستان') ? '3' : '1';
@@ -838,17 +848,42 @@ export function parseF1825(data) {
   return result;
 }
 
-/** F1809 — عکس پرسنلی */
+/** F1809 — عکس پرسنلی و اطلاعات شناسنامه‌ای */
 export function parseF1809(data) {
   const outpar = data?.outpar || {};
   const photo =
     extractPhotoDataUrl(outpar.AUWw || '') ||
     extractPhotoDataUrl(outpar.PHOTO || '') ||
     extractPhotoDataUrl(outpar.Photo || '');
-  const name =
+  let name =
     cleanHtml(outpar.NA || outpar.Name || outpar.FN || '') || null;
-  const major = cleanHtml(outpar.BRN || outpar.Major || '') || null;
-  return { photo, name, major };
+  let major = cleanHtml(outpar.BRN || outpar.Major || '') || null;
+  let faculty = cleanHtml(outpar.FAC || outpar.Faculty || '') || null;
+  let studentId = null;
+  let gpa = null;
+  let totalUnitsPassed = null;
+
+  const grdXml = data?.rset?.grd?.[0]?.xml || '';
+  if (grdXml) {
+    const rows = parseBehestanXmlGrid(grdXml);
+    if (rows.length && rows[0]) {
+      const r = rows[0];
+      if (!name && r.F1) name = cleanHtml(r.F1);
+      if (!major && r.F2) major = cleanHtml(r.F2);
+      if (!faculty && r.F4) faculty = cleanHtml(r.F4);
+      if (r.F12) gpa = parseFloat(r.F12) || null;
+      if (r.F13) {
+        const idM = String(r.F13).match(/\d+/);
+        if (idM) studentId = idM[0];
+      }
+      if (r.F22) {
+        const passM = String(r.F22).match(/گذرانده\s*:\s*([\d.]+)/);
+        if (passM) totalUnitsPassed = parseFloat(passM[1]) || null;
+      }
+    }
+  }
+
+  return { photo, name, major, faculty, studentId, gpa, totalUnitsPassed };
 }
 
 /** F6524 — گردش‌کار / اعلان‌ها */
