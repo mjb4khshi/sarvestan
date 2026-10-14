@@ -42,7 +42,8 @@ export function shouldUseLocalProxy() {
       h.endsWith('sbu.ac.ir') ||
       h.includes('behestan') ||
       h.includes('sso.kntu') ||
-      h.includes('ems.sbu')
+      h.includes('ems.sbu') ||
+      h.includes('ems2.ut')
     ) {
       return false;
     }
@@ -110,6 +111,8 @@ async function rawPost(url, bodyObj) {
       finalUrl = url.replace('https://behestan.kntu.ac.ir', '/behestan-api');
     } else if (url.startsWith('https://ems.sbu.ac.ir')) {
       finalUrl = url.replace('https://ems.sbu.ac.ir', '/sbu-api');
+    } else if (url.startsWith('https://ems2.ut.ac.ir')) {
+      finalUrl = url.replace('https://ems2.ut.ac.ir', '/ut-api');
     }
   }
 

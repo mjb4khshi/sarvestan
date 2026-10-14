@@ -24460,6 +24460,32 @@ export const UNIVERSAL_PREREQ_DB = {
   }
 };
 
+let NAME_TO_PREREQ_MAP = null;
+
+function normPrereqLookup(str) {
+  return String(str || '')
+    .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+    .replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+    .replace(/[يی]/g, 'ی')
+    .replace(/[كک]/g, 'ک')
+    .replace(/ورود\s*به\s*فضای\s*مجازی\s*درس/gi, '')
+    .replace(/کلاس\s*:\s*/gi, '')
+    .replace(/[\u200c\s]+/g, ' ')
+    .trim();
+}
+
+function initPrereqNameIndex() {
+  if (NAME_TO_PREREQ_MAP) return;
+  NAME_TO_PREREQ_MAP = new Map();
+  for (const item of Object.values(UNIVERSAL_PREREQ_DB)) {
+    if (!item?.name) continue;
+    const n = normPrereqLookup(item.name);
+    if (!NAME_TO_PREREQ_MAP.has(n)) {
+      NAME_TO_PREREQ_MAP.set(n, item);
+    }
+  }
+}
+
 /**
  * دریافت اطلاعات پیش‌نیاز و پیش‌درآمد یک درس با کد یا نام
  */
@@ -24468,14 +24494,21 @@ export function getPrereqInfo(courseCode, courseName = '') {
   if (code && UNIVERSAL_PREREQ_DB[code]) {
     return UNIVERSAL_PREREQ_DB[code];
   }
-  
+
   if (courseName) {
-    const clean = String(courseName).replace(/[يی]/g, 'ی').replace(/[كک]/g, 'ک').trim();
-    for (const item of Object.values(UNIVERSAL_PREREQ_DB)) {
-      const itName = String(item.name).replace(/[يی]/g, 'ی').replace(/[كک]/g, 'ک').trim();
-      if (itName === clean) return item;
+    initPrereqNameIndex();
+    const clean = normPrereqLookup(courseName);
+    if (NAME_TO_PREREQ_MAP.has(clean)) {
+      return NAME_TO_PREREQ_MAP.get(clean);
+    }
+
+    // بررسی بدون پسوند عددی (مثلا "ریاضی عمومی ۱" -> "ریاضی عمومی")
+    const cleanNoNum = clean.replace(/\s*[0-9۰-۹]+\s*$/, '').trim();
+    if (cleanNoNum && NAME_TO_PREREQ_MAP.has(cleanNoNum)) {
+      return NAME_TO_PREREQ_MAP.get(cleanNoNum);
     }
   }
 
   return { prereqs: [], coreqs: [], unlocks: [] };
 }
+

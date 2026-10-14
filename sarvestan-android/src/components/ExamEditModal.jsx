@@ -417,6 +417,9 @@ export default function ExamEditModal({
     <SarvDatePickerModal
       isOpen={isDatePickerOpen}
       initialDate={examDate}
+      title="انتخاب تاریخ امتحان"
+      subtitle="تقویم رسمی شمسی امتحانات"
+      mode="exam"
       onClose={() => setIsDatePickerOpen(false)}
       onConfirm={(newDate) => {
         setExamDate(newDate);

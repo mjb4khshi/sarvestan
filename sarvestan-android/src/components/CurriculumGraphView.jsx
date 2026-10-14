@@ -672,6 +672,13 @@ export default function CurriculumGraphView({
                         </span>
                       </div>
 
+                      {course.isEquivalent && (
+                        <span className="text-[8.5px] font-bold text-accent bg-accent/15 px-1 py-0.2 rounded-sm w-fit truncate max-w-[120px]">
+                          معادل: {toPersianCourseName(course.equivInfo?.targetName || 'تطبیقی')}
+                        </span>
+                      )}
+
+
                       {/* نشانگر وضعیت و گشودگی */}
                       <div className="flex items-center justify-between gap-1 pt-1 border-t border-base-500/15 text-[10px] w-full">
                         <span

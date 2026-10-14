@@ -36,6 +36,10 @@ export function decodeEntities(s) {
 export function cleanHtml(str) {
   if (!str) return '';
   return decodeEntities(str)
+    .replace(/<svg\b[\s\S]*?<\/svg>/gi, ' ')
+    .replace(/<title\b[\s\S]*?<\/title>/gi, ' ')
+    .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
     .replace(/[يى]/g, 'ی')
@@ -122,7 +126,11 @@ export function parseReport77(outpar, termHint) {
     const codeGroup = cleanHtml(row.C1 || '');
     if (!codeGroup) continue;
     const code = extractCourseCode(codeGroup, row.C1);
-    const name = normalizeCourseName(cleanHtml(row.C2 || ''));
+    const rawC2 = String(row.C2 || '');
+    const elearnMatch = (rawC2 + ' ' + String(row.C1 || '')).match(/href=["'](https?:\/\/[^"']+)["']/i);
+    const hasVirtual = /فضای\s*مجازی|elearning|vc\.ut\.ac\.ir/i.test(rawC2 + ' ' + String(row.C1 || ''));
+    const virtualUrl = elearnMatch ? elearnMatch[1].replace(/\\/g, '').replace(/&amp;/g, '&') : (hasVirtual ? 'https://elearning.ut.ac.ir/' : undefined);
+    const name = normalizeCourseName(cleanHtml(rawC2));
     if (!name) continue;
 
     const statusRaw = cleanHtml(row.C5 || '');
@@ -186,6 +194,8 @@ export function parseReport77(outpar, termHint) {
       regStatus: finalStatus,
       statusRaw,
       phaseRaw,
+      hasVirtualClass: hasVirtual,
+      virtualUrl: virtualUrl || 'https://elearning.ut.ac.ir/',
     });
   }
 
@@ -216,6 +226,9 @@ export function normalizeCourseName(name) {
     .replace(/[يى]/g, 'ی')
     .replace(/ك/g, 'ک')
     .replace(/ـ/g, '')
+    // حذف پیشوندهای ناخواسته مانند ورود به فضای مجازی یا پیشوند کلاس
+    .replace(/^(?:ورود\s*به\s*)?فضای\s*مجازی(?:\s*درس)?\s*[:\-–—]?\s*/gi, '')
+    .replace(/^کلاس\s*[:\-–—]\s*/gi, '')
     .replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[+d])
     .replace(/\s+/g, ' ')
     .trim();
@@ -356,6 +369,9 @@ export function parseReport78Schedule(outpar, termHint) {
     const normTime = normalizeTimeRange(classTime);
     const normHall = (hallM ? simplifyRoomName(hallM[1].replace(/\s+/g, ' ').trim()) : '') || 'ـ';
     const initialSlot = day && normTime ? [{ day, time: normTime, hall: normHall }] : [];
+    const elearnMatch = String(title + ' ' + (textHint || '')).match(/href=["'](https?:\/\/[^"']+)["']/i);
+    const hasVirtual = /فضای\s*مجازی|elearning|vc\.ut\.ac\.ir/i.test(title + ' ' + (textHint || ''));
+    const virtualUrl = elearnMatch ? elearnMatch[1].replace(/\\/g, '').replace(/&amp;/g, '&') : (hasVirtual ? 'https://elearning.ut.ac.ir/' : undefined);
 
     if (!courseMap.has(key)) {
       courseMap.set(key, {
@@ -376,9 +392,15 @@ export function parseReport78Schedule(outpar, termHint) {
         timeSlotsRaw: classTime ? [classTime] : [],
         daySlots: initialSlot,
         isLive: true,
+        hasVirtualClass: hasVirtual,
+        virtualUrl: virtualUrl || 'https://elearning.ut.ac.ir/',
       });
     } else {
       const cur = courseMap.get(key);
+      if (hasVirtual) {
+        cur.hasVirtualClass = true;
+        if (virtualUrl) cur.virtualUrl = virtualUrl;
+      }
       if (parsedProf && (!cur.professor || cur.professor === 'ـ')) cur.professor = parsedProf;
       if (day && !cur.days.includes(day)) cur.days.push(day);
       if (classTime && !cur.timeSlotsRaw.includes(classTime)) cur.timeSlotsRaw.push(classTime);
@@ -689,6 +711,9 @@ export function parseF1825(data) {
           status = statusRaw || 'ثبت شده';
         }
 
+        const elearnMatch = String(row.F1 || '').match(/href=["'](https?:\/\/[^"']+)["']/i);
+        const virtualUrl = elearnMatch ? elearnMatch[1].replace(/\\/g, '').replace(/&amp;/g, '&') : undefined;
+
         return {
           code,
           name: normalizeCourseName(cleanHtml(row.F1)),
@@ -705,6 +730,7 @@ export function parseF1825(data) {
           gradeMode: gradeModeRaw,
           regType: regTypeRaw,
           onSchedule: false,
+          virtualUrl,
         };
       })
       .filter((c) => c.name);
@@ -938,11 +964,11 @@ export function parseReport284Curriculum(outpar) {
     const status = cells[8] || '';
     cur.courses.push({
       code,
-      name: cells[1] || '',
+      name: normalizeCourseName(cleanHtml(cells[1] || '')),
       units: num(cells[2]) ?? 0,
       kind,
       equivCode: (cells[4] || '').match(/\d{5,}/)?.[0] || null,
-      equivName: cells[5] || '',
+      equivName: normalizeCourseName(cleanHtml(cells[5] || '')),
       takenUnits: num(cells[6]),
       termId: /^\d{4}$/.test(cells[7] || '') ? cells[7] : null,
       status,

@@ -11,13 +11,16 @@ import {
   BookOpen,
   Sparkles,
   LogIn,
+  Globe,
 } from 'lucide-react';
 import { getViewModel } from '../data/viewModel';
 import { useSarvestanData } from '../hooks/useSarvestanData';
 import { openLoginModal } from '../services/loginFlow';
 import { toFaDigits } from '../utils/faDigits';
+import { getSelectedUniversity } from '../services/behestan/session';
 import OdometerNumber from '../components/OdometerNumber';
 import StudyHeatmap from '../components/StudyHeatmap';
+import DashboardCalendar from '../components/DashboardCalendar';
 import { motion } from 'framer-motion';
 
 import { getGpaStatusBadge } from '../utils/gpaBadge';
@@ -34,7 +37,8 @@ const statusMeta = {
 const PROFILE_CARD_LAYOUT = 'row';
 
 export default function HomeScreen({ onNavigate }) {
-  const { live, isSessionAlive, syncing, sync } = useSarvestanData();
+  const { live, isSessionAlive, syncing, sync, session } = useSarvestanData();
+  const isUt = (session?.university || getSelectedUniversity()) === 'ut';
   const vm = getViewModel();
   const STUDENT = vm.student;
   const SUMMARY = vm.summary;
@@ -413,7 +417,7 @@ export default function HomeScreen({ onNavigate }) {
           {
             label: 'چارت و دروس',
             Icon: BookOpen,
-            tab: 'more',
+            tab: 'chart',
             btnColor: 'bg-accent text-accent-content',
             textColor: 'text-accent',
           },
@@ -512,6 +516,20 @@ export default function HomeScreen({ onNavigate }) {
                     <span className="text-[10.5px] font-mono text-neutral bg-base-500/50 px-1.5 py-0.5 rounded">
                       {toFaDigits(cls.code)}
                     </span>
+                    {isUt && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(cls.virtualUrl || cls.course?.virtualUrl || 'https://elearning.ut.ac.ir/', '_blank');
+                        }}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10.5px] font-bold bg-primary-soft text-primary hover:bg-primary/20 transition active:scale-95 cursor-pointer shrink-0 border border-primary/20 mr-auto"
+                        title="ورود به سامانه یادگیری الکترونیکی و کلاس مجازی دانشگاه تهران (elearning.ut.ac.ir)"
+                      >
+                        <Globe className="w-3 h-3" />
+                        <span>کلاس مجازی</span>
+                      </button>
+                    )}
                   </div>
 
                   {/* نوار پیشرفت زنده کلاس در حال برگزاری (Live Class Progress) */}
@@ -630,6 +648,9 @@ export default function HomeScreen({ onNavigate }) {
           );
         })()}
       </section>
+
+      {/* تقویم ماهانه و برنامه آموزشی در داشبورد */}
+      <DashboardCalendar onNavigate={onNavigate} />
 
       {/* ماتریس پیوستگی فعالیت و مطالعه سالانه (هیت‌مپ داشبورد) */}
       <StudyHeatmap onNavigate={onNavigate} />

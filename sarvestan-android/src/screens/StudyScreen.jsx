@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import {
@@ -90,6 +90,7 @@ import {
 } from '../services/calendarHelper';
 import OdometerNumber from '../components/OdometerNumber';
 import ExamEditModal from '../components/ExamEditModal';
+import SarvDatePickerModal from '../components/SarvDatePickerModal';
 import {
   subscribeStore,
   addExamToStore,
@@ -486,14 +487,17 @@ export default function StudyScreen({ onNavigate }) {
           setTimeout(() => setShareToast(''), 3500);
         } else {
           const rem = Math.max(1, Math.ceil((saved.targetEndTime - now) / 1000));
+          const totalSecs = (saved.customMinutes || 30) * 60;
+          const elapsedSecs = Math.max(0, totalSecs - rem);
           setSelectedCourse(saved.courseName || coursesList[0]?.name || 'عمومی');
           setSelectedTaskId(saved.taskId || null);
           setCustomMinutes(saved.customMinutes || 30);
           setCustomSecondsLeft(rem);
+          setCustomSessionSeconds(elapsedSecs);
           customTargetEndTimeRef.current = saved.targetEndTime;
           setCustomRunning(true);
           if (wakeLockEnabled) requestScreenWakeLock();
-          setShareToast('تایمر مطالعه از سشن قبلی بازیابی شد.');
+          setShareToast('تایمر مطالعه از نشست قبلی بازیابی شد.');
           setTimeout(() => setShareToast(''), 3000);
         }
       } else if (saved.mode === 'stopwatch' && saved.stopwatchStartedAt) {
@@ -507,7 +511,7 @@ export default function StudyScreen({ onNavigate }) {
         stopwatchBaseRef.current = saved.stopwatchBase || 0;
         setStopwatchRunning(true);
         if (wakeLockEnabled) requestScreenWakeLock();
-        setShareToast('کرنومتر مطالعه از سشن قبلی بازیابی شد.');
+        setShareToast('کرنومتر مطالعه از نشست قبلی بازیابی شد.');
         setTimeout(() => setShareToast(''), 3000);
       }
     }
@@ -516,6 +520,7 @@ export default function StudyScreen({ onNavigate }) {
   // کانبان و اولویت‌بندی استیت
   const [kanbanFilterCourse, setKanbanFilterCourse] = useState('all');
   const [kanbanFilterPriority, setKanbanFilterPriority] = useState('all');
+  const [kanbanFilterDate, setKanbanFilterDate] = useState('all'); // 'all' | 'today' | 'selected'
 
   // تقویم و تایم‌لاین استیت — تاریخ محلی دقیق
   const todayIso = toLocalDateString(new Date());
@@ -529,6 +534,31 @@ export default function StudyScreen({ onNavigate }) {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskCourse, setNewTaskCourse] = useState(coursesList[0]?.name || 'عمومی');
   const [newTaskPriority, setNewTaskPriority] = useState('medium');
+  const [newTaskDate, setNewTaskDate] = useState(todayIso);
+  const [taskDatePickerOpen, setTaskDatePickerOpen] = useState(false);
+
+  const tomorrowIso = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return toLocalDateString(d);
+  }, []);
+
+  const dayAfterIso = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 2);
+    return toLocalDateString(d);
+  }, []);
+
+  const formatTaskDateDisplay = (isoStr) => {
+    if (!isoStr) return 'امروز';
+    const parts = String(isoStr).split('-');
+    const d = parts.length === 3 ? new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0) : new Date();
+    const fullFa = formatFullPersianDate(d);
+    if (isoStr === todayIso) return `${fullFa} (امروز)`;
+    if (isoStr === tomorrowIso) return `${fullFa} (فردا)`;
+    if (isoStr === dayAfterIso) return `${fullFa} (پس‌فردا)`;
+    return fullFa;
+  };
 
   // مودال ثبت دستی مطالعه بدون نیاز به تایمر
   const [manualLogModalOpen, setManualLogModalOpen] = useState(false);
@@ -645,7 +675,9 @@ export default function StudyScreen({ onNavigate }) {
         if (customRunning && customTargetEndTimeRef.current) {
           const remaining = Math.max(0, Math.ceil((customTargetEndTimeRef.current - now) / 1000));
           setCustomSecondsLeft(remaining);
-          setCustomSessionSeconds((s) => s + 1);
+          const totalSecs = customMinutes * 60;
+          const actualElapsed = Math.max(0, totalSecs - remaining);
+          setCustomSessionSeconds(actualElapsed);
 
           if (remaining <= 0) {
             setCustomRunning(false);
@@ -660,7 +692,7 @@ export default function StudyScreen({ onNavigate }) {
       }, 500);
     }
     return () => clearInterval(interval);
-  }, [customRunning, stopwatchRunning]);
+  }, [customRunning, stopwatchRunning, customMinutes]);
 
   const handleToggleTimer = () => {
     const now = Date.now();
@@ -738,7 +770,13 @@ export default function StudyScreen({ onNavigate }) {
     const matchedCourse = coursesList.find((c) => c.name === selectedCourse);
     const tone = getCourseColor(matchedCourse || selectedCourse);
 
-    const durationMins = Math.max(1, Math.round(customSessionSeconds / 60) || customMinutes);
+    const now = Date.now();
+    const remaining = customTargetEndTimeRef.current
+      ? Math.max(0, Math.ceil((customTargetEndTimeRef.current - now) / 1000))
+      : 0;
+    const totalSecs = customMinutes * 60;
+    const actualElapsed = remaining <= 0 ? totalSecs : Math.max(0, totalSecs - remaining, customSessionSeconds);
+    const durationMins = Math.max(1, Math.round(actualElapsed / 60));
     logStudySession({
       courseCode: matchedCourse?.code || null,
       courseName: selectedCourse,
@@ -755,7 +793,7 @@ export default function StudyScreen({ onNavigate }) {
     setCustomSecondsLeft(customMinutes * 60);
     customTargetEndTimeRef.current = null;
 
-    setShareToast(`نشست تمرکز «${selectedCourse}» (${toFaDigits(durationMins)} دقیقه) ثبت شد 🎉`);
+    setShareToast(`نشست مطالعه «${selectedCourse}» (${toFaDigits(durationMins)} دقیقه) ثبت شد 🎉`);
     setTimeout(() => setShareToast(''), 3500);
   };
 
@@ -859,6 +897,7 @@ export default function StudyScreen({ onNavigate }) {
       color: getCourseColor(matched || newTaskCourse),
       priority: newTaskPriority,
       status: 'todo',
+      dateStr: newTaskDate || selectedDate || todayIso,
     });
     setNewTaskTitle('');
     setTaskModalOpen(false);
@@ -912,7 +951,7 @@ export default function StudyScreen({ onNavigate }) {
 
   const handleDeleteSession = (sessionId) => {
     deleteStudySession(sessionId);
-    setShareToast('سشن مطالعه حذف شد');
+    setShareToast('نشست مطالعه حذف شد');
     setTimeout(() => setShareToast(''), 2500);
   };
 
@@ -1150,9 +1189,12 @@ export default function StudyScreen({ onNavigate }) {
     setTimeout(() => setShareToast(''), 3000);
   };
 
-  // اطلاعات روز انتخاب‌شده (جلسات مطالعه + کلاس‌های دانشگاه + امتحانات)
+  // اطلاعات روز انتخاب‌شده (جلسات مطالعه + کلاس‌های دانشگاه + امتحانات + تسک‌های روز)
   const selectedDayActivity = activityMap[selectedDate];
   const selectedDaySessions = selectedDayActivity?.sessions || [];
+  const selectedDayTasks = tasks.filter(
+    (t) => (t.dateStr || toLocalDateString(new Date(t.createdAt || Date.now()))) === selectedDate
+  );
   const selectedDayDateObj = new Date(selectedDate);
   const selectedDayUniversityClasses = getUniversityClassesForDate(selectedDayDateObj);
   const selectedDayParts = getPersianParts(selectedDayDateObj);
@@ -1514,16 +1556,63 @@ export default function StudyScreen({ onNavigate }) {
                 </button>
               ))}
             </div>
+
+            {/* فیلتر تاریخ و روز */}
+            <div className="flex items-center gap-1.5 text-xs pt-0.5 overflow-x-auto no-scrollbar">
+              <span className="text-[11px] font-bold text-neutral pl-1 shrink-0 flex items-center gap-1">
+                <CalendarDays className="w-3 h-3 text-primary" /> روز:
+              </span>
+              <button
+                type="button"
+                onClick={() => setKanbanFilterDate('all')}
+                className={`px-2.5 py-0.5 rounded-lg text-[10.5px] font-bold border transition cursor-pointer whitespace-nowrap ${
+                  kanbanFilterDate === 'all'
+                    ? 'bg-base-500/40 text-base-content border-base-500/60 font-black shadow-xs'
+                    : 'bg-base-500/10 text-neutral border-transparent hover:bg-base-500/20'
+                }`}
+              >
+                همه روزها
+              </button>
+              <button
+                type="button"
+                onClick={() => setKanbanFilterDate('today')}
+                className={`px-2.5 py-0.5 rounded-lg text-[10.5px] font-bold border transition cursor-pointer whitespace-nowrap ${
+                  kanbanFilterDate === 'today'
+                    ? 'bg-primary-soft text-primary border-primary/40 font-black shadow-xs'
+                    : 'bg-base-500/10 text-neutral border-transparent hover:bg-base-500/20'
+                }`}
+              >
+                امروز
+              </button>
+              {selectedDate && selectedDate !== todayIso && (
+                <button
+                  type="button"
+                  onClick={() => setKanbanFilterDate('selected')}
+                  className={`px-2.5 py-0.5 rounded-lg text-[10.5px] font-bold border transition cursor-pointer whitespace-nowrap ${
+                    kanbanFilterDate === 'selected'
+                      ? 'bg-accent-soft text-accent border-accent/40 font-black shadow-xs'
+                      : 'bg-base-500/10 text-neutral border-transparent hover:bg-base-500/20'
+                  }`}
+                >
+                  روز انتخابی تقویم
+                </button>
+              )}
+            </div>
           </div>
 
           {/* ستون‌های سه‌گانه کانبان (مرتب‌شده بر اساس وزن اولویت) */}
           <div className="space-y-3">
             {TASK_COLUMNS.map((col) => {
-              // فیلتر و مرتب‌سازی دقیق تسک‌ها بر اساس اولویت (بالا -> متوسط -> عادی)
+              // فیلتر و مرتب‌سازی دقیق تسک‌ها بر اساس اولویت (بالا -> متوسط -> عادی) و روز
               const colTasks = tasks
                 .filter((t) => t.status === col.id)
                 .filter((t) => kanbanFilterCourse === 'all' || t.courseName === kanbanFilterCourse)
                 .filter((t) => kanbanFilterPriority === 'all' || t.priority === kanbanFilterPriority)
+                .filter((t) => {
+                  if (kanbanFilterDate === 'today') return (t.dateStr || toLocalDateString(new Date(t.createdAt || Date.now()))) === todayIso;
+                  if (kanbanFilterDate === 'selected') return (t.dateStr || toLocalDateString(new Date(t.createdAt || Date.now()))) === selectedDate;
+                  return true;
+                })
                 .sort((a, b) => {
                   const wa = PRIORITY_CONFIG[a.priority]?.weight || 2;
                   const wb = PRIORITY_CONFIG[b.priority]?.weight || 2;
@@ -1550,6 +1639,7 @@ export default function StudyScreen({ onNavigate }) {
                         const pri = PRIORITY_CONFIG[t.priority] || PRIORITY_CONFIG.medium;
                         const PriIcon = pri.icon;
                         const taskTone = getCourseColor(t.courseName) || t.color || 'primary';
+                        const tDate = t.dateStr || toLocalDateString(new Date(t.createdAt || Date.now()));
                         return (
                           <div
                             key={t.id}
@@ -1564,6 +1654,11 @@ export default function StudyScreen({ onNavigate }) {
                                 </p>
                                 <div className="flex items-center gap-2 mt-1 text-[10.5px] text-neutral flex-wrap">
                                   <span className="font-semibold text-primary">{t.courseName}</span>
+                                  {tDate && (
+                                    <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-base-500/25 text-neutral font-bold">
+                                      {tDate === todayIso ? 'امروز' : toFaDigits(tDate)}
+                                    </span>
+                                  )}
                                   {t.timeSpentSeconds > 0 && (
                                     <span>• {toFaDigits(Math.round(t.timeSpentSeconds / 60))} دقیقه تمرکز</span>
                                   )}
@@ -2267,7 +2362,7 @@ export default function StudyScreen({ onNavigate }) {
                       {toFaDigits(selectedDayExams.length)} موعد آزمون ·{' '}
                     </span>
                   )}
-                  {toFaDigits(selectedDayUniversityClasses.length)} کلاس دانشگاه · {toFaDigits(selectedDaySessions.length)} سشن مطالعه
+                  {toFaDigits(selectedDayUniversityClasses.length)} کلاس دانشگاه · {toFaDigits(selectedDayTasks.length)} تکلیف · {toFaDigits(selectedDaySessions.length)} نشست مطالعه
                 </p>
               </div>
 
@@ -2480,12 +2575,102 @@ export default function StudyScreen({ onNavigate }) {
               )}
             </div>
 
-            {/* بخش ۲: سشن‌های مطالعه و پومودورو ثبت‌شده */}
+            {/* بخش ۲: تکالیف و تسک‌های این روز */}
+            <div className="space-y-2 pt-2 border-t border-base-500/20">
+              <div className="flex items-center justify-between">
+                <h5 className="text-[12px] font-black text-base-content flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                  <span>تکالیف و تسک‌های این روز:</span>
+                </h5>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-neutral font-mono">
+                    {toFaDigits(selectedDayTasks.filter((t) => t.status === 'done').length)} از {toFaDigits(selectedDayTasks.length)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewTaskDate(selectedDate);
+                      setTaskModalOpen(true);
+                    }}
+                    className="px-2 py-0.5 rounded-lg bg-primary-soft text-primary hover:bg-primary hover:text-white font-bold text-[10.5px] border border-primary/25 active:scale-95 transition cursor-pointer flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>تسک جدید</span>
+                  </button>
+                </div>
+              </div>
+
+              {selectedDayTasks.length === 0 ? (
+                <p className="text-[11px] text-neutral bg-base-500/10 p-2.5 rounded-xl text-center">
+                  تسکی برای این تاریخ تنظیم نشده است
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {selectedDayTasks.map((t) => {
+                    const isDone = t.status === 'done';
+                    const taskTone = getCourseColor(t.courseName) || t.color || 'primary';
+                    return (
+                      <div
+                        key={t.id}
+                        className={`p-2.5 rounded-xl border border-base-500/25 border-r-4 ${
+                          toneClasses[taskTone] || 'border-r-primary'
+                        } ${isDone ? 'bg-base-500/10 opacity-75' : 'bg-base-500/15'} flex items-center justify-between gap-2`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <button
+                            type="button"
+                            onClick={() => updateTaskStatus(t.id, isDone ? 'todo' : 'done')}
+                            className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 cursor-pointer transition ${
+                              isDone
+                                ? 'bg-success text-success-content border-success'
+                                : 'border-base-500/50 hover:border-primary'
+                            }`}
+                          >
+                            {isDone && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                          </button>
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-[12px] font-bold text-base-content truncate ${isDone ? 'line-through text-neutral' : ''}`}>
+                              {t.title}
+                            </p>
+                            <p className="text-[10px] text-neutral truncate">
+                              {t.courseName} · {PRIORITY_CONFIG[t.priority]?.label || 'اولویت عادی'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          {!isDone && (
+                            <button
+                              type="button"
+                              onClick={() => handleStartTaskFocus(t)}
+                              className="p-1.5 rounded-xl bg-primary-soft text-primary hover:bg-primary hover:text-white transition cursor-pointer"
+                              title="شروع مطالعه برای این تسک"
+                            >
+                              <Play className="w-3 h-3 fill-current" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => deleteStudyTask(t.id)}
+                            className="p-1 rounded-lg text-neutral hover:text-danger hover:bg-danger-soft transition cursor-pointer"
+                            title="حذف تسک"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* بخش ۳: نشست‌های مطالعه و تمرکز ثبت‌شده */}
             <div className="space-y-2 pt-2 border-t border-base-500/20">
               <h5 className="text-[12px] font-black text-base-content flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-primary" />
-                  سشن‌های مطالعه و تمرکز:
+                  نشست‌های مطالعه و تمرکز:
                 </span>
                 <span className="text-[11px] text-primary font-bold">
                   {selectedDayActivity ? formatMinutesHuman(selectedDayActivity.totalMinutes) : '۰ دقیقه'}
@@ -2494,7 +2679,7 @@ export default function StudyScreen({ onNavigate }) {
 
               {selectedDaySessions.length === 0 ? (
                 <div className="py-2.5 text-center space-y-1.5 bg-base-500/10 rounded-xl">
-                  <p className="text-[11px] text-neutral">سشن مطالعه‌ای در این روز ثبت نشده است</p>
+                  <p className="text-[11px] text-neutral">نشست مطالعه‌ای در این روز ثبت نشده است</p>
                   <div className="flex items-center justify-center gap-2">
                     <button
                       type="button"
@@ -2502,7 +2687,7 @@ export default function StudyScreen({ onNavigate }) {
                       className="px-3 py-1.5 rounded-xl bg-primary text-primary-content text-xs font-bold inline-flex items-center gap-1 cursor-pointer active:scale-95 transition"
                     >
                       <Play className="w-3 h-3 fill-current" />
-                      <span>شروع پومودورو</span>
+                      <span>شروع تمرکز</span>
                     </button>
                     <button
                       type="button"
@@ -2553,7 +2738,7 @@ export default function StudyScreen({ onNavigate }) {
                           type="button"
                           onClick={() => handleDeleteSession(s.id)}
                           className="p-1 rounded-lg text-neutral hover:text-danger hover:bg-danger-soft transition cursor-pointer"
-                          title="حذف سشن"
+                          title="حذف نشست مطالعه"
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>
@@ -2594,7 +2779,7 @@ export default function StudyScreen({ onNavigate }) {
             </h4>
 
             {stats.byCourse.length === 0 ? (
-              <p className="text-xs text-neutral text-center py-3">هنوز سشنی ثبت نشده است</p>
+              <p className="text-xs text-neutral text-center py-3">هنوز نشست مطالعه‌ای ثبت نشده است</p>
             ) : (
               <div className="space-y-2">
                 {stats.byCourse.map((c) => {
@@ -2795,6 +2980,25 @@ export default function StudyScreen({ onNavigate }) {
                           );
                         })}
                       </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-neutral block mb-1">تاریخ انجام تسک:</label>
+                      <button
+                        type="button"
+                        onClick={() => setTaskDatePickerOpen(true)}
+                        className="w-full p-2.5 rounded-xl bg-base-500/20 border border-base-500/40 hover:border-primary/50 text-right flex items-center justify-between transition active:scale-98 cursor-pointer group"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <CalendarDays className="w-4 h-4 text-primary shrink-0" />
+                          <span className="text-xs font-bold text-base-content truncate">
+                            {formatTaskDateDisplay(newTaskDate)}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-primary-soft text-primary group-hover:bg-primary/20 transition shrink-0">
+                          تقویم شمسی
+                        </span>
+                      </button>
                     </div>
 
                     <div className="pt-2 flex items-center justify-end gap-2">
@@ -3042,6 +3246,22 @@ export default function StudyScreen({ onNavigate }) {
         onClose={() => setIsExamModalOpen(false)}
         onSave={handleSaveExam}
         onDelete={handleDeleteExam}
+      />
+
+      {/* تقویم نیتیو و شمسی سرو برای انتخاب تاریخ انجام تسک */}
+      <SarvDatePickerModal
+        isOpen={taskDatePickerOpen}
+        initialDate={newTaskDate}
+        title="انتخاب تاریخ انجام تسک"
+        subtitle="تقویم هوشمند برنامه‌ریزی مطالعه"
+        mode="task"
+        onClose={() => setTaskDatePickerOpen(false)}
+        onConfirm={(_, jsDate) => {
+          if (jsDate) {
+            setNewTaskDate(toLocalDateString(jsDate));
+          }
+          setTaskDatePickerOpen(false);
+        }}
       />
     </div>
   );

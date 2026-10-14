@@ -7,6 +7,8 @@ import { getPrereqInfo, UNIVERSAL_PREREQ_DB } from '../data/prereqDatabase.js';
 import { getEquivalentCodes, areCoursesEquivalent } from '../data/equivalenceDatabase.js';
 import { toFaDigits, toPersianCourseName } from '../utils/faDigits.js';
 import { isProjectCourse, isInternshipCourse } from './behestan/parsers.js';
+import { notifyStoreChange } from './behestan/store.js';
+
 
 /**
  * نرمال‌سازی نام دروس جهت تطابق دقیق و بدون خطا بین نام‌های رسمی و گزارش‌های مختلف
@@ -187,6 +189,59 @@ export function getEquivalentNames(name) {
   return [norm];
 }
 
+export const MANUAL_EQUIV_STORAGE_KEY = 'sarvestan_manual_equivalences';
+
+export function getManualEquivalences() {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(MANUAL_EQUIV_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+export function saveManualEquivalences(map) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(MANUAL_EQUIV_STORAGE_KEY, JSON.stringify(map || {}));
+    notifyStoreChange();
+    window.dispatchEvent(new CustomEvent('sarvestan:curriculum-update'));
+  } catch (e) {
+    console.error('[saveManualEquivalences error]', e);
+  }
+}
+
+
+export function setManualCourseEquivalence(chartCourse, targetCourse) {
+  if (!chartCourse || !targetCourse) return;
+  const current = getManualEquivalences();
+  const cKey = chartCourse.code ? String(chartCourse.code).trim() : normName(chartCourse.name);
+  current[cKey] = {
+    chartCode: chartCourse.code || null,
+    chartName: chartCourse.name,
+    targetCode: targetCourse.code || null,
+    targetName: targetCourse.name || targetCourse.title,
+    units: targetCourse.units || targetCourse.unit || chartCourse.units || 2,
+    gradeDisplay: targetCourse.gradeDisplay || (targetCourse.grade ? String(targetCourse.grade) : 'قبول'),
+    isPassed: targetCourse.isPassed !== false,
+    termTaken: targetCourse.termTaken || targetCourse.termId || targetCourse.term || '',
+    updatedAt: Date.now(),
+  };
+  saveManualEquivalences(current);
+}
+
+export function removeManualCourseEquivalence(chartCourse) {
+  if (!chartCourse) return;
+  const current = getManualEquivalences();
+  const cKey = chartCourse.code ? String(chartCourse.code).trim() : normName(chartCourse.name);
+  delete current[cKey];
+  if (chartCourse.code) delete current[String(chartCourse.code).trim()];
+  if (chartCourse.name) delete current[normName(chartCourse.name)];
+  saveManualEquivalences(current);
+}
+
+
 /**
  * ساخت وضعیت جامع چارت تحصیلی برای هر دانشجو از هر رشته بدون هیچ‌گونه هاردکد
  */
@@ -195,9 +250,50 @@ export function buildCurriculumState(
   profile = {},
   curriculumStats = null,
   curriculumReport = null,
+  manualEquivOverride = null,
 ) {
   const majorName = profile?.major || '';
   const facultyName = profile?.faculty || '';
+
+  // ۰. استخراج معادل‌سازی‌های رسمی گزارش ۲۸۴ بهستان
+  const reportEquivsMap = new Map();
+  if (curriculumReport?.categories?.length > 0) {
+    for (const cat of curriculumReport.categories) {
+      for (const c of cat.courses || []) {
+        if (!c) continue;
+        if (c.equivCode || c.equivName || (c.isPassed && c.kind === 'معادل')) {
+          const eqRecord = {
+            chartCode: c.code ? String(c.code).trim() : null,
+            chartName: c.name,
+            targetCode: c.equivCode ? String(c.equivCode).trim() : null,
+            targetName: c.equivName || '',
+            units: Number(c.takenUnits) || Number(c.units) || 2,
+            isPassed: Boolean(c.isPassed),
+            status: c.status || 'قبول',
+            termTaken: c.termId || '',
+            kind: c.kind || 'معادل',
+            source: 'report284',
+          };
+          if (eqRecord.chartCode) reportEquivsMap.set(eqRecord.chartCode, eqRecord);
+          reportEquivsMap.set(normName(eqRecord.chartName), eqRecord);
+        }
+      }
+    }
+  }
+
+  // ادغام معادل‌سازی‌های دستی کاربر (از localStorage یا override ورودی)
+  const manualEquivs = manualEquivOverride !== null ? manualEquivOverride : getManualEquivalences();
+  const activeEquivsMap = new Map(reportEquivsMap);
+  for (const [k, v] of Object.entries(manualEquivs || {})) {
+    if (!v) continue;
+    const mRec = {
+      ...v,
+      source: 'manual',
+    };
+    if (v.chartCode) activeEquivsMap.set(String(v.chartCode).trim(), mRec);
+    if (v.chartName) activeEquivsMap.set(normName(v.chartName), mRec);
+    activeEquivsMap.set(k, mRec);
+  }
 
   // ۱. انتخاب چارت متناسب با رشته یا تولید پویا از گزارش ۲۸۴
   let curriculum = resolveCurriculumForMajor(majorName || facultyName, userCourses);
@@ -225,6 +321,8 @@ export function buildCurriculumState(
         else if (/اختیاری/i.test(catTitle)) termNum = 7;
         else termNum = Math.min(8, Math.floor(cIdx / 5) + 1);
 
+        const dbInfo = getPrereqInfo(c.code, c.name);
+
         dynamicCourses.push({
           code: c.code,
           name: toPersianCourseName(c.name),
@@ -232,9 +330,9 @@ export function buildCurriculumState(
           term: termNum,
           category: catTitle,
           color: catColor,
-          prerequisites: [],
-          corequisites: [],
-          unlocks: [],
+          prerequisites: dbInfo.prereqs || [],
+          corequisites: dbInfo.coreqs || [],
+          unlocks: dbInfo.unlocks || [],
         });
       });
     });
@@ -257,6 +355,7 @@ export function buildCurriculumState(
       };
     }
   }
+
 
   // ۲. یکتاسازی و پاکسازی سوابق درسی دانشجو (بدون تکرار)
   const passedMap = new Map(); // code -> course
@@ -361,6 +460,64 @@ export function buildCurriculumState(
       for (const eq of getEquivalentNames(name)) {
         enrolledNameSet.add(eq);
       }
+    }
+  }
+
+  // ادغام و اعمال معادل‌سازی‌ها در سوابق تحصیلی دانشجو (گزارش ۲۸۴ بهستان و تطبیق دستی کاربر)
+  for (const eq of activeEquivsMap.values()) {
+    const cCode = eq.chartCode ? String(eq.chartCode).trim() : null;
+    const cNorm = normName(eq.chartName);
+    const tCode = eq.targetCode ? String(eq.targetCode).trim() : null;
+    const tNorm = normName(eq.targetName);
+
+    // ۱. ثبت ارتباط نام‌ها در EQUIV_MAP دوطرفه
+    if (cNorm && tNorm && cNorm !== tNorm) {
+      if (!EQUIV_MAP.has(cNorm)) EQUIV_MAP.set(cNorm, new Set());
+      if (!EQUIV_MAP.has(tNorm)) EQUIV_MAP.set(tNorm, new Set());
+      EQUIV_MAP.get(cNorm).add(tNorm);
+      EQUIV_MAP.get(tNorm).add(cNorm);
+    }
+
+    // ۲. یافتن درس پاس‌شده در سوابق دانشجو
+    let targetUserRecord = cleanUserCourses.find(
+      (u) => (tCode && u.code === tCode) || (tNorm && u.normalizedName === tNorm)
+    );
+
+    // ۳. اگر درس در سوابق مستقیم کاربر نبود اما در گزارش ۲۸۴ ثبت شده بود، به عنوان سابقه تطبیقی اضافه شود
+    if (!targetUserRecord && eq.isPassed) {
+      targetUserRecord = {
+        code: tCode || cCode,
+        name: toPersianCourseName(eq.targetName || eq.chartName),
+        normalizedName: tNorm || cNorm,
+        units: eq.units || 2,
+        gradeDisplay: eq.gradeDisplay || (eq.source === 'report284' ? 'قبول (تطبیق بهستان)' : 'قبول (معادل)'),
+        termTaken: eq.termTaken || 'تطبیقی',
+        isPassed: true,
+        isEnrolled: false,
+        isEquivalence: true,
+      };
+      cleanUserCourses.push(targetUserRecord);
+      if (tCode) passedMap.set(tCode, targetUserRecord);
+      if (tNorm) passedNameSet.add(tNorm);
+    }
+
+    // ۴. ثبت کد و نام چارت به عنوان پاس‌شده در نقشه‌های سیستم
+    if (targetUserRecord?.isPassed || eq.isPassed) {
+      const rec = targetUserRecord || {
+        code: cCode,
+        name: toPersianCourseName(eq.chartName),
+        normalizedName: cNorm,
+        units: eq.units || 2,
+        gradeDisplay: eq.gradeDisplay || 'قبول (معادل)',
+        termTaken: eq.termTaken || '',
+        isPassed: true,
+        isEnrolled: false,
+      };
+      if (cCode) passedMap.set(cCode, rec);
+      if (cNorm) passedNameSet.add(cNorm);
+    } else if (targetUserRecord?.isEnrolled) {
+      if (cCode) enrolledMap.set(cCode, targetUserRecord);
+      if (cNorm) enrolledNameSet.add(cNorm);
     }
   }
 
@@ -490,9 +647,32 @@ export function buildCurriculumState(
 
     // یافتن سابقهٔ دانشجو با جلوگیری از مصرف چندباره یک سابقه تحصیلی
     let matchedUserCourse = null;
+    const activeEq = (code && activeEquivsMap.get(code)) || activeEquivsMap.get(norm);
+
     if (code && !consumedUserKeys.has(code)) {
       if (passedMap.has(code)) matchedUserCourse = passedMap.get(code);
       else if (enrolledMap.has(code)) matchedUserCourse = enrolledMap.get(code);
+    }
+    if (!matchedUserCourse && activeEq) {
+      const tCode = activeEq.targetCode;
+      const tNorm = normName(activeEq.targetName);
+      matchedUserCourse = cleanUserCourses.find(
+        (x) =>
+          !consumedUserKeys.has(x.code || x.normalizedName) &&
+          ((tCode && x.code === tCode) || (tNorm && x.normalizedName === tNorm))
+      );
+      if (!matchedUserCourse && activeEq.isPassed) {
+        matchedUserCourse = {
+          code: tCode || code,
+          name: toPersianCourseName(activeEq.targetName || mc.name),
+          normalizedName: tNorm || norm,
+          units: activeEq.units || mc.units || 2,
+          gradeDisplay: activeEq.gradeDisplay || (activeEq.source === 'report284' ? 'قبول (تطبیق بهستان)' : 'قبول (معادل)'),
+          termTaken: activeEq.termTaken || '',
+          isPassed: true,
+          isEnrolled: false,
+        };
+      }
     }
     if (!matchedUserCourse) {
       for (const eq of eqCodes) {
@@ -520,15 +700,19 @@ export function buildCurriculumState(
       eqCodes.forEach((eq) => matchedUserKeys.add(eq));
       equivs.forEach((eq) => matchedUserKeys.add(eq));
     }
+    if (activeEq) {
+      if (activeEq.targetCode) consumedUserKeys.add(activeEq.targetCode);
+      if (activeEq.targetName) consumedUserKeys.add(normName(activeEq.targetName));
+    }
 
     let status = 'locked';
     let gradeDisplay = null;
     let termTaken = null;
 
-    if (matchedUserCourse?.isPassed) {
+    if (matchedUserCourse?.isPassed || (activeEq && activeEq.isPassed)) {
       status = 'passed';
-      gradeDisplay = matchedUserCourse.gradeDisplay;
-      termTaken = matchedUserCourse.termTaken;
+      gradeDisplay = matchedUserCourse?.gradeDisplay || activeEq?.gradeDisplay || (activeEq?.source === 'report284' ? 'قبول (تطبیق بهستان)' : 'قبول (معادل)');
+      termTaken = matchedUserCourse?.termTaken || activeEq?.termTaken || null;
     } else if (matchedUserCourse?.isEnrolled) {
       status = 'enrolled';
       gradeDisplay = matchedUserCourse.gradeDisplay || 'در حال اخذ';
@@ -554,6 +738,17 @@ export function buildCurriculumState(
       status,
       gradeDisplay,
       termTaken,
+      isEquivalent: Boolean(activeEq),
+      equivSource: activeEq ? activeEq.source : null,
+      equivInfo: activeEq
+        ? {
+            chartCode: mc.code,
+            chartName: mc.name,
+            targetCode: activeEq.targetCode,
+            targetName: activeEq.targetName,
+            source: activeEq.source,
+          }
+        : null,
       prerequisites: prereqs.map((p) => ({
         ...p,
         name: toPersianCourseName(cleanPrereqText(p.name)),
@@ -573,6 +768,7 @@ export function buildCurriculumState(
       })),
     };
   });
+
 
   // ۴. افزودن دروسی که دانشجو گذرانده اما در چارت مرجع نبوده (دروس مازاد/انتقالی/تطبیقی/مهارتی)
   const masterCodes = new Set(evaluatedMaster.map((c) => c.code));
@@ -806,12 +1002,16 @@ export function buildCurriculumState(
     allCourses,
     semesters,
     categories,
+    userCourses: cleanUserCourses,
+    activeEquivalences: [...activeEquivsMap.values()],
+    manualEquivalences: manualEquivs,
   };
 }
 
 /**
  * محاسبه عمق توپولوژیک (مراحل جریان ورک‌فلو) برای دروس بر اساس زنجیره پیش‌نیاز
  * خروجی: ۴ مرحله طبیعی جریان یادگیری (پایه -> میانی -> تخصصی -> پیشرفته/پایانی)
+ * تضمین قطعی: هیچ درسی که دارای پیش‌نیاز واقعی باشد هرگز در ستون اول (مرحله ۱) قرار نخواهد گرفت!
  */
 export function computeTopologicalStages(courses = [], courseMap = null) {
   if (!courses || !courses.length) return [];
@@ -827,29 +1027,101 @@ export function computeTopologicalStages(courses = [], courseMap = null) {
     }
   }
 
+  function findParent(p) {
+    if (!p) return null;
+    const pCode = p.code ? String(p.code).trim() : null;
+    const pNorm = normName(p.name || '');
+
+    // ۱. جستجوی مستقیم بر اساس کد
+    if (pCode && map.get(pCode)) return map.get(pCode);
+
+    // ۲. جستجوی مستقیم بر اساس نام نرمال‌شده
+    if (pNorm && map.get(pNorm)) return map.get(pNorm);
+
+    // ۳. جستجو بر اساس کدهای معادل سراسری
+    if (pCode) {
+      for (const eq of getEquivalentCodes(pCode)) {
+        if (map.get(eq)) return map.get(eq);
+      }
+    }
+
+    // ۴. جستجو بر اساس نام‌های معادل سراسری
+    if (pNorm) {
+      for (const eq of getEquivalentNames(pNorm)) {
+        if (map.get(eq)) return map.get(eq);
+      }
+    }
+
+    // ۵. تطابق فازی (شامل‌شدن زیررشته) در فهرست دروس چارت
+    if (pNorm && pNorm.length >= 4) {
+      const found = courses.find((c) => {
+        const cNorm = normName(c?.name || '');
+        return cNorm && (cNorm.includes(pNorm) || pNorm.includes(cNorm));
+      });
+      if (found) return found;
+    }
+
+    return null;
+  }
+
   const depthMap = new Map();
+
   function getDepth(c, visited = new Set()) {
     const key = c?.code ? String(c.code) : normName(c?.name || '');
     if (depthMap.has(key)) return depthMap.get(key);
     if (visited.has(key)) return 0;
     visited.add(key);
 
-    const prereqs = c?.prerequisites || [];
-    if (!prereqs.length) {
-      depthMap.set(key, 0);
-      return 0;
+    const rawPrereqs = c?.prerequisites || [];
+    // پالایش پیش‌نیازهای ساختگی یا خالی بهستان
+    const realPrereqs = rawPrereqs.filter((p) => {
+      const n = (p?.name || '').trim();
+      return (
+        n &&
+        n !== 'ـ' &&
+        n !== '-' &&
+        !n.includes('فاقد پیش') &&
+        !n.includes('فاقد پيش') &&
+        !n.includes('بدون پیش') &&
+        !n.includes('بدون پيش')
+      );
+    });
+
+    const isProjectOrThesis =
+      isProjectCourse(c?.name) ||
+      isInternshipCourse(c?.name) ||
+      /پروژه|رساله|پایان\s*نامه|کارآموزی|كارآموزي/i.test(c?.name || '');
+
+    const term = Number(c?.term) || 1;
+    let termEstimate = 0;
+    if (isProjectOrThesis || term >= 7) termEstimate = 3;
+    else if (term >= 5) termEstimate = 2;
+    else if (term >= 3) termEstimate = 1;
+    else if (term >= 2 && realPrereqs.length > 0) termEstimate = 1;
+
+    if (!realPrereqs.length) {
+      const d = isProjectOrThesis ? 3 : term >= 7 ? 3 : 0;
+      depthMap.set(key, d);
+      return d;
     }
 
     let maxPrereqDepth = -1;
-    for (const p of prereqs) {
-      const pKey = p.code ? String(p.code) : normName(p.name || '');
-      const parent = map.get(pKey);
-      if (parent) {
+    for (const p of realPrereqs) {
+      const parent = findParent(p);
+      if (parent && parent !== c) {
         maxPrereqDepth = Math.max(maxPrereqDepth, getDepth(parent, new Set(visited)));
       }
     }
 
-    const d = Math.min(3, maxPrereqDepth + 1);
+    let d;
+    if (maxPrereqDepth >= 0) {
+      d = Math.min(3, Math.max(maxPrereqDepth + 1, termEstimate));
+    } else {
+      // دارای پیش‌نیاز واقعی اما پیش‌نیاز در این چارت وجود ندارد (پیش‌نیاز خارجی یا عمومی)
+      // حتماً حداقل عمق ۱ می‌گیرد و هرگز در ستون اول (مرحله ۱) قرار نخواهد گرفت!
+      d = Math.min(3, Math.max(1, termEstimate));
+    }
+
     depthMap.set(key, d);
     return d;
   }
@@ -870,4 +1142,5 @@ export function computeTopologicalStages(courses = [], courseMap = null) {
     courses: courses.filter((c) => depthMap.get(c?.code ? String(c.code) : normName(c?.name || '')) === idx),
   }));
 }
+
 

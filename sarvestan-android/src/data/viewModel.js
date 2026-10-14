@@ -64,6 +64,8 @@ function cleanCourseName(name) {
     .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧۸۹'.indexOf(d)))
     .replace(/[ي]/g, 'ی')
     .replace(/[ك]/g, 'ک')
+    .replace(/^(?:ورود\s*به\s*)?فضای\s*مجازی(?:\s*درس)?\s*[:\-–—]?\s*/gi, '')
+    .replace(/^کلاس\s*[:\-–—]\s*/gi, '')
     .replace(/‌/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -272,6 +274,9 @@ function buildViewModel() {
       color: getToneForCourse(c, allCourses),
       absences: Number(c.absences) || 0,
       maxAbsences: c.maxAbsences != null ? Number(c.maxAbsences) : 3,
+      course: c,
+      virtualUrl: c.virtualUrl,
+      hasVirtualClass: c.hasVirtualClass,
     };
   });
 
@@ -695,9 +700,32 @@ function buildTermsFromLive(snap) {
     }
   }
 
+  let deletedList = [];
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('sarvestan_behestan_deleted_courses');
+      if (raw) deletedList = JSON.parse(raw);
+    }
+  } catch {}
+
+  const activeAllCourses = allCourses.filter((c) => {
+    if (!deletedList.length) return true;
+    const cCode = cleanCourseCode(c.code);
+    const cName = cleanCourseName(c.name || c.title || '');
+    return !deletedList.some((d) => {
+      if (d.id && c.id && d.id === c.id) return true;
+      const dCode = cleanCourseCode(d.code);
+      const dName = cleanCourseName(d.name || d.title || '');
+      if (dCode && cCode && dCode === cCode) {
+        if (!dName || dName === cName) return true;
+      }
+      return false;
+    });
+  });
+
   const transMap = new Map((snap.transcripts || []).map((t) => [String(t.termId), t]));
   const byTerm = new Map();
-  for (const c of allCourses) {
+  for (const c of activeAllCourses) {
     const tid = c.termId || 'unknown';
     if (!byTerm.has(tid)) byTerm.set(tid, []);
     byTerm.get(tid).push(c);
@@ -945,6 +973,8 @@ export function getScheduleMatrix() {
         time: s.time || c.time || '',
         color: c.color || tone,
         course: c,
+        virtualUrl: c.virtualUrl,
+        hasVirtualClass: c.hasVirtualClass,
       };
 
       for (const m of matched) {
@@ -1009,30 +1039,58 @@ function gregToPersianParts(gy, gm, gd) {
 }
 
 export function jalaliToDate(jy, jm, jd) {
-  const gyBase = jy + (jm >= 7 ? 622 : 621);
-  const probe = (dayOfYear) => {
-    const t = new Date(Date.UTC(gyBase, 0, 1, 12) + (dayOfYear - 1) * 86400000);
-    return gregToPersianParts(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate());
-  };
-  const cmpParts = (a, b) =>
-    a[0] !== b[0] ? a[0] - b[0] : a[1] !== b[1] ? a[1] - b[1] : a[2] - b[2];
-  let lo = 1;
-  let hi = 370;
-  let iter = 0;
-  while (lo <= hi && iter < 24) {
-    iter++;
-    const mid = (lo + hi) >> 1;
-    const parts = probe(mid);
-    if (!parts) return null;
-    const cmp = cmpParts(parts, [jy, jm, jd]);
-    if (cmp > 0) hi = mid - 1;
-    else if (cmp < 0) lo = mid + 1;
-    else {
-      const t = new Date(Date.UTC(gyBase, 0, 1, 12) + (mid - 1) * 86400000);
-      return new Date(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate());
-    }
+  let y = Number(jy);
+  let m = Number(jm);
+  let d = Number(jd);
+  if (!y || !m || !d) return null;
+  let gy;
+  if (y > 979) {
+    gy = 1600;
+    y -= 979;
+  } else {
+    gy = 621;
   }
-  return null;
+  let days =
+    365 * y +
+    Math.floor(y / 33) * 8 +
+    Math.floor(((y % 33) + 3) / 4) +
+    78 +
+    d +
+    (m < 7 ? (m - 1) * 31 : (m - 7) * 30 + 186);
+  gy += 400 * Math.floor(days / 146097);
+  days %= 146097;
+  if (days > 36524) {
+    gy += 100 * Math.floor(--days / 36524);
+    days %= 36524;
+    if (days >= 365) days++;
+  }
+  gy += 4 * Math.floor(days / 1461);
+  days %= 1461;
+  if (days > 365) {
+    gy += Math.floor((days - 1) / 365);
+    days = (days - 1) % 365;
+  }
+  const sal_a = [
+    0,
+    31,
+    (gy % 4 === 0 && gy % 100 !== 0) || gy % 400 === 0 ? 29 : 28,
+    31,
+    30,
+    31,
+    30,
+    31,
+    31,
+    30,
+    31,
+    30,
+    31,
+  ];
+  let gm;
+  for (gm = 0; gm < 13 && days >= sal_a[gm]; gm++) {
+    days -= sal_a[gm];
+  }
+  const gd = days + 1;
+  return new Date(gy, gm - 1, gd, 12, 0, 0);
 }
 
 function toLatinDigits(s) {

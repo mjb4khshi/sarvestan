@@ -74,15 +74,17 @@ const MIN_STEP_MS = 700;
 function authErrorMessage(j) {
   const raw = String(j?.error || j?.message || '').trim();
   if (!raw) return 'ورود ناموفق — نام کاربری یا رمز عبور را بررسی کنید.';
+  if (/vpn|فیلترشکن|curl|command failed|timed\s*out|timeout|failed to connect|could not resolve|econnrefused|etimedout/i.test(raw)) {
+    return 'خطا در برقراری ارتباط با سرور دانشگاه — در صورت روشن بودن فیلترشکن (VPN) آن را خاموش کرده و وضعیت اینترنت را بررسی کنید.';
+  }
   if (/invalid username or password|bad credentials/i.test(raw)) {
     return 'نام کاربری یا رمز عبور اشتباه است.';
   }
-  if (/نادرست|اشتباه|نامعتبر|incorrect|wrong password/i.test(raw)) {
-    return raw.includes('رمز') || raw.includes('گذرواژه') || raw.includes('کلمه')
-      ? raw
-      : 'نام کاربری یا رمز عبور اشتباه است.';
+  if (/(?:نام کاربری|کلمه عبور|رمز عبور|رمز|گذرواژه)[\s\S]*(?:نادرست|اشتباه|نامعتبر|incorrect|wrong)/i.test(raw) ||
+      /(?:نادرست|اشتباه|نامعتبر)[\s\S]*(?:نام کاربری|کلمه عبور|رمز عبور|رمز|گذرواژه)/i.test(raw)) {
+    return 'نام کاربری یا رمز عبور اشتباه است.';
   }
-  if (/کد\s*[\d۰-۹]+/.test(raw) || /http\s*\d+/i.test(raw)) {
+  if ((/کد\s*[\d۰-۹]+/.test(raw) || /http\s*\d+/i.test(raw)) && raw.length < 80 && !/curl/i.test(raw)) {
     return `خطای ورود (${raw})`;
   }
   return raw;
@@ -90,8 +92,8 @@ function authErrorMessage(j) {
 
 function networkErrorMessage(e) {
   const msg = String(e?.message || e);
-  if (/timeout|timed\s*out|network|failed to fetch|ارتباط/i.test(msg)) {
-    return 'خطای شبکه — اتصال اینترنت را بررسی کنید و دوباره تلاش کنید.';
+  if (/timeout|timed\s*out|network|failed to fetch|ارتباط|vpn|فیلترشکن|curl|refused/i.test(msg)) {
+    return 'خطای ارتباط با سرور دانشگاه — در صورت روشن بودن فیلترشکن (VPN) آن را خاموش کرده و اینترنت خود را بررسی کنید.';
   }
   return 'خطای غیرمنتظره هنگام ورود: ' + msg;
 }
@@ -100,14 +102,14 @@ function networkErrorMessage(e) {
 async function doLogin(username, password, method, options = {}) {
   if (method === 'webview') {
     if (isNativeCapacitor()) {
-      return loginViaSsoWebView({ username, password });
+      return loginViaSsoWebView({ username, password, uniId: options?.uniId || 'kntu' });
     }
     throw new Error('ورود وب‌ویو تنها روی اپلیکیشن اندروید در دسترس است. لطفاً از ورود مرکزی استفاده کنید.');
   }
 
   // ورود روی اندروید (تلاش هوشمند نیتیو با فال‌بک وب‌ویو)
   if (isNativeCapacitor()) {
-    return loginAndroid(username, password, options);
+    return loginAndroid(username, password, { ...options, uniId: options?.uniId || 'kntu' });
   }
 
   // روی وب
@@ -145,7 +147,10 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
     } catch {}
     return u || 'kntu';
   });
-  const [authMethod, setAuthMethod] = useState('direct_captcha'); // 'direct_captcha' | 'sso'
+  // روش ورود از خود registry خوانده می‌شود؛ تنها خواجه‌نصیر چند متد دارد و تاگل می‌گیرد
+  const methodForUni = (uniId) =>
+    UNIVERSITIES.find((u) => u.id === uniId)?.authMethod || 'direct_captcha';
+  const [authMethod, setAuthMethod] = useState(() => methodForUni(selectedUni));
   const [uniDropdownOpen, setUniDropdownOpen] = useState(false);
   const uniDropdownRef = useRef(null);
 
@@ -217,9 +222,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
     captchaDataRef.current = { img: '', cookie: '' };
     setCaptchaData({ img: '', cookie: '', timestamp: 0 });
     setCaptchaInput('');
-    if (uniId === 'sbu') {
-      setAuthMethod('direct_captcha');
-    }
+    setAuthMethod(methodForUni(uniId));
   };
 
   // پر کردن نام کاربری/رمز ذخیره‌شده — ورود دوم بدون تایپ
@@ -248,12 +251,20 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
 
   const handleLogin = async (loginOptions = {}) => {
     if (busyRef.current) return;
-    const u = String(username || '').trim();
-    const p = password;
+    const domUser = document.getElementById(authMethod === 'sso' ? 'sarv-sso-user' : 'sarv-direct-user')?.value;
+    const domPass = document.getElementById(authMethod === 'sso' ? 'sarv-sso-pass' : 'sarv-direct-pass')?.value;
+    const u = String(username || domUser || '').trim();
+    const p = password || domPass || '';
+
+    if (!username && u) setLoginUsername(u);
+    if (!password && p) setLoginPassword(p);
 
     // مسیر ۱: ورود مستقیم بهستان (کپچا) برای همه دانشگاه‌ها (KNTU, SBU, UT)
     if (authMethod === 'direct_captcha') {
-      const c = String(captchaInput || '').trim();
+      const domCaptcha = document.getElementById('sarv-direct-captcha')?.value;
+      const c = String(captchaInput || domCaptcha || '').trim();
+      if (!captchaInput && c) setCaptchaInput(c);
+
       if (!u || !p || !c) {
         failLoginFlow(-1, 'شماره دانشجویی، رمز عبور و کد امنیتی الزامی است.');
         return;
@@ -360,9 +371,6 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
 
       setSelectedUniversity(selectedUni);
       busyRef.current = true;
-      const prevTried = lastTriedRef.current;
-      const stripFailedPass =
-        prevTried.failed && prevTried.password === p && prevTried.username === u;
       lastTriedRef.current = { method: 'sso', username: u, password: p, failed: false };
       beginLoginFlow();
 
@@ -377,7 +385,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
         setLoginStep(0);
         const t0 = Date.now();
 
-        let j = await doLogin(u, stripFailedPass ? '' : p, 'sso', {
+        let j = await doLogin(u, p, 'sso', {
           ...loginOptions,
           uniId: selectedUni,
         });
@@ -391,7 +399,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
 
         if (!j?.ok && j?.code === 'needs-account-selection' && isNativeCapacitor()) {
           try {
-            j = await loginViaSsoWebView({ username: u, password: p });
+            j = await loginViaSsoWebView({ username: u, password: p, uniId: selectedUni });
           } catch (err) {
             j = { ok: false, error: 'انصراف یا خطا در انتخاب رشته کهاد' };
           }
@@ -402,7 +410,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
           busyRef.current = false;
           try { clearSession(); } catch {}
           const failMsg = authErrorMessage(j);
-          if (j?.code === 'bad-credentials' || /اشتباه|نادرست/.test(failMsg)) {
+          if (j?.code === 'bad-credentials' && !/کپچا|کد امنیتی/.test(failMsg)) {
             try {
               const saved = loadSavedCreds();
               if (saved && saved.username === u) clearSavedCreds();
@@ -627,22 +635,9 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
         </AnimatePresence>
       </div>
 
-      {/* انتخاب روش ورود برای دانشگاه‌هایی که چند متد دارند (خواجه نصیر و تهران) */}
-      {(selectedUni === 'kntu' || selectedUni === 'ut') && (
+      {/* انتخاب روش ورود: برای خواجه‌نصیر هر دو روش (ورود مرکزی SSO و ورود بهستان با کپچا) در دسترس است */}
+      {selectedUni === 'kntu' && (
         <div className="grid grid-cols-2 p-1 bg-base-500/20 rounded-2xl border border-white/5 text-[12px] font-medium">
-          <button
-            type="button"
-            onClick={() => setAuthMethod('direct_captcha')}
-            disabled={busy}
-            className={`py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-              authMethod === 'direct_captcha'
-                ? 'bg-primary text-white shadow-md font-bold'
-                : 'text-neutral hover:text-base-content'
-            }`}
-          >
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>ورود مستقیم بهستان</span>
-          </button>
           <button
             type="button"
             onClick={() => setAuthMethod('sso')}
@@ -655,6 +650,19 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
           >
             <KeyRound className="w-3.5 h-3.5" />
             <span>ورود مرکزی (SSO)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAuthMethod('direct_captcha')}
+            disabled={busy}
+            className={`py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              authMethod === 'direct_captcha'
+                ? 'bg-primary text-white shadow-md font-bold'
+                : 'text-neutral hover:text-base-content'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>ورود بهستان (کپچا)</span>
           </button>
         </div>
       )}
@@ -831,7 +839,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
                 className="input"
               />
               <label htmlFor="sarv-sso-user" className="input-label-placeholder">
-                نام کاربری (کد ملی / شماره دانشجویی)
+                نام کاربری
               </label>
             </div>
           </div>
@@ -950,7 +958,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
           <p className="text-[11.5px] text-danger bg-danger-soft border border-danger-soft rounded-xl px-3 py-2 leading-relaxed">
             {error}
           </p>
-          {authMethod === 'sso' && (
+          {authMethod === 'sso' && selectedUni === 'kntu' && (
             <button
               type="button"
               onClick={() => {
@@ -994,71 +1002,128 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
         </div>
 
         <p className="text-[11.5px] leading-relaxed text-neutral">
-          برای این کدملی دو پرونده تحصیلی در سیستم دانشگاه ثبت شده است. با توجه به اینکه پشتیبانی از طرح کهاد و رشته دوم در دست توسعه است، در حال حاضر ورود به پرونده رشته اصلی فعال می‌باشد:
+          {selectedUni === 'ut'
+            ? 'این حساب چند پروندهٔ تحصیلی دارد. پرونده‌ای را انتخاب کنید که در آن مشغول به تحصیل هستید.'
+            : 'برای این کدملی دو پرونده تحصیلی در سیستم دانشگاه ثبت شده است. با توجه به اینکه پشتیبانی از طرح کهاد و رشته دوم در دست توسعه است، در حال حاضر ورود به پرونده رشته اصلی فعال می‌باشد:'}
         </p>
 
         <div className="flex flex-col gap-2.5 my-1">
-          {kahadAccounts.map((acc, idx) => {
-            const isKahad = idx > 0 || /کهاد|دوم/.test(String(acc.DegreeName || acc.Degree || ''));
-            const label = isKahad ? 'طرح کهاد / رشته دوم (در دست توسعه)' : (acc.DegreeName || acc.Degree || 'رشته اصلی');
+          {(() => {
+            const getAccText = (a) => Object.values(a || {}).map((v) => String(v || '')).join(' ');
+            const isKahadDegree = (t) => {
+              const clean = String(t || '').replace(/نوبت\s*دوم|نیمسال\s*دوم|ترم\s*دوم|ورودی\s*دوم|مرحله\s*دوم/gi, '');
+              if (/کهاد/i.test(clean)) return true;
+              if (/فرعی/i.test(clean)) return true;
+              if (/(?:رشته|مدرک|طرح|دوره)\s*دوم/i.test(clean)) return true;
+              return false;
+            };
+            const kahadIdx = kahadAccounts.findIndex((a) => isKahadDegree(getAccText(a)));
 
-            if (isKahad) {
+            return kahadAccounts.map((acc, idx) => {
+              const accText = getAccText(acc);
+              const isKahad = kahadIdx !== -1 ? idx === kahadIdx : isKahadDegree(accText);
+              // فقط اگر یکی از دوره‌ها صراحتاً کهاد باشد، دیگری رشته اصلی علامت می‌خورد
+              const isPrimary = kahadIdx !== -1 ? idx !== kahadIdx : false;
+              const isLocked = selectedUni === 'kntu' && (idx > 0 || isKahad);
+
+              const parts = [
+                acc.DegreeName || acc.DegreeDes || '',
+                acc.FieldDes || acc.FldDes || acc.UserLabel || '',
+                acc.FacultyName || '',
+              ]
+                .map((s) => String(s || '').trim())
+                .filter(Boolean)
+                .filter((val, i, arr) => arr.indexOf(val) === i);
+
+              const displayTitle =
+                parts.length > 0
+                  ? parts.join(' - ')
+                  : acc.UserLabel || acc.FacultyName || `دانشجو: ${acc.UserNo}`;
+
+              if (isLocked) {
+                return (
+                  <div
+                    key={acc.UserNo || idx}
+                    className="w-full text-right p-3 rounded-2xl border transition-all flex items-center justify-between bg-base-500/10 border-base-500/25 opacity-55 cursor-not-allowed select-none"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-base-500/20 text-neutral">
+                        <BookOpen className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-neutral">
+                          {displayTitle}
+                        </div>
+                        <div className="text-[10px] text-neutral mt-0.5">
+                          شماره دانشجویی: {acc.UserNo}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-[9.5px] px-2 py-0.5 rounded-lg font-bold shrink-0 mr-2 bg-base-500/30 text-neutral">
+                      طرح کهاد (در دست توسعه)
+                    </span>
+                  </div>
+                );
+              }
+
               return (
-                <div
+                <button
                   key={acc.UserNo || idx}
-                  className="w-full text-right p-3 rounded-2xl border transition-all flex items-center justify-between bg-base-500/10 border-base-500/25 opacity-55 cursor-not-allowed select-none"
+                  type="button"
+                  onClick={() => {
+                    const pickedNo = acc.UserNo;
+                    const pickedType = acc.UserType || '1';
+                    setKahadAccounts(null);
+                    handleLogin({ selectedUserNo: pickedNo, selectedUserType: pickedType });
+                  }}
+                  className={`w-full text-right p-3.5 rounded-2xl border transition-all flex items-center justify-between shadow-sm active:scale-[0.98] cursor-pointer ${
+                    isPrimary
+                      ? 'bg-primary-soft/30 hover:bg-primary-soft/50 border-primary shadow-primary/10'
+                      : 'bg-base-500/15 hover:bg-base-500/25 border-base-500/30 hover:border-primary/50'
+                  }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-base-500/20 text-neutral">
+                    <div
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                        isPrimary ? 'bg-primary text-white shadow-xs' : 'bg-base-500/25 text-neutral'
+                      }`}
+                    >
                       <BookOpen className="w-4 h-4" />
                     </div>
-                    <div>
-                      <div className="text-xs font-bold text-neutral">
-                        {acc.UserLabel || acc.FacultyName || `دانشجو: ${acc.UserNo}`}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-bold text-base-content">
+                          {displayTitle}
+                        </span>
+                        {isPrimary && (
+                          <span className="text-[9.5px] px-2 py-0.5 rounded-full font-black bg-primary text-white">
+                            پیشنهادی (رشته اصلی)
+                          </span>
+                        )}
+                        {isKahad && (
+                          <span className="text-[9.5px] px-2 py-0.5 rounded-full font-bold bg-base-500/30 text-neutral">
+                            دوره کهاد
+                          </span>
+                        )}
                       </div>
-                      <div className="text-[10px] text-neutral mt-0.5">
+                      <div className="text-[10.5px] text-neutral mt-0.5">
                         شماره دانشجویی: {acc.UserNo}
                       </div>
                     </div>
                   </div>
-                  <span className="text-[9.5px] px-2 py-0.5 rounded-lg font-bold shrink-0 mr-2 bg-base-500/30 text-neutral">
-                    غیرفعال موقت
+                  <span
+                    className={`text-[10.5px] px-2.5 py-1 rounded-xl font-bold shrink-0 mr-2 transition-all ${
+                      isPrimary
+                        ? 'bg-primary text-white shadow-sm'
+                        : 'bg-base-500/30 text-base-content hover:bg-primary hover:text-white'
+                    }`}
+                  >
+                    انتخاب
                   </span>
-                </div>
+                </button>
               );
-            }
-
-            return (
-              <button
-                key={acc.UserNo || idx}
-                type="button"
-                onClick={() => {
-                  const pickedNo = acc.UserNo;
-                  const pickedType = acc.UserType || '1';
-                  setKahadAccounts(null);
-                  handleLogin({ selectedUserNo: pickedNo, selectedUserType: pickedType });
-                }}
-                className="w-full text-right p-3.5 rounded-2xl border transition-all flex items-center justify-between bg-primary-soft/20 hover:bg-primary-soft/40 border-primary/40 hover:border-primary shadow-sm active:scale-[0.98] cursor-pointer"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-primary-soft text-primary">
-                    <BookOpen className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-base-content">
-                      {acc.UserLabel || acc.FacultyName || `دانشجو: ${acc.UserNo}`}
-                    </div>
-                    <div className="text-[10.5px] text-neutral mt-0.5">
-                      شماره دانشجویی: {acc.UserNo}
-                    </div>
-                  </div>
-                </div>
-                <span className="text-[10px] px-2.5 py-1 rounded-lg font-bold shrink-0 mr-2 bg-primary text-primary-content">
-                  {label} (انتخاب)
-                </span>
-              </button>
-            );
-          })}
+            });
+          })()}
         </div>
 
         <button

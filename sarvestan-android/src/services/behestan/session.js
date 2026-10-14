@@ -144,7 +144,7 @@ export const UNIVERSITIES = [
     name: 'دانشگاه صنعتی خواجه نصیرالدین طوسی',
     shortName: 'خواجه نصیر',
     origin: 'https://behestan.kntu.ac.ir',
-    authMethod: 'direct_captcha',
+    authMethod: 'sso',
     logo: '/kntu-logo.svg',
     systemName: 'سامانه بهستان',
   },
@@ -162,7 +162,7 @@ export const UNIVERSITIES = [
     name: 'دانشگاه تهران',
     shortName: 'دانشگاه تهران',
     origin: 'https://ems2.ut.ac.ir',
-    authMethod: 'direct_captcha',
+    authMethod: 'sso',
     logo: '/ut-logo.svg',
     systemName: 'سامانه گلستان / بهستان ۲',
   },
@@ -198,6 +198,16 @@ export function getUniversityOrigin(uniId = getSelectedUniversity()) {
   if (uniId === 'sbu') return 'https://ems.sbu.ac.ir';
   if (uniId === 'ut') return 'https://ems2.ut.ac.ir';
   return 'https://behestan.kntu.ac.ir';
+}
+
+export function getUniversityName(uniId = getSelectedUniversity()) {
+  const found = UNIVERSITIES.find((u) => u.id === uniId);
+  return found?.name || 'دانشگاه صنعتی خواجه نصیرالدین طوسی';
+}
+
+export function getUniversityShortName(uniId = getSelectedUniversity()) {
+  const found = UNIVERSITIES.find((u) => u.id === uniId);
+  return found?.shortName || found?.name || 'خواجه نصیر';
 }
 
 export const BEHESTAN_ORIGIN = 'https://behestan.kntu.ac.ir';

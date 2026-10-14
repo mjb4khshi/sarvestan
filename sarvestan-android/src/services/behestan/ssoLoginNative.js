@@ -69,6 +69,7 @@ export async function loginViaJavaSso(username, password, options = {}) {
     const res = await p.login({
       username: String(username || '').trim(),
       password: String(password || ''),
+      uniId: options.uniId || 'kntu',
       selectedUserNo: options.selectedUserNo || undefined,
       selectedUserType: options.selectedUserType || undefined,
     });
@@ -124,9 +125,11 @@ export async function loginViaSsoWebView(credentials = {}) {
   try {
     const user = credentials?.username ? String(credentials.username).trim() : '';
     const pass = credentials?.password ? String(credentials.password) : '';
+    const uniId = credentials?.uniId || 'kntu';
     const res = await p.login({
       username: user,
       password: pass,
+      uniId,
       // submit خودکار حذف شده — کاربر خودش Sign In می‌زند
       allowAutoSubmit: false,
     });
@@ -599,6 +602,8 @@ export async function clearSsoCookies() {
     if (h?.clearCookies) {
       await h.clearCookies({ url: 'https://sso.kntu.ac.ir' });
       await h.clearCookies({ url: 'https://behestan.kntu.ac.ir' });
+      await h.clearCookies({ url: 'https://sso1.ut.ac.ir' });
+      await h.clearCookies({ url: 'https://ems2.ut.ac.ir' });
       cleared = true;
     }
   } catch {}
@@ -630,7 +635,7 @@ export async function loginAndroid(username, password, options = {}) {
 
     // ۱) ورود مستقیم از طریق لایهٔ بومی Java (بدون باز شدن وب‌ویو، دقیقاً مشابه مکانیزم curl در وب)
     if (hasSsoLoginPlugin()) {
-      const javaRes = await loginViaJavaSso(username, password, options);
+      const javaRes = await loginViaJavaSso(username, password, { ...options, uniId: options.uniId || 'kntu' });
       if (javaRes.ok) return javaRes;
 
       if (
@@ -662,18 +667,26 @@ export async function loginAndroid(username, password, options = {}) {
           code: javaRes.code || undefined,
         };
       }
+      // دانشگاه تهران یا سایر دانشگاه‌ها به Keycloak خواجه‌نصیر ارتباطی ندارند؛ خطای همان دانشگاه را برگردان
+      if ((options.uniId || 'kntu') !== 'kntu') {
+        return javaRes;
+      }
       console.warn('[SsoLogin] Java login failed, trying fallback:', javaRes.error);
     }
 
-    // ۲) فال‌بک با پروتکل نیتیو جاوااسکریپت (CapacitorHttp)
-    const httpRes = await loginViaNativeSso(username, password);
-    if (!httpRes?.ok && httpRes?.error) {
-      httpRes.error = /invalid username or password|bad credentials/i.test(httpRes.error)
-        ? 'نام کاربری یا رمز عبور اشتباه است.'
-        : httpRes.error;
+    // ۲) فال‌بک با پروتکل نیتیو جاوااسکریپت (CapacitorHttp) — فقط مخصوص خواجه‌نصیر
+    if ((options.uniId || 'kntu') === 'kntu') {
+      const httpRes = await loginViaNativeSso(username, password);
+      if (!httpRes?.ok && httpRes?.error) {
+        httpRes.error = /invalid username or password|bad credentials/i.test(httpRes.error)
+          ? 'نام کاربری یا رمز عبور اشتباه است.'
+          : httpRes.error;
+      }
+      // WebView خودکار باز نکن — کاربر باید خودش «وب‌ویو» را انتخاب کند
+      return httpRes;
     }
-    // WebView خودکار باز نکن — کاربر باید خودش «وب‌ویو» را انتخاب کند
-    return httpRes;
+
+    return { ok: false, error: 'ورود ناموفق بود.' };
   }
 
   // بدون رمز: فقط وقتی کاربر صریحاً روش وب‌ویو را زده (doLogin متد webview)

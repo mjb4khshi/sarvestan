@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CalendarDays,
@@ -54,49 +55,81 @@ function parseJalaliString(str) {
   const s = String(str)
     .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
     .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
-  const m = s.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+  const m = s.match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
   if (!m) return null;
+  const y = parseInt(m[1], 10);
+  const mo = parseInt(m[2], 10);
+  const da = parseInt(m[3], 10);
+  if (y > 1600) {
+    try {
+      const gDate = new Date(y, mo - 1, da, 12, 0, 0);
+      const fmt = new Intl.DateTimeFormat('en-u-ca-persian', {
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        timeZone: 'Asia/Tehran',
+      });
+      const parts = fmt.formatToParts(gDate);
+      const get = (k) => Number(parts.find((x) => x.type === k)?.value || 0);
+      return {
+        year: get('year') || 1404,
+        month: get('month') || 1,
+        day: get('day') || 1,
+      };
+    } catch {
+      return null;
+    }
+  }
   return {
-    year: parseInt(m[1], 10),
-    month: Math.max(1, Math.min(12, parseInt(m[2], 10))),
-    day: Math.max(1, Math.min(31, parseInt(m[3], 10))),
+    year: y,
+    month: Math.max(1, Math.min(12, mo)),
+    day: Math.max(1, Math.min(31, da)),
   };
 }
 
-function getTodayJalali() {
+function getOffsetJalali(offsetDays = 0) {
   try {
+    const d = new Date();
+    if (offsetDays !== 0) {
+      d.setDate(d.getDate() + offsetDays);
+    }
     const fmt = new Intl.DateTimeFormat('en-u-ca-persian', {
       year: 'numeric',
       month: 'numeric',
       day: 'numeric',
       timeZone: 'Asia/Tehran',
     });
-    const parts = fmt.formatToParts(new Date());
+    const parts = fmt.formatToParts(d);
     const get = (k) => Number(parts.find((x) => x.type === k)?.value || 0);
     return {
       year: get('year') || 1404,
-      month: get('month') || 3,
+      month: get('month') || 1,
       day: get('day') || 1,
     };
   } catch {
-    return { year: 1404, month: 3, day: 25 };
+    return { year: 1404, month: 1, day: 1 };
   }
 }
 
 export default function SarvDatePickerModal({
   isOpen,
   initialDate = '',
+  title = 'انتخاب تاریخ',
+  subtitle = 'تقویم رسمی شمسی سروستان',
+  mode = 'general', // 'exam' | 'task' | 'general'
   onClose,
   onConfirm,
 }) {
-  const today = useMemo(() => getTodayJalali(), []);
-  const examsList = useMemo(() => (isOpen ? getExamsView() || [] : []), [isOpen]);
+  const today = useMemo(() => getOffsetJalali(0), []);
+  const tomorrow = useMemo(() => getOffsetJalali(1), []);
+  const dayAfter = useMemo(() => getOffsetJalali(2), []);
+  const examsList = useMemo(() => (isOpen && mode === 'exam' ? getExamsView() || [] : []), [isOpen, mode]);
 
-  const [viewYear, setViewYear] = useState(1404);
-  const [viewMonth, setViewMonth] = useState(3);
-  const [selectedYear, setSelectedYear] = useState(1404);
-  const [selectedMonth, setSelectedMonth] = useState(3);
-  const [selectedDay, setSelectedDay] = useState(1);
+  const [viewYear, setViewYear] = useState(today.year);
+  const [viewMonth, setViewMonth] = useState(today.month);
+  const [selectedYear, setSelectedYear] = useState(today.year);
+  const [selectedMonth, setSelectedMonth] = useState(today.month);
+  const [selectedDay, setSelectedDay] = useState(today.day);
   const [slideDir, setSlideDir] = useState(1);
 
   useEffect(() => {
@@ -176,11 +209,35 @@ export default function SarvDatePickerModal({
     const mm = String(selectedMonth).padStart(2, '0');
     const dd = String(selectedDay).padStart(2, '0');
     const formatted = `${selectedYear}/${mm}/${dd}`;
-    onConfirm(toFaDigits(formatted));
+    let jsDate = null;
+    try {
+      jsDate = jalaliToDate(selectedYear, selectedMonth, selectedDay);
+    } catch (_) {}
+    if (!jsDate) {
+      const gy = selectedYear + 621;
+      const start = new Date(gy, 2, 18, 12, 0, 0).getTime();
+      const end = new Date(gy + 1, 3, 5, 12, 0, 0).getTime();
+      const fmt = new Intl.DateTimeFormat('en-u-ca-persian', { year: 'numeric', month: 'numeric', day: 'numeric', timeZone: 'Asia/Tehran' });
+      for (let t = start; t <= end; t += 86400000) {
+        const cur = new Date(t);
+        const parts = fmt.formatToParts(cur);
+        const get = (k) => Number(parts.find((x) => x.type === k)?.value || 0);
+        if (get('year') === selectedYear && get('month') === selectedMonth && get('day') === selectedDay) {
+          jsDate = cur;
+          break;
+        }
+      }
+    }
+    onConfirm(toFaDigits(formatted), jsDate);
     onClose();
   };
 
   const handleJumpTo = (y, m, d) => {
+    if (y < viewYear || (y === viewYear && m < viewMonth)) {
+      setSlideDir(-1);
+    } else if (y > viewYear || (y === viewYear && m > viewMonth)) {
+      setSlideDir(1);
+    }
     setViewYear(y);
     setViewMonth(m);
     setSelectedYear(y);
@@ -188,11 +245,26 @@ export default function SarvDatePickerModal({
     setSelectedDay(d || 1);
   };
 
-  return (
+  const isTodaySelected =
+    selectedYear === today.year &&
+    selectedMonth === today.month &&
+    selectedDay === today.day;
+
+  const isTomorrowSelected =
+    selectedYear === tomorrow.year &&
+    selectedMonth === tomorrow.month &&
+    selectedDay === tomorrow.day;
+
+  const isDayAfterSelected =
+    selectedYear === dayAfter.year &&
+    selectedMonth === dayAfter.month &&
+    selectedDay === dayAfter.day;
+
+  const content = (
     <AnimatePresence>
       {isOpen && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[100050] flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs"
           onClick={onClose}
         >
           <motion.div
@@ -211,10 +283,10 @@ export default function SarvDatePickerModal({
                 </span>
                 <div>
                   <h3 className="text-[13.5px] font-bold text-base-content">
-                    انتخاب تاریخ امتحان
+                    {title}
                   </h3>
                   <p className="text-[10px] text-neutral">
-                    تقویم رسمی شمسی سروستان
+                    {subtitle}
                   </p>
                 </div>
               </div>
@@ -313,13 +385,13 @@ export default function SarvDatePickerModal({
                     const dayIndex = (startCol + day - 1) % 7;
                     const isFriday = dayIndex === 6;
 
-                    const dayExams = examsList.filter(
+                    const dayExams = mode === 'exam' ? examsList.filter(
                       (e) =>
                         e.jalaliParts &&
                         e.jalaliParts.year === viewYear &&
                         e.jalaliParts.month === viewMonth &&
                         e.jalaliParts.day === day
-                    );
+                    ) : [];
                     const hasExam = dayExams.length > 0;
 
                     return (
@@ -354,42 +426,92 @@ export default function SarvDatePickerModal({
               </AnimatePresence>
             </div>
 
-            {/* دکمه‌های پرش سریع به دوره‌های مهم */}
+            {/* دکمه‌های پرش سریع یا میانبرهای روزانه */}
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1 pb-0.5">
-              <button
-                type="button"
-                onClick={() => handleJumpTo(today.year, today.month, today.day)}
-                className="px-2.5 py-1 rounded-lg text-[10.5px] font-bold bg-base-500/15 hover:bg-base-500/25 text-neutral hover:text-base-content whitespace-nowrap transition active:scale-95"
-              >
-                امروز
-              </button>
-              <button
-                type="button"
-                onClick={() => handleJumpTo(1404, 3, 20)}
-                className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold whitespace-nowrap transition active:scale-95 ${
-                  viewMonth === 3 ? 'bg-primary/20 text-primary' : 'bg-base-500/15 hover:bg-base-500/25 text-neutral'
-                }`}
-              >
-                امتحانات خرداد
-              </button>
-              <button
-                type="button"
-                onClick={() => handleJumpTo(1404, 4, 1)}
-                className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold whitespace-nowrap transition active:scale-95 ${
-                  viewMonth === 4 ? 'bg-primary/20 text-primary' : 'bg-base-500/15 hover:bg-base-500/25 text-neutral'
-                }`}
-              >
-                امتحانات تیر
-              </button>
-              <button
-                type="button"
-                onClick={() => handleJumpTo(1404, 10, 15)}
-                className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold whitespace-nowrap transition active:scale-95 ${
-                  viewMonth === 10 ? 'bg-primary/20 text-primary' : 'bg-base-500/15 hover:bg-base-500/25 text-neutral'
-                }`}
-              >
-                امتحانات دی
-              </button>
+              {mode === 'exam' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleJumpTo(today.year, today.month, today.day)}
+                    className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold whitespace-nowrap transition active:scale-95 cursor-pointer ${
+                      isTodaySelected
+                        ? 'bg-primary text-primary-content shadow-xs font-black'
+                        : 'bg-base-500/15 hover:bg-base-500/25 text-neutral hover:text-base-content'
+                    }`}
+                  >
+                    امروز
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleJumpTo(1404, 3, 20)}
+                    className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold whitespace-nowrap transition active:scale-95 cursor-pointer ${
+                      viewMonth === 3
+                        ? 'bg-primary/20 text-primary border border-primary/30 font-black'
+                        : 'bg-base-500/15 hover:bg-base-500/25 text-neutral'
+                    }`}
+                  >
+                    امتحانات خرداد
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleJumpTo(1404, 4, 1)}
+                    className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold whitespace-nowrap transition active:scale-95 cursor-pointer ${
+                      viewMonth === 4
+                        ? 'bg-primary/20 text-primary border border-primary/30 font-black'
+                        : 'bg-base-500/15 hover:bg-base-500/25 text-neutral'
+                    }`}
+                  >
+                    امتحانات تیر
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleJumpTo(1404, 10, 15)}
+                    className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold whitespace-nowrap transition active:scale-95 cursor-pointer ${
+                      viewMonth === 10
+                        ? 'bg-primary/20 text-primary border border-primary/30 font-black'
+                        : 'bg-base-500/15 hover:bg-base-500/25 text-neutral'
+                    }`}
+                  >
+                    امتحانات دی
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleJumpTo(today.year, today.month, today.day)}
+                    className={`flex-1 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap transition active:scale-95 cursor-pointer text-center ${
+                      isTodaySelected
+                        ? 'bg-primary text-primary-content shadow-xs font-black'
+                        : 'bg-base-500/15 hover:bg-base-500/25 text-neutral hover:text-base-content'
+                    }`}
+                  >
+                    امروز
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleJumpTo(tomorrow.year, tomorrow.month, tomorrow.day)}
+                    className={`flex-1 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap transition active:scale-95 cursor-pointer text-center ${
+                      isTomorrowSelected
+                        ? 'bg-primary text-primary-content shadow-xs font-black'
+                        : 'bg-base-500/15 hover:bg-base-500/25 text-neutral hover:text-base-content'
+                    }`}
+                  >
+                    فردا
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleJumpTo(dayAfter.year, dayAfter.month, dayAfter.day)}
+                    className={`flex-1 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap transition active:scale-95 cursor-pointer text-center ${
+                      isDayAfterSelected
+                        ? 'bg-primary text-primary-content shadow-xs font-black'
+                        : 'bg-base-500/15 hover:bg-base-500/25 text-neutral hover:text-base-content'
+                    }`}
+                  >
+                    پس‌فردا
+                  </button>
+                </>
+              )}
             </div>
 
             {/* کارت پیش‌نمایش تاریخ انتخاب شده */}
@@ -424,4 +546,7 @@ export default function SarvDatePickerModal({
       )}
     </AnimatePresence>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(content, document.body);
 }

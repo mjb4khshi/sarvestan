@@ -8,7 +8,9 @@ import BottomNav from './components/BottomNav';
 import HomeScreen from './screens/HomeScreen';
 import ScheduleScreen from './screens/ScheduleScreen';
 import GradesScreen from './screens/GradesScreen';
-import FinanceScreen from './screens/FinanceScreen';
+import CurriculumChartModal from './components/CurriculumChartModal';
+import FinanceModal from './components/FinanceModal';
+import { getViewModel } from './data/viewModel';
 import StudyScreen from './screens/StudyScreen';
 import MoreScreen from './screens/MoreScreen';
 import LoginScreen from './screens/LoginScreen';
@@ -88,13 +90,14 @@ function SsoCallbackBridge() {
 function Shell() {
   const [tab, setTab] = useState('home');
   const [scheduleDefaultView, setScheduleDefaultView] = useState('cards');
-  const [chartAutoOpen, setChartAutoOpen] = useState(false);
-  const [financeAutoOpen, setFinanceAutoOpen] = useState(false);
+  const [chartModalOpen, setChartModalOpen] = useState(false);
+  const [financeModalOpen, setFinanceModalOpen] = useState(false);
   const [exitToast, setExitToast] = useState(false);
   const lastBackPressRef = useRef(0);
   const [slideDir, setSlideDir] = useState(0);
   const showBack = tab !== 'home';
   const pointerStartRef = useRef(null);
+  const vm = getViewModel();
 
   useEffect(() => {
     const qs = new URLSearchParams(window.location.search);
@@ -155,14 +158,14 @@ function Shell() {
         return;
       }
 
-      if (chartAutoOpen) {
-        setChartAutoOpen(false);
+      if (chartModalOpen) {
+        setChartModalOpen(false);
         e?.preventDefault?.();
         return;
       }
 
-      if (financeAutoOpen) {
-        setFinanceAutoOpen(false);
+      if (financeModalOpen) {
+        setFinanceModalOpen(false);
         e?.preventDefault?.();
         return;
       }
@@ -189,7 +192,7 @@ function Shell() {
 
     window.addEventListener('sarvBackButton', onBackButton);
     return () => window.removeEventListener('sarvBackButton', onBackButton);
-  }, [tab, chartAutoOpen, financeAutoOpen]);
+  }, [tab, chartModalOpen, financeModalOpen]);
 
   const changeTabWithDirection = (targetTab, explicitDir = null) => {
     const currentIndex = TABS_ORDER.indexOf(tab);
@@ -200,9 +203,6 @@ function Shell() {
       const dir = nextIndex > currentIndex ? 1 : -1;
       setSlideDir(dir);
     }
-    // پاک کردن باز شدن خودکار هنگام تغییر تب عادی
-    setChartAutoOpen(false);
-    setFinanceAutoOpen(false);
     setTab(targetTab);
   };
 
@@ -214,19 +214,13 @@ function Shell() {
       if (options.view) setScheduleDefaultView(options.view);
       changeTabWithDirection('schedule');
     } else if (targetTab === 'chart') {
-      changeTabWithDirection('more');
-      setChartAutoOpen(true);
-      setFinanceAutoOpen(false);
+      setChartModalOpen(true);
+      setFinanceModalOpen(false);
     } else if (targetTab === 'finance') {
-      changeTabWithDirection('more');
-      setFinanceAutoOpen(true);
-      setChartAutoOpen(false);
+      setFinanceModalOpen(true);
+      setChartModalOpen(false);
     } else {
       changeTabWithDirection(targetTab);
-      if (targetTab === 'more') {
-        if (options.openChart) setChartAutoOpen(true);
-        if (options.openFinance) setFinanceAutoOpen(true);
-      }
     }
   };
 
@@ -312,19 +306,25 @@ function Shell() {
               )}
               {tab === 'grades' && <GradesScreen onNavigate={handleNavigate} />}
               {tab === 'study' && <StudyScreen onNavigate={handleNavigate} />}
-              {tab === 'more' && (
-                <MoreScreen
-                  key={`more-${chartAutoOpen}-${financeAutoOpen}`}
-                  onNavigate={handleNavigate}
-                  initialChartOpen={chartAutoOpen}
-                  initialFinanceOpen={financeAutoOpen}
-                  onCloseChart={() => setChartAutoOpen(false)}
-                  onCloseFinance={() => setFinanceAutoOpen(false)}
-                />
-              )}
+              {tab === 'more' && <MoreScreen onNavigate={handleNavigate} />}
             </motion.main>
           </AnimatePresence>
         </div>
+
+        {/* مودال چارت تحصیلی در سطح سراسری برنامه */}
+        <CurriculumChartModal
+          isOpen={chartModalOpen}
+          onClose={() => setChartModalOpen(false)}
+          curriculumState={vm?.curriculum}
+          student={vm?.student}
+        />
+
+        {/* مودال امور مالی و شهریه در سطح سراسری برنامه */}
+        <FinanceModal
+          isOpen={financeModalOpen}
+          onClose={() => setFinanceModalOpen(false)}
+          onNavigate={handleNavigate}
+        />
 
         {/* توست تأیید خروج هنگام دکمه بازگشت */}
         <AnimatePresence>

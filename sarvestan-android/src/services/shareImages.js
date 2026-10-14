@@ -1189,7 +1189,7 @@ export async function renderStudyStoryImage({ stats, student, theme }) {
     },
     {
       title: 'تعداد جلسات تمرکز',
-      value: `${toFaDigits(stats?.totalSessions || 0)} سشن`,
+      value: `${toFaDigits(stats?.totalSessions || 0)} نشست مطالعه`,
       sub: 'پومودورو و آزاد',
       tone: pal.primary,
       icon: '🎯',

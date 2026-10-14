@@ -15,8 +15,20 @@ import { getUniversityOrigin } from '../services/behestan/session';
 
 export default function FinanceScreen({ onNavigate }) {
   const vm = getViewModel();
-  const FINANCE = vm.finance;
-  const STUDENT = vm.student;
+  const FINANCE = vm?.finance || {
+    isPaid: true,
+    debtToman: 0,
+    balance: '۰',
+    currency: 'تومان',
+    totalBillRial: 0,
+    totalPaidRial: 0,
+    items: [],
+  };
+  const STUDENT = vm?.student || {
+    fullName: '',
+    studentId: '',
+    major: '',
+  };
   const faNum = (n) => {
     const x = Number(n || 0);
     return Number.isFinite(x) ? x.toLocaleString('fa-IR') : '۰';
@@ -24,7 +36,7 @@ export default function FinanceScreen({ onNavigate }) {
 
   const isDebtor =
     !FINANCE.isPaid ||
-    (FINANCE.debtToman > 0) ||
+    ((FINANCE.debtToman || 0) > 0) ||
     (FINANCE.balance && FINANCE.balance !== '۰' && FINANCE.balance !== '0');
 
   const statusTone = isDebtor
@@ -108,13 +120,13 @@ export default function FinanceScreen({ onNavigate }) {
           <div className="rounded-2xl bg-base-500/30 border border-base-500/50 p-3 text-center">
             <p className="text-[10.5px] text-neutral font-bold">کل صورت‌حساب (ریال)</p>
             <p className="text-[14px] font-black text-base-content mt-1 font-mono">
-              {FINANCE.totalBillRial.toLocaleString('fa-IR')}
+              {faNum(FINANCE.totalBillRial)}
             </p>
           </div>
           <div className="rounded-2xl bg-success-soft border border-success-soft p-3 text-center">
             <p className="text-[10.5px] text-success font-bold">مجموع واریزی</p>
             <p className="text-[14px] font-black text-success mt-1 font-mono">
-              {FINANCE.totalPaidRial.toLocaleString('fa-IR')}
+              {faNum(FINANCE.totalPaidRial)}
             </p>
           </div>
         </div>
@@ -141,11 +153,11 @@ export default function FinanceScreen({ onNavigate }) {
             اقلام صورت‌حساب نیمسال
           </h3>
           <span className="text-[11px] text-neutral font-mono font-bold">
-            {toFaDigits(FINANCE.items.length)} ردیف
+            {toFaDigits((FINANCE.items || []).length)} ردیف
           </span>
         </div>
 
-        {FINANCE.items.map((item, i) => (
+        {(FINANCE.items || []).map((item, i) => (
           <motion.article
             key={item.id}
             initial={{ opacity: 0, y: 10 }}

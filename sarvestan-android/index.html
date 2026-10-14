@@ -6,6 +6,29 @@
     <meta name="theme-color" content="#ffffff" />
     <link rel="icon" type="image/png" href="/sarv-logo.png" />
     <title>سروستان موبایل</title>
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('sarvestan_theme');
+          var labooDefaultApplied = localStorage.getItem('sarvestan_laboo_default_v1');
+          var theme = 'laboo';
+          if (labooDefaultApplied && saved) {
+            theme = saved;
+          } else if (!labooDefaultApplied) {
+            localStorage.setItem('sarvestan_laboo_default_v1', 'true');
+            localStorage.setItem('sarvestan_theme', 'laboo');
+            theme = 'laboo';
+          }
+          document.documentElement.setAttribute('data-theme', theme);
+          document.documentElement.setAttribute('datatheme', theme);
+          var darkThemes = ['persian-dark', 'cyberpunk', 'tokyo-midnight', 'ocean-abyss', 'emerald', 'royal-purple', 'crimson', 'coffee-roast', 'batman', 'monochrome'];
+          var isDark = darkThemes.indexOf(theme) !== -1;
+          document.documentElement.setAttribute('data-theme-mode', isDark ? 'dark' : 'light');
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', isDark ? '#000000' : '#ffffff');
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

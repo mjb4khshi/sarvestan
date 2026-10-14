@@ -21,6 +21,7 @@ import OdometerNumber from '../components/OdometerNumber';
 import SarvCheckbox from '../components/SarvCheckbox';
 import GpaTrendGraph from '../components/GpaTrendGraph';
 import { getGpaStatusBadge } from '../utils/gpaBadge';
+import { subscribeStore } from '../services/behestan';
 
 function scoreColor(scoreVal, status) {
   if (status === 'حذف اضطراری') {
@@ -40,7 +41,13 @@ function scoreColor(scoreVal, status) {
 }
 
 export default function GradesScreen({ onNavigate }) {
-  const vm = useMemo(() => getViewModel(), []);
+  const [storeVer, setStoreVer] = useState(0);
+  useEffect(() => {
+    const unsub = subscribeStore(() => setStoreVer((v) => v + 1));
+    return unsub;
+  }, []);
+
+  const vm = useMemo(() => getViewModel(), [storeVer]);
   const TERMS = useMemo(() => (vm.termsData?.length ? vm.termsData : []), [vm]);
   // ترم انتخاب‌شده — پیش‌فرض آخرین ترم جاری
   const [selectedTermId, setSelectedTermId] = useState(() => TERMS[0]?.id);
@@ -73,11 +80,19 @@ export default function GradesScreen({ onNavigate }) {
     return init;
   });
 
-  // به‌روزرسانی زنده وضعیت دروس هنگام تغییر در داده‌های برنامه یا کش
+  // به‌روزرسانی زنده وضعیت دروس هنگام تغییر در داده‌های برنامه یا کش و هرس دروس حذف‌شده
   useEffect(() => {
     if (!TERMS[0]?.courses) return;
+    const currentCourseIds = new Set(TERMS[0].courses.map((c) => c.id));
     setSimCourses((prev) => {
-      const next = { ...prev };
+      const next = {};
+      // حفظ دروس موجود که حذف نشده‌اند
+      Object.keys(prev).forEach((id) => {
+        if (currentCourseIds.has(id)) {
+          next[id] = prev[id];
+        }
+      });
+      // افزودن یا به‌روزرسانی دروس ترم جاری
       TERMS[0].courses.forEach((c) => {
         if (!next[c.id]) {
           next[c.id] = {

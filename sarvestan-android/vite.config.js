@@ -292,7 +292,9 @@ function behestanCorsPlugin() {
         if (
           req.method === 'OPTIONS' &&
           typeof req.url === 'string' &&
-          (req.url.startsWith('/behestan-api') || req.url.startsWith('/sbu-api'))
+          (req.url.startsWith('/behestan-api') ||
+            req.url.startsWith('/sbu-api') ||
+            req.url.startsWith('/ut-api'))
         ) {
           res.setHeader('Access-Control-Allow-Origin', '*');
           res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
@@ -476,6 +478,91 @@ export default defineConfig({
                 console.error(`[sbu-proxy ${proxyRes.statusCode} HTML] ${req.url}: Title="${titleM?.[1]?.trim()}" H="${h2M?.[1]?.replace(/<[^>]+>/g, '').trim()}" Snippet: ${text.slice(0, 350).replace(/\s+/g, ' ')}`);
               } else if (req.url.includes('ViewReport') || req.url.includes('F1825') || req.url.includes('F1809')) {
                 console.log(`[sbu-proxy OK] ${req.url} snippet: ${text.slice(0, 250).replace(/\s+/g, ' ')}`);
+              }
+            });
+
+            try {
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+              res.setHeader(
+                'Access-Control-Allow-Headers',
+                'Content-Type, Accept, Authorization, X-Requested-With, X-Behestan-Cookie, X-Behestan-Sid',
+              );
+            } catch {}
+          });
+        },
+      },
+      '/ut-api': {
+        target: 'https://ems2.ut.ac.ir',
+        changeOrigin: true,
+        secure: false,
+        followRedirects: true,
+        autoRewrite: true,
+        protocolRewrite: 'http',
+        rewrite: (path) => path.replace(/^\/ut-api/, ''),
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          Accept: 'application/json, text/plain, */*',
+          'Accept-Language': 'fa-IR,fa;q=0.9,en;q=0.8',
+          Origin: 'https://ems2.ut.ac.ir',
+          Referer: 'https://ems2.ut.ac.ir/browser/fa/',
+        },
+        configure: (proxy) => {
+          proxy.on('error', (err, req, res) => {
+            console.error('[ut-proxy error]', req?.method, req?.url, err?.message || err);
+            if (!res.headersSent) {
+              res.writeHead(502, {
+                'Content-Type': 'application/json; charset=utf-8',
+                'Access-Control-Allow-Origin': '*',
+              });
+              res.end(JSON.stringify({ error: 'Proxy error', message: String(err?.message || err) }));
+            }
+          });
+          proxy.on('proxyReq', (proxyReq, req) => {
+            let cookie = req.headers['x-behestan-cookie'] || '';
+            let sid = req.headers['x-behestan-sid'] || '';
+            if (!cookie && !sid) {
+              try {
+                const s = JSON.parse(fs.readFileSync(path.join(process.cwd(), '.behestan-session.json'), 'utf8'));
+                if (s?.university === 'ut') {
+                  cookie = s.cookies || '';
+                  sid = s.sid || '';
+                }
+              } catch {}
+            }
+            if (sid && !/ASP\.NET_SessionId=/i.test(cookie)) cookie = mergeCookies(cookie, [`ASP.NET_SessionId=${sid}`]);
+            proxyReq.removeHeader('x-behestan-cookie');
+            proxyReq.removeHeader('x-behestan-sid');
+            proxyReq.removeHeader('cookie');
+            if (cookie) proxyReq.setHeader('Cookie', cookie);
+            const sentNames = cookie
+              ? cookie.split(';').map((x) => x.trim().split('=')[0]).filter(Boolean).join('+')
+              : 'NO';
+            console.log(`[ut-proxy req] ${req.method} ${req.url} cookie=${sentNames}`);
+          });
+          proxy.on('proxyRes', (proxyRes, req, res) => {
+            const loc = proxyRes.headers['location'];
+            if (loc) {
+              const rewritten = loc.replace(/^https?:\/\/ems2\.ut\.ac\.ir/i, '/ut-api');
+              proxyRes.headers['location'] = rewritten;
+              console.log(`[ut-proxy res] ${proxyRes.statusCode} redirect: ${loc} -> ${rewritten}`);
+            } else {
+              console.log(`[ut-proxy res] ${proxyRes.statusCode} ${req.url}`);
+            }
+
+            const chunks = [];
+            proxyRes.on('data', (c) => chunks.push(c));
+            proxyRes.on('end', () => {
+              const text = Buffer.concat(chunks).toString('utf8');
+              if (proxyRes.statusCode >= 400) {
+                const titleM = text.match(/<title[^>]*>([^<]+)<\/title>/i);
+                const h2M = text.match(/<h[123][^>]*>([\s\S]*?)<\/h[123]>/i);
+                console.error(`[ut-proxy ${proxyRes.statusCode} HTML] ${req.url}: Title="${titleM?.[1]?.trim()}" H="${h2M?.[1]?.replace(/<[^>]+>/g, '').trim()}" Snippet: ${text.slice(0, 350).replace(/\s+/g, ' ')}`);
+              } else if (/"errors":\s*\[\s*"/.test(text)) {
+                console.error(`[ut-proxy behestan-error] ${req.url}: ${text.slice(0, 300).replace(/\s+/g, ' ')}`);
+              } else if (req.url.includes('ViewReport') || req.url.includes('F1825') || req.url.includes('F1809')) {
+                console.log(`[ut-proxy OK] ${req.url} snippet: ${text.slice(0, 250).replace(/\s+/g, ' ')}`);
               }
             });
 
