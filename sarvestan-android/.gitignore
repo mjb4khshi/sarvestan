@@ -35,6 +35,7 @@ android/*keystore*
 # Sensitive scripts, HAR files, auth tokens, student datasets and behestan dumps
 .behestan-session.json
 *.session.json
+.iust-debug/
 scripts/
 public/dev-data/
 *.har

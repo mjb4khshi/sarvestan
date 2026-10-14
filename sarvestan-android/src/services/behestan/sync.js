@@ -20,6 +20,7 @@ import {
   getStudentId,
   invalidateSession,
   setSelectedUniversity,
+  getSelectedUniversity,
 } from './session';
 
 let running = false;
@@ -77,7 +78,9 @@ export async function runFullSync({ force = false } = {}) {
       const s = await fetch('/__sarvestan/session').then((r) => r.json());
       if (s?.sid && s?.ticket) {
         const curUni = getSelectedUniversity();
-        if (!(curUni === 'sbu' && s.university !== 'sbu' && isSessionAlive())) {
+        // نشست محلی زندهٔ دانشگاه دیگر را با فایل سرور بازنویسی نکن
+        const localAliveElsewhere = isSessionAlive() && s.university && s.university !== curUni;
+        if (!localAliveElsewhere) {
           if (s.university) setSelectedUniversity(s.university);
           saveManualSession({
             sid: s.sid,
@@ -94,6 +97,21 @@ export async function runFullSync({ force = false } = {}) {
   if (!canSync() || !isSessionAlive()) {
     markSyncStatus('no-session');
     return { ok: false, reason: 'no-session' };
+  }
+
+  // گلستان ۱.۰ علم و صنعت: هیچ API بهستان ۲ ندارد و با postback وب‌فرم کار می‌کند
+  if (getSelectedUniversity() === 'iust') {
+    running = true;
+    lastRunAt = Date.now();
+    try {
+      const { runIustSync } = await import('./iustSync');
+      return await runIustSync();
+    } catch (e) {
+      markSyncStatus('error', { error: String(e?.message || e) });
+      return { ok: false, reason: 'error', error: e };
+    } finally {
+      running = false;
+    }
   }
 
   running = true;

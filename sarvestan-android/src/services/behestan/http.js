@@ -43,7 +43,8 @@ export function shouldUseLocalProxy() {
       h.includes('behestan') ||
       h.includes('sso.kntu') ||
       h.includes('ems.sbu') ||
-      h.includes('ems2.ut')
+      h.includes('ems2.ut') ||
+      h.includes('golestan.iust')
     ) {
       return false;
     }

@@ -24,6 +24,49 @@ function extractSessionCookie(setCookie) {
   return m ? m[0] : '';
 }
 
+/** ادغام Set-Cookie پاسخ در هدر Cookie (مرورگرگونه: جایگزینی هم‌نام) */
+function mergeCookieHeader(base, rawSetCookie) {
+  const jar = new Map();
+  const pairs = String(rawSetCookie || '')
+    .split(/,(?=\s*[A-Za-z0-9_.-]+=)/)
+    .map((s) => String(s).split(';')[0].trim())
+    .filter((s) => s.includes('='));
+  for (const p of [...String(base || '').split(';'), ...pairs]) {
+    const s = p.trim();
+    const i = s.indexOf('=');
+    if (i > 0) jar.set(s.slice(0, i), s.slice(i + 1));
+  }
+  return [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
+}
+
+/**
+ * تفسیر پاسخ AuthUser در گلستان ۱.۰
+ * `ErrorArr = new Array();` در هر صفحه‌ای به‌صورت boilerplate هست؛ فقط
+ * آرگومان رشته‌ایِ ناتهی نشانهٔ خطاست. موفقیت = فراخوانی `SavAut(<عدد>, …)`.
+ */
+function parseIustAuthHtml(html) {
+  const text = String(html || '');
+  const savM = text.match(
+    /SavAut\s*\(\s*(\d+)\s*,\s*'([^']*)'\s*,\s*'([^']*)'\s*,\s*([^,]+),\s*'([^']*)'\s*,\s*'([^']*)'/i,
+  );
+  if (savM) {
+    return {
+      ok: true,
+      uid: savM[1],
+      su: savM[2],
+      ft: savM[3],
+      fid: String(savM[4]).trim(),
+      lt: savM[5],
+      tck: savM[6],
+    };
+  }
+  const errM = text.match(/ErrorArr\s*=\s*new\s*Array\(\s*(['"])((?:\\.|(?!\1)[^\\])+)\1\s*\)/);
+  if (errM) return { ok: false, error: errM[2].replace(/\+/g, ' ') };
+  const alertM = text.match(/alert\(\s*(['"])((?:\\.|(?!\1)[^\\])+)\1\s*\)/i);
+  if (alertM) return { ok: false, error: alertM[2].replace(/\+/g, ' ') };
+  return { ok: false, error: 'کد امنیتی، شماره دانشجویی یا گذرواژه اشتباه است' };
+}
+
 let lastIustState = { vs: '', ev: '', vsg: '6A475423', cookie: '' };
 
 /**
@@ -231,13 +274,9 @@ export async function loginViaBehestanDirect(username, password, captcha, cookie
         });
 
         const loginBody = String(loginRes.data || '');
+        const auth = parseIustAuthHtml(loginBody);
 
-        // بررسی پیام خطا در پاسخ گلستان
-        if (loginBody.includes('ErrorArr = new Array(') || loginBody.includes('SetError(')) {
-          const errM = loginBody.match(/ErrorArr\s*=\s*new\s*Array\(['"]([^'"]+)['"]\)/i) ||
-                       loginBody.match(/alert\(['"]([^'"]+)['"]\)/i);
-          const errMsg = errM ? errM[1] : 'کد امنیتی، شماره دانشجویی یا گذرواژه اشتباه است';
-
+        if (!auth.ok) {
           // تولید کپچای جدید
           let fresh = null;
           try {
@@ -246,7 +285,7 @@ export async function loginViaBehestanDirect(username, password, captcha, cookie
 
           return {
             ok: false,
-            error: errMsg,
+            error: auth.error,
             newCaptcha: fresh?.captcha || null,
             cookie: fresh?.cookie || null,
             vs: fresh?.vs || null,
@@ -255,22 +294,24 @@ export async function loginViaBehestanDirect(username, password, captcha, cookie
           };
         }
 
-        // استخراج توکن‌های نشست از SavAut و کوکی‌ها
-        const savAutMatch = loginBody.match(/SavAut\(([^,]+),[^,]+,[^,]+,[^,]+,['"]([^'"]+)['"],['"]([^'"]+)['"]/i);
-        const tck = savAutMatch ? savAutMatch[3] : ((loginBody.match(/tck=([A-Za-z0-9-]+)/i) || [])[1] || 'iust-session');
-        const lt = savAutMatch ? savAutMatch[2] : '';
-        const uid = savAutMatch ? savAutMatch[1].replace(/['"]/g, '').trim() : cleanU;
+        // پاسخ لاگین نشست را می‌چرخاند — کوکی‌های تازه باید جایگزین شوند
+        const rawSetCookie = loginRes.headers?.['set-cookie'] || loginRes.headers?.['Set-Cookie'] || '';
+        let jar = mergeCookieHeader(sendCookie, rawSetCookie);
+        if (auth.lt && !/(^|;\s*)lt=/i.test(jar)) jar += `; lt=${auth.lt}`;
+        if (auth.uid && !/(^|;\s*)u=/i.test(jar)) jar += `; u=${auth.uid}`;
+        jar = mergeCookieHeader(jar, `su=${auth.su || '0'}; ft=${auth.ft || '0'}; f=${auth.fid || '1'}; seq=1`);
 
-        let jar = sendCookie;
-        if (lt && !jar.includes('lt=')) jar += `; lt=${lt}`;
-        if (uid && !jar.includes('u=')) jar += `; u=${uid}`;
-        jar += '; su=0; ft=0; f=1; seq=1';
+        const mSid = jar.match(/ASP\.NET_SessionId=([^;, ]+)/i);
+        const sid = mSid ? mSid[1] : '';
+
+        lastIustState = { vs: '', ev: '', vsg: '6A475423', cookie: jar };
 
         return {
           ok: true,
-          sid: tck,
-          ticket: tck,
+          sid: sid || auth.tck,
+          ticket: auth.tck,
           studentId: cleanU,
+          userId: auth.uid,
           cookies: jar,
         };
       } catch (err) {

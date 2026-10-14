@@ -22,6 +22,9 @@ function mergeCookies(base, pairs) {
   return [...jar].map(([k, v]) => `${k}=${v}`).join('; ')
 }
 
+/** jar کوکی‌های گلستان ۱.۰ علم و صنعت — سرور چرخش نشست را دنبال می‌کند */
+let iustJar = '';
+
 /**
  * ماژول SSO فقط برای dev server لازم است و در CI gitignore شده.
  * اگر فایل نبود، بیلد/کانفیگ نباید بشکند.
@@ -138,6 +141,40 @@ function ssoLoginPlugin() {
       })
     },
   }
+}
+
+/**
+ * تفسیر پاسخ صفحهٔ AuthUser در گلستان ۱.۰
+ * توجه: `ErrorArr = new Array();` در همهٔ پاسخ‌ها به‌صورت boilerplate وجود دارد
+ * و فقط وقتی آرگومان رشته‌ایِ ناتهی بگیرد نشانهٔ خطاست. نشانهٔ موفقیت فراخوانی
+ * `SavAut(<uid عددی>,…)` با آرگومان‌های کوکت‌شده است (تعریف تابع با آرگومان
+ * شناسه‌ای نادیده گرفته می‌شود).
+ * @returns {{ok:boolean, uid?:string, su?:string, ft?:string, fid?:string, lt?:string, tck?:string, error?:string}}
+ */
+function parseIustAuthResponse(html) {
+  const text = String(html || '');
+  const savM = text.match(
+    /SavAut\s*\(\s*(\d+)\s*,\s*'([^']*)'\s*,\s*'([^']*)'\s*,\s*([^,]+),\s*'([^']*)'\s*,\s*'([^']*)'/i,
+  );
+  if (savM) {
+    return {
+      ok: true,
+      uid: savM[1],
+      su: savM[2],
+      ft: savM[3],
+      fid: String(savM[4]).trim(),
+      lt: savM[5],
+      tck: savM[6],
+    };
+  }
+  const errM = text.match(/ErrorArr\s*=\s*new\s*Array\(\s*(['"])((?:\\.|(?!\1)[^\\])+)\1\s*\)/);
+  if (errM) return { ok: false, error: errM[2].replace(/\+/g, ' ') };
+  const alertM = text.match(/alert\(\s*(['"])((?:\\.|(?!\1)[^\\])+)\1\s*\)/i);
+  if (alertM) return { ok: false, error: alertM[2].replace(/\+/g, ' ') };
+  if (/Switch to (?:GET|POST)|ParserError|خطای\s*.NET/i.test(text)) {
+    return { ok: false, error: 'خطای سمت سرور سامانه گلستان' };
+  }
+  return { ok: false, error: 'کد امنیتی، شماره دانشجویی یا گذرواژه اشتباه است' };
 }
 
 /** دریافت کپچا و مقداردهی نشست سیستم گلستان علم و صنعت */
@@ -331,11 +368,9 @@ function sbuLoginPlugin() {
               });
 
               const loginHtml = await loginRes.text();
-              if (loginHtml.includes('ErrorArr = new Array(') || loginHtml.includes('SetError(')) {
-                const errM = loginHtml.match(/ErrorArr\s*=\s*new\s*Array\(['"]([^'"]+)['"]\)/i) ||
-                             loginHtml.match(/alert\(['"]([^'"]+)['"]\)/i);
-                const errMsg = errM ? errM[1] : 'کد امنیتی، شماره دانشجویی یا گذرواژه اشتباه است';
+              const auth = parseIustAuthResponse(loginHtml);
 
+              if (!auth.ok) {
                 // تولید کپچای جدید به همراه ViewState تازه
                 let fresh = null;
                 try {
@@ -346,7 +381,7 @@ function sbuLoginPlugin() {
                 res.setHeader('Access-Control-Allow-Origin', '*');
                 res.end(JSON.stringify({
                   ok: false,
-                  error: errMsg,
+                  error: auth.error,
                   newCaptcha: fresh?.captcha || null,
                   cookie: fresh?.cookie || null,
                   vs: fresh?.vs || null,
@@ -356,21 +391,22 @@ function sbuLoginPlugin() {
                 return;
               }
 
-              // استخراج توکن‌های نشست از تابع SavAut و کوکی‌ها
-              const savAutMatch = loginHtml.match(/SavAut\(([^,]+),[^,]+,[^,]+,[^,]+,['"]([^'"]+)['"],['"]([^'"]+)['"]/i);
-              const tck = savAutMatch ? savAutMatch[3] : ((loginHtml.match(/tck=([A-Za-z0-9-]+)/i) || [])[1] || 'iust-tck');
-              const lt = savAutMatch ? savAutMatch[2] : '';
-              const uid = savAutMatch ? savAutMatch[1].replace(/['"]/g, '').trim() : username;
-
+              // استخراج توکن‌های نشست از تابع SavAut و ادغام کوکی‌های چرخیدهٔ پاسخ
               const setCookies = setCookiePairs(loginRes.headers);
               let jar = mergeCookies(curCookie, setCookies);
-              if (lt && !jar.includes('lt=')) jar += `; lt=${lt}`;
-              if (uid && !jar.includes('u=')) jar += `; u=${uid}`;
-              jar += '; su=0; ft=0; f=1; seq=1';
+              if (auth.lt && !/(^|;\s*)lt=/i.test(jar)) jar += `; lt=${auth.lt}`;
+              if (auth.uid && !/(^|;\s*)u=/i.test(jar)) jar += `; u=${auth.uid}`;
+              jar = mergeCookies(jar, [`su=${auth.su || '0'}`, `ft=${auth.ft || '0'}`, `f=${auth.fid || '1'}`, 'seq=1']);
+
+              const mSid = jar.match(/ASP\.NET_SessionId=([^;, ]+)/i);
+              const sid = mSid ? mSid[1] : '';
 
               const sessionData = {
-                sid: tck,
-                ticket: tck,
+                sid: sid || auth.tck,
+                ticket: auth.tck,
+                tck: auth.tck,
+                lt: auth.lt,
+                userId: auth.uid,
                 studentId: username,
                 cookies: jar,
                 university: 'iust',
@@ -382,13 +418,15 @@ function sbuLoginPlugin() {
                 JSON.stringify(sessionData, null, 2),
               );
 
+              console.log(`[direct-login-server] iust login ok: tck=${auth.tck} uid=${auth.uid} sid=${sessionData.sid ? 'set' : 'MISSING'}`);
               res.setHeader('Content-Type', 'application/json; charset=utf-8');
               res.setHeader('Access-Control-Allow-Origin', '*');
               res.end(JSON.stringify({
                 ok: true,
-                sid: tck,
-                ticket: tck,
+                sid: sessionData.sid,
+                ticket: auth.tck,
                 studentId: username,
+                userId: auth.uid,
                 cookies: jar,
               }));
               return;
@@ -485,13 +523,14 @@ function behestanCorsPlugin() {
           typeof req.url === 'string' &&
           (req.url.startsWith('/behestan-api') ||
             req.url.startsWith('/sbu-api') ||
-            req.url.startsWith('/ut-api'))
+            req.url.startsWith('/ut-api') ||
+            req.url.startsWith('/iust-api'))
         ) {
           res.setHeader('Access-Control-Allow-Origin', '*');
           res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
           res.setHeader(
             'Access-Control-Allow-Headers',
-            'Content-Type, Accept, Authorization, X-Requested-With, X-Behestan-Cookie, X-Behestan-Sid',
+            'Content-Type, Accept, Authorization, X-Requested-With, X-Behestan-Cookie, X-Behestan-Sid, X-IUST-Referer, X-IUST-Body',
           );
           res.setHeader('Access-Control-Max-Age', '86400');
           res.statusCode = 204;
@@ -512,6 +551,7 @@ export default defineConfig({
     watch: {
       ignored: [
         '**/.behestan*',
+        '**/.iust-debug/**',
         '**/*.txt',
         '**/*.har',
         '**/*.log',
@@ -764,6 +804,142 @@ export default defineConfig({
                 'Access-Control-Allow-Headers',
                 'Content-Type, Accept, Authorization, X-Requested-With, X-Behestan-Cookie, X-Behestan-Sid',
               );
+            } catch {}
+          });
+        },
+      },
+      '/iust-api': {
+        target: 'https://golestan.iust.ac.ir',
+        changeOrigin: true,
+        secure: false,
+        // ریدارکت postback را مرورگر باید دنبال کند؛ http-proxy با دنبال کردنش
+        // مسیر را می‌بازد و IIS «404 – The resource :88» می‌دهد
+        followRedirects: false,
+        autoRewrite: true,
+        protocolRewrite: 'http',
+        rewrite: (path) => path.replace(/^\/iust-api/, ''),
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'fa-IR,fa;q=0.9,en;q=0.8',
+          Origin: 'https://golestan.iust.ac.ir',
+        },
+        configure: (proxy) => {
+          proxy.on('error', (err, req, res) => {
+            console.error('[iust-proxy error]', req?.method, req?.url, err?.message || err);
+            if (!res.headersSent) {
+              res.writeHead(502, {
+                'Content-Type': 'application/json; charset=utf-8',
+                'Access-Control-Allow-Origin': '*',
+              });
+              res.end(JSON.stringify({ error: 'Proxy error', message: String(err?.message || err) }));
+            }
+          });
+          proxy.on('proxyReq', (proxyReq, req) => {
+            if (!iustJar) {
+              try {
+                const s = JSON.parse(fs.readFileSync(path.join(process.cwd(), '.behestan-session.json'), 'utf8'));
+                if (s?.university === 'iust') iustJar = s.cookies || '';
+              } catch {}
+            }
+            // هدر کلاینت معتبرترین است (لاگین تازه)؛ jar سرور بقیهٔ نام‌ها را تکمیل می‌کند
+            const clientPairs = String(req.headers['x-behestan-cookie'] || '')
+              .split(';')
+              .map((s) => s.trim())
+              .filter((s) => s.includes('='));
+            const cookie = mergeCookies(iustJar, clientPairs);
+            iustJar = cookie;
+            const referer = req.headers['x-iust-referer'] || 'https://golestan.iust.ac.ir/_Templates/Commander.htm';
+            proxyReq.removeHeader('x-behestan-cookie');
+            proxyReq.removeHeader('x-behestan-sid');
+            proxyReq.removeHeader('x-iust-referer');
+            proxyReq.removeHeader('cookie');
+            // بدنهٔ ارسالی هم روی دیسک می‌نویسم تا با body مرورگر در HAR مقایسه شود
+            const sentBody = req.headers['x-iust-body'];
+            if (sentBody) {
+              proxyReq.removeHeader('x-iust-body');
+              try {
+                const dir = path.join(process.cwd(), '.iust-debug');
+                fs.mkdirSync(dir, { recursive: true });
+                const fid = String(req.url).match(/fid=([^&]+)/i)?.[1] || 'form';
+                const name = `REQ-${decodeURIComponent(fid).replace(/[^\w-]/g, '_')}-${Date.now()}.txt`;
+                fs.writeFileSync(
+                  path.join(dir, name),
+                  `${req.method} ${req.url}\n\n${decodeURIComponent(String(sentBody))}`,
+                );
+                console.log(`[iust-proxy dump] ${name}`);
+              } catch {}
+            }
+            if (cookie) proxyReq.setHeader('Cookie', cookie);
+            proxyReq.setHeader('Referer', referer);
+            const sentNames = cookie
+              ? cookie.split(';').map((x) => x.trim().split('=')[0]).filter(Boolean).join('+')
+              : 'NO';
+            console.log(`[iust-proxy req] ${req.method} ${String(req.url).slice(0, 110)} cookie=${sentNames}`);
+          });
+          proxy.on('proxyRes', (proxyRes, req, res) => {
+            const loc = proxyRes.headers['location'];
+            if (loc) {
+              proxyRes.headers['location'] = loc.replace(/^https?:\/\/golestan\.iust\.ac\.ir/i, '/iust-api');
+            }
+            // چرخش کوکی (نشست/بلیط) باید در jar سرور بنشیند
+            const rotated = typeof proxyRes.headers['set-cookie'] === 'function'
+              ? proxyRes.headers['getSetCookie']()
+              : [].concat(proxyRes.headers['set-cookie'] || []);
+            if (rotated.length) {
+              iustJar = mergeCookies(iustJar, rotated.map((s) => String(s).split(';')[0].trim()));
+              try {
+                const file = path.join(process.cwd(), '.behestan-session.json');
+                if (fs.existsSync(file)) {
+                  const s = JSON.parse(fs.readFileSync(file, 'utf8'));
+                  if (s?.university === 'iust') {
+                    s.cookies = iustJar;
+                    s.updatedAt = new Date().toISOString();
+                    fs.writeFileSync(file, JSON.stringify(s, null, 2));
+                  }
+                }
+              } catch {}
+            }
+            console.log(`[iust-proxy res] ${proxyRes.statusCode} ${String(req.url).slice(0, 110)}`);
+
+            const chunks = [];
+            proxyRes.on('data', (c) => chunks.push(c));
+            proxyRes.on('end', () => {
+              const text = Buffer.concat(chunks).toString('utf8');
+              if (proxyRes.statusCode >= 400) {
+                const titleM = text.match(/<title[^>]*>([^<]+)<\/title>/i);
+                console.error(`[iust-proxy ${proxyRes.statusCode}] ${req.url}: Title="${titleM?.[1]?.trim() || ''}" Snippet: ${text.slice(0, 250).replace(/\s+/g, ' ')}`);
+              } else if (/SavAut\s*\(\s*\d/.test(text)) {
+                console.log(`[iust-proxy session-refresh] ${req.url}`);
+              } else if (/خطا|اشکال|End Session|منقض/i.test(text) && !/<TABLE/i.test(text)) {
+                const msgM = text.match(/ErrorArr\s*=\s*new\s*Array\(\s*['"]([^'"]+)['"]/i);
+                console.warn(`[iust-proxy msg] ${req.url}: ${msgM?.[1] || 'پیام خطا در صفحه'}`);
+              }
+              // ذخیرهٔ پاسخ‌های HTML برای تنظیم دقیق پارسر گلستان ۱.۰
+              if (/\/forms\/|\/_templates\/|\/_scripts\/|\/univ\//i.test(String(req.url)) && text.length > 300) {
+                try {
+                  const dir = path.join(process.cwd(), '.iust-debug');
+                  fs.mkdirSync(dir, { recursive: true });
+                  const fid = String(req.url).match(/fid=([^&]+)/i)?.[1]
+                    || String(req.url).split('?')[0].split('/').pop().replace(/\W+/g, '_')
+                    || 'form';
+                  const tag = proxyRes.statusCode >= 400 ? 'ERR' : 'OK';
+                  const name = `${tag}-${decodeURIComponent(fid).replace(/[^\w-]/g, '_')}-${Date.now()}.html`;
+                  fs.writeFileSync(path.join(dir, name), text);
+                  console.log(`[iust-proxy dump] ${name} (${(text.length / 1024).toFixed(0)}kB)`);
+                } catch {}
+              }
+            });
+
+            try {
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+              res.setHeader(
+                'Access-Control-Allow-Headers',
+                'Content-Type, Accept, Authorization, X-Requested-With, X-Behestan-Cookie, X-Behestan-Sid, X-IUST-Referer, X-IUST-Body',
+              );
+              res.setHeader('Access-Control-Expose-Headers', 'Content-Type');
             } catch {}
           });
         },
