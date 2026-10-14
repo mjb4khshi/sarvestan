@@ -184,7 +184,14 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
       const res = await fetchDirectCaptcha(uniId);
       if (res?.ok && res?.captcha) {
         const c = res.cookie || '';
-        const payload = { img: res.captcha, cookie: c, timestamp: Date.now() };
+        const payload = {
+          img: res.captcha,
+          cookie: c,
+          vs: res.vs,
+          ev: res.ev,
+          vsg: res.vsg,
+          timestamp: Date.now(),
+        };
         captchaDataRef.current = payload;
         setCaptchaData(payload);
         setCaptchaInput('');
@@ -277,13 +284,24 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
         setLoginStep(0);
         const t0 = Date.now();
         const activeCookie = captchaDataRef.current?.cookie || captchaData.cookie;
-        const j = await loginViaBehestanDirect(u, p, c, activeCookie, selectedUni);
+        const j = await loginViaBehestanDirect(u, p, c, activeCookie, selectedUni, {
+          vs: captchaDataRef.current?.vs,
+          ev: captchaDataRef.current?.ev,
+          vsg: captchaDataRef.current?.vsg,
+        });
 
         if (!j?.ok || !j?.sid || !j?.ticket) {
           busyRef.current = false;
           try { clearSession(); } catch {}
           if (j?.newCaptcha) {
-            const updated = { img: j.newCaptcha, cookie: j.cookies || activeCookie, timestamp: Date.now() };
+            const updated = {
+              img: j.newCaptcha,
+              cookie: j.cookie || j.cookies || activeCookie,
+              vs: j.vs,
+              ev: j.ev,
+              vsg: j.vsg,
+              timestamp: Date.now(),
+            };
             captchaDataRef.current = updated;
             setCaptchaData(updated);
             setCaptchaInput('');

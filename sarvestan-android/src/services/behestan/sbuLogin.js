@@ -24,10 +24,12 @@ function extractSessionCookie(setCookie) {
   return m ? m[0] : '';
 }
 
+let lastIustState = { vs: '', ev: '', vsg: '6A475423', cookie: '' };
+
 /**
  * دریافت تصویر کپچای تازه برای دانشگاه مشخص‌شده
- * @param {string} uniId شناسه دانشگاه ('kntu' | 'sbu' | 'ut')
- * @returns {Promise<{ ok: boolean, captcha?: string, cookie?: string, error?: string }>}
+ * @param {string} uniId شناسه دانشگاه ('kntu' | 'sbu' | 'ut' | 'iust')
+ * @returns {Promise<{ ok: boolean, captcha?: string, cookie?: string, vs?: string, ev?: string, vsg?: string, error?: string }>}
  */
 export async function fetchDirectCaptcha(uniId = 'kntu') {
   const origin = getUniversityOrigin(uniId);
@@ -35,36 +37,89 @@ export async function fetchDirectCaptcha(uniId = 'kntu') {
 
   // دانشگاه علم و صنعت (IUST): نسخه ۱.۰ وب‌فرم کلاسیک گلستان
   if (uniId === 'iust') {
-    if (http?.get) {
+    if (http?.get && http?.post) {
       try {
-        const authPage = await http.get({
-          url: `${origin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1`,
+        // ۱. دریافت نشست از لود بالانسر
+        const r0 = await http.get({
+          url: `${origin}/home/balancer/balancer.aspx?vv=2&cost=main`,
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           },
           connectTimeout: 15000,
           readTimeout: 20000,
         });
+        const rawSetCookie = r0.headers?.['set-cookie'] || r0.headers?.['Set-Cookie'] || '';
+        const mSession = String(rawSetCookie).match(/ASP\.NET_SessionId=[^;, ]+/i);
+        const sessionCookie = mSession ? mSession[0] : '';
+        const cookieHeader = `${sessionCookie}; u=; lt=; su=; ft=; f=; seq=`;
 
-        const setCookie = authPage.headers?.['set-cookie'] || authPage.headers?.['Set-Cookie'] || '';
-        const cookie = extractSessionCookie(setCookie) || (String(setCookie).split(';')[0].trim());
+        // ۲. فراخوانی اولیه صفحه AuthUser
+        const page1 = await http.get({
+          url: `${origin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1&tck=&&&lastm=20240303092318`,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            Cookie: cookieHeader,
+            Referer: `${origin}/_Templates/Commander.htm`,
+          },
+          connectTimeout: 15000,
+          readTimeout: 20000,
+        });
+        const html1 = String(page1.data || '');
+        const vs1 = (html1.match(/id="__VIEWSTATE"\s+value="([^"]+)"/) || [])[1] || '';
+        const ev1 = (html1.match(/id="__EVENTVALIDATION"\s+value="([^"]+)"/) || [])[1] || '';
+        const vsg1 = (html1.match(/id="__VIEWSTATEGENERATOR"\s+value="([^"]+)"/) || [])[1] || '6A475423';
 
+        // ۳. هندشیک اکشن 00
+        const post00 = new URLSearchParams({
+          '__VIEWSTATE': vs1,
+          '__VIEWSTATEGENERATOR': vsg1,
+          '__EVENTVALIDATION': ev1,
+          'TxtMiddle': '<r/>',
+          'Fm_Action': '00',
+          'Frm_Type': '',
+          'Frm_No': '',
+          'TicketTextBox': '',
+        }).toString();
+
+        const page2 = await http.post({
+          url: `${origin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1&tck=&&&lastm=20240303092318`,
+          data: post00,
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            Cookie: cookieHeader,
+            Referer: `${origin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1&tck=&&&lastm=20240303092318`,
+          },
+          connectTimeout: 15000,
+          readTimeout: 20000,
+        });
+        const html2 = String(page2.data || '');
+        const vs2 = (html2.match(/id="__VIEWSTATE"\s+value="([^"]+)"/) || [])[1] || vs1;
+        const ev2 = (html2.match(/id="__EVENTVALIDATION"\s+value="([^"]+)"/) || [])[1] || ev1;
+        const vsg2 = (html2.match(/id="__VIEWSTATEGENERATOR"\s+value="([^"]+)"/) || [])[1] || vsg1;
+
+        // ۴. دریافت تصویر کپچا
         const captRes = await http.get({
           url: `${origin}/Forms/AuthenticateUser/captcha.aspx?${Math.random()}`,
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            Cookie: cookie,
-            Referer: `${origin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1`,
+            Cookie: cookieHeader,
+            Referer: `${origin}/Forms/AuthenticateUser/LoginPage.htm`,
           },
           responseType: 'base64',
           connectTimeout: 15000,
           readTimeout: 20000,
         });
 
+        lastIustState = { vs: vs2, ev: ev2, vsg: vsg2, cookie: cookieHeader };
+
         return {
           ok: true,
           captcha: captRes.data,
-          cookie,
+          cookie: cookieHeader,
+          vs: vs2,
+          ev: ev2,
+          vsg: vsg2,
         };
       } catch (err) {
         console.error(`[fetchDirectCaptcha iust native error]`, err);
@@ -110,6 +165,9 @@ export async function fetchDirectCaptcha(uniId = 'kntu') {
   try {
     const r = await fetch(`/__sarvestan/direct-captcha?uni=${encodeURIComponent(uniId)}`);
     const j = await r.json();
+    if (j?.vs) {
+      lastIustState = { vs: j.vs, ev: j.ev, vsg: j.vsg || '6A475423', cookie: j.cookie || '' };
+    }
     return j;
   } catch (err) {
     console.error(`[fetchDirectCaptcha ${uniId} web error]`, err);
@@ -126,7 +184,7 @@ export async function fetchDirectCaptcha(uniId = 'kntu') {
  * @param {string} uniId شناسه دانشگاه ('kntu' | 'sbu' | 'ut')
  * @returns {Promise<{ ok: boolean, sid?: string, ticket?: string, studentId?: string, cookies?: string, error?: string, newCaptcha?: string }>}
  */
-export async function loginViaBehestanDirect(username, password, captcha, cookie, uniId = 'kntu') {
+export async function loginViaBehestanDirect(username, password, captcha, cookie, uniId = 'kntu', extra = {}) {
   const cleanU = String(username || '').trim();
   const cleanP = String(password || '');
   const cleanC = String(captcha || '').trim();
@@ -140,49 +198,33 @@ export async function loginViaBehestanDirect(username, password, captcha, cookie
 
   // دانشگاه علم و صنعت (IUST): لاگین وب‌فرم کلاسیک گلستان ۱.۰
   if (uniId === 'iust') {
-    if (http?.get && http?.post) {
+    if (http?.post) {
       try {
-        const sendCookie = extractSessionCookie(cookie) || cookie;
-        // ۱. دریافت صفحه برای ViewState
-        const page1 = await http.get({
-          url: `${origin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1`,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            ...(sendCookie ? { Cookie: sendCookie } : {}),
-          },
-          connectTimeout: 15000,
-          readTimeout: 20000,
-        });
+        const curVs = extra?.vs || lastIustState.vs;
+        const curEv = extra?.ev || lastIustState.ev;
+        const curVsg = extra?.vsg || lastIustState.vsg || '6A475423';
+        const sendCookie = cookie || lastIustState.cookie;
 
-        const body1 = String(page1.data || '');
-        const mVs = body1.match(/id="__VIEWSTATE"\s+value="([^"]+)"/);
-        const mEv = body1.match(/id="__EVENTVALIDATION"\s+value="([^"]+)"/);
-        const mVsg = body1.match(/id="__VIEWSTATEGENERATOR"\s+value="([^"]+)"/);
-
-        const vs = mVs ? mVs[1] : '';
-        const ev = mEv ? mEv[1] : '';
-        const vsg = mVsg ? mVsg[1] : '6A475423';
-
-        // ۲. ارسال فرم لاگین act 09
+        // ارسال فرم لاگین act 09 با ViewState معتبر نشست
         const postData = new URLSearchParams({
-          '__VIEWSTATE': vs,
-          '__VIEWSTATEGENERATOR': vsg,
-          '__EVENTVALIDATION': ev,
-          'TxtMiddle': `<r F51851="" F80351="${cleanU}" F80401="${cleanP}" F51701="${cleanC}" />`,
+          '__VIEWSTATE': curVs,
+          '__VIEWSTATEGENERATOR': curVsg,
+          '__EVENTVALIDATION': curEv,
+          'TxtMiddle': `<r F51851="" F80351="${cleanU}" F80401="${cleanP}" F51701="${cleanC}" F83181=""/>`,
           'Fm_Action': '09',
           'Frm_Type': '',
           'Frm_No': '',
-          'TicketTextBox': ''
+          'TicketTextBox': '',
         }).toString();
 
         const loginRes = await http.post({
-          url: `${origin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1`,
+          url: `${origin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1&tck=&&&lastm=20240303092318`,
           data: postData,
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            Referer: `${origin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1`,
-            ...(sendCookie ? { Cookie: sendCookie } : {}),
+            Referer: `${origin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1&tck=&&&lastm=20240303092318`,
+            Cookie: sendCookie,
           },
           connectTimeout: 20000,
           readTimeout: 25000,
@@ -197,30 +239,39 @@ export async function loginViaBehestanDirect(username, password, captcha, cookie
           const errMsg = errM ? errM[1] : 'کد امنیتی، شماره دانشجویی یا گذرواژه اشتباه است';
 
           // تولید کپچای جدید
-          let newCapt = null;
+          let fresh = null;
           try {
-            const fresh = await fetchDirectCaptcha('iust');
-            newCapt = fresh.captcha;
+            fresh = await fetchDirectCaptcha('iust');
           } catch {}
 
           return {
             ok: false,
             error: errMsg,
-            newCaptcha: newCapt,
+            newCaptcha: fresh?.captcha || null,
+            cookie: fresh?.cookie || null,
+            vs: fresh?.vs || null,
+            ev: fresh?.ev || null,
+            vsg: fresh?.vsg || null,
           };
         }
 
-        // استخراج tck (توکن نشست ناوبری گلستان)
-        const tckM = loginBody.match(/tck=([A-Za-z0-9-]+)/i) || loginBody.match(/'([A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{2,4})'/i);
-        const tck = tckM ? tckM[1] : 'iust-session';
+        // استخراج توکن‌های نشست از SavAut و کوکی‌ها
+        const savAutMatch = loginBody.match(/SavAut\(([^,]+),[^,]+,[^,]+,[^,]+,['"]([^'"]+)['"],['"]([^'"]+)['"]/i);
+        const tck = savAutMatch ? savAutMatch[3] : ((loginBody.match(/tck=([A-Za-z0-9-]+)/i) || [])[1] || 'iust-session');
+        const lt = savAutMatch ? savAutMatch[2] : '';
+        const uid = savAutMatch ? savAutMatch[1].replace(/['"]/g, '').trim() : cleanU;
 
-        const sid = extractSessionCookie(sendCookie) || 'iust-sid';
+        let jar = sendCookie;
+        if (lt && !jar.includes('lt=')) jar += `; lt=${lt}`;
+        if (uid && !jar.includes('u=')) jar += `; u=${uid}`;
+        jar += '; su=0; ft=0; f=1; seq=1';
+
         return {
           ok: true,
-          sid: sid,
+          sid: tck,
           ticket: tck,
           studentId: cleanU,
-          cookies: sendCookie,
+          cookies: jar,
         };
       } catch (err) {
         console.error(`[loginViaBehestanDirect iust native error]`, err);
@@ -305,6 +356,9 @@ export async function loginViaBehestanDirect(username, password, captcha, cookie
 
   // روی وب / محیط توسعه لوکال با پروکسی Vite
   try {
+    const curVs = extra?.vs || lastIustState.vs;
+    const curEv = extra?.ev || lastIustState.ev;
+    const curVsg = extra?.vsg || lastIustState.vsg;
     const r = await fetch('/__sarvestan/direct-login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -314,9 +368,15 @@ export async function loginViaBehestanDirect(username, password, captcha, cookie
         captcha: cleanC,
         cookie,
         uniId,
+        vs: curVs,
+        ev: curEv,
+        vsg: curVsg,
       }),
     });
     const j = await r.json();
+    if (j?.vs) {
+      lastIustState = { vs: j.vs, ev: j.ev, vsg: j.vsg || '6A475423', cookie: j.cookie || cookie };
+    }
     return j;
   } catch (err) {
     console.error(`[loginViaBehestanDirect ${uniId} web error]`, err);

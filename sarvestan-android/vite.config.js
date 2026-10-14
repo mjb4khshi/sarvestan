@@ -140,7 +140,78 @@ function ssoLoginPlugin() {
   }
 }
 
-/** پلاگین لاگین و کپچای مستقیم دانشگاه شهید بهشتی */
+/** دریافت کپچا و مقداردهی نشست سیستم گلستان علم و صنعت */
+async function fetchIustCaptchaHelper(targetOrigin = 'https://golestan.iust.ac.ir') {
+  // ۱. دریافت نشست اولیه از لود بالانسر
+  const r0 = await fetch(`${targetOrigin}/home/balancer/balancer.aspx?vv=2&cost=main`, {
+    redirect: 'manual',
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    },
+  });
+  const rawSetCookie = r0.headers.get('set-cookie') || '';
+  const mSession = rawSetCookie.match(/ASP\.NET_SessionId=[^;, ]+/i);
+  const sessionCookie = mSession ? mSession[0] : '';
+  const cookieHeader = `${sessionCookie}; u=; lt=; su=; ft=; f=; seq=`;
+
+  // ۲. فراخوانی اولیه صفحه AuthUser
+  const r1 = await fetch(`${targetOrigin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1&tck=&&&lastm=20240303092318`, {
+    headers: {
+      'Cookie': cookieHeader,
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Referer': `${targetOrigin}/_Templates/Commander.htm`,
+    },
+  });
+  const html1 = await r1.text();
+  const vs1 = (html1.match(/id="__VIEWSTATE"\s+value="([^"]+)"/) || [])[1] || '';
+  const ev1 = (html1.match(/id="__EVENTVALIDATION"\s+value="([^"]+)"/) || [])[1] || '';
+  const vsg1 = (html1.match(/id="__VIEWSTATEGENERATOR"\s+value="([^"]+)"/) || [])[1] || '6A475423';
+
+  // ۳. هندشیک اکشن 00 برای تولید استیت نشست
+  const r2 = await fetch(`${targetOrigin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0%3b1&tck=&&&lastm=20240303092318`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Cookie': cookieHeader,
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Referer': `${targetOrigin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1&tck=&&&lastm=20240303092318`,
+    },
+    body: new URLSearchParams({
+      '__VIEWSTATE': vs1,
+      '__VIEWSTATEGENERATOR': vsg1,
+      '__EVENTVALIDATION': ev1,
+      'TxtMiddle': '<r/>',
+      'Fm_Action': '00',
+      'Frm_Type': '',
+      'Frm_No': '',
+      'TicketTextBox': '',
+    }).toString(),
+  });
+  const html2 = await r2.text();
+  const vs2 = (html2.match(/id="__VIEWSTATE"\s+value="([^"]+)"/) || [])[1] || vs1;
+  const ev2 = (html2.match(/id="__EVENTVALIDATION"\s+value="([^"]+)"/) || [])[1] || ev1;
+  const vsg2 = (html2.match(/id="__VIEWSTATEGENERATOR"\s+value="([^"]+)"/) || [])[1] || vsg1;
+
+  // ۴. دریافت تصویر کپچای معتبر نشست
+  const r3 = await fetch(`${targetOrigin}/Forms/AuthenticateUser/captcha.aspx?${Math.random()}`, {
+    headers: {
+      'Cookie': cookieHeader,
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Referer': `${targetOrigin}/Forms/AuthenticateUser/LoginPage.htm`,
+    },
+  });
+  const buf = Buffer.from(await r3.arrayBuffer());
+  return {
+    ok: true,
+    captcha: buf.toString('base64'),
+    cookie: cookieHeader,
+    vs: vs2,
+    ev: ev2,
+    vsg: vsg2,
+  };
+}
+
+/** پلاگین لاگین و کپچای مستقیم دانشگاه شهید بهشتی و علم و صنعت */
 function sbuLoginPlugin() {
   return {
     name: 'sarvestan-sbu-login',
@@ -159,24 +230,10 @@ function sbuLoginPlugin() {
           else if (uniId === 'iust') targetOrigin = 'https://golestan.iust.ac.ir';
 
           if (uniId === 'iust') {
-            const page1 = await fetch(`${targetOrigin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1`, {
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-              },
-            });
-            const cookie = mergeCookies('', setCookiePairs(page1.headers));
-            const captRes = await fetch(`${targetOrigin}/Forms/AuthenticateUser/captcha.aspx?${Math.random()}`, {
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                Cookie: cookie,
-                Referer: `${targetOrigin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1`,
-              },
-            });
-            const buffer = Buffer.from(await captRes.arrayBuffer());
-            const base64Capt = buffer.toString('base64');
+            const captData = await fetchIustCaptchaHelper(targetOrigin);
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
             res.setHeader('Access-Control-Allow-Origin', '*');
-            res.end(JSON.stringify({ ok: true, captcha: base64Capt, cookie }));
+            res.end(JSON.stringify(captData));
             return;
           }
 
@@ -229,37 +286,46 @@ function sbuLoginPlugin() {
             console.log(`[direct-login-server] request for uni=${uniId} user="${username}"`);
 
             if (uniId === 'iust') {
-              // ۱. دریافت ViewState
-              const page1 = await fetch(`${targetOrigin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1`, {
-                headers: {
-                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                  ...(cookie ? { Cookie: cookie } : {}),
-                },
-              });
-              const html1 = await page1.text();
-              const vs = (html1.match(/id="__VIEWSTATE"\s+value="([^"]+)"/) || [])[1] || '';
-              const ev = (html1.match(/id="__EVENTVALIDATION"\s+value="([^"]+)"/) || [])[1] || '';
-              const vsg = (html1.match(/id="__VIEWSTATEGENERATOR"\s+value="([^"]+)"/) || [])[1] || '6A475423';
+              let curVs = body.vs;
+              let curEv = body.ev;
+              let curVsg = body.vsg || '6A475423';
+              let curCookie = cookie;
 
-              // ۲. ارسال فرم لاگین act 09
+              if (!curVs || !curEv) {
+                const fresh = await fetchIustCaptchaHelper(targetOrigin);
+                res.setHeader('Content-Type', 'application/json; charset=utf-8');
+                res.setHeader('Access-Control-Allow-Origin', '*');
+                res.end(JSON.stringify({
+                  ok: false,
+                  error: 'نشست ورود منقضی شده بود. لطفاً کد امنیتی جدید را وارد کنید.',
+                  newCaptcha: fresh.captcha,
+                  cookie: fresh.cookie,
+                  vs: fresh.vs,
+                  ev: fresh.ev,
+                  vsg: fresh.vsg,
+                }));
+                return;
+              }
+
+              // ۲. ارسال فرم لاگین act 09 با ViewState معتبر نشست
               const postParams = new URLSearchParams({
-                '__VIEWSTATE': vs,
-                '__VIEWSTATEGENERATOR': vsg,
-                '__EVENTVALIDATION': ev,
-                'TxtMiddle': `<r F51851="" F80351="${username}" F80401="${password}" F51701="${captcha}" />`,
+                '__VIEWSTATE': curVs,
+                '__VIEWSTATEGENERATOR': curVsg,
+                '__EVENTVALIDATION': curEv,
+                'TxtMiddle': `<r F51851="" F80351="${username}" F80401="${password}" F51701="${captcha}" F83181=""/>`,
                 'Fm_Action': '09',
                 'Frm_Type': '',
                 'Frm_No': '',
-                'TicketTextBox': ''
+                'TicketTextBox': '',
               });
 
-              const loginRes = await fetch(`${targetOrigin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1`, {
+              const loginRes = await fetch(`${targetOrigin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0%3b1&tck=&&&lastm=20240303092318`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/x-www-form-urlencoded',
                   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                  Referer: `${targetOrigin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1`,
-                  ...(cookie ? { Cookie: cookie } : {}),
+                  Referer: `${targetOrigin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1&tck=&&&lastm=20240303092318`,
+                  Cookie: curCookie,
                 },
                 body: postParams.toString(),
               });
@@ -270,28 +336,37 @@ function sbuLoginPlugin() {
                              loginHtml.match(/alert\(['"]([^'"]+)['"]\)/i);
                 const errMsg = errM ? errM[1] : 'کد امنیتی، شماره دانشجویی یا گذرواژه اشتباه است';
 
-                // تولید کپچای جدید
-                let newCaptcha = null;
+                // تولید کپچای جدید به همراه ViewState تازه
+                let fresh = null;
                 try {
-                  const captRes = await fetch(`${targetOrigin}/Forms/AuthenticateUser/captcha.aspx?${Math.random()}`, {
-                    headers: {
-                      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                      ...(cookie ? { Cookie: cookie } : {}),
-                      Referer: `${targetOrigin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1`,
-                    },
-                  });
-                  newCaptcha = Buffer.from(await captRes.arrayBuffer()).toString('base64');
+                  fresh = await fetchIustCaptchaHelper(targetOrigin);
                 } catch {}
 
                 res.setHeader('Content-Type', 'application/json; charset=utf-8');
                 res.setHeader('Access-Control-Allow-Origin', '*');
-                res.end(JSON.stringify({ ok: false, error: errMsg, newCaptcha }));
+                res.end(JSON.stringify({
+                  ok: false,
+                  error: errMsg,
+                  newCaptcha: fresh?.captcha || null,
+                  cookie: fresh?.cookie || null,
+                  vs: fresh?.vs || null,
+                  ev: fresh?.ev || null,
+                  vsg: fresh?.vsg || null,
+                }));
                 return;
               }
 
-              const tckM = loginHtml.match(/tck=([A-Za-z0-9-]+)/i) || loginHtml.match(/'([A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{2,4})'/i);
-              const tck = tckM ? tckM[1] : 'iust-tck';
-              const jar = mergeCookies(cookie, setCookiePairs(loginRes.headers));
+              // استخراج توکن‌های نشست از تابع SavAut و کوکی‌ها
+              const savAutMatch = loginHtml.match(/SavAut\(([^,]+),[^,]+,[^,]+,[^,]+,['"]([^'"]+)['"],['"]([^'"]+)['"]/i);
+              const tck = savAutMatch ? savAutMatch[3] : ((loginHtml.match(/tck=([A-Za-z0-9-]+)/i) || [])[1] || 'iust-tck');
+              const lt = savAutMatch ? savAutMatch[2] : '';
+              const uid = savAutMatch ? savAutMatch[1].replace(/['"]/g, '').trim() : username;
+
+              const setCookies = setCookiePairs(loginRes.headers);
+              let jar = mergeCookies(curCookie, setCookies);
+              if (lt && !jar.includes('lt=')) jar += `; lt=${lt}`;
+              if (uid && !jar.includes('u=')) jar += `; u=${uid}`;
+              jar += '; su=0; ft=0; f=1; seq=1';
 
               const sessionData = {
                 sid: tck,
