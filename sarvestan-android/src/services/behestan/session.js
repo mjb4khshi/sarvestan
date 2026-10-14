@@ -16,15 +16,14 @@ function loadManual() {
 
 export function saveManualSession(partial, { replace = false } = {}) {
   const cur = replace ? {} : loadManual() || {};
-  const clean = { ...partial };
-  delete clean.expired;
-  for (const k of ['studentId', 'userId', 'cookies']) {
-    if (clean[k] === null || clean[k] === 'null' || clean[k] === undefined || clean[k] === '') {
-      delete clean[k];
-      if (replace) delete cur[k];
+  const clean = {};
+  for (const [k, v] of Object.entries(partial || {})) {
+    if (v !== undefined && v !== null && v !== 'null') {
+      clean[k] = v;
     }
   }
-  const next = { ...cur, ...clean };
+  delete clean.expired;
+  const next = replace ? clean : { ...cur, ...clean };
   delete next.expired;
   localStorage.setItem(MANUAL_KEY, JSON.stringify(next));
   return next;

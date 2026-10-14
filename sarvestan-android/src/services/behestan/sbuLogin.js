@@ -300,6 +300,9 @@ export async function loginViaBehestanDirect(username, password, captcha, cookie
         if (auth.lt && !/(^|;\s*)lt=/i.test(jar)) jar += `; lt=${auth.lt}`;
         if (auth.uid && !/(^|;\s*)u=/i.test(jar)) jar += `; u=${auth.uid}`;
         jar = mergeCookieHeader(jar, `su=${auth.su || '0'}; ft=${auth.ft || '0'}; f=${auth.fid || '1'}; seq=1`);
+        if (auth.tck) {
+          jar = mergeCookieHeader(jar, `ctck=${auth.tck}; tck=${auth.tck}`);
+        }
 
         const mSid = jar.match(/ASP\.NET_SessionId=([^;, ]+)/i);
         const sid = mSid ? mSid[1] : '';

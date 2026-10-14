@@ -238,9 +238,11 @@ async function fetchIustCaptchaHelper(targetOrigin = 'https://golestan.iust.ac.i
     },
   });
   const buf = Buffer.from(await r3.arrayBuffer());
+  const ffd9 = buf.indexOf(Buffer.from([0xff, 0xd9]));
+  const cleanBuf = ffd9 !== -1 ? buf.subarray(0, ffd9 + 2) : buf;
   return {
     ok: true,
-    captcha: buf.toString('base64'),
+    captcha: cleanBuf.toString('base64'),
     cookie: cookieHeader,
     vs: vs2,
     ev: ev2,
@@ -397,6 +399,9 @@ function sbuLoginPlugin() {
               if (auth.lt && !/(^|;\s*)lt=/i.test(jar)) jar += `; lt=${auth.lt}`;
               if (auth.uid && !/(^|;\s*)u=/i.test(jar)) jar += `; u=${auth.uid}`;
               jar = mergeCookies(jar, [`su=${auth.su || '0'}`, `ft=${auth.ft || '0'}`, `f=${auth.fid || '1'}`, 'seq=1']);
+              if (auth.tck) {
+                jar = mergeCookies(jar, [`ctck=${auth.tck}`, `tck=${auth.tck}`]);
+              }
 
               const mSid = jar.match(/ASP\.NET_SessionId=([^;, ]+)/i);
               const sid = mSid ? mSid[1] : '';

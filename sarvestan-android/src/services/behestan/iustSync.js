@@ -64,14 +64,7 @@ export async function runIustSync() {
   } catch (e) {
     const msg = e?.message || String(e);
     results.errors.push(`menu: ${msg}`);
-    if (isSessionProblem(msg)) {
-      clearSession();
-      markSyncStatus('no-session', {
-        lastResults: results,
-        error: 'نشست گلستان علم و صنعت منقضی شده است. لطفاً مجدداً وارد شوید.',
-      });
-      return { ok: false, reason: 'session-expired', results };
-    }
+    console.warn('[iustSync menu bootstrap warning]', msg);
   }
 
   // ── پروفایل (F0546 / 0;10190) ──
@@ -147,6 +140,15 @@ export async function runIustSync() {
   if (anyData) {
     markSyncStatus('live', { lastResults: results, error: undefined });
   } else {
+    const hasSessionProblem = results.errors.some((err) => isSessionProblem(err));
+    if (hasSessionProblem) {
+      clearSession();
+      markSyncStatus('no-session', {
+        lastResults: results,
+        error: 'نشست گلستان علم و صنعت منقضی شده است. لطفاً مجدداً وارد شوید.',
+      });
+      return { ok: false, reason: 'session-expired', results };
+    }
     markSyncStatus('idle', {
       lastResults: results,
       error: results.errors[0] || 'پاسخی از گلستان علم و صنعت دریافت نشد',

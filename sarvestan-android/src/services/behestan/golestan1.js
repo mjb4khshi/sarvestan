@@ -65,15 +65,26 @@ export function formLastm(fid) {
 /** بلیط خام نشست */
 function rawTicket() {
   const t = getSessionSnapshot()?.ticket || '';
-  const s = String(t).trim();
+  let s = String(t).trim();
   if (s.startsWith('{')) {
     try {
-      return JSON.parse(s)?.Ticket || '';
+      s = JSON.parse(s)?.Ticket || '';
     } catch {
-      return '';
+      s = '';
     }
   }
-  return s;
+  if (s) return s;
+
+  // فال‌بک ۱: خواندن مستقیم از کوکی نشست (ctck یا tck)
+  const jar = jarOf() || lastJar;
+  const m = jar.match(/(?:^|;\s*)(?:ctck|tck)=([^;]+)/i);
+  if (m && m[1]) return m[1].trim();
+
+  // فال‌بک ۲: توکن lt
+  const ltM = jar.match(/(?:^|;\s*)lt=([^;]+)/i);
+  if (ltM && ltM[1]) return ltM[1].trim();
+
+  return '';
 }
 
 /** خواندن کوکی‌های نشست */
@@ -139,10 +150,11 @@ function persistJar(jar) {
   lastJar = jar;
   try {
     const tckMatch = jar.match(/(?:^|;\s*)(?:tck|ctck)=([^;]+)/i);
-    saveManualSession({
-      cookies: jar,
-      ticket: tckMatch ? tckMatch[1] : undefined,
-    });
+    const update = { cookies: jar };
+    if (tckMatch && tckMatch[1]) {
+      update.ticket = tckMatch[1].trim();
+    }
+    saveManualSession(update);
   } catch {}
 }
 
@@ -365,7 +377,7 @@ function postBody(page, { action, txtMiddle = '<r/>', ticket, xmlPri = '', xmlPu
   values.__VIEWSTATEGENERATOR = page.vsg || '6A475423';
   values.__EVENTVALIDATION = page.ev || '';
   values.Fm_Action = String(action);
-  values.TicketTextBox = ticket || page.ticket || '';
+  values.TicketTextBox = ticket || page.ticket || rawTicket() || '';
   values.TxtMiddle = txtMiddle;
 
   if (xmlPri) values.XmlPriPrm = xmlPri;
@@ -384,7 +396,8 @@ function postBody(page, { action, txtMiddle = '<r/>', ticket, xmlPri = '', xmlPu
 export function pagePath(datPath, fid, tck, extra = '') {
   const rnd = Math.random();
   const lastm = formLastm(fid);
-  return `${datPath}?r=${rnd}&fid=${encodeURIComponent(fid)}&b=0&l=0&tck=${tck}${extra}&&lastm=${lastm}`;
+  const safeTck = tck || rawTicket() || '';
+  return `${datPath}?r=${rnd}&fid=${encodeURIComponent(fid)}&b=0&l=0&tck=${safeTck}${extra}&&lastm=${lastm}`;
 }
 
 function debugPush(entry) {
@@ -411,17 +424,27 @@ export async function openAndPost(fid, { action = '08', overrides = {}, referer 
 }
 
 /**
- * باز کردن فرم در گلستان ۱.۰ با فراخوانی مستقیم صفحه _Dat.aspx
+ * باز کردن فرم در گلستان ۱.۰ با هندشیک AuthNav و فراخوانی صفحه _Dat.aspx
  * به همراه ارسال اکشن مقدماتی 00 جهت مقداردهی وضعیت فرم.
  */
 export async function openForm(fid, { referer = '', init = true } = {}) {
   const origin = getUniversityOrigin('iust');
-  persistJar(applyFormCookies(fid, jarOf() || lastJar));
   const tck = rawTicket();
+  persistJar(applyFormCookies(fid, jarOf() || lastJar));
   const dat = formPagePath(fid);
 
+  // مرحله ۱: ثبت ناوبری در هندلر ناوبری گلستان (AuthNav)
+  // این درخواست به IIS اجازه انتقال نشست به فرم مقصد را می‌دهد و مانع AutoLogOff (کد ۵۶) می‌شود
+  if (tck) {
+    try {
+      const navRnd = Math.random();
+      const navUrl = `/forms/f0240_process_authnav/nav.aspx?r=${navRnd}&fid=${encodeURIComponent(fid)}&b=0&l=0&tck=${tck}`;
+      await g1Fetch(navUrl, { method: 'GET', referer: referer || `${origin}/_Templates/Commander.htm` });
+    } catch {}
+  }
+
   const url = pagePath(dat, fid, tck);
-  const ref = referer || `${origin}/_Templates/Commander.htm`;
+  const ref = referer || `${origin}/forms/f0240_process_authnav/nav.htm?r=${Math.random()}&fid=${encodeURIComponent(fid)}&b=0&l=0&tck=${tck}`;
   const html = await g1Fetch(url, { method: 'GET', referer: ref });
   let page = parseWebForm(html);
   debugPush({ fid, url, html, stage: 'open' });
