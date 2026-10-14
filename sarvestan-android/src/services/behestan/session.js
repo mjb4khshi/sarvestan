@@ -166,6 +166,15 @@ export const UNIVERSITIES = [
     logo: '/ut-logo.svg',
     systemName: 'سامانه گلستان / بهستان ۲',
   },
+  {
+    id: 'iust',
+    name: 'دانشگاه علم و صنعت ایران',
+    shortName: 'علم و صنعت',
+    origin: 'https://golestan.iust.ac.ir',
+    authMethod: 'direct_captcha',
+    logo: '/iust-logo.png',
+    systemName: 'سامانه گلستان',
+  },
 ];
 
 const UNI_KEY = 'sarvestan_selected_university';
@@ -197,6 +206,7 @@ export function setSelectedUniversity(uniId) {
 export function getUniversityOrigin(uniId = getSelectedUniversity()) {
   if (uniId === 'sbu') return 'https://ems.sbu.ac.ir';
   if (uniId === 'ut') return 'https://ems2.ut.ac.ir';
+  if (uniId === 'iust') return 'https://golestan.iust.ac.ir';
   return 'https://behestan.kntu.ac.ir';
 }
 

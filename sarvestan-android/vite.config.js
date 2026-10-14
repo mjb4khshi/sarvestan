@@ -156,6 +156,29 @@ function sbuLoginPlugin() {
           let targetOrigin = 'https://behestan.kntu.ac.ir';
           if (uniId === 'sbu') targetOrigin = 'https://ems.sbu.ac.ir';
           else if (uniId === 'ut') targetOrigin = 'https://ems2.ut.ac.ir';
+          else if (uniId === 'iust') targetOrigin = 'https://golestan.iust.ac.ir';
+
+          if (uniId === 'iust') {
+            const page1 = await fetch(`${targetOrigin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1`, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              },
+            });
+            const cookie = mergeCookies('', setCookiePairs(page1.headers));
+            const captRes = await fetch(`${targetOrigin}/Forms/AuthenticateUser/captcha.aspx?${Math.random()}`, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                Cookie: cookie,
+                Referer: `${targetOrigin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1`,
+              },
+            });
+            const buffer = Buffer.from(await captRes.arrayBuffer());
+            const base64Capt = buffer.toString('base64');
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.end(JSON.stringify({ ok: true, captcha: base64Capt, cookie }));
+            return;
+          }
 
           const upstream = await fetch(`${targetOrigin}/frm/loginapi/loginapi.svc/`, {
             method: 'POST',
@@ -201,8 +224,101 @@ function sbuLoginPlugin() {
             let targetOrigin = 'https://behestan.kntu.ac.ir';
             if (uniId === 'sbu') targetOrigin = 'https://ems.sbu.ac.ir';
             else if (uniId === 'ut') targetOrigin = 'https://ems2.ut.ac.ir';
+            else if (uniId === 'iust') targetOrigin = 'https://golestan.iust.ac.ir';
 
             console.log(`[direct-login-server] request for uni=${uniId} user="${username}"`);
+
+            if (uniId === 'iust') {
+              // ۱. دریافت ViewState
+              const page1 = await fetch(`${targetOrigin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1`, {
+                headers: {
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                  ...(cookie ? { Cookie: cookie } : {}),
+                },
+              });
+              const html1 = await page1.text();
+              const vs = (html1.match(/id="__VIEWSTATE"\s+value="([^"]+)"/) || [])[1] || '';
+              const ev = (html1.match(/id="__EVENTVALIDATION"\s+value="([^"]+)"/) || [])[1] || '';
+              const vsg = (html1.match(/id="__VIEWSTATEGENERATOR"\s+value="([^"]+)"/) || [])[1] || '6A475423';
+
+              // ۲. ارسال فرم لاگین act 09
+              const postParams = new URLSearchParams({
+                '__VIEWSTATE': vs,
+                '__VIEWSTATEGENERATOR': vsg,
+                '__EVENTVALIDATION': ev,
+                'TxtMiddle': `<r F51851="" F80351="${username}" F80401="${password}" F51701="${captcha}" />`,
+                'Fm_Action': '09',
+                'Frm_Type': '',
+                'Frm_No': '',
+                'TicketTextBox': ''
+              });
+
+              const loginRes = await fetch(`${targetOrigin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                  Referer: `${targetOrigin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1`,
+                  ...(cookie ? { Cookie: cookie } : {}),
+                },
+                body: postParams.toString(),
+              });
+
+              const loginHtml = await loginRes.text();
+              if (loginHtml.includes('ErrorArr = new Array(') || loginHtml.includes('SetError(')) {
+                const errM = loginHtml.match(/ErrorArr\s*=\s*new\s*Array\(['"]([^'"]+)['"]\)/i) ||
+                             loginHtml.match(/alert\(['"]([^'"]+)['"]\)/i);
+                const errMsg = errM ? errM[1] : 'کد امنیتی، شماره دانشجویی یا گذرواژه اشتباه است';
+
+                // تولید کپچای جدید
+                let newCaptcha = null;
+                try {
+                  const captRes = await fetch(`${targetOrigin}/Forms/AuthenticateUser/captcha.aspx?${Math.random()}`, {
+                    headers: {
+                      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                      ...(cookie ? { Cookie: cookie } : {}),
+                      Referer: `${targetOrigin}/Forms/AuthenticateUser/AuthUser.aspx?fid=0;1`,
+                    },
+                  });
+                  newCaptcha = Buffer.from(await captRes.arrayBuffer()).toString('base64');
+                } catch {}
+
+                res.setHeader('Content-Type', 'application/json; charset=utf-8');
+                res.setHeader('Access-Control-Allow-Origin', '*');
+                res.end(JSON.stringify({ ok: false, error: errMsg, newCaptcha }));
+                return;
+              }
+
+              const tckM = loginHtml.match(/tck=([A-Za-z0-9-]+)/i) || loginHtml.match(/'([A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{2,4})'/i);
+              const tck = tckM ? tckM[1] : 'iust-tck';
+              const jar = mergeCookies(cookie, setCookiePairs(loginRes.headers));
+
+              const sessionData = {
+                sid: tck,
+                ticket: tck,
+                studentId: username,
+                cookies: jar,
+                university: 'iust',
+                updatedAt: new Date().toISOString(),
+                source: 'iust-direct-form',
+              };
+              fs.writeFileSync(
+                path.join(process.cwd(), '.behestan-session.json'),
+                JSON.stringify(sessionData, null, 2),
+              );
+
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.end(JSON.stringify({
+                ok: true,
+                sid: tck,
+                ticket: tck,
+                studentId: username,
+                cookies: jar,
+              }));
+              return;
+            }
+
             const upstream = await fetch(`${targetOrigin}/frm/loginapi/loginapi.svc/`, {
               method: 'POST',
               headers: {

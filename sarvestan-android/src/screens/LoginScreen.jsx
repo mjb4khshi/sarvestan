@@ -677,6 +677,8 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
                 ? 'سامانه بهستان دانشگاه صنعتی خواجه نصیر (behestan.kntu.ac.ir)'
                 : selectedUni === 'sbu'
                 ? 'سامانه بهستان دانشگاه شهید بهشتی (ems.sbu.ac.ir)'
+                : selectedUni === 'iust'
+                ? 'سامانه گلستان دانشگاه علم و صنعت ایران (golestan.iust.ac.ir)'
                 : 'سامانه بهستان دانشگاه تهران (ems2.ut.ac.ir)'}
             </span>
           </div>
