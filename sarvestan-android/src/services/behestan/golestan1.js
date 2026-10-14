@@ -208,6 +208,8 @@ export async function g1Fetch(fullPath, { method = 'GET', body = null, referer =
     const textOut = typeof res.data === 'string' ? res.data : JSON.stringify(res.data ?? '');
     jarNext = applySavAutCookies(textOut, jarNext);
     persistJar(jarNext);
+    const sessionErr = checkGolestanSessionError(textOut);
+    if (sessionErr) throw new Error(sessionErr);
     if (res.status >= 400) {
       throw new Error(`HTTP ${res.status}: گلستان علم و صنعت`);
     }
@@ -229,11 +231,25 @@ export async function g1Fetch(fullPath, { method = 'GET', body = null, referer =
   });
   const text = await r.text();
   persistJar(applySavAutCookies(text, jar));
+  const sessionErr = checkGolestanSessionError(text);
+  if (sessionErr) throw new Error(sessionErr);
   if (!r.ok) {
     const detail = cleanHtml(text).replace(/\s+/g, ' ').slice(0, 400);
     throw new Error(`HTTP ${r.status}${detail ? ': ' + detail : ''}`);
   }
   return text;
+}
+
+/** بررسی خطای نشست یا خروج خودکار در پاسخ‌های گلستان ۱.۰ */
+export function checkGolestanSessionError(html) {
+  const text = String(html || '');
+  if (/AutoLogOff|کد24|کد56|كارنكردن بيش از حد مجاز|کارنکردن بيش از حد مجاز|بروز اشكال در احراز هويت|SavAut\s*\(\s*-999/i.test(text)) {
+    const errMatch = text.match(/ErrorArr\s*=\s*new\s*Array\(\s*['"]([^'"]+)['"]/i);
+    let msg = errMatch ? errMatch[1].replace(/::AutoLogOff\(\)/i, '').trim() : '';
+    if (!msg) msg = 'نشست منقضی شده است (لطفاً خارج شوید و مجدداً وارد شوید)';
+    return msg;
+  }
+  return null;
 }
 
 /** مقدار یک input از HTML */

@@ -894,9 +894,15 @@ export default defineConfig({
                 if (fs.existsSync(file)) {
                   const s = JSON.parse(fs.readFileSync(file, 'utf8'));
                   if (s?.university === 'iust') {
-                    s.cookies = iustJar;
-                    s.updatedAt = new Date().toISOString();
-                    fs.writeFileSync(file, JSON.stringify(s, null, 2));
+                    if (/(?:^|;\s*)u=-999\b/.test(iustJar)) {
+                      fs.unlinkSync(file);
+                      iustJar = '';
+                      console.log('[iust-proxy session-expired] u=-999 detected, cleared session file');
+                    } else {
+                      s.cookies = iustJar;
+                      s.updatedAt = new Date().toISOString();
+                      fs.writeFileSync(file, JSON.stringify(s, null, 2));
+                    }
                   }
                 }
               } catch {}

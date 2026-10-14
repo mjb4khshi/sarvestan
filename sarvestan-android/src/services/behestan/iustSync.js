@@ -19,7 +19,7 @@ import {
   markSyncStatus,
   getSnapshot,
 } from './store';
-import { getStudentId, saveManualSession } from './session';
+import { getStudentId, saveManualSession, clearSession } from './session';
 import { detectCurrentTermId } from './parsers';
 
 function mergeProfile(partial) {
@@ -35,7 +35,7 @@ function mergeProfile(partial) {
 }
 
 function isSessionProblem(msg) {
-  return /VIEWSTATE|منقض|نشست|403|End Session|again|مجدد/i.test(String(msg || ''));
+  return /VIEWSTATE|منقض|نشست|403|End Session|again|مجدد|AutoLogOff|کد24|کد56|احراز هويت|كارنكردن|کارنکردن/i.test(String(msg || ''));
 }
 
 /** باز کردن منوی میزکار (0;11130) تا وضعیت و بلیط نشست تازه شود */
@@ -65,9 +65,10 @@ export async function runIustSync() {
     const msg = e?.message || String(e);
     results.errors.push(`menu: ${msg}`);
     if (isSessionProblem(msg)) {
-      markSyncStatus('error', {
+      clearSession();
+      markSyncStatus('no-session', {
         lastResults: results,
-        error: 'نشست گلستان علم و صنعت معتبر نیست. دوباره وارد شوید.',
+        error: 'نشست گلستان علم و صنعت منقضی شده است. لطفاً مجدداً وارد شوید.',
       });
       return { ok: false, reason: 'session-expired', results };
     }
