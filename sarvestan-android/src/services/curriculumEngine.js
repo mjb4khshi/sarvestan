@@ -364,6 +364,13 @@ export function buildCurriculumState(
   const enrolledNameSet = new Set();
   const termsSeen = new Set();
 
+  const allTermIds = (userCourses || [])
+    .map((c) => String(c?.termId || '').trim())
+    .filter((t) => /^\d{4}$/.test(t))
+    .sort()
+    .reverse();
+  const currentTermId = allTermIds[0] || '4051';
+
   const cleanUserCourses = [];
   const seenUserKeys = new Map(); // key -> record
 
@@ -391,15 +398,21 @@ export function buildCurriculumState(
     const isPassedGrade = Number.isFinite(numGrade) ? numGrade >= 10 : false;
     const isPassed = /قبول|pass/i.test(st) || isPassedGrade;
 
-    // تشخیص دقیق و جامع دروس در حال اخذ ترم جاری
+    const isCurrentTermCourse =
+      Boolean(c.isRegistration) ||
+      Boolean(c.onSchedule) ||
+      (c.termId && String(c.termId).trim() === currentTermId);
+
+    // تشخیص دقیق و جامع دروس در حال اخذ ترم جاری (فقط ترم جاری)
     const isEnrolled =
       !isPassed &&
+      isCurrentTermCourse &&
       (regSt === 'registered' ||
         /enrolled|جاری|ثبت|در\s*حال/i.test(st) ||
         /enrolled|جاری|ثبت|در\s*حال/i.test(regSt) ||
         Boolean(c.isRegistration) ||
         Boolean(c.onSchedule) ||
-        (!c.grade && (c.termId === '4051' || String(c.termId || '').endsWith('1') || String(c.termId || '').endsWith('2'))));
+        !c.grade);
 
     const record = {
       ...c,

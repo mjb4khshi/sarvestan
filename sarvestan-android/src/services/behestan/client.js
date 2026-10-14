@@ -441,7 +441,7 @@ export async function fetchViewReport(formCode, term) {
         setExamsForTerm(tid, examObj.exams);
       }
     }
-    if (parsed.meta?.fullName) {
+    if (parsed.meta?.fullName || parsed.meta?.studentId) {
       mergeProfile({
         auwId: parsed.meta.auwId || undefined,
         studentId: parsed.meta.studentId || undefined,
@@ -450,6 +450,8 @@ export async function fetchViewReport(formCode, term) {
         level: parsed.meta.level || undefined,
         major: parsed.meta.major || undefined,
         photo: parsed.meta.photo || undefined,
+        enrolledUnits: parsed.meta.enrolledUnits || undefined,
+        totalUnits: parsed.meta.totalUnits || undefined,
         isLoggedIn: true,
       });
     }

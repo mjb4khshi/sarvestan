@@ -232,7 +232,21 @@ function buildViewModel() {
   const nowH = new Date().getHours() + new Date().getMinutes() / 60;
   const currentTerm = detectCurrentTermId(snap.courses || []) || '4051';
 
-  const allCourses = getCurrentTermSchedule(currentTerm) || [];
+  const rawSchedule = getCurrentTermSchedule(currentTerm) || [];
+  const allCourses = rawSchedule.map((sc) => {
+    if (sc.units && Number(sc.units) > 0) return sc;
+    const scCode = cleanCourseCode(sc.code);
+    const scName = cleanCourseName(sc.name || sc.course || sc.title || '');
+    const matched = (snap.courses || []).find((c) => {
+      const cCode = cleanCourseCode(c.code);
+      const cName = cleanCourseName(c.name || c.title || '');
+      return (scCode && cCode && scCode === cCode) || (scName && cName && scName === cName);
+    });
+    if (matched && matched.units) {
+      return { ...sc, units: Number(matched.units) };
+    }
+    return sc;
+  });
   const todayCourses = day ? getTodayClasses(day) : [];
 
   // مرتب‌سازی صعودی کلاس‌های امروز بر اساس ساعت شروع (از صبح تا عصر)
@@ -500,13 +514,35 @@ function buildViewModel() {
   const liveTerms = buildTermsFromLive(snap);
   const activeTermUnits = Number(liveTerms[0]?.totalUnits) || 0;
 
-  // واحد اخذشدهٔ ترم جاری: جامع‌ترین و دقیق‌ترین مقدار ممکن از تمامی منابع
-  let enrolledUnits = Math.max(
-    scheduleUnits,
-    curriculum?.enrolledCredits || 0,
-    activeTermUnits,
-    parseNum(sum.credits) || 0
+  // استخراج واحد ترم جاری از کارنامه (F1825 transcripts)
+  const currentTranscript = (snap.transcripts || []).find((t) => String(t.termId) === String(currentTerm));
+  const transcriptUnits = parseNum(currentTranscript?.registeredUnits) || 0;
+
+  // استخراج واحد از متادیتای گزارش ۷۸ یا پروفایل
+  const profileUnits = parseNum(profile.enrolledUnits) || parseNum(profile.totalUnits) || 0;
+
+  // واحدهای ثبت‌شده در snap.courses برای ترم جاری
+  const currentCourses = (snap.courses || []).filter(
+    (c) => String(c.termId) === String(currentTerm) && courseState(c) !== 'dropped' && courseState(c) !== 'waitlist',
   );
+  const currentCoursesUnits = currentCourses.reduce(
+    (s, c) => s + (parseNum(c.units) || (isProjectCourse(c.name || c.title) ? 3 : isInternshipCourse(c.name || c.title) ? 2 : 0)),
+    0
+  );
+
+  // واحد اخذشدهٔ ترم جاری: اولویت قطعی با مقادیر معتبر ترم جاری
+  let enrolledUnits =
+    scheduleUnits > 0
+      ? scheduleUnits
+      : currentCoursesUnits > 0
+        ? currentCoursesUnits
+        : transcriptUnits > 0
+          ? transcriptUnits
+          : profileUnits > 0
+            ? profileUnits
+            : activeTermUnits > 0
+              ? activeTermUnits
+              : curriculum?.enrolledCredits || parseNum(sum.credits) || 0;
 
   const droppedCourses = (snap.courses || []).filter(
     (c) => c.termId === currentTerm && courseState(c) === 'dropped',
@@ -613,7 +649,7 @@ function courseState(c, activeTermId = '4051') {
   // روی برنامهٔ ثبت‌نام یا برچسب ثبت‌شده → در حال اخذ
   if (c.onSchedule || c.isRegistration || reg === 'registered') return 'enrolled';
   // ترم جاری بدون نمره و بدون وضعیت — enrolled
-  if (!c.grade && (c.termId === activeTermId || c.termId === '4051' || c.isRegistration || !c.termId)) return 'enrolled';
+  if (!c.grade && (c.termId === activeTermId || (c.termId && c.termId === '4051') || c.isRegistration)) return 'enrolled';
   return 'unknown';
 }
 

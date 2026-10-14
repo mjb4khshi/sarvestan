@@ -459,6 +459,7 @@ export function parseReport78Schedule(outpar, termHint) {
     return m ? cleanHtml(decodeEntities(m[1])) : '';
   };
   const photoMatch = bmT.match(/SRC=['"](data:image\/[^'"]+)['"]/i);
+  const l1Units = parseInt(pick('L1').replace(/[^\d]/g, ''), 10) || undefined;
   const meta = {
     auwId: pick('B1') || undefined,
     studentId: pick('B1') || undefined,
@@ -469,6 +470,8 @@ export function parseReport78Schedule(outpar, termHint) {
     level: pick('B6') || undefined,
     major: pick('B8') || pick('B4') || undefined,
     photo: photoMatch ? photoMatch[1] : undefined,
+    totalUnits: l1Units,
+    enrolledUnits: l1Units,
   };
 
   return { termId, courses, meta };
