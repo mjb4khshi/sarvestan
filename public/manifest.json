@@ -64,7 +64,11 @@
         "fonts/*",
         "icons/*",
         "index.html",
-        "assets/*"
+        "assets/*",
+        "*.png",
+        "*.svg",
+        "*.woff2",
+        "dev-data/*"
       ],
       "matches": [
         "*://*.kntu.ac.ir/*",

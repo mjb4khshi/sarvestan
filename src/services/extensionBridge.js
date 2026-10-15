@@ -3,7 +3,7 @@
  * Handles communication between Behestan content script / tabs and the React App
  */
 import { notifyStoreChange } from './behestan/store';
-import { applyManualSession, clearSession } from './behestan/session';
+import { applyManualSession } from './behestan/session';
 
 const STORAGE_KEYS = {
   profile: 'sarvestan_live_profile',
@@ -73,7 +73,8 @@ export async function checkExtensionSync() {
   return new Promise((resolve) => {
     chrome.tabs.query({ url: ['*://behestan.kntu.ac.ir/*', '*://*.kntu.ac.ir/*'] }, async (tabs) => {
       if (!tabs || tabs.length === 0) {
-        resolve({ ok: false, error: 'NO_TABS_FOUND' });
+        // اگر تبی نبود، حداقل کش موجود chrome.storage.local را بخوان
+        syncFromChromeStorage().then((res) => resolve({ ok: res, error: 'NO_TABS_FOUND' }));
         return;
       }
 
@@ -82,29 +83,61 @@ export async function checkExtensionSync() {
         if (!tab.id) continue;
         await new Promise((resTab) => {
           chrome.tabs.sendMessage(tab.id, { action: 'GET_BEHESTAN_DATA' }, (response) => {
-            if (chrome.runtime?.lastError || !response) {
-              resTab();
-              return;
-            }
-            if (response.isLoggedIn && response.studentId && response.studentId !== 'ـ') {
+            if (response && response.isLoggedIn) {
               found = true;
-              try {
-                localStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(response));
-                applyManualSession({
-                  studentId: response.studentId,
-                  fullName: response.studentName,
-                  university: 'kntu',
-                  isLoggedIn: true,
-                });
-                notifyStoreChange();
-              } catch {}
             }
+            // تحریک فراخوانی سنک فعال گزارش‌ها در تب بهستان
+            try {
+              chrome.tabs.sendMessage(tab.id, { action: 'SARVESTAN_FORCE_SYNC' }, () => {});
+            } catch {}
             resTab();
           });
         });
       }
 
-      resolve({ ok: found });
+      // خواندن مجدد تمامی داده‌ها از chrome.storage.local
+      const synced = await syncFromChromeStorage();
+      resolve({ ok: found || synced });
+    });
+  });
+}
+
+async function syncFromChromeStorage() {
+  if (typeof chrome === 'undefined' || !chrome.storage?.local) return false;
+  return new Promise((resolve) => {
+    chrome.storage.local.get(null, (all) => {
+      if (chrome.runtime?.lastError || !all) {
+        resolve(false);
+        return;
+      }
+      let changed = false;
+      let hasValidProfile = false;
+      Object.keys(all).forEach((key) => {
+        if (key.startsWith('sarvestan_')) {
+          const val = typeof all[key] === 'string' ? all[key] : JSON.stringify(all[key]);
+          localStorage.setItem(key, val);
+          changed = true;
+        }
+      });
+
+      const prof = all[STORAGE_KEYS.profile];
+      if (prof) {
+        const p = typeof prof === 'string' ? JSON.parse(prof) : prof;
+        if (p && (p.isLoggedIn || (p.studentId && p.studentId !== 'ـ'))) {
+          hasValidProfile = true;
+          applyManualSession({
+            studentId: p.studentId,
+            fullName: p.fullName || p.studentName,
+            university: 'kntu',
+            isLoggedIn: true,
+          });
+        }
+      }
+
+      if (changed) {
+        notifyStoreChange();
+      }
+      resolve(hasValidProfile);
     });
   });
 }
@@ -144,7 +177,7 @@ export function initExtensionBridge() {
     }
   } catch {}
 
-  // ۲. شنود پیام‌های پست‌شده از طریق contentScript آی‌فریم
+  // ۲. شنود پیام‌های پست‌شده از طریق contentScript آی‌فریم (postMessage)
   window.addEventListener('message', (event) => {
     if (!event.data) return;
 
@@ -178,19 +211,35 @@ export function initExtensionBridge() {
     }
   });
 
-  // ۳. بازیابی داده‌ها از chrome.storage.local در صورت در دسترس بودن
-  if (typeof chrome !== 'undefined' && chrome.storage?.local) {
-    chrome.storage.local.get(null, (all) => {
-      if (chrome.runtime?.lastError || !all) return;
+  // ۳. شنود تغییرات زنده chrome.storage.onChanged برای تب‌های مستقل افزونه
+  if (typeof chrome !== 'undefined' && chrome.storage?.onChanged) {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== 'local') return;
       let changed = false;
-      Object.keys(STORAGE_KEYS).forEach((k) => {
-        const key = STORAGE_KEYS[k];
-        if (all[key] && !localStorage.getItem(key)) {
-          localStorage.setItem(key, typeof all[key] === 'string' ? all[key] : JSON.stringify(all[key]));
+      for (const [key, change] of Object.entries(changes)) {
+        if (key.startsWith('sarvestan_') && change.newValue !== undefined) {
+          const val = typeof change.newValue === 'string' ? change.newValue : JSON.stringify(change.newValue);
+          localStorage.setItem(key, val);
           changed = true;
+          if (key === STORAGE_KEYS.profile) {
+            const p = change.newValue;
+            if (p && (p.isLoggedIn || p.studentId)) {
+              applyManualSession({
+                studentId: p.studentId,
+                fullName: p.fullName || p.studentName,
+                university: 'kntu',
+                isLoggedIn: true,
+              });
+            }
+          }
         }
-      });
-      if (changed) notifyStoreChange();
+      }
+      if (changed) {
+        notifyStoreChange();
+      }
     });
   }
+
+  // ۴. خواندن اولیه از chrome.storage.local
+  syncFromChromeStorage();
 }

@@ -114,8 +114,35 @@ function notify() {
   });
 }
 
-export function notifyStoreChange() {
+export function reloadStoreFromStorage() {
+  cache = {
+    profile: read(KEYS.PROFILE, null),
+    schedule: read(KEYS.SCHEDULE, {}),
+    exams: read(KEYS.EXAMS, {}),
+    transcripts: read(KEYS.TRANSCRIPTS, []),
+    finance: sanitizeFinance(read(KEYS.FINANCE, null)),
+    courses: read(KEYS.COURSES, []),
+    workflows: read(KEYS.WORKFLOWS, []),
+    announcements: read(KEYS.ANNOUNCEMENTS, []),
+    curriculumStats: read(KEYS.CURRICULUM, null),
+    curriculumReport: read(KEYS.CURRICULUM_REPORT, null),
+    syncMeta: read(KEYS.SYNC_META, { lastSyncAt: null, sources: [], status: 'idle' }),
+    localNotes: read(KEYS.LOCAL_NOTES, []),
+    reg77: read(KEYS.REG77, null),
+  };
   notify();
+}
+
+export function notifyStoreChange() {
+  reloadStoreFromStorage();
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key && e.key.startsWith('sarvestan_')) {
+      reloadStoreFromStorage();
+    }
+  });
 }
 
 
