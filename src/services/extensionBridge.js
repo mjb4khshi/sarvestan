@@ -188,11 +188,11 @@ export function initExtensionBridge() {
       const curProfile = JSON.parse(localStorage.getItem(STORAGE_KEYS.profile) || '{}');
       const updated = {
         ...curProfile,
-        fullName: (name && name !== 'دانشجوی میهمان') ? name : (curProfile.fullName || 'دانشجو'),
+        fullName: (name && name !== 'دانشجوی میهمان' && name !== 'دانشجو') ? name : (curProfile.fullName || 'دانشجو'),
         studentId: (std && std !== 'ـ') ? std : (curProfile.studentId || 'ـ'),
-        gpa: params.get('gpa') || curProfile.gpa || 'ـ',
-        totalUnitsPassed: Number(params.get('units')) || curProfile.totalUnitsPassed || 0,
-        standing: params.get('standing') || curProfile.standing || 'ـ',
+        gpa: (params.get('gpa') && params.get('gpa') !== 'ـ') ? params.get('gpa') : (curProfile.gpa || 'ـ'),
+        totalUnitsPassed: (Number(params.get('units')) > 0) ? Number(params.get('units')) : (curProfile.totalUnitsPassed || 0),
+        standing: (params.get('standing') && params.get('standing') !== 'ـ') ? params.get('standing') : (curProfile.standing || 'ـ'),
         photo: params.get('photo') || curProfile.photo || null,
         university: uni || curProfile.university || resolveActiveUniversity(curProfile),
         isLoggedIn: isLoggedIn || curProfile.isLoggedIn || false,
@@ -223,11 +223,25 @@ export function initExtensionBridge() {
       if (payload) {
         try {
           const prev = JSON.parse(localStorage.getItem(STORAGE_KEYS.profile) || '{}');
-          const merged = { ...prev, ...payload, isLoggedIn: true };
+          const merged = {
+            ...prev,
+            ...payload,
+            fullName: (payload.fullName && payload.fullName !== 'دانشجو' && payload.fullName !== 'دانشجوی میهمان')
+              ? payload.fullName
+              : (payload.studentName && payload.studentName !== 'دانشجو' && payload.studentName !== 'دانشجوی میهمان')
+              ? payload.studentName
+              : (prev.fullName || 'دانشجو'),
+            studentId: (payload.studentId && payload.studentId !== 'ـ') ? payload.studentId : (prev.studentId || 'ـ'),
+            gpa: (payload.gpa && payload.gpa !== 'ـ') ? payload.gpa : (prev.gpa || 'ـ'),
+            totalUnitsPassed: (payload.totalUnitsPassed && Number(payload.totalUnitsPassed) > 0) ? payload.totalUnitsPassed : (prev.totalUnitsPassed || 0),
+            standing: (payload.standing && payload.standing !== 'ـ') ? payload.standing : (prev.standing || 'ـ'),
+            photo: payload.photo || prev.photo || null,
+            isLoggedIn: true,
+          };
           localStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(merged));
           applyManualSession({
             studentId: merged.studentId,
-            fullName: merged.fullName || merged.studentName,
+            fullName: merged.fullName,
             university: resolveActiveUniversity(merged),
             isLoggedIn: true,
           });

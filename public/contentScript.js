@@ -370,6 +370,7 @@ function handleInterceptedData(dataType, payload) {
       const updated = { ...currentProfile, ...payload, isLoggedIn: true };
       saveStorage('sarvestan_live_profile', updated);
       forwardToOverlay('INIT_LIVE_BEHESTAN_SESSION', updated);
+      forwardToOverlay('SARVESTAN_DATA_UPDATE', { dataType: 'profile_update', payload: updated });
       break;
     }
     case 'transcripts': {
@@ -475,16 +476,26 @@ function syncStorage(session) {
       ? session.studentId
       : ((existing.studentId && existing.studentId !== 'ـ') ? existing.studentId : 'ـ');
 
+    const finalName = (session.studentName && session.studentName !== 'دانشجو' && session.studentName !== 'دانشجوی میهمان')
+      ? session.studentName
+      : (existing.fullName && existing.fullName !== 'دانشجو' && existing.fullName !== 'دانشجوی میهمان' ? existing.fullName : (session.studentName || existing.fullName || 'دانشجو'));
+
+    const finalGpa = (session.gpa && session.gpa !== 'ـ') ? session.gpa : (existing.gpa || 'ـ');
+    const finalUnits = (session.totalUnitsPassed && Number(session.totalUnitsPassed) > 0)
+      ? session.totalUnitsPassed
+      : (existing.totalUnitsPassed || 0);
+    const finalStanding = (session.standing && session.standing !== 'ـ') ? session.standing : (existing.standing || 'ـ');
+
     const merged = {
-      fullName: session.studentName || existing.fullName || 'دانشجو',
+      fullName: finalName,
       studentId: finalStd,
       faculty: session.faculty || existing.faculty,
       major: session.major || existing.major,
       degree: session.degree || existing.degree,
       term: session.term || existing.term,
-      totalUnitsPassed: session.totalUnitsPassed || existing.totalUnitsPassed || 0,
-      gpa: session.gpa !== 'ـ' ? session.gpa : (existing.gpa || 'ـ'),
-      standing: session.standing !== 'ـ' ? session.standing : (existing.standing || 'ـ'),
+      totalUnitsPassed: finalUnits,
+      gpa: finalGpa,
+      standing: finalStanding,
       photo: session.photo || existing.photo || null,
       university: session.university || existing.university || uni.id,
       universityName: session.universityName || existing.universityName || uni.name,

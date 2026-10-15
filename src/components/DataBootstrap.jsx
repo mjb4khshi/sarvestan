@@ -10,6 +10,7 @@ import { hasLiveData } from '../services/behestan/store';
 import { setSelectedUniversity } from '../services/behestan/session';
 import { getViewModel } from '../data/viewModel';
 import { updateAndroidWidget, isNativeCapacitor } from '../services/androidWidget';
+import { isBehestanOverlay } from '../services/extensionBridge';
 
 /**
  * اگر نشست هست ولی دیتا نیست → همگام‌سازی بزن
@@ -81,8 +82,16 @@ export default function DataBootstrap() {
         return;
       }
       try {
-        if (isSyncing()) resetSyncState();
-        await sync(true);
+        if (isBehestanOverlay()) {
+          try {
+            window.parent.postMessage({ action: 'SARVESTAN_FORCE_SYNC_CMD' }, '*');
+            window.parent.postMessage({ action: 'SARVESTAN_REFRESH_SCHEDULE' }, '*');
+          } catch (_) {}
+          syncingRef.current = false;
+        } else {
+          if (isSyncing()) resetSyncState();
+          await sync(true);
+        }
       } catch {
         syncingRef.current = false;
       }

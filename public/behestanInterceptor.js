@@ -108,6 +108,16 @@
       .trim();
   }
 
+  function cleanCodeKey(code) {
+    if (!code) return '';
+    return String(code)
+      .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+      .replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+      .replace(/_\d+$/, '')
+      .replace(/\D/g, '')
+      .trim();
+  }
+
   // واحد و اساتید دروس از گزارش‌های بهستان (کد درس → واحد و استاد)
   const unitByCode = Object.create(null);
   const professorByCode = Object.create(null);
@@ -116,7 +126,9 @@
   function rememberCourseUnits(courses) {
     if (!Array.isArray(courses)) return;
     for (const c of courses) {
-      if (c && c.code && c.units > 0) unitByCode[String(c.code)] = c.units;
+      if (!c) continue;
+      const k = cleanCodeKey(c.code);
+      if (k && c.units > 0) unitByCode[k] = c.units;
     }
   }
 
@@ -126,7 +138,8 @@
       if (!c) continue;
       const prof = c.professor;
       if (prof && prof !== 'ـ') {
-        if (c.code) professorByCode[String(c.code)] = prof;
+        const k = cleanCodeKey(c.code);
+        if (k) professorByCode[k] = prof;
         if (c.name) professorByName[normalizeCourseName(c.name)] = prof;
       }
     }
@@ -254,7 +267,8 @@
       const group = groupM ? groupM[1] : '';
       const classTime = timeM ? timeM[1].trim() : '';
       const capacity = capM ? capM[1] : '';
-      const units = unitByCode[code] || 0;
+      const kCode = cleanCodeKey(code);
+      const units = unitByCode[kCode] || 0;
 
       let parsedProf = '';
       const profM = (title + ' ' + (textHint || '')).match(
@@ -269,7 +283,7 @@
           parsedProf = normalizeCourseName(drM[0].trim());
         }
       }
-      const resolvedProf = parsedProf || professorByCode[code] || professorByName[courseName] || 'ـ';
+      const resolvedProf = parsedProf || professorByCode[kCode] || professorByName[courseName] || 'ـ';
 
       const hallM = textHint ? textHint.match(/محل\s*[:\-]?\s*(.+?)(?=\s*امتحان|$)/) : null;
       const examM = textHint ? textHint.match(/امتحان\s*[:\-]?\s*([0-9]{4}\/[0-9]{2}\/[0-9]{2})/) : null;
@@ -652,18 +666,29 @@
         if (!formCode && bms.includes('نتيجه ثبت')) formCode = '77';
         if (!formCode && (bms.includes('امتحان') || bms.includes('428'))) formCode = '428';
 
-        // استخراج مشخصات دانشجو از متن هدر گزارش‌های بهستان
+        // استخراج مشخصات دانشجو از ساختار متادیتا (B1/B2) یا متن هدر گزارش‌های بهستان
+        const b1Match = String(outpar.BMt || '').match(/\bB1=["']([^"']+)["']/i);
+        const b2Match = String(outpar.BMt || '').match(/\bB2=["']([^"']+)["']/i);
+        const b4Match = String(outpar.BMt || '').match(/\bB4=["']([^"']+)["']/i);
+        const l1Match = String(outpar.BMt || '').match(/\bL1=["']([^"']+)["']/i);
+
         const allReportText = (bms + ' ' + String(outpar.BMt || '')).replace(/[۰-۹]/g, d => '0123456789'['۰۱۲۳۴۵۶۷۸۹'.indexOf(d)]);
         const bmsStdMatch = allReportText.match(/(?:شماره|کد)\s*(?:دانشجوی[یي]|دانشجو)?\s*[:\-]?\s*(\d{7,10})/i) ||
                             allReportText.match(/\b(40[0-9]{5,8}|9[5-9][0-9]{5,8})\b/);
         const bmsNameMatch = (bms + ' ' + String(outpar.BMt || '')).match(/(?:نام\s*و\s*نام\s*خانوادگی|نام\s*دانشجو)\s*[:\-]?\s*([^\d\n\r:—\-]{3,35})(?=\s*(?:شماره|دانشکده|رشته|دوره|مقطع|$))/i);
-        if (bmsStdMatch || bmsNameMatch) {
-          const sId = bmsStdMatch ? bmsStdMatch[1] : null;
-          const sName = bmsNameMatch ? bmsNameMatch[1].trim() : null;
+
+        const sId = (b1Match && b1Match[1]) || (bmsStdMatch ? bmsStdMatch[1] : null);
+        const sName = (b2Match && cleanHtml(decodeHtmlEntities(b2Match[1]))) || (bmsNameMatch ? bmsNameMatch[1].trim() : null);
+        const sFaculty = (b4Match && cleanHtml(decodeHtmlEntities(b4Match[1]))) || null;
+        const sMajor = (l1Match && cleanHtml(decodeHtmlEntities(l1Match[1]))) || sFaculty;
+
+        if (sId || sName) {
           if (sId && !sessionCache.studentId) sessionCache.studentId = sId;
           sendData('profile_update', {
             ...(sId ? { studentId: sId } : {}),
             ...(sName ? { fullName: sName } : {}),
+            ...(sFaculty ? { faculty: sFaculty } : {}),
+            ...(sMajor ? { major: sMajor } : {}),
             isLoggedIn: true
           });
         }
@@ -691,11 +716,12 @@
             const termId = parsed.termId || termHint || '4051';
             // غنی‌سازی با اساتید و واحدهای شناخته‌شده
             for (const c of parsed.courses) {
+              const k = cleanCodeKey(c.code);
               if (!c.professor || c.professor === 'ـ') {
-                c.professor = professorByCode[c.code] || professorByName[c.name] || 'ـ';
+                c.professor = (k && professorByCode[k]) || professorByName[c.name] || 'ـ';
               }
               if (!c.units || c.units === 0) {
-                c.units = unitByCode[c.code] || 0;
+                c.units = (k && unitByCode[k]) || 0;
               }
             }
             sendData('schedule', { termId, courses: parsed.courses, source: '78' });
@@ -1401,159 +1427,167 @@
       }).then((r) => r.text());
     }
 
+    async function navForm(fid, { cmpId = null, fop = null, ft = '0' } = {}) {
+      const r = { fid: String(fid), ft: String(ft), subfrm: '' };
+      if (cmpId) r.CmpId = cmpId;
+      const rp = {
+        sp: '{"TrmType":"2","BrnNo":"0","BrnLimit":"0","UsrType":"0"}',
+        loc: 'fa',
+        ut: '0',
+        b: '0',
+        sid: sid,
+      };
+      if (fop) rp.fop = fop;
+      try {
+        const txt = await postJson(`${window.location.origin}/frm/sys/sys.svc/`, { r, act: 'nav', rp, t });
+        return JSON.parse(txt);
+      } catch (e) {
+        return null;
+      }
+    }
+
     async function runQueue() {
       try {
         const apiOrigin = window.location.origin || 'https://behestan.kntu.ac.ir';
+        const isAutOrSbu = window.location.hostname.includes('aut.ac.ir') || window.location.hostname.includes('sbu.ac.ir');
 
-        // ۰) برنامه هفتگی و ثبت‌نام را اول بیاور تا ماژول برنامه و مشخصات سریع پر شود
-        const viewJobsEarly = [
-          { f: '88', term: '4051' },
+        // ۱. فعال‌سازی نشست میزکار بهستان (فرم ۱۱۱۳۰)
+        await navForm('11130');
+        await delay(250);
+
+        // ۲. گزارش‌های ViewReport با توالی مرورگر:
+        // ۸۸ (تأییدیه ثبت‌نام برای شناسایی ترم، مشخصات دانشجو B1/B2 و اساتید)
+        // ۷۷ (نتیجه ثبت‌نام برای اسامی قطعی اساتید و واحدها)
+        // ۷۸ (برنامه هفتگی برای ساعات و روزهای کلاس)
+        // ۴۲۸ (برنامه امتحانات)
+        const viewReports = [
+          { f: '88', term: null },
+          { f: '77', term: '4051' },
           { f: '78', term: '4051' },
           { f: '428', term: '4051' },
           { f: '78', term: '4042' },
-          { f: '78', term: '4041' },
-          { f: '88', term: '4042' }
+          { f: '88', term: '4042' },
+          { f: '77', term: '4042' },
+          { f: '428', term: '4042' },
         ];
-        let seq0 = 800000005;
-        for (const job of viewJobsEarly) {
+
+        let seqNum = 800000010;
+        for (const job of viewReports) {
           if (userLoggedOut || isManualLogoutLocked()) return;
           await delay(350);
-          const bmv = job.term ? '<Root><N id="4" ft="7" fs="0" M="' + job.term + '" F="' + job.term + '"/></Root>' : '<Root/>';
-          const reqBody = {
-            rp: {
-              ft: '1',
-              f: job.f,
-              seq: String(seq0++),
-              subfrm: '0',
-              sid: sid,
-              ct: '',
-              sp: '{"UsrType":"0","TrmType":"2"}',
-              ut: '0'
-            },
-            t: t,
-            r: { Ra3: '0', BMu: '<Root/>', BMv: bmv, AFek: '1' },
-            act: '08',
-            MaxHlp: 200
-          };
+
           try {
-            const txt = await postJson(
-              `${apiOrigin}/frm/BAS0237_CMP_ViewReport/BAS0237_CMP_ViewReport.svc/`,
-              reqBody
-            );
+            await navForm(job.f, { ft: '1' });
+            if (isAutOrSbu) {
+              await postJson(`${apiOrigin}/frm/BAS0203_CMP_REP_MultiFilter/BAS0203_CMP_REP_MultiFilter.svc/`, {
+                rp: { ft: '1', f: String(job.f), seq: String(seqNum++), subfrm: '0', sid, ct: '', sp: '{"UsrType":"0","TrmType":"2"}', ut: '0', c: '110001' },
+                t, r: { AFZ6: '0' }, act: '00', MaxHlp: 200
+              }).catch(() => {});
+              await postJson(`${apiOrigin}/frm/BAS0203_CMP_Sort_REP_FILTER2/BAS0203_CMP_Sort_REP_FILTER2.svc/`, {
+                rp: { ft: '1', f: String(job.f), seq: String(seqNum++), subfrm: '0', sid, ct: '', sp: '{"UsrType":"0","TrmType":"2"}', ut: '0', c: '110067' },
+                t, r: {}, act: '08', MaxHlp: 200
+              }).catch(() => {});
+            }
+
+            const bmv = job.term ? '<Root><N id="4" ft="7" fs="0" M="' + job.term + '" F="' + job.term + '"/></Root>' : '<Root/>';
+            const reqBody = {
+              rp: {
+                ft: '1',
+                f: job.f,
+                seq: String(seqNum++),
+                subfrm: '0',
+                sid,
+                ct: '',
+                sp: '{"UsrType":"0","TrmType":"2"}',
+                ut: '0',
+                c: 110015
+              },
+              t,
+              r: { Ra3: '0', BMu: '<Root/>', BMv: bmv, AFek: '1' },
+              act: '08',
+              MaxHlp: 200
+            };
+            const txt = await postJson(`${apiOrigin}/frm/BAS0237_CMP_ViewReport/BAS0237_CMP_ViewReport.svc/`, reqBody);
             processResponseData('BAS0237_CMP_ViewReport', txt, JSON.stringify(reqBody));
           } catch (err) {
-            console.warn('[Sarvestan] early job fail', job.f, job.term, err);
+            console.warn('[Sarvestan] ViewReport fail', job.f, err);
           }
         }
 
-        const activeStd = effectiveStd || sessionCache.studentId || getStudentId();
+        // ۳. فرم‌های جامع دانشجو، کارنامه، نمرات و مشخصات
+        const activeStd = sessionCache.studentId || effectiveStd || getStudentId();
         if (activeStd) {
-          // ۱) جامع دانشجو — مثل فرم ۱۱۱۴۷
-          await delay(300);
+          // الف) جامع دانشجو (F1825: کارنامه، معدل، نمرات و مالی) با توالی کامل مرورگر
+          await delay(350);
           try {
-            const txt1 = await postJson(
-              `${apiOrigin}/frm/F1825_PROCESS_STDTOTALINFOTrmStat_BEH/F1825_PROCESS_STDTOTALINFOTrmStat_BEH.svc/`,
-              {
-                r: { AUWo: activeStd },
-                act: '20',
-                rp: { ...RP_BASE, f: '11147', seq: '800000001' },
-                t: t
-              }
-            );
+            await navForm('11147');
+            await postJson(`${apiOrigin}/frm/F1825_PROCESS_STDTOTALINFO_BEH/F1825_PROCESS_STDTOTALINFO_BEH.svc/`, {
+              r: { ATxW: activeStd },
+              act: 'RR',
+              rp: { ...RP_BASE, seq: String(seqNum++), c: '110379' },
+              t
+            }).catch(() => {});
+
+            const txt1 = await postJson(`${apiOrigin}/frm/F1825_PROCESS_STDTOTALINFOTrmStat_BEH/F1825_PROCESS_STDTOTALINFOTrmStat_BEH.svc/`, {
+              r: { AUWo: activeStd },
+              act: '20',
+              rp: { ...RP_BASE, seq: String(seqNum++), c: '110381' },
+              t
+            });
             processResponseData('STDTOTALINFOTrmStat', txt1);
           } catch (err) {
             console.warn('[Sarvestan] F1825 fail', err);
           }
 
-          // ۲) عکس پرسنلی
-          await delay(400);
+          // ب) عکس پرسنلی (F1809)
+          await delay(350);
           try {
-            const txt2 = await postJson(
-              `${apiOrigin}/frm/F1809_PROCESS_STD_Personally_BH/F1809_PROCESS_STD_Personally_BH.svc/`,
-              {
-                r: { AUWs: activeStd },
-                act: '08',
-                rp: { ...RP_BASE, f: '11147', seq: '800000002' },
-                t: t
-              }
-            );
+            await navForm('11141');
+            const txt2 = await postJson(`${apiOrigin}/frm/F1809_PROCESS_STD_Personally_BH/F1809_PROCESS_STD_Personally_BH.svc/`, {
+              r: { AUWs: activeStd },
+              act: '08',
+              rp: { ...RP_BASE, f: '11141', seq: String(seqNum++), c: '110383' },
+              t
+            });
             processResponseData('STD_Personally', txt2);
           } catch (err) {
             console.warn('[Sarvestan] F1809 fail', err);
           }
 
-          // ۳) خلاصه وضعیت دروس (F1814)
-          await delay(400);
+          // ج) خلاصه وضعیت دروس و چارت (F1814)
+          await delay(350);
           try {
-            const txt3 = await postJson(
-              `${apiOrigin}/frm/F1814_PROCESS_STDAllCrs/F1814_PROCESS_STDAllCrs.svc/`,
-              {
-                r: { AUWo: activeStd, BrnNo: '0', CurStatus: '1' },
-                act: '08',
-                rp: { ...RP_BASE, f: '11126', seq: '800000003' },
-                t: t
-              }
-            );
+            await navForm('11126');
+            const txt3 = await postJson(`${apiOrigin}/frm/F1814_PROCESS_STDAllCrs/F1814_PROCESS_STDAllCrs.svc/`, {
+              r: { AUWo: activeStd, BrnNo: '0', CurStatus: '1' },
+              act: '08',
+              rp: { ...RP_BASE, f: '11126', seq: String(seqNum++) },
+              t
+            });
             processResponseData('F1814_PROCESS_STDAllCrs', txt3);
           } catch (err) {
             console.warn('[Sarvestan] F1814 fail', err);
           }
         }
 
-
-        // ۵) گزارش‌های ViewReport — اولویت با گزارش‌های دارای اسامی قطعی اساتید (۷۷، ۴۲۸، ۸۸) سپس برنامه هفتگی ۷۸
-        const viewJobs = [
-          { f: '77', term: '4051' },
-          { f: '428', term: '4051' },
-          { f: '88', term: '4051' },
-          { f: '78', term: '4051' },
-          { f: '78', term: '4042' },
-          { f: '428', term: '4042' }
-        ];
-        let seq = 800000010;
-        for (const job of viewJobs) {
-          if (userLoggedOut || isManualLogoutLocked()) {
-            console.log('[Sarvestan] queue aborted — session ended');
-            return;
-          }
-          await delay(700);
-          const bmv = job.term
-            ? '<Root><N id="4" ft="7" fs="0" M="' + job.term + '" F="' + job.term + '"/></Root>'
-            : '<Root/>';
-          const reqBody = {
-            rp: {
-              ft: '1',
-              f: job.f,
-              seq: String(seq++),
-              subfrm: '0',
-              sid: sid,
-              ct: '',
-              sp: '{"UsrType":"0","TrmType":"2"}',
-              ut: '0'
-            },
-            t: t,
-            r: {
-              Ra3: '0',
-              BMu: '<Root/>',
-              BMv: bmv,
-              AFek: '1'
-            },
-            act: '08',
-            MaxHlp: 200
-          };
+        // ۴. پیشخوان خدمت و نامه‌ها (F6524)
+        if (userId) {
+          await delay(300);
           try {
-            const txt = await postJson(
-              `${apiOrigin}/frm/BAS0237_CMP_ViewReport/BAS0237_CMP_ViewReport.svc/`,
-              reqBody
-            );
-            processResponseData('BAS0237_CMP_ViewReport', txt, JSON.stringify(reqBody));
+            const txtWf = await postJson(`${apiOrigin}/frm/F6524_PROCESS_DASHBOARD_BEH/F6524_PROCESS_DASHBOARD_BEH.svc/`, {
+              r: { AVsa: userId, AVsl: '1', AVsm: '0', AW4r: '5', AW4s: '', AvD9: '', AxI9: '{}' },
+              act: '24',
+              rp: { ...RP_BASE, f: '21122', seq: String(seqNum++) },
+              t
+            });
+            processResponseData('DASHBOARD_BEH', txtWf);
           } catch (err) {
-            console.warn('[Sarvestan] ViewReport job fail', job.f, job.term, err);
+            console.warn('[Sarvestan] F6524 fail', err);
           }
         }
-        console.log('[Sarvestan] paced proactive sync finished');
+        console.log('[Sarvestan] clean proactive sync finished successfully');
       } catch (err) {
-        console.warn('[Sarvestan] paced sync error', err);
+        console.warn('[Sarvestan] sync error', err);
       }
     }
 
