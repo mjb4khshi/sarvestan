@@ -181,7 +181,7 @@ export const UNIVERSITIES = [
     origin: 'https://golestan.iust.ac.ir',
     authMethod: 'direct_captcha',
     logo: '/iust-logo.png',
-    systemName: 'سامانه گلستان (غیرفعال)',
+    systemName: 'سامانه گلستان (به‌زودی)',
     disabled: true,
   },
 ];

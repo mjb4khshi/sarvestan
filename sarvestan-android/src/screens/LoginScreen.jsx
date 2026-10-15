@@ -632,8 +632,8 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
                             {uni.name}
                           </p>
                           {isDisabled && (
-                            <span className="text-[9.5px] font-normal px-1.5 py-0.2 rounded bg-neutral/15 text-neutral">
-                              غیرفعال
+                            <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                              به‌زودی
                             </span>
                           )}
                         </div>
