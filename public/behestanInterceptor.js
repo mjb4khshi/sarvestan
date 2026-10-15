@@ -648,8 +648,25 @@
         }
         // تشخیص از متن سربرگ گزارش
         if (!formCode && bms.includes('برنامه هفتگي')) formCode = '78';
-        if (!formCode && bms.includes('ثبت‌نام') && bms.includes('88')) formCode = '88';
+        if (!formCode && (bms.includes('ثبت‌نام') || bms.includes('88') || bms.includes('تأييديه ثبت'))) formCode = '88';
         if (!formCode && bms.includes('نتيجه ثبت')) formCode = '77';
+        if (!formCode && (bms.includes('امتحان') || bms.includes('428'))) formCode = '428';
+
+        // استخراج مشخصات دانشجو از متن هدر گزارش‌های بهستان
+        const allReportText = (bms + ' ' + String(outpar.BMt || '')).replace(/[۰-۹]/g, d => '0123456789'['۰۱۲۳۴۵۶۷۸۹'.indexOf(d)]);
+        const bmsStdMatch = allReportText.match(/(?:شماره|کد)\s*(?:دانشجوی[یي]|دانشجو)?\s*[:\-]?\s*(\d{7,10})/i) ||
+                            allReportText.match(/\b(40[0-9]{5,8}|9[5-9][0-9]{5,8})\b/);
+        const bmsNameMatch = (bms + ' ' + String(outpar.BMt || '')).match(/(?:نام\s*و\s*نام\s*خانوادگی|نام\s*دانشجو)\s*[:\-]?\s*([^\d\n\r:—\-]{3,35})(?=\s*(?:شماره|دانشکده|رشته|دوره|مقطع|$))/i);
+        if (bmsStdMatch || bmsNameMatch) {
+          const sId = bmsStdMatch ? bmsStdMatch[1] : null;
+          const sName = bmsNameMatch ? bmsNameMatch[1].trim() : null;
+          if (sId && !sessionCache.studentId) sessionCache.studentId = sId;
+          sendData('profile_update', {
+            ...(sId ? { studentId: sId } : {}),
+            ...(sName ? { fullName: sName } : {}),
+            isLoggedIn: true
+          });
+        }
 
         let termHint = '';
         try {
@@ -1356,22 +1373,9 @@
       sendData('profile_update', { studentId: info.studentId, fullName: info.studentName, isLoggedIn: true });
     }
 
-    if (!studentId && !info.studentId && !sessionCache.studentId) {
-      if (now - skipLogAt > 5000) {
-        skipLogAt = now;
-        console.log('[Sarvestan] proactive sync waiting for student ID...', {
-          hasSid: !!sid,
-          hasTicket: !!t,
-          hasStudentId: !!studentId,
-          hasUserId: !!userId
-        });
-      }
-      return;
-    }
-
     const effectiveStd = studentId || info.studentId || sessionCache.studentId;
     hasSynced = true;
-    console.log('[Sarvestan] Starting paced proactive sync for student:', effectiveStd);
+    console.log('[Sarvestan] Starting paced proactive sync, student:', effectiveStd || '(detecting from reports)');
 
     // ── صف سریالی با تأخیر — مثل UI اصلی بهستان، همزمان نه ──
     const RP_BASE = {
@@ -1399,17 +1403,22 @@
 
     async function runQueue() {
       try {
-        // ۰) برنامه هفتگی را اول بیاور تا ماژول برنامه سریع پر شود
+        const apiOrigin = window.location.origin || 'https://behestan.kntu.ac.ir';
+
+        // ۰) برنامه هفتگی و ثبت‌نام را اول بیاور تا ماژول برنامه و مشخصات سریع پر شود
         const viewJobsEarly = [
+          { f: '88', term: '4051' },
+          { f: '78', term: '4051' },
+          { f: '428', term: '4051' },
           { f: '78', term: '4042' },
           { f: '78', term: '4041' },
-          { f: '78', term: '4051' }
+          { f: '88', term: '4042' }
         ];
         let seq0 = 800000005;
         for (const job of viewJobsEarly) {
           if (userLoggedOut || isManualLogoutLocked()) return;
           await delay(350);
-          const bmv = '<Root><N id="4" ft="7" fs="0" M="' + job.term + '" F="' + job.term + '"/></Root>';
+          const bmv = job.term ? '<Root><N id="4" ft="7" fs="0" M="' + job.term + '" F="' + job.term + '"/></Root>' : '<Root/>';
           const reqBody = {
             rp: {
               ft: '1',
@@ -1426,7 +1435,6 @@
             act: '08',
             MaxHlp: 200
           };
-          const apiOrigin = window.location.origin || 'https://behestan.kntu.ac.ir';
           try {
             const txt = await postJson(
               `${apiOrigin}/frm/BAS0237_CMP_ViewReport/BAS0237_CMP_ViewReport.svc/`,
@@ -1434,87 +1442,64 @@
             );
             processResponseData('BAS0237_CMP_ViewReport', txt, JSON.stringify(reqBody));
           } catch (err) {
-            console.warn('[Sarvestan] early 78 fail', job.term, err);
+            console.warn('[Sarvestan] early job fail', job.f, job.term, err);
           }
         }
 
-        // ۱) جامع دانشجو — مثل فرم ۱۱۱۴۷
-        await delay(300);
-        const txt1 = await postJson(
-          `${apiOrigin}/frm/F1825_PROCESS_STDTOTALINFOTrmStat_BEH/F1825_PROCESS_STDTOTALINFOTrmStat_BEH.svc/`,
-          {
-            r: { AUWo: studentId },
-            act: '20',
-            rp: { ...RP_BASE, f: '11147', seq: '800000001' },
-            t: t
+        const activeStd = effectiveStd || sessionCache.studentId || getStudentId();
+        if (activeStd) {
+          // ۱) جامع دانشجو — مثل فرم ۱۱۱۴۷
+          await delay(300);
+          try {
+            const txt1 = await postJson(
+              `${apiOrigin}/frm/F1825_PROCESS_STDTOTALINFOTrmStat_BEH/F1825_PROCESS_STDTOTALINFOTrmStat_BEH.svc/`,
+              {
+                r: { AUWo: activeStd },
+                act: '20',
+                rp: { ...RP_BASE, f: '11147', seq: '800000001' },
+                t: t
+              }
+            );
+            processResponseData('STDTOTALINFOTrmStat', txt1);
+          } catch (err) {
+            console.warn('[Sarvestan] F1825 fail', err);
           }
-        );
-        processResponseData('STDTOTALINFOTrmStat', txt1);
 
-        // ۲) عکس پرسنلی
-        await delay(500);
-        const txt2 = await postJson(
-          `${apiOrigin}/frm/F1809_PROCESS_STD_Personally_BH/F1809_PROCESS_STD_Personally_BH.svc/`,
-          {
-            r: { AUWs: studentId },
-            act: '08',
-            rp: { ...RP_BASE, f: '11141', seq: '800000002' },
-            t: t
-          }
-        );
-        processResponseData('STD_Personally', txt2);
-
-        // ۳) گردش‌کار
-        if (userId) {
+          // ۲) عکس پرسنلی
           await delay(400);
-          const txt3 = await postJson(
-            `${apiOrigin}/frm/F6524_PROCESS_DASHBOARD_BEH/F6524_PROCESS_DASHBOARD_BEH.svc/`,
-            {
-              r: { AVsa: userId, AVsl: '1', AVsm: '0', AW4r: '5', AW4s: '', AvD9: '', AxI9: '{}' },
-              act: '24',
-              rp: { ...RP_BASE, f: '21122', seq: '800000003' },
-              t: t
-            }
-          );
-          processResponseData('DASHBOARD_BEH', txt3);
+          try {
+            const txt2 = await postJson(
+              `${apiOrigin}/frm/F1809_PROCESS_STD_Personally_BH/F1809_PROCESS_STD_Personally_BH.svc/`,
+              {
+                r: { AUWs: activeStd },
+                act: '08',
+                rp: { ...RP_BASE, f: '11147', seq: '800000002' },
+                t: t
+              }
+            );
+            processResponseData('STD_Personally', txt2);
+          } catch (err) {
+            console.warn('[Sarvestan] F1809 fail', err);
+          }
+
+          // ۳) خلاصه وضعیت دروس (F1814)
+          await delay(400);
+          try {
+            const txt3 = await postJson(
+              `${apiOrigin}/frm/F1814_PROCESS_STDAllCrs/F1814_PROCESS_STDAllCrs.svc/`,
+              {
+                r: { AUWo: activeStd, BrnNo: '0', CurStatus: '1' },
+                act: '08',
+                rp: { ...RP_BASE, f: '11126', seq: '800000003' },
+                t: t
+              }
+            );
+            processResponseData('F1814_PROCESS_STDAllCrs', txt3);
+          } catch (err) {
+            console.warn('[Sarvestan] F1814 fail', err);
+          }
         }
 
-        // ۴) وضعیت دروس F1814 — دو مرحله با فاصله
-        await delay(400);
-        const f1814a = {
-          rp: { ...RP_BASE, f: '11126', seq: '800000004' },
-          t: t,
-          r: {},
-          act: '00',
-          MaxHlp: 200
-        };
-        const txt4 = await postJson(
-          `${apiOrigin}/frm/F1814_PROCESS_STDAllCrs/F1814_PROCESS_STDAllCrs.svc/`,
-          f1814a
-        );
-        let ahug = studentId;
-        try {
-          const j = JSON.parse(txt4);
-          ahug = (j.outpar && j.outpar.AHug) || ahug;
-        } catch (_) {}
-        await delay(400);
-        const f1814b = {
-          rp: f1814a.rp,
-          t: t,
-          r: {
-            AHug: ahug,
-            AHug_xml: ahug
-              ? '<row _LMustCI="1" _LkId="' + ahug + '" ID="' + ahug + '" ID_desc="" ID_tip="' + ahug + '"></row>'
-              : ''
-          },
-          act: '08',
-          MaxHlp: 200
-        };
-        const txt5 = await postJson(
-          `${apiOrigin}/frm/F1814_PROCESS_STDAllCrs/F1814_PROCESS_STDAllCrs.svc/`,
-          f1814b
-        );
-        processResponseData('F1814_PROCESS_STDAllCrs', txt5);
 
         // ۵) گزارش‌های ViewReport — اولویت با گزارش‌های دارای اسامی قطعی اساتید (۷۷، ۴۲۸، ۸۸) سپس برنامه هفتگی ۷۸
         const viewJobs = [

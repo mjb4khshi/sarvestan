@@ -69,6 +69,14 @@ export function subscribeLogin(cb) {
 
 /** نمایش مودال — وقتی وارد نیستیم */
 export function openLoginModal() {
+  if (typeof window !== 'undefined') {
+    try {
+      const isOverlay = window.self !== window.top || new URLSearchParams(window.location.search).get('mode') === 'overlay';
+      if (isOverlay) {
+        return;
+      }
+    } catch {}
+  }
   if (snapshot.show && snapshot.busy) return;
   const saved = loadSavedCreds();
   snapshot = {

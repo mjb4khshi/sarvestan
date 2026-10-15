@@ -32,7 +32,7 @@ import UpdateModal from './components/UpdateModal';
 import BatBackground from './components/BatBackground';
 import { checkForUpdate, hasDismissedUpdate, dismissUpdate } from './services/updater';
 import { isBatNotifEnabled, scheduleBatNightNotification, initBatWebTimer } from './services/batMode';
-import { initExtensionBridge } from './services/extensionBridge';
+import { initExtensionBridge, isBehestanOverlay } from './services/extensionBridge';
 
 const TITLES = {
   schedule: 'برنامه هفتگی',
@@ -468,13 +468,14 @@ function LoginGate() {
 
   useEffect(() => {
     try {
+      if (isBehestanOverlay()) return;
       if (!isLoginModalOpen() && !isSessionAlive() && !hasLiveData()) {
         openLoginModal();
       }
     } catch {}
   }, []);
 
-  if (!isLoginModalOpen()) return null;
+  if (isBehestanOverlay() || !isLoginModalOpen()) return null;
 
   return (
     <LoginScreen

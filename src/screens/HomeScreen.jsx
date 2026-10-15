@@ -20,6 +20,7 @@ import { useSarvestanData } from '../hooks/useSarvestanData';
 import { openLoginModal } from '../services/loginFlow';
 import { toFaDigits } from '../utils/faDigits';
 import { getSelectedUniversity } from '../services/behestan/session';
+import { isBehestanOverlay } from '../services/extensionBridge';
 import OdometerNumber from '../components/OdometerNumber';
 import StudyHeatmap from '../components/StudyHeatmap';
 import DashboardCalendar from '../components/DashboardCalendar';
@@ -52,11 +53,22 @@ export default function HomeScreen({ onNavigate }) {
     window.addEventListener('sarvDashboardWidgetsUpdated', handleUpdate);
     return () => window.removeEventListener('sarvDashboardWidgetsUpdated', handleUpdate);
   }, []);
-  const { live, isSessionAlive, syncing, sync, session } = useSarvestanData();
+  const { data, live, isSessionAlive, syncing, sync, session } = useSarvestanData();
   const isUt = (session?.university || getSelectedUniversity()) === 'ut';
   const vm = getViewModel();
   const STUDENT = vm.student;
   const SUMMARY = vm.summary;
+  const displayName = STUDENT.fullName || session?.studentName || data?.profile?.fullName || (isSessionAlive ? 'دانشجو' : '');
+
+  const handleSyncClick = () => {
+    if (isBehestanOverlay()) {
+      try {
+        window.parent.postMessage({ action: 'SARVESTAN_FORCE_SYNC_CMD' }, '*');
+        window.parent.postMessage({ action: 'SARVESTAN_REFRESH_SCHEDULE' }, '*');
+      } catch (_) {}
+    }
+    sync(true);
+  };
   const TODAY_CLASSES = vm.todayClasses;
   const WEEK = vm.week;
   const ANNOUNCEMENTS = vm.announcements;
@@ -120,9 +132,9 @@ export default function HomeScreen({ onNavigate }) {
                   {/* مشخصات: نام هم‌تراز با بالای تصویر و بج‌ها هم‌تراز با پایین تصویر */}
                   <div className="flex-1 min-w-0 text-right flex flex-col justify-between py-0.5">
                     <div>
-                      {STUDENT.fullName ? (
+                      {displayName ? (
                         <h2 className="text-[17px] font-black text-base-content leading-snug truncate">
-                          {STUDENT.fullName}
+                          {displayName}
                         </h2>
                       ) : syncing ? (
                         <div className="flex items-center gap-2 text-primary font-bold text-[13.5px]">
@@ -138,7 +150,7 @@ export default function HomeScreen({ onNavigate }) {
                             {isSessionAlive ? (
                               <button
                                 type="button"
-                                onClick={() => sync(true)}
+                                onClick={handleSyncClick}
                                 disabled={syncing}
                                 className="btn btn-primary !py-1 !px-2.5 text-[11px] font-bold shadow-sm inline-flex items-center gap-1"
                               >
@@ -146,14 +158,16 @@ export default function HomeScreen({ onNavigate }) {
                                 {syncing ? 'در حال دریافت…' : 'دریافت اطلاعات زنده'}
                               </button>
                             ) : null}
-                            <button
-                              type="button"
-                              onClick={() => openLoginModal()}
-                              className={`btn ${isSessionAlive ? 'btn-ghost' : 'btn-primary'} !py-1 !px-2.5 text-[11px] font-bold shadow-sm inline-flex items-center gap-1`}
-                            >
-                              <LogIn className="w-3 h-3" />
-                              {isSessionAlive ? 'ورود مجدد / تغییر دانشگاه' : 'ورود به بهستان'}
-                            </button>
+                            {!isBehestanOverlay() && (
+                              <button
+                                type="button"
+                                onClick={() => openLoginModal()}
+                                className={`btn ${isSessionAlive ? 'btn-ghost' : 'btn-primary'} !py-1 !px-2.5 text-[11px] font-bold shadow-sm inline-flex items-center gap-1`}
+                              >
+                                <LogIn className="w-3 h-3" />
+                                {isSessionAlive ? 'ورود مجدد / تغییر دانشگاه' : 'ورود به بهستان'}
+                              </button>
+                            )}
                           </div>
                         </div>
                       )}
@@ -221,9 +235,9 @@ export default function HomeScreen({ onNavigate }) {
                     />
                   </div>
 
-                  {STUDENT.fullName ? (
+                  {displayName ? (
                     <h2 className="text-[19px] font-black text-base-content mt-3 leading-tight">
-                      {STUDENT.fullName}
+                      {displayName}
                     </h2>
                   ) : syncing ? (
                     <h2 className="text-[17px] font-black text-primary mt-3 leading-tight flex items-center justify-center gap-1.5">
@@ -236,14 +250,27 @@ export default function HomeScreen({ onNavigate }) {
                         {isSessionAlive ? 'نشست ثبت شده — در انتظار بارگذاری' : 'عدم اتصال به بهستان'}
                       </h2>
                       <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                        <button
-                          type="button"
-                          onClick={() => openLoginModal()}
-                          className="btn btn-primary !py-1 !px-2.5 text-[11px] font-bold shadow-sm inline-flex items-center gap-1"
-                        >
-                          <LogIn className="w-3 h-3" />
-                          ورود به بهستان
-                        </button>
+                        {isSessionAlive ? (
+                          <button
+                            type="button"
+                            onClick={handleSyncClick}
+                            disabled={syncing}
+                            className="btn btn-primary !py-1 !px-2.5 text-[11px] font-bold shadow-sm inline-flex items-center gap-1"
+                          >
+                            <Sparkles className="w-3 h-3" />
+                            {syncing ? 'در حال دریافت…' : 'دریافت اطلاعات زنده'}
+                          </button>
+                        ) : null}
+                        {!isBehestanOverlay() && (
+                          <button
+                            type="button"
+                            onClick={() => openLoginModal()}
+                            className="btn btn-primary !py-1 !px-2.5 text-[11px] font-bold shadow-sm inline-flex items-center gap-1"
+                          >
+                            <LogIn className="w-3 h-3" />
+                            ورود به بهستان
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}

@@ -7,6 +7,7 @@ import { applyManualSession, getSelectedUniversity, getUniversityOrigin } from '
 
 const STORAGE_KEYS = {
   profile: 'sarvestan_live_profile',
+  profile_update: 'sarvestan_live_profile',
   schedule: 'sarvestan_live_schedule',
   exams: 'sarvestan_live_exams',
   transcripts: 'sarvestan_live_transcripts',
@@ -240,7 +241,20 @@ export function initExtensionBridge() {
       if (dataType && payload) {
         const key = STORAGE_KEYS[dataType] || `sarvestan_live_${dataType}`;
         try {
-          localStorage.setItem(key, JSON.stringify(payload));
+          if (dataType === 'profile_update' || dataType === 'profile') {
+            const prev = JSON.parse(localStorage.getItem(STORAGE_KEYS.profile) || '{}');
+            const merged = { ...prev, ...payload };
+            if (payload.fullName || payload.studentId) merged.isLoggedIn = true;
+            localStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(merged));
+            applyManualSession({
+              studentId: merged.studentId,
+              fullName: merged.fullName || merged.studentName,
+              university: resolveActiveUniversity(merged),
+              isLoggedIn: true,
+            });
+          } else {
+            localStorage.setItem(key, JSON.stringify(payload));
+          }
           notifyStoreChange();
         } catch {}
       }

@@ -583,12 +583,29 @@ function toggleSarvestanOverlay() {
   }
 }
 
-// بستن لایه با پیام از داخل آی‌فریم
+// بستن لایه و مدیریت پیام‌های ارسالی از داخل آی‌فریم
 window.addEventListener('message', (event) => {
-  if (event.data && event.data.action === 'CLOSE_SARVESTAN_OVERLAY') {
+  if (!event.data) return;
+  if (event.data.action === 'CLOSE_SARVESTAN_OVERLAY') {
     if (sarvestanOverlayIframe) {
       sarvestanOverlayIframe.style.display = 'none';
     }
+    return;
+  }
+  if (event.data.action === 'SARVESTAN_FORCE_SYNC_CMD' || event.data.action === 'SARVESTAN_REFRESH_SCHEDULE') {
+    try {
+      window.postMessage({ action: event.data.action, source: 'sarvestan-overlay' }, '*');
+    } catch (_) {}
+    try {
+      const session = scanBehestanDOM();
+      forwardAllCachedDataToOverlay(session);
+    } catch (_) {}
+    return;
+  }
+  if (event.data.action === 'OPEN_BEHESTAN_FORM') {
+    const fid = event.data.fid || event.data.code;
+    openBehestanForm(fid);
+    return;
   }
 });
 
