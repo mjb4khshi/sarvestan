@@ -5,7 +5,8 @@ node_modules/
 dist/
 *.apk
 *.aab
-!/sarvestan.apk
+scratch/
+**/scratch/
 
 # Private / sensitive HAR files, student datasets, and personal dumps — NEVER commit
 *.har

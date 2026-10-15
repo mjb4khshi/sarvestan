@@ -5,9 +5,32 @@ import { toFaDigits, toPersianCourseName } from '../utils/faDigits.js';
 import { formatRoomTag } from '../utils/roomUtils.js';
 import { getScheduleMatrix, getViewModel, getToneForCourse } from '../data/viewModel.js';
 import { computeTopologicalStages, normName } from './curriculumEngine.js';
-import { getUniversityName, getUniversityShortName } from './behestan/session.js';
+import { getUniversityName, getUniversityShortName, getSelectedUniversity } from './behestan/session.js';
+import { getCurrentTermSchedule } from './behestan/store.js';
+import { isBatModeActive } from './batMode.js';
 
 const DAYS = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه'];
+
+function parseTimeMinutes(str) {
+  const s = String(str || '')
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+  const m = s.match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
+  if (m) {
+    const t1 = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+    const t2 = parseInt(m[3], 10) * 60 + parseInt(m[4], 10);
+    return {
+      start: Math.min(t1, t2),
+      end: Math.max(t1, t2),
+    };
+  }
+  const single = s.match(/(\d{1,2}):(\d{2})/);
+  if (single) {
+    const t = parseInt(single[1], 10) * 60 + parseInt(single[2], 10);
+    return { start: t, end: t + 90 };
+  }
+  return null;
+}
 
 function hexToRgba(hex, a = 1) {
   let h = String(hex || '').replace('#', '').trim();
@@ -134,6 +157,74 @@ export function drawSarvLogo(ctx, cx, cy, size, color = '#ffffff') {
   ctx.restore();
 }
 
+/**
+ * رسم لوگوی اختصاصی شوالیه تاریکی (بیضی طلایی + خفاش بتمن)
+ */
+export function drawBatmanLogo(ctx, cx, cy, width, height) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  const origW = 122.13;
+  const origH = 69.89;
+  const scale = Math.min(width / origW, height / origH);
+  ctx.scale(scale, scale);
+  ctx.translate(-origW / 2, -origH / 2);
+
+  // ۱. بیضی زرین پس‌زمینه
+  const p1 = new Path2D('M121.06,35c0,18.71-26.86,33.88-60,33.88S1.06,53.66,1.06,35s26.87-33.89,60-33.89,60,15.17,60,33.89Z');
+  ctx.fillStyle = '#f7dd30';
+  ctx.fill(p1);
+
+  // ۲. خفاش مشکی مرکزی و لبه پیرامونی
+  const p2 = new Path2D('M51.72,24.46c-14.49,5.37-21.86-8-14.49-15.74-11.75,3-30.86,11.49-30.86,25.63,0,12.83,12.49,20.09,21.49,23.22-8.68-10.74,3.25-19.16,13.7-7.41C49.69,35.73,59.28,56.44,61,59.58h0c1.71-3.14,11.31-23.85,19.44-9.42,10.45-11.75,22.38-3.33,13.7,7.41,9-3.13,21.49-10.39,21.49-23.22,0-14.14-19.11-22.63-30.86-25.63,7.37,7.74,0,21.11-14.49,15.74-1.67-2-2.75-6.11-2.75-18.24-1.94,1.26-3.33,5.71-3.45,6a12,12,0,0,0-6.15,0c-.12-.32-1.51-4.77-3.45-6,0,12.13-1.08,16.25-2.75,18.24ZM122.13,35c0,9.76-6.93,18.56-18.12,24.88-11,6.22-26.2,10.06-42.95,10.06S29.13,66.05,18.12,59.83C6.92,53.51,0,44.71,0,35S6.92,16.39,18.12,10.07C29.13,3.85,44.32,0,61.06,0S93,3.85,104,10.07C115.2,16.39,122.13,25.18,122.13,35ZM103,58c10.52-5.94,17-14.09,17-23s-6.51-17.1-17-23c-10.7-6-25.52-9.78-41.91-9.78s-31.2,3.74-41.9,9.78C8.64,17.85,2.13,26,2.13,35S8.64,52,19.16,58c10.7,6.05,25.52,9.79,41.9,9.79S92.27,64,103,58Z');
+  ctx.fillStyle = '#000000';
+  ctx.fill(p2);
+
+  ctx.restore();
+}
+
+/**
+ * رسم سیلوئت خفاش برای واترمارک‌ها و برچسب‌های اتمسفریک
+ */
+export function drawBatSilhouette(ctx, cx, cy, width, color = 'rgba(255, 255, 255, 0.05)', rotation = 0) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  if (rotation) ctx.rotate(rotation);
+  const origW = 122.13;
+  const origH = 69.89;
+  const scale = width / origW;
+  ctx.scale(scale, scale);
+  ctx.translate(-origW / 2, -origH / 2);
+
+  const batPath = new Path2D('M51.72,24.46c-14.49,5.37-21.86-8-14.49-15.74-11.75,3-30.86,11.49-30.86,25.63,0,12.83,12.49,20.09,21.49,23.22-8.68-10.74,3.25-19.16,13.7-7.41C49.69,35.73,59.28,56.44,61,59.58h0c1.71-3.14,11.31-23.85,19.44-9.42,10.45-11.75,22.38-3.33,13.7,7.41,9-3.13,21.49-10.39,21.49-23.22,0-14.14-19.11-22.63-30.86-25.63,7.37,7.74,0,21.11-14.49,15.74-1.67-2-2.75-6.11-2.75-18.24-1.94,1.26-3.33,5.71-3.45,6a12,12,0,0,0-6.15,0c-.12-.32-1.51-4.77-3.45-6,0,12.13-1.08,16.25-2.75,18.24Z');
+  ctx.fillStyle = color;
+  ctx.fill(batPath);
+
+  ctx.restore();
+}
+
+/**
+ * رسم واترمارک‌های اتمسفریک خفاش در پس‌زمینه پوستر
+ */
+function drawBatWatermarks(ctx, W, H, isLight) {
+  const batColor = isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(247, 221, 48, 0.045)';
+  const batColorAlt = isLight ? 'rgba(0, 0, 0, 0.025)' : 'rgba(255, 255, 255, 0.03)';
+
+  const bats = [
+    { x: W * 0.12, y: H * 0.22, size: 75, angle: -0.16, color: batColor },
+    { x: W * 0.17, y: H * 0.28, size: 48, angle: -0.22, color: batColorAlt },
+    { x: W * 0.23, y: H * 0.18, size: 38, angle: -0.10, color: batColorAlt },
+    { x: W * 0.88, y: H * 0.35, size: 85, angle: 0.14, color: batColor },
+    { x: W * 0.93, y: H * 0.42, size: 52, angle: 0.20, color: batColorAlt },
+    { x: W * 0.50, y: H * 0.56, size: 220, angle: -0.04, color: batColorAlt }, // نماد بزرگ گاتهام در پس‌زمینه میانی
+    { x: W * 0.34, y: H * 0.82, size: 68, angle: 0.11, color: batColor },
+    { x: W * 0.74, y: H * 0.79, size: 78, angle: -0.13, color: batColor },
+  ];
+
+  bats.forEach((b) => {
+    drawBatSilhouette(ctx, b.x, b.y, b.size, b.color, b.angle);
+  });
+}
+
 function wrapText(ctx, text, maxWidth, maxLines = 2) {
   const words = String(text || '').split(/\s+/);
   const lines = [];
@@ -234,9 +325,511 @@ function drawFooter(ctx, W, H, p) {
 
 
 /**
+ * تولید تصویر پوستر افقی برنامه هفتگی به صورت تایم‌لاین پیوسته — طراحی اختصاصی، چشم‌نواز و مدرن
+ */
+async function renderScheduleTimelineImage({ canvas, ctx, W, H, p, vm }) {
+  const student = vm?.student || {};
+  const currentTermLabel = vm?.termLabel || 'نیمسال تحصیلی جاری';
+  const isBat = isBatModeActive();
+
+  // پس‌زمینه فلت هماهنگ با تم
+  ctx.fillStyle = p.base;
+  ctx.fillRect(0, 0, W, H);
+
+  // واترمارک‌های ظریف خفاش در حالت بتمن
+  if (isBat) {
+    drawBatWatermarks(ctx, W, H, p.isLight);
+  }
+
+  // نوار برند و مشخصات دانشجو در بالای پوستر افقی
+  const topX = 36;
+  const topY = 24;
+  const topW = W - 72; // 1848px
+  const topH = 92;
+
+  ctx.fillStyle = p.surface;
+  roundRect(ctx, topX, topY, topW, topH, 20);
+  ctx.fill();
+  if (p.isLight) {
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.05)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  } else {
+    ctx.strokeStyle = p.surface2;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  }
+
+  // نشان سروستان / بتمن در سمت راست
+  const logoBoxSize = 64;
+  const logoX = topX + topW - logoBoxSize - 16;
+  const logoY = topY + (topH - logoBoxSize) / 2;
+  if (isBat) {
+    ctx.fillStyle = '#0f172a';
+    roundRect(ctx, logoX, logoY, logoBoxSize, logoBoxSize, 16);
+    ctx.fill();
+    ctx.strokeStyle = '#f7dd30';
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+    drawBatmanLogo(ctx, logoX + logoBoxSize / 2, logoY + logoBoxSize / 2, 48, 28);
+  } else {
+    ctx.fillStyle = p.primary;
+    roundRect(ctx, logoX, logoY, logoBoxSize, logoBoxSize, 16);
+    ctx.fill();
+    drawSarvLogo(ctx, logoX + logoBoxSize / 2, logoY + logoBoxSize / 2, 40, '#ffffff');
+  }
+
+  // عنوان و بج‌های سروستان در سمت راست (بدون واژه‌های اضافی)
+  ctx.direction = 'rtl';
+  ctx.textAlign = 'right';
+  ctx.fillStyle = p.content;
+  ctx.font = 'bold 23px Arad, "Arad", sans-serif';
+  ctx.fillText('برنامه هفتگی نیمسال', logoX - 16, topY + 38);
+
+  const tagY = topY + 68;
+  const badgeText = isBat ? 'نسخه گاتهام' : 'سروستان همراه';
+  ctx.font = 'bold 12px Arad, "Arad", sans-serif';
+  const textW = ctx.measureText(badgeText).width;
+  const badgeW = textW + (isBat ? 30 : 16);
+  const badgeH = 22;
+  const badgeX = logoX - 16 - badgeW;
+  const badgeY = tagY - 16;
+
+  ctx.fillStyle = isBat ? 'rgba(247, 221, 48, 0.16)' : hexToRgba(p.primary, 0.14);
+  roundRect(ctx, badgeX, badgeY, badgeW, badgeH, 6);
+  ctx.fill();
+  if (isBat) {
+    ctx.strokeStyle = 'rgba(247, 221, 48, 0.45)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // رسم آیکون وکتوری خفاش بجای ایموجی
+    drawBatSilhouette(ctx, badgeX + badgeW - 12, badgeY + badgeH / 2, 13, '#eab308');
+  }
+
+  ctx.fillStyle = isBat ? '#eab308' : p.primary;
+  ctx.textAlign = 'center';
+  ctx.fillText(badgeText, isBat ? (badgeX + (badgeW - 12) / 2) : (badgeX + badgeW / 2), badgeY + 15);
+
+  ctx.direction = 'rtl';
+  ctx.textAlign = 'right';
+  ctx.fillStyle = p.muted;
+  ctx.font = '13px Arad, "Arad", sans-serif';
+  ctx.fillText(currentTermLabel, badgeX - 12, tagY);
+
+  // استخراج دروس و روزها
+  const rawCourses = getCurrentTermSchedule() || vm?.scheduleCourses || [];
+  const courses = Array.isArray(rawCourses) ? rawCourses : [];
+  const DAY_ORDER = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'];
+  const activeDaysSet = new Set(['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه']);
+  const schedules = {};
+  DAY_ORDER.forEach((d) => {
+    schedules[d] = [];
+  });
+
+  let totalClassesCount = 0;
+  let minStartMins = 8 * 60;
+  let maxEndMins = 16 * 60;
+
+  courses.forEach((c) => {
+    const slots = Array.isArray(c.daySlots) && c.daySlots.length
+      ? c.daySlots
+      : Array.isArray(c.days) && c.days.length
+      ? c.days.map((d) => ({ day: d, time: c.time || c.classTimeRaw || '', hall: c.hall || '' }))
+      : [];
+
+    const assignedColor = c.color || getToneForCourse(c, courses) || 'primary';
+
+    slots.forEach((s) => {
+      if (!s.day) return;
+      if (s.day === 'پنجشنبه' || s.day === 'جمعه') {
+        activeDaysSet.add(s.day);
+      }
+      const range = parseTimeMinutes(s.time || c.time);
+      if (range) {
+        totalClassesCount++;
+        if (range.start < minStartMins) minStartMins = range.start;
+        if (range.end > maxEndMins) maxEndMins = range.end;
+
+        const cleanRoom = s.hall && s.hall !== 'ـ' && s.hall !== '-' ? formatRoomTag(s.hall) || s.hall : (c.hall && c.hall !== 'ـ' && c.hall !== '-' ? formatRoomTag(c.hall) || c.hall : '');
+        const cleanProf = s.professor && s.professor !== 'ـ' && s.professor !== '-' ? s.professor : (c.professor && c.professor !== 'ـ' && c.professor !== '-' ? c.professor : '');
+
+        schedules[s.day].push({
+          course: c,
+          slot: s,
+          range,
+          title: c.name || c.title || 'درس',
+          professor: cleanProf,
+          room: cleanRoom,
+          units: Number(c.units ?? c.unit) || 0,
+          color: assignedColor,
+          time: s.time || c.time || '',
+        });
+      }
+    });
+  });
+
+  const activeDays = DAY_ORDER.filter((d) => activeDaysSet.has(d));
+
+  // محاسبه بازه زمانی هوشمند بر اساس ساعات واقعی کلاس‌های دانشجو
+  const START_HOUR = minStartMins < 8 * 60 ? 7 : 8;
+  const END_HOUR = Math.min(20, Math.max(17, Math.ceil((maxEndMins + 20) / 60)));
+  const TOTAL_HOURS = END_HOUR - START_HOUR;
+
+  // واحدهای اخذشده و آمار کلی
+  const schedUnits = courses.reduce((sum, c) => sum + (Number(c.units ?? c.unit) || 0), 0);
+  const appUnitsRaw = vm?.summary?.rawCredits ?? vm?.summary?.credits;
+  let enrolledUnits = 0;
+  if (typeof appUnitsRaw === 'number' && appUnitsRaw > 0) {
+    enrolledUnits = appUnitsRaw;
+  } else if (appUnitsRaw) {
+    const parsed = parseInt(String(appUnitsRaw).replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)), 10);
+    if (!isNaN(parsed) && parsed > 0) enrolledUnits = parsed;
+  }
+  enrolledUnits = Math.max(enrolledUnits || 0, schedUnits || 0, Number(vm?.curriculum?.enrolledCredits) || 0);
+
+  const statsText = `${toFaDigits(totalClassesCount)} جلسه ${isBat ? 'غار' : 'کلاس'} در هفته · ${toFaDigits(enrolledUnits)} واحد اخذشده`;
+  ctx.font = 'bold 13.5px Arad, "Arad", sans-serif';
+  const textStatsW = ctx.measureText(statsText).width;
+  const statsW = textStatsW + (isBat ? 48 : 32);
+  const statsX = W / 2 - statsW / 2;
+  ctx.fillStyle = isBat ? 'rgba(247, 221, 48, 0.12)' : hexToRgba(p.primary, 0.12);
+  roundRect(ctx, statsX, topY + (topH - 34) / 2, statsW, 34, 10);
+  ctx.fill();
+  ctx.strokeStyle = isBat ? 'rgba(247, 221, 48, 0.38)' : hexToRgba(p.primary, 0.28);
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  if (isBat) {
+    // رسم آیکون وکتوری خفاش بجای ایموجی در نوار آمار
+    drawBatSilhouette(ctx, statsX + statsW - 18, topY + topH / 2, 17, '#eab308');
+  }
+
+  ctx.fillStyle = isBat ? '#eab308' : p.primary;
+  ctx.textAlign = 'center';
+  ctx.fillText(statsText, isBat ? (statsX + (statsW - 16) / 2) : (W / 2), topY + topH / 2 + 5);
+
+  // مشخصات دانشجو در سمت چپ
+  const profX = topX + 24;
+  const profY = topY + 16;
+  ctx.direction = 'rtl';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = p.content;
+  ctx.font = 'bold 21px Arad, "Arad", sans-serif';
+  const studentName = student.fullName || 'دانشجو';
+  ctx.fillText(studentName, profX, profY + 24);
+
+  if (isBat) {
+    const nameW = ctx.measureText(studentName).width;
+    const batTag = 'محافظ گاتهام';
+    ctx.font = 'bold 11px Arad, "Arad", sans-serif';
+    const tagTextW = ctx.measureText(batTag).width;
+    const tagW = tagTextW + 32;
+    const tagH = 22;
+    const tagX = profX + nameW + 12;
+    const tagY = profY + 8;
+    ctx.fillStyle = 'rgba(247, 221, 48, 0.16)';
+    roundRect(ctx, tagX, tagY, tagW, tagH, 6);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(247, 221, 48, 0.4)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // رسم آیکون وکتوری خفاش داخل تگ دانشجو بجای ایموجی
+    drawBatSilhouette(ctx, tagX + tagW - 12, tagY + tagH / 2, 13, '#eab308');
+
+    ctx.fillStyle = '#eab308';
+    ctx.textAlign = 'center';
+    ctx.fillText(batTag, tagX + (tagW - 12) / 2, tagY + 15);
+  }
+
+  ctx.direction = 'rtl';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = p.muted;
+  ctx.font = '13.5px Arad, "Arad", sans-serif';
+  const stdInfo = [student.major, student.college || getUniversityName(), isBat ? 'Wayne Tech' : ''].filter(Boolean).join(' · ');
+  ctx.fillText(stdInfo, profX, profY + 50);
+
+  // ── هندسه بدنه تایم‌لاین ──
+  const gridTop = 132;
+  const gridLeft = 36;
+  const gridW = W - 72; // 1848px
+  const headerH = 46;
+  const gap = 8;
+  const footerH = 42;
+  const footerMarginBottom = 22;
+  const footerY = H - footerMarginBottom - footerH; // 1016
+  const gapAboveFooter = 20;
+  const rowsTop = gridTop + headerH + gap; // 186
+  const availableH = footerY - gapAboveFooter - rowsTop; // 810px
+
+  const timeColW = 114;
+  const dayColW = Math.floor((gridW - timeColW - activeDays.length * gap) / activeDays.length);
+  const timeX = gridLeft + gridW - timeColW;
+
+  // سرستون ساعت در سمت راست (RTL)
+  ctx.fillStyle = p.surface;
+  roundRect(ctx, timeX, gridTop, timeColW, headerH, 14);
+  ctx.fill();
+  if (p.isLight) {
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.05)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  } else {
+    ctx.strokeStyle = p.surface2;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  ctx.fillStyle = p.muted;
+  ctx.font = 'bold 14px Arad, "Arad", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(isBat ? 'ساعت غار' : 'ساعت کلاس', timeX + timeColW / 2, gridTop + 29);
+
+  // سرستون‌های روزهای هفته
+  activeDays.forEach((dayName, di) => {
+    const dayX = timeX - (di + 1) * dayColW - (di + 1) * gap;
+    const dayClasses = schedules[dayName] || [];
+
+    ctx.fillStyle = p.surface;
+    roundRect(ctx, dayX, gridTop, dayColW, headerH, 14);
+    ctx.fill();
+    if (p.isLight) {
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.05)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = p.surface2;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // نام روز در سمت راست
+    ctx.direction = 'rtl';
+    ctx.textAlign = 'right';
+    ctx.fillStyle = p.content;
+    ctx.font = 'bold 16px Arad, "Arad", sans-serif';
+    ctx.fillText(dayName, dayX + dayColW - 16, gridTop + 29);
+
+    // بج تعداد کلاس‌های روز در سمت چپ
+    if (dayClasses.length > 0) {
+      const badgeStr = `${toFaDigits(dayClasses.length)} ${isBat ? 'غار' : 'کلاس'}`;
+      ctx.font = 'bold 11px Arad, "Arad", sans-serif';
+      const bw = ctx.measureText(badgeStr).width + 16;
+      ctx.fillStyle = hexToRgba(p.primary, 0.16);
+      roundRect(ctx, dayX + 12, gridTop + 11, bw, 24, 7);
+      ctx.fill();
+      ctx.fillStyle = p.primary;
+      ctx.textAlign = 'center';
+      ctx.fillText(badgeStr, dayX + 12 + bw / 2, gridTop + 27);
+    } else {
+      ctx.font = '11px Arad, "Arad", sans-serif';
+      ctx.fillStyle = isBat ? '#eab308' : p.muted;
+      ctx.textAlign = 'left';
+      ctx.fillText(isBat ? 'بدون غار' : 'بدون کلاس', dayX + 14, gridTop + 28);
+    }
+  });
+
+  // ستون ساعت عمودی (خط‌کش شیک و با کیفیت)
+  const pxPerHour = availableH / TOTAL_HOURS;
+  const pxPerMin = pxPerHour / 60;
+
+  ctx.fillStyle = p.surface;
+  roundRect(ctx, timeX, rowsTop, timeColW, availableH, 16);
+  ctx.fill();
+  if (p.isLight) {
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.05)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  } else {
+    ctx.strokeStyle = p.surface2;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  for (let h = START_HOUR; h <= END_HOUR; h++) {
+    const y = rowsTop + (h - START_HOUR) * pxPerHour;
+
+    // کپسول زیبا برای ساعت
+    const hourStr = toFaDigits(String(h).padStart(2, '0') + ':۰۰');
+    const pillW = 68;
+    const pillH = 22;
+    const pillY = Math.min(rowsTop + availableH - pillH - 6, Math.max(rowsTop + 6, y - pillH / 2));
+
+    ctx.fillStyle = p.isLight ? 'rgba(0, 0, 0, 0.035)' : 'rgba(255, 255, 255, 0.06)';
+    roundRect(ctx, timeX + (timeColW - pillW) / 2, pillY, pillW, pillH, 7);
+    ctx.fill();
+
+    ctx.fillStyle = p.content;
+    ctx.font = 'bold 12px Arad, "Arad", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(hourStr, timeX + timeColW / 2, pillY + 15);
+  }
+
+  const toneMap = {
+    primary: p.primary,
+    info: p.info,
+    success: p.success,
+    warn: p.warn,
+    danger: p.danger,
+    accent: p.accent,
+    secondary: p.secondary,
+  };
+  const resolveTone = (colorVal) => {
+    if (!colorVal) return p.primary;
+    const str = String(colorVal).trim();
+    if (str.startsWith('#') || str.startsWith('rgb')) return str;
+    return toneMap[str] || p.primary;
+  };
+
+  // رسم ستون‌های هر روز و کارت‌های درسی
+  activeDays.forEach((dayName, di) => {
+    const dayX = timeX - (di + 1) * dayColW - (di + 1) * gap;
+    const dayClasses = schedules[dayName] || [];
+
+    // کادر ستون روز
+    ctx.fillStyle = p.surface;
+    roundRect(ctx, dayX, rowsTop, dayColW, availableH, 14);
+    ctx.fill();
+    if (p.isLight) {
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.05)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = p.surface2;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    ctx.save();
+    roundRect(ctx, dayX, rowsTop, dayColW, availableH, 14);
+    ctx.clip();
+
+    // رسم کارت‌های درسی با استایل دقیق و هماهنگ با کارت‌های اصلی جدول
+    dayClasses.forEach((item) => {
+      const topPx = rowsTop + (Math.max(START_HOUR * 60, item.range.start) - START_HOUR * 60) * pxPerMin;
+      const durationMins = Math.max(30, item.range.end - item.range.start);
+      const heightPx = Math.max(52, durationMins * pxPerMin - 4);
+      const cardW = dayColW - 10;
+      const cardX = dayX + 5;
+      const cardY = topPx + 2;
+      const tone = resolveTone(item.color);
+
+      // پس‌زمینه فلت کارت هماهنگ با کارت‌های جدول اصلی
+      ctx.fillStyle = hexToRgba(tone, p.isLight ? 0.10 : 0.16);
+      roundRect(ctx, cardX, cardY, cardW, heightPx, 14);
+      ctx.fill();
+
+      // حاشیه ظریف دور کارت
+      ctx.strokeStyle = hexToRgba(tone, p.isLight ? 0.22 : 0.45);
+      ctx.lineWidth = p.isLight ? 0.8 : 1;
+      ctx.stroke();
+
+      // بج ساعت کلاس در گوشه بالا چپ
+      const timeStr = toFaDigits(item.time);
+      ctx.font = 'bold 11px Arad, "Arad", sans-serif';
+      const badgeW = ctx.measureText(timeStr).width + 16;
+      const badgeH = 24;
+      ctx.fillStyle = hexToRgba(tone, 0.22);
+      roundRect(ctx, cardX + 12, cardY + 12, badgeW, badgeH, 6);
+      ctx.fill();
+      ctx.fillStyle = tone;
+      ctx.textAlign = 'center';
+      ctx.fillText(timeStr, cardX + 12 + badgeW / 2, cardY + 28);
+
+      // عنوان درس با فونت آراد بولد در بالا راست
+      ctx.direction = 'rtl';
+      ctx.textAlign = 'right';
+      ctx.fillStyle = p.content;
+      ctx.font = 'bold 16px Arad, "Arad", sans-serif';
+      const lines = wrapText(ctx, item.title || '', cardW - badgeW - 32, 2);
+      lines.forEach((ln, lxi) => {
+        ctx.fillText(ln, cardX + cardW - 14, cardY + 30 + lxi * 24);
+      });
+
+      // ردیف پایین: استاد و شماره کلاس
+      if (heightPx >= 58) {
+        const botY = cardY + heightPx - 16;
+
+        if (item.professor && item.professor !== 'ـ') {
+          ctx.direction = 'rtl';
+          ctx.textAlign = 'right';
+          ctx.fillStyle = p.muted;
+          ctx.font = '13px Arad, "Arad", sans-serif';
+          ctx.fillText(item.professor, cardX + cardW - 14, botY);
+        }
+
+        const roomStr = item.room && item.room !== 'ـ' ? formatRoomTag(item.room) || item.room : '';
+        if (roomStr) {
+          ctx.font = 'bold 11px Arad, "Arad", sans-serif';
+          const rw = ctx.measureText(roomStr).width + 16;
+          ctx.fillStyle = hexToRgba(tone, 0.16);
+          roundRect(ctx, cardX + 12, botY - 18, rw, 24, 5);
+          ctx.fill();
+
+          ctx.direction = 'rtl';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = p.content;
+          ctx.fillText(roomStr, cardX + 12 + rw / 2, botY - 1);
+        }
+      }
+    });
+
+    ctx.restore();
+  });
+
+  // ── فوتر رسمی ──
+  const footerX = topX;
+  const footerW = topW;
+  ctx.fillStyle = p.surface;
+  roundRect(ctx, footerX, footerY, footerW, footerH, 14);
+  ctx.fill();
+  if (p.isLight) {
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.05)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  } else {
+    ctx.strokeStyle = p.surface2;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  const footerBrand = isBat
+    ? 'پروتکل شوالیه تاریکی · ساخته‌شده با سروستان · mjb4khshi.github.io/sarvestan'
+    : 'ساخته‌شده با سروستان · mjb4khshi.github.io/sarvestan';
+  ctx.font = 'bold 14px Arad, "Arad", sans-serif';
+  const fbW = ctx.measureText(footerBrand).width;
+  if (isBat) {
+    drawBatmanLogo(ctx, W / 2 + fbW / 2 + 20, footerY + footerH / 2, 24, 14);
+  } else {
+    drawSarvLogo(ctx, W / 2 + fbW / 2 + 18, footerY + footerH / 2, 18, p.primary);
+  }
+  ctx.fillStyle = p.content;
+  ctx.textAlign = 'center';
+  ctx.fillText(footerBrand, W / 2, footerY + footerH / 2 + 5);
+
+  ctx.direction = 'rtl';
+  ctx.textAlign = 'right';
+  ctx.fillStyle = isBat ? '#eab308' : p.muted;
+  ctx.font = '12px Arad, "Arad", sans-serif';
+  if (isBat) {
+    const termW = ctx.measureText(currentTermLabel).width;
+    drawBatSilhouette(ctx, footerX + footerW - 20 - 7, footerY + footerH / 2, 13, '#eab308');
+    ctx.fillText(currentTermLabel, footerX + footerW - 38, footerY + footerH / 2 + 5);
+  } else {
+    ctx.fillText(currentTermLabel, footerX + footerW - 20, footerY + footerH / 2 + 5);
+  }
+
+  ctx.direction = 'rtl';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = p.muted;
+  ctx.fillText(isBat ? `${getUniversityName()} · Wayne Enterprises` : getUniversityName(), footerX + 20, footerY + footerH / 2 + 5);
+
+  return canvas;
+}
+
+/**
  * تولید تصویر پوستر افقی برنامه هفتگی — کاملاً فلت، هماهنگ با هویت بصری Sarv Design و کارت‌های متناسب
  */
-export async function renderScheduleImage({ theme } = {}) {
+export async function renderScheduleImage({ theme, view } = {}) {
   await ensureFont();
   const p = buildPalette(theme);
   const W = 1920;
@@ -246,12 +839,26 @@ export async function renderScheduleImage({ theme } = {}) {
   if (!ctx) throw new Error('Canvas در دسترس نیست');
 
   const vm = getViewModel();
+  const selectedUni = getSelectedUniversity();
+  const isAut = selectedUni === 'aut';
+
+  // اگر دانشگاه امیرکبیر باشد یا نمای تایم‌لاین درخواست شده باشد، پوستر تایم‌لاین پیوسته تولید کن
+  if (isAut || view === 'timeline') {
+    return renderScheduleTimelineImage({ canvas, ctx, W, H, p, vm });
+  }
+
   const student = vm?.student || {};
   const currentTermLabel = vm?.termLabel || 'نیمسال تحصیلی جاری';
+  const isBat = isBatModeActive();
 
   // پس‌زمینه فلت مدرن بدون گرادیان
   ctx.fillStyle = p.base;
   ctx.fillRect(0, 0, W, H);
+
+  // واترمارک‌های ظریف خفاش در حالت بتمن
+  if (isBat) {
+    drawBatWatermarks(ctx, W, H, p.isLight);
+  }
 
   // نوار برند و مشخصات دانشجو در بالای پوستر افقی (دقیقاً هم‌عرض و هم‌تراز با ستون‌های جدول)
   const topX = 36;
@@ -272,14 +879,24 @@ export async function renderScheduleImage({ theme } = {}) {
     ctx.stroke();
   }
 
-  // سمت راست: نشان سروستان + عنوان پوستر
+  // سمت راست: نشان سروستان / بتمن + عنوان پوستر
   const logoBoxSize = 64;
   const logoX = topX + topW - logoBoxSize - 16;
   const logoY = topY + (topH - logoBoxSize) / 2;
-  ctx.fillStyle = p.primary;
-  roundRect(ctx, logoX, logoY, logoBoxSize, logoBoxSize, 16);
-  ctx.fill();
-  drawSarvLogo(ctx, logoX + logoBoxSize / 2, logoY + logoBoxSize / 2, 40, '#ffffff');
+  if (isBat) {
+    ctx.fillStyle = '#0f172a';
+    roundRect(ctx, logoX, logoY, logoBoxSize, logoBoxSize, 16);
+    ctx.fill();
+    ctx.strokeStyle = '#f7dd30';
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+    drawBatmanLogo(ctx, logoX + logoBoxSize / 2, logoY + logoBoxSize / 2, 48, 28);
+  } else {
+    ctx.fillStyle = p.primary;
+    roundRect(ctx, logoX, logoY, logoBoxSize, logoBoxSize, 16);
+    ctx.fill();
+    drawSarvLogo(ctx, logoX + logoBoxSize / 2, logoY + logoBoxSize / 2, 40, '#ffffff');
+  }
 
   // عنوان و بج‌های سروستان در سمت راست
   ctx.direction = 'rtl';
@@ -290,20 +907,28 @@ export async function renderScheduleImage({ theme } = {}) {
 
   // برچسب‌ها زیر عنوان (بج سروستان همراه + ترم تحصیلی جاری)
   const tagY = topY + 68;
-  const badgeText = 'سروستان همراه';
+  const badgeText = isBat ? 'نسخه گاتهام' : 'سروستان همراه';
   ctx.font = 'bold 12px Arad, "Arad", sans-serif';
-  const badgeW = ctx.measureText(badgeText).width + 16;
+  const textW = ctx.measureText(badgeText).width;
+  const badgeW = textW + (isBat ? 30 : 16);
   const badgeH = 22;
   const badgeX = logoX - 16 - badgeW;
   const badgeY = tagY - 16;
 
-  ctx.fillStyle = hexToRgba(p.primary, 0.14);
+  ctx.fillStyle = isBat ? 'rgba(247, 221, 48, 0.16)' : hexToRgba(p.primary, 0.14);
   roundRect(ctx, badgeX, badgeY, badgeW, badgeH, 6);
   ctx.fill();
+  if (isBat) {
+    ctx.strokeStyle = 'rgba(247, 221, 48, 0.45)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // رسم آیکون وکتوری خفاش بجای ایموجی
+    drawBatSilhouette(ctx, badgeX + badgeW - 12, badgeY + badgeH / 2, 13, '#eab308');
+  }
 
-  ctx.fillStyle = p.primary;
+  ctx.fillStyle = isBat ? '#eab308' : p.primary;
   ctx.textAlign = 'center';
-  ctx.fillText(badgeText, badgeX + badgeW / 2, badgeY + 15);
+  ctx.fillText(badgeText, isBat ? (badgeX + (badgeW - 12) / 2) : (badgeX + badgeW / 2), badgeY + 15);
 
   // برچسب ترم جاری (بلافاصله سمت چپ بج با فاصله متناسب)
   ctx.direction = 'rtl';
@@ -339,19 +964,26 @@ export async function renderScheduleImage({ theme } = {}) {
     Number(vm?.termsData?.[0]?.totalUnits) || 0
   );
 
-  const statsText = `${toFaDigits(totalClasses)} جلسه کلاس در هفته · ${toFaDigits(enrolledUnits)} واحد اخذشده`;
+  const statsText = `${toFaDigits(totalClasses)} جلسه ${isBat ? 'غار' : 'کلاس'} در هفته · ${toFaDigits(enrolledUnits)} واحد اخذشده`;
   ctx.font = 'bold 13.5px Arad, "Arad", sans-serif';
-  const statsW = ctx.measureText(statsText).width + 32;
+  const textStatsW = ctx.measureText(statsText).width;
+  const statsW = textStatsW + (isBat ? 48 : 32);
   const statsX = W / 2 - statsW / 2;
-  ctx.fillStyle = hexToRgba(p.primary, 0.12);
+  ctx.fillStyle = isBat ? 'rgba(247, 221, 48, 0.12)' : hexToRgba(p.primary, 0.12);
   roundRect(ctx, statsX, topY + (topH - 34) / 2, statsW, 34, 10);
   ctx.fill();
-  ctx.strokeStyle = hexToRgba(p.primary, 0.28);
+  ctx.strokeStyle = isBat ? 'rgba(247, 221, 48, 0.38)' : hexToRgba(p.primary, 0.28);
   ctx.lineWidth = 1;
   ctx.stroke();
-  ctx.fillStyle = p.primary;
+
+  if (isBat) {
+    // رسم آیکون وکتوری خفاش بجای ایموجی در نوار آمار
+    drawBatSilhouette(ctx, statsX + statsW - 18, topY + topH / 2, 17, '#eab308');
+  }
+
+  ctx.fillStyle = isBat ? '#eab308' : p.primary;
   ctx.textAlign = 'center';
-  ctx.fillText(statsText, W / 2, topY + topH / 2 + 5);
+  ctx.fillText(statsText, isBat ? (statsX + (statsW - 16) / 2) : (W / 2), topY + topH / 2 + 5);
 
   // مشخصات دانشجو در سمت چپ (بدون مربع آواتار و بدون کد دانشجویی)
   const profX = topX + 24;
@@ -362,13 +994,41 @@ export async function renderScheduleImage({ theme } = {}) {
   ctx.textAlign = 'left';
   ctx.fillStyle = p.content;
   ctx.font = 'bold 21px Arad, "Arad", sans-serif';
-  ctx.fillText(student.fullName || 'دانشجو', profX, profY + 24);
+  const studentName = student.fullName || 'دانشجو';
+  ctx.fillText(studentName, profX, profY + 24);
 
+  if (isBat) {
+    const nameW = ctx.measureText(studentName).width;
+    const batTag = 'محافظ گاتهام';
+    ctx.font = 'bold 11px Arad, "Arad", sans-serif';
+    const tagTextW = ctx.measureText(batTag).width;
+    const tagW = tagTextW + 32;
+    const tagH = 22;
+    const tagX = profX + nameW + 12;
+    const tagY = profY + 8;
+    ctx.fillStyle = 'rgba(247, 221, 48, 0.16)';
+    roundRect(ctx, tagX, tagY, tagW, tagH, 6);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(247, 221, 48, 0.4)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // رسم آیکون وکتوری خفاش داخل تگ دانشجو بجای ایموجی
+    drawBatSilhouette(ctx, tagX + tagW - 12, tagY + tagH / 2, 13, '#eab308');
+
+    ctx.fillStyle = '#eab308';
+    ctx.textAlign = 'center';
+    ctx.fillText(batTag, tagX + (tagW - 12) / 2, tagY + 15);
+  }
+
+  ctx.direction = 'rtl';
+  ctx.textAlign = 'left';
   ctx.fillStyle = p.muted;
   ctx.font = '13.5px Arad, "Arad", sans-serif';
   const stdInfo = [
     student.major,
     student.college || getUniversityName(),
+    isBat ? 'Wayne Tech' : '',
   ].filter(Boolean).join(' · ');
   ctx.fillText(stdInfo, profX, profY + 50);
 
@@ -402,7 +1062,7 @@ export async function renderScheduleImage({ theme } = {}) {
   ctx.fillStyle = p.muted;
   ctx.font = 'bold 15px Arad, "Arad", sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('ساعت کلاس', timeX + timeColW / 2, gridTop + 28);
+  ctx.fillText(isBat ? 'ساعت غار' : 'ساعت کلاس', timeX + timeColW / 2, gridTop + 28);
 
   // سرستون‌های ۵ روز هفته (شنبه تا چهارشنبه از راست به چپ)
   days.forEach((dayName, di) => {
@@ -435,7 +1095,7 @@ export async function renderScheduleImage({ theme } = {}) {
 
     // بج تعداد درس‌های این روز
     if (dayClassesCount > 0) {
-      const badgeStr = `${toFaDigits(dayClassesCount)} درس`;
+      const badgeStr = `${toFaDigits(dayClassesCount)} ${isBat ? 'غار' : 'درس'}`;
       ctx.font = 'bold 11px Arad, "Arad", sans-serif';
       const bw = ctx.measureText(badgeStr).width + 14;
       ctx.fillStyle = hexToRgba(p.primary, 0.16);
@@ -712,12 +1372,17 @@ export async function renderScheduleImage({ theme } = {}) {
     ctx.stroke();
   }
 
-  // متن وسط فوتر: ساخته‌شده با سروستان · mjb4khshi.github.io/sarvestan
-  const footerBrand = 'ساخته‌شده با سروستان · mjb4khshi.github.io/sarvestan';
+  const footerBrand = isBat
+    ? 'پروتکل شوالیه تاریکی · ساخته‌شده با سروستان · mjb4khshi.github.io/sarvestan'
+    : 'ساخته‌شده با سروستان · mjb4khshi.github.io/sarvestan';
   ctx.font = 'bold 14px Arad, "Arad", sans-serif';
   const fbW = ctx.measureText(footerBrand).width;
 
-  drawSarvLogo(ctx, W / 2 + fbW / 2 + 18, footerY + footerH / 2, 18, p.primary);
+  if (isBat) {
+    drawBatmanLogo(ctx, W / 2 + fbW / 2 + 20, footerY + footerH / 2, 24, 14);
+  } else {
+    drawSarvLogo(ctx, W / 2 + fbW / 2 + 18, footerY + footerH / 2, 18, p.primary);
+  }
 
   ctx.fillStyle = p.content;
   ctx.textAlign = 'center';
@@ -726,14 +1391,20 @@ export async function renderScheduleImage({ theme } = {}) {
   // سمت راست فوتر: ترم تحصیلی
   ctx.direction = 'rtl';
   ctx.textAlign = 'right';
-  ctx.fillStyle = p.muted;
+  ctx.fillStyle = isBat ? '#eab308' : p.muted;
   ctx.font = '12px Arad, "Arad", sans-serif';
-  ctx.fillText(currentTermLabel, footerX + footerW - 20, footerY + footerH / 2 + 5);
+  if (isBat) {
+    drawBatSilhouette(ctx, footerX + footerW - 20 - 7, footerY + footerH / 2, 13, '#eab308');
+    ctx.fillText(currentTermLabel, footerX + footerW - 38, footerY + footerH / 2 + 5);
+  } else {
+    ctx.fillText(currentTermLabel, footerX + footerW - 20, footerY + footerH / 2 + 5);
+  }
 
   // سمت چپ فوتر: نام دانشگاه پویا
   ctx.direction = 'rtl';
   ctx.textAlign = 'left';
-  ctx.fillText(getUniversityName(), footerX + 20, footerY + footerH / 2 + 5);
+  ctx.fillStyle = p.muted;
+  ctx.fillText(isBat ? `${getUniversityName()} · Wayne Enterprises` : getUniversityName(), footerX + 20, footerY + footerH / 2 + 5);
 
   return canvas;
 }

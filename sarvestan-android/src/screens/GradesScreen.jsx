@@ -9,17 +9,20 @@ import {
   Sparkles,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
   CheckSquare,
   Square,
   TrendingUp,
   Plus,
   Minus,
+  Bot,
 } from 'lucide-react';
 import { getViewModel } from '../data/viewModel';
 import { toFaDigits } from '../utils/faDigits';
 import OdometerNumber from '../components/OdometerNumber';
 import SarvCheckbox from '../components/SarvCheckbox';
 import GpaTrendGraph from '../components/GpaTrendGraph';
+import AiAdvisorPromptModal from '../components/AiAdvisorPromptModal';
 import { getGpaStatusBadge } from '../utils/gpaBadge';
 import { subscribeStore } from '../services/behestan';
 
@@ -64,6 +67,7 @@ export default function GradesScreen({ onNavigate }) {
 
   // درسی که هم‌اکنون نمره آن به صورت دستی در حال تایپ است
   const [editingCourseId, setEditingCourseId] = useState(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
 
   // وضعیت دروس شبیه‌سازی‌شده فقط برای آخرین ترم (نمره پیش‌فرض ۲۰ بر اساس درخواست کاربر)
   const [simCourses, setSimCourses] = useState(() => {
@@ -345,6 +349,33 @@ export default function GradesScreen({ onNavigate }) {
         onSelectTerm={(termId) => setSelectedTermId(termId)}
       />
 
+      {/* بنر هوشمند مشاوره تحصیلی با هوش مصنوعی */}
+      <button
+        type="button"
+        onClick={() => setAiModalOpen(true)}
+        className="w-full sarv-card p-3.5 flex items-center justify-between gap-3 border border-base-500/35 hover:border-primary/40 bg-base-500/10 hover:bg-base-500/20 text-right transition-all cursor-pointer group"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="w-9 h-9 rounded-2xl bg-primary-soft text-primary grid place-items-center shrink-0 shadow-xs group-hover:scale-105 transition-transform">
+            <Bot className="w-5 h-5" />
+          </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <p className="text-[13px] font-bold text-base-content truncate">
+                مشاوره تحصیلی با هوش مصنوعی
+              </p>
+              <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-md bg-primary-soft text-primary">
+                پرامپت هوشمند
+              </span>
+            </div>
+            <p className="text-[10.5px] text-neutral truncate mt-0.5">
+              تحلیل معدل، سوابق و برنامه‌ریزی دروس برای ChatGPT، Claude و Gemini
+            </p>
+          </div>
+        </div>
+        <ChevronLeft className="w-4 h-4 text-neutral shrink-0 group-hover:text-primary transition-colors" />
+      </button>
+
       {/* ابزار محاسبه‌گر معدل کل و معدل ترم — فقط برای آخرین ترم تحصیلی */}
       {isLatestTerm ? (
         <section className="sarv-card p-4 border border-accent-soft">
@@ -609,6 +640,12 @@ export default function GradesScreen({ onNavigate }) {
       <p className="text-center text-[10.5px] text-neutral pt-1 pb-2">
         اطلاعات مستقیماً از فرم ۷۹ بهستان واکشی شده و کاملاً با توکن‌های سرو هماهنگ است
       </p>
+
+      {/* مودال پرامپت مشاوره تحصیلی هوش مصنوعی */}
+      <AiAdvisorPromptModal
+        isOpen={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+      />
     </div>
   );
 }

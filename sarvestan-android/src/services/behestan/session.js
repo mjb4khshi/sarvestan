@@ -194,15 +194,10 @@ export function getSelectedUniversity() {
     if (manual?.university && manual.university !== 'iust') return manual.university;
     const stored = localStorage.getItem(UNI_KEY);
     if (stored && stored !== 'iust') {
-      if (stored === 'aut') {
-        const profile = JSON.parse(localStorage.getItem('sarvestan_live_profile') || 'null');
-        if (profile?.faculty && !/امیرکبیر|پلی‌تکنیک/i.test(profile.faculty)) {
-          return 'kntu';
-        }
-      }
       return stored;
     }
     const profile = JSON.parse(localStorage.getItem('sarvestan_live_profile') || 'null');
+    if (profile?.university && profile.university !== 'iust') return profile.university;
     if (profile?.faculty && /امیرکبیر|پلی‌تکنیک/i.test(profile.faculty)) return 'aut';
     if (profile?.faculty && /بهشتی/i.test(profile.faculty)) return 'sbu';
     if (profile?.faculty && /تهران|دانشکدگان/i.test(profile.faculty)) return 'ut';

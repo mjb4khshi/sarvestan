@@ -656,8 +656,8 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
         </AnimatePresence>
       </div>
 
-      {/* انتخاب روش ورود: برای خواجه‌نصیر و امیرکبیر هر دو روش (ورود مرکزی SSO و ورود بهستان با کپچا) در دسترس است */}
-      {(selectedUni === 'kntu' || selectedUni === 'aut') && (
+      {/* انتخاب روش ورود: تنها برای خواجه‌نصیر هر دو روش (ورود مرکزی SSO و ورود بهستان با کپچا) در دسترس است */}
+      {selectedUni === 'kntu' && (
         <div className="grid grid-cols-2 p-1 bg-base-500/20 rounded-2xl border border-white/5 text-[12px] font-medium">
           <button
             type="button"
@@ -688,7 +688,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
         </div>
       )}
 
-      {/* ۱. فرم ورود مستقیم بهستان (کپچا) — مشترک برای خواجه نصیر، امیرکبیر، بهشتی و تهران */}
+      {/* ۱. فرم ورود مستقیم بهستان (کپچا) — برای دانشگاه‌های دارای ورود کپچا */}
       {authMethod === 'direct_captcha' && (
         <div className="space-y-2.5 pt-1">
           <div className="flex items-center gap-1.5 px-1 text-[11px] text-primary/90 font-medium">
@@ -696,8 +696,6 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
             <span>
               {selectedUni === 'kntu'
                 ? 'سامانه بهستان دانشگاه صنعتی خواجه نصیر (behestan.kntu.ac.ir)'
-                : selectedUni === 'aut'
-                ? 'سامانه بهستان دانشگاه صنعتی امیرکبیر (portal.aut.ac.ir)'
                 : selectedUni === 'sbu'
                 ? 'سامانه بهستان دانشگاه شهید بهشتی (ems.sbu.ac.ir)'
                 : selectedUni === 'iust'

@@ -14,6 +14,7 @@ import {
   Download,
   CheckCircle2,
   Clock,
+  Table2,
   CircleDashed,
   X,
   Copy,
@@ -32,10 +33,16 @@ import {
   BellOff,
   RotateCcw,
   CreditCard,
+  SlidersHorizontal,
+  Bot,
 } from 'lucide-react';
 import UpdateModal from '../components/UpdateModal';
 import ClassAlarmModal from '../components/ClassAlarmModal';
 import CurriculumChartModal from '../components/CurriculumChartModal';
+import DashboardCustomizeModal from '../components/DashboardCustomizeModal';
+import AiAdvisorPromptModal from '../components/AiAdvisorPromptModal';
+import BatmanMask from '../components/BatmanMask';
+import { useBatMode } from '../services/batMode';
 import SarvSwitch from '../components/SarvSwitch';
 import FinanceModal from '../components/FinanceModal';
 import { checkForUpdate, CURRENT_VERSION } from '../services/updater';
@@ -47,7 +54,7 @@ import {
 } from '../services/behestan';
 import { clearSsoCookies } from '../services/behestan/ssoLoginNative';
 import { clearSavedCreds } from '../services/loginFlow';
-import { getUniversityOrigin } from '../services/behestan/session';
+import { getUniversityOrigin, getSelectedUniversity } from '../services/behestan/session';
 
 import {
   cancelAllReminders,
@@ -158,6 +165,7 @@ export default function MoreScreen({
     };
   }, []);
   const [iconModalOpen, setIconModalOpen] = useState(false);
+  const [dashboardModalOpen, setDashboardModalOpen] = useState(false);
   const [iconToast, setIconToast] = useState('');
   const [clearDataModalOpen, setClearDataModalOpen] = useState(false);
   const [clearingData, setClearingData] = useState(false);
@@ -167,6 +175,56 @@ export default function MoreScreen({
   const [dndEnabled, setDndEnabled] = useState(() => getDndDuringClass());
   const [dndToggling, setDndToggling] = useState(false);
   const { currentIconId, currentIcon, setAppIcon, icons: appIcons } = useAppIcon();
+  const {
+    isBatMode,
+    toggleBatMode,
+    isBatNotifEnabled,
+    setBatNotifEnabled,
+    testBatNotification,
+    openNotificationSettings: openBatNotificationSettings,
+  } = useBatMode();
+  const [batNotifToggling, setBatNotifToggling] = useState(false);
+
+  const handleToggleBatNotif = async (nextState) => {
+    setBatNotifToggling(true);
+    try {
+      const res = await setBatNotifEnabled(nextState);
+      if (nextState) {
+        if (res?.ok) {
+          setResetToast('اعلان شبانه «احتیاج شهر به بتمن» برای هر شب ساعت ۲۳:۰۰ فعال شد.');
+        } else if (res?.blockedInSettings) {
+          setResetToast('دسترسی اعلان‌ها در تنظیمات سیستم مسدود است. لطفاً آن را فعال کنید.');
+          await openBatNotificationSettings();
+        } else {
+          setResetToast(res?.error || 'خطا در فعال‌سازی دسترسی اعلان');
+        }
+      } else {
+        setResetToast('اعلان شبانه بت‌سیگنال غیرفعال شد.');
+      }
+      setTimeout(() => setResetToast(''), 4500);
+    } catch (e) {
+      setResetToast('خطا در تغییر وضعیت اعلان');
+      setTimeout(() => setResetToast(''), 3500);
+    } finally {
+      setBatNotifToggling(false);
+    }
+  };
+
+  const handleTestBatNotif = async () => {
+    try {
+      setResetToast('در حال ارسال اعلان تستی بت‌سیگنال...');
+      const res = await testBatNotification();
+      if (res?.ok) {
+        setResetToast('اعلان «احتیاج شهر به بتمن» با موفقیت ارسال شد.');
+      } else {
+        setResetToast(res?.error || 'خطا در ارسال اعلان آزمایشی');
+      }
+      setTimeout(() => setResetToast(''), 4000);
+    } catch {
+      setResetToast('خطا در ارسال اعلان آزمایشی');
+      setTimeout(() => setResetToast(''), 3500);
+    }
+  };
 
   useEffect(() => {
     if (initialFinanceOpen) {
@@ -310,6 +368,7 @@ export default function MoreScreen({
   const [chartModalOpen, setChartModalOpen] = useState(initialChartOpen);
   const [aboutModalOpen, setAboutModalOpen] = useState(false);
   const [referralModalOpen, setReferralModalOpen] = useState(false);
+  const [aiPromptModalOpen, setAiPromptModalOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState('all');
   const [copiedInvite, setCopiedInvite] = useState(false);
   const [shareBusy, setShareBusy] = useState('');
@@ -320,7 +379,10 @@ export default function MoreScreen({
   // بستن بالاترین مودال هنگام فشردن دکمه بازگشت اندروید
   useEffect(() => {
     const handleCloseTopModal = (e) => {
-      if (financeModalOpen) {
+      if (aiPromptModalOpen) {
+        setAiPromptModalOpen(false);
+        e.preventDefault();
+      } else if (financeModalOpen) {
         closeFinance();
         e.preventDefault();
       } else if (chartModalOpen) {
@@ -349,6 +411,7 @@ export default function MoreScreen({
     window.addEventListener('sarvCloseTopModal', handleCloseTopModal);
     return () => window.removeEventListener('sarvCloseTopModal', handleCloseTopModal);
   }, [
+    aiPromptModalOpen,
     financeModalOpen,
     chartModalOpen,
     alarmModalOpen,
@@ -359,18 +422,28 @@ export default function MoreScreen({
     resetModalOpen,
   ]);
 
-  const handleShareSchedule = async () => {
-    if (shareBusy) return;
+  const selectedUni = getSelectedUniversity();
+  const isAut = selectedUni === 'aut';
+  const [scheduleShareFormat, setScheduleShareFormat] = useState('matrix');
+  const [scheduleShareRendering, setScheduleShareRendering] = useState(false);
+
+  const handleShareSchedule = async (format = scheduleShareFormat) => {
+    if (shareBusy || scheduleShareRendering) return;
     setShareBusy('schedule');
+    setScheduleShareRendering(true);
     setShareMsg('');
     try {
-      const canvas = await renderScheduleImage({ theme: activeThemeMeta });
+      const activeFormat = isAut ? 'timeline' : format;
+      const canvas = await renderScheduleImage({
+        theme: activeThemeMeta,
+        view: activeFormat,
+      });
       setSharePreview({
         url: canvasToDataUrl(canvas),
         kind: 'schedule',
         canvas,
         title: 'برنامه هفتگی من | سروستان',
-        filename: 'sarvestan-schedule.png',
+        filename: `sarvestan-schedule-${activeFormat}.png`,
       });
       setShareMsg('پیش‌نمایش آماده شد — گزینهٔ اشتراک‌گذاری یا ذخیره را انتخاب کنید');
     } catch (e) {
@@ -378,7 +451,14 @@ export default function MoreScreen({
       setShareMsg('خطا در ساخت تصویر: ' + String(e?.message || e));
     } finally {
       setShareBusy('');
+      setScheduleShareRendering(false);
     }
+  };
+
+  const handleChangeScheduleShareFormat = async (newFormat) => {
+    if (newFormat === scheduleShareFormat || scheduleShareRendering) return;
+    setScheduleShareFormat(newFormat);
+    await handleShareSchedule(newFormat);
   };
 
   const handleShareGpa = async () => {
@@ -486,17 +566,20 @@ export default function MoreScreen({
         animate={{ opacity: 1, y: 0 }}
         className="sarv-card p-4 flex items-center gap-3.5"
       >
-        {STUDENT.photo ? (
-          <img
-            src={STUDENT.photo}
-            alt=""
-            className="w-13 h-13 rounded-2xl object-cover shadow-sm border border-base-500/40 shrink-0"
-          />
-        ) : (
-          <div className="w-13 h-13 rounded-2xl bg-primary text-primary-content font-black text-xl grid place-items-center shrink-0 shadow-sm">
-            {(STUDENT.fullName || '؟').slice(0, 1)}
-          </div>
-        )}
+        <div className="relative shrink-0 w-13 h-13">
+          {STUDENT.photo ? (
+            <img
+              src={STUDENT.photo}
+              alt=""
+              className="w-full h-full rounded-2xl object-cover shadow-sm border border-base-500/40"
+            />
+          ) : (
+            <div className="w-full h-full rounded-2xl bg-primary text-primary-content font-black text-xl grid place-items-center shadow-sm">
+              {(STUDENT.fullName || '؟').slice(0, 1)}
+            </div>
+          )}
+          <BatmanMask />
+        </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[15px] font-bold text-base-content truncate">
@@ -520,7 +603,11 @@ export default function MoreScreen({
             </span>
           </p>
           <p className="text-[10.5px] text-neutral truncate mt-0.5">
-            {[STUDENT.college, STUDENT.major].filter(Boolean).join(' · ') || '—'}
+            {[
+              STUDENT.college,
+              STUDENT.major && !String(STUDENT.college || '').includes(STUDENT.major) ? STUDENT.major : null,
+              STUDENT.level,
+            ].filter(Boolean).join(' · ') || '—'}
           </p>
         </div>
       </motion.section>
@@ -645,6 +732,31 @@ export default function MoreScreen({
       <section className="space-y-1.5">
         <h3 className="text-[12.5px] font-bold text-neutral px-1">خدمات و وضعیت آموزشی</h3>
         <div className="sarv-card overflow-hidden divide-y divide-base-500/30">
+          {/* متن برای هوش مصنوعی (مشاوره تحصیلی) */}
+          <button
+            type="button"
+            onClick={() => setAiPromptModalOpen(true)}
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors cursor-pointer group"
+          >
+            <div className="flex items-start gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-primary-soft text-primary border border-primary-soft mt-0.5 group-hover:scale-105 transition-transform">
+                <Bot className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-[13.5px] font-bold text-base-content truncate">متن برای هوش مصنوعی</p>
+                  <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-primary-soft text-primary border border-primary-soft">
+                    مشاور تحصیلی
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-neutral mt-0.5">
+                  تولید پرامپت معدل، سوابق و برنامه برای ChatGPT، Claude و Gemini
+                </p>
+              </div>
+            </div>
+            <ChevronLeft className="w-4 h-4 text-neutral shrink-0 mt-2" />
+          </button>
+
           {/* امور مالی و شهریه */}
           <button
             type="button"
@@ -863,14 +975,136 @@ export default function MoreScreen({
         </div>
       </section>
 
-      {/* شخصی‌سازی ظاهر و آیکون اپلیکیشن */}
+      {/* شخصی‌سازی ظاهر و چیدمان */}
       <section className="space-y-1.5">
         <h3 className="text-[12.5px] font-bold text-neutral px-1">شخصی‌سازی ظاهر</h3>
         <div className="sarv-card overflow-hidden divide-y divide-base-500/30">
+          {/* چیدمان و ویجت‌های داشبورد */}
+          <button
+            type="button"
+            onClick={() => setDashboardModalOpen(true)}
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 transition-colors group cursor-pointer"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl bg-primary-soft text-primary grid place-items-center shrink-0 transition-transform group-hover:scale-105">
+                <SlidersHorizontal className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-[13.5px] font-bold text-base-content">چیدمان و ویجت‌های داشبورد</p>
+                  <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-full bg-primary-soft text-primary">
+                    جدید
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-neutral mt-0.5">
+                  تغییر ترتیب، حذف و اضافه کردن کارت‌های صفحه اصلی
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-[11px] font-bold text-primary">تنظیم</span>
+              <ChevronLeft className="w-4 h-4 text-neutral" />
+            </div>
+          </button>
+
+          {/* حالت بتمن (ایستر اگ) */}
+          {isBatMode && (
+            <div className="bg-base-500/15 border-b border-base-content/5 divide-y divide-base-content/5">
+              <div className="p-3.5 flex items-center justify-between gap-3 hover:bg-base-500/25 transition-colors">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="w-9 h-9 rounded-xl bg-amber-400/15 border border-amber-400/35 grid place-items-center shrink-0 p-1.5 shadow-sm">
+                    <svg viewBox="0 0 122.13 69.89" className="w-full h-full">
+                      <path
+                        fill="#f7dd30"
+                        d="M121.06,35c0,18.71-26.86,33.88-60,33.88S1.06,53.66,1.06,35s26.87-33.89,60-33.89,60,15.17,60,33.89Z"
+                      />
+                      <path
+                        fill="#000000"
+                        d="M51.72,24.46c-14.49,5.37-21.86-8-14.49-15.74-11.75,3-30.86,11.49-30.86,25.63,0,12.83,12.49,20.09,21.49,23.22-8.68-10.74,3.25-19.16,13.7-7.41C49.69,35.73,59.28,56.44,61,59.58h0c1.71-3.14,11.31-23.85,19.44-9.42,10.45-11.75,22.38-3.33,13.7,7.41,9-3.13,21.49-10.39,21.49-23.22,0-14.14-19.11-22.63-30.86-25.63,7.37,7.74,0,21.11-14.49,15.74-1.67-2-2.75-6.11-2.75-18.24-1.94,1.26-3.33,5.71-3.45,6a12,12,0,0,0-6.15,0c-.12-.32-1.51-4.77-3.45-6,0,12.13-1.08,16.25-2.75,18.24ZM122.13,35c0,9.76-6.93,18.56-18.12,24.88-11,6.22-26.2,10.06-42.95,10.06S29.13,66.05,18.12,59.83C6.92,53.51,0,44.71,0,35S6.92,16.39,18.12,10.07C29.13,3.85,44.32,0,61.06,0S93,3.85,104,10.07C115.2,16.39,122.13,25.18,122.13,35ZM103,58c10.52-5.94,17-14.09,17-23s-6.51-17.1-17-23c-10.7-6-25.52-9.78-41.91-9.78s-31.2,3.74-41.9,9.78C8.64,17.85,2.13,26,2.13,35S8.64,52,19.16,58c10.7,6.05,25.52,9.79,41.9,9.79S92.27,64,103,58Z"
+                      />
+                    </svg>
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-[13px] font-bold text-base-content">حالت شوالیه تاریکی (بتمن)</p>
+                      <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-600 dark:text-amber-400 border border-amber-400/30">
+                        ایستر اگ فعال
+                      </span>
+                    </div>
+                    <p className="text-[10.5px] text-neutral mt-0.5 truncate">
+                      بک‌گراند خفاشی گاتهام، ماسک چهره و آیکون بتمن
+                    </p>
+                  </div>
+                </div>
+                <SarvSwitch
+                  checked={isBatMode}
+                  onChange={() => toggleBatMode()}
+                  variant="warn"
+                  aria-label="حالت بتمن"
+                />
+              </div>
+
+              {/* تنظیم اعلان شبانه ساعت ۱۱ شب (احتیاج شهر به بتمن) */}
+              <div className="p-3.5 bg-base-500/10">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="w-9 h-9 rounded-xl bg-amber-400/15 text-amber-500 border border-amber-400/30 grid place-items-center shrink-0">
+                      <BellRing className="w-4.5 h-4.5" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-[13px] font-bold text-base-content">اعلان شبانه گاتهام (ساعت ۱۱ شب)</p>
+                        <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-600 dark:text-amber-400 border border-amber-400/30 font-mono">
+                          ۲۳:۰۰
+                        </span>
+                      </div>
+                      <p className="text-[10.5px] text-neutral mt-0.5 truncate">
+                        ارسال اعلان «احتیاج شهر به بتمن» هر شب رأس ساعت ۱۱
+                      </p>
+                    </div>
+                  </div>
+                  <SarvSwitch
+                    checked={isBatNotifEnabled}
+                    onChange={(val) => handleToggleBatNotif(val)}
+                    disabled={batNotifToggling}
+                    variant="warn"
+                    aria-label="اعلان شبانه بتمن"
+                  />
+                </div>
+
+                {isBatNotifEnabled && (
+                  <div className="mt-2.5 pt-2 border-t border-base-content/5 flex items-center justify-between gap-2">
+                    <span className="text-[10.5px] text-neutral flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                      <span>فعال · هر شب رأس ساعت ۲۳:۰۰</span>
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={handleTestBatNotif}
+                        className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-amber-400/15 hover:bg-amber-400/25 text-amber-600 dark:text-amber-400 border border-amber-400/30 transition-colors cursor-pointer"
+                      >
+                        تست اعلان
+                      </button>
+                      <button
+                        type="button"
+                        onClick={openBatNotificationSettings}
+                        className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-base-500/30 hover:bg-base-500/50 text-neutral transition-colors cursor-pointer"
+                      >
+                        تنظیمات دسترسی
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* آیکون اپلیکیشن */}
           <button
             type="button"
             onClick={() => setIconModalOpen(true)}
-            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 transition-colors group"
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 transition-colors group cursor-pointer"
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className="shrink-0 transition-transform group-hover:scale-105">
@@ -880,7 +1114,7 @@ export default function MoreScreen({
                 <div className="flex items-center gap-2">
                   <p className="text-[13.5px] font-bold text-base-content">آیکون اپلیکیشن</p>
                   <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-full bg-primary-soft text-primary">
-                    ۱۲ طرح
+                    {toFaDigits((isBatMode ? appIcons : appIcons.filter((ic) => ic.id !== 'batman')).length)} طرح
                   </span>
                 </div>
                 <p className="text-[10.5px] text-neutral mt-0.5">
@@ -1497,14 +1731,55 @@ export default function MoreScreen({
                 </button>
               </div>
 
+              {/* انتخاب فرمت جدول یا تایم‌لاین برای برنامه هفتگی در سایر دانشگاه‌ها */}
+              {sharePreview.kind === 'schedule' && !isAut && (
+                <div className="flex items-center justify-center pb-1 pt-1 shrink-0">
+                  <div className="inline-flex p-1 rounded-xl bg-base-500/25 border border-base-500/40 gap-1">
+                    <button
+                      type="button"
+                      disabled={scheduleShareRendering}
+                      onClick={() => handleChangeScheduleShareFormat('matrix')}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        scheduleShareFormat === 'matrix'
+                          ? 'bg-primary text-primary-content shadow-xs'
+                          : 'text-neutral hover:text-base-content'
+                      }`}
+                    >
+                      <Table2 className="w-3.5 h-3.5" />
+                      جدول ماتریسی
+                    </button>
+                    <button
+                      type="button"
+                      disabled={scheduleShareRendering}
+                      onClick={() => handleChangeScheduleShareFormat('timeline')}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        scheduleShareFormat === 'timeline'
+                          ? 'bg-primary text-primary-content shadow-xs'
+                          : 'text-neutral hover:text-base-content'
+                      }`}
+                    >
+                      <Clock className="w-3.5 h-3.5" />
+                      تایم‌لاین پیوسته
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* کانتینر اسکرول و پیش‌نمایش تصویر */}
-              <div className="flex-1 overflow-y-auto py-3 pr-0.5">
-                <div className="relative rounded-2xl overflow-hidden border border-base-500/50 shadow-lg bg-black/40">
-                  <img
-                    src={sharePreview.url}
-                    alt="پیش‌نمایش استوری سروستان"
-                    className="w-full h-auto object-contain block"
-                  />
+              <div className="flex-1 overflow-y-auto py-2.5 pr-0.5">
+                <div className="relative rounded-2xl overflow-hidden border border-base-500/50 shadow-lg bg-black/40 min-h-[140px] flex items-center justify-center">
+                  {scheduleShareRendering ? (
+                    <div className="p-8 flex flex-col items-center gap-2 text-neutral">
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                      <span className="text-[11px] font-medium">در حال تولید تصویر...</span>
+                    </div>
+                  ) : (
+                    <img
+                      src={sharePreview.url}
+                      alt="پیش‌نمایش استوری سروستان"
+                      className="w-full h-auto object-contain block"
+                    />
+                  )}
                 </div>
               </div>
 
@@ -1607,7 +1882,7 @@ export default function MoreScreen({
               {/* شبکه کارت‌های آیکون */}
               <div className="overflow-y-auto py-3 space-y-2 flex-1 pr-1">
                 <div className="grid grid-cols-2 gap-2.5">
-                  {appIcons.map((ic) => {
+                  {(isBatMode ? appIcons : appIcons.filter((ic) => ic.id !== 'batman')).map((ic) => {
                     const isSelected = currentIconId === ic.id;
                     return (
                       <button
@@ -1822,6 +2097,16 @@ export default function MoreScreen({
           setAlarmModalOpen(false);
           setDndEnabled(getDndDuringClass());
         }}
+      />
+      {/* مودال شخصی‌سازی چیدمان داشبورد */}
+      <DashboardCustomizeModal
+        isOpen={dashboardModalOpen}
+        onClose={() => setDashboardModalOpen(false)}
+      />
+      {/* مودال پرامپت و مشاور تحصیلی هوش مصنوعی */}
+      <AiAdvisorPromptModal
+        isOpen={aiPromptModalOpen}
+        onClose={() => setAiPromptModalOpen(false)}
       />
     </div>
   );

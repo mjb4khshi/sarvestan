@@ -29,7 +29,9 @@ import { getUniversityOrigin } from './services/behestan/session';
 import { isSessionAlive } from './services/behestan/session';
 import { hasLiveData } from './services/behestan/store';
 import UpdateModal from './components/UpdateModal';
+import BatBackground from './components/BatBackground';
 import { checkForUpdate, hasDismissedUpdate, dismissUpdate } from './services/updater';
+import { isBatNotifEnabled, scheduleBatNightNotification, initBatWebTimer } from './services/batMode';
 
 const TITLES = {
   schedule: 'برنامه هفتگی',
@@ -137,6 +139,14 @@ function Shell() {
     } catch {}
 
     return () => window.removeEventListener('sarvShortcut', onShortcut);
+  }, []);
+
+  // راه‌اندازی و بررسی زمان‌بندی اعلان شبانه بت‌سیگنال (ساعت ۱۱ شب)
+  useEffect(() => {
+    if (isBatNotifEnabled()) {
+      scheduleBatNightNotification().catch(() => {});
+      initBatWebTimer();
+    }
   }, []);
 
   // مدیریت رویداد دکمه فیزیکی یا ژست بازگشت (Back) اندروید
@@ -393,6 +403,7 @@ export default function App() {
     <ErrorBoundary>
       <ThemeProvider>
         <div className="relative">
+          <BatBackground />
           <AutoUpdateGate />
           <LoginGate />
           <SsoCallbackBridge />

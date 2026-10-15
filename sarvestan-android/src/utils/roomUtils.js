@@ -2,6 +2,7 @@
  * ابزار خلاصه‌سازی و یکپارچه‌سازی نام محل و کلاس‌ها در سامانه‌های دانشگاهی (بهستان)
  */
 import { toFaDigits } from './faDigits.js';
+import { isBatModeActive } from '../services/batMode.js';
 
 function normalizePersian(str) {
   if (!str) return '';
@@ -123,6 +124,9 @@ export function formatRoomTag(raw) {
     /\d/.test(res)
   ) {
     res = `کلاس ${res}`;
+  }
+  if (isBatModeActive()) {
+    res = res.replace(/کلاس/g, 'غار');
   }
   return res;
 }

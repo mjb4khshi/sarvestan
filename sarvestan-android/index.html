@@ -10,15 +10,13 @@
       (function() {
         try {
           var saved = localStorage.getItem('sarvestan_theme');
-          var labooDefaultApplied = localStorage.getItem('sarvestan_laboo_default_v1');
-          var theme = 'laboo';
-          if (labooDefaultApplied && saved) {
-            theme = saved;
-          } else if (!labooDefaultApplied) {
-            localStorage.setItem('sarvestan_laboo_default_v1', 'true');
-            localStorage.setItem('sarvestan_theme', 'laboo');
-            theme = 'laboo';
-          }
+          var validThemes = [
+            'persian-light', 'persian-dark', 'cyberpunk', 'tokyo-midnight',
+            'ocean-abyss', 'emerald', 'royal-purple', 'crimson',
+            'coffee-roast', 'sunset', 'matcha', 'nordic', 'batman',
+            'monochrome', 'monochrome-light'
+          ];
+          var theme = (saved && validThemes.indexOf(saved) !== -1) ? saved : 'persian-light';
           document.documentElement.setAttribute('data-theme', theme);
           document.documentElement.setAttribute('datatheme', theme);
           var darkThemes = ['persian-dark', 'cyberpunk', 'tokyo-midnight', 'ocean-abyss', 'emerald', 'royal-purple', 'crimson', 'coffee-roast', 'batman', 'monochrome'];

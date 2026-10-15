@@ -197,6 +197,20 @@
             </intent-filter>
         </activity-alias>
 
+        <activity-alias
+            android:name=".MainActivityBatman"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_batman"
+            android:roundIcon="@mipmap/ic_launcher_batman_round"
+            android:label="@string/app_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
         <receiver
             android:name=".SarvestanWidgetProvider"
             android:label="@string/widget_combo_name"
