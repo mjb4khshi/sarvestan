@@ -28,6 +28,8 @@ import DashboardCustomizeModal from '../components/DashboardCustomizeModal';
 import { getDashboardWidgetsConfig } from '../services/dashboardWidgets';
 import BatmanMask from '../components/BatmanMask';
 import { motion } from 'framer-motion';
+import FeedModal from '../components/FeedModal';
+import { fetchFeed, getFeedState, subscribeFeed, markPostAsRead } from '../services/feedService';
 
 import { getGpaStatusBadge } from '../utils/gpaBadge';
 export { getGpaStatusBadge };
@@ -45,6 +47,13 @@ const PROFILE_CARD_LAYOUT = 'row';
 export default function HomeScreen({ onNavigate }) {
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
   const [widgetsConfig, setWidgetsConfig] = useState(getDashboardWidgetsConfig);
+  const [feedState, setFeedState] = useState(getFeedState);
+  const [selectedFeedPost, setSelectedFeedPost] = useState(null);
+
+  useEffect(() => {
+    fetchFeed();
+    return subscribeFeed(() => setFeedState(getFeedState()));
+  }, []);
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -748,18 +757,65 @@ export default function HomeScreen({ onNavigate }) {
           </div>
         );
 
-      case 'announcements':
+      case 'announcements': {
+        const livePosts = feedState.posts || [];
+        const hasAnnouncements = livePosts.length > 0 || ANNOUNCEMENTS.length > 0;
+
         return (
           <section key="announcements" className="space-y-2">
             <div className="flex items-center justify-between px-1">
               <h3 className="text-[13px] font-bold text-base-content flex items-center gap-1.5">
                 <Megaphone className="w-3.5 h-3.5 text-warn" />
-                اعلانات رسمی آموزشی
+                خبرنامه و اعلانات سروستان
               </h3>
+              {feedState.unreadCount > 0 && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary text-primary-content">
+                  {toFaDigits(feedState.unreadCount)} جدید
+                </span>
+              )}
             </div>
-            {ANNOUNCEMENTS.length === 0 && (
+
+            {!hasAnnouncements && (
               <p className="text-[12px] text-neutral text-center py-3">اعلانی ثبت نشده</p>
             )}
+
+            {/* پست‌های زنده خبرنامه از Sarvestan_feed */}
+            {livePosts.map((post) => (
+              <article
+                key={post.id}
+                onClick={() => {
+                  setSelectedFeedPost(post);
+                  markPostAsRead(post.id);
+                }}
+                className={`sarv-card p-3.5 border-r-4 cursor-pointer hover:border-primary active:scale-[0.99] transition-all relative ${
+                  post.color === 'accent'
+                    ? 'border-r-accent bg-accent-soft'
+                    : post.color === 'secondary'
+                    ? 'border-r-secondary bg-secondary-soft'
+                    : 'border-r-primary bg-primary-soft'
+                }`}
+              >
+                {!post.isRead && (
+                  <span className="absolute top-3 left-3 w-2 h-2 rounded-full bg-primary animate-pulse" />
+                )}
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <div className="flex items-center gap-1.5">
+                    {post.badge && (
+                      <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-base text-base-content border border-base-500/30">
+                        {post.badge}
+                      </span>
+                    )}
+                    <h4 className="text-[13px] font-bold text-base-content">{post.title}</h4>
+                  </div>
+                  <span className="text-[10px] text-neutral font-mono shrink-0">{toFaDigits(post.date)}</span>
+                </div>
+                <p className="text-[11.5px] text-neutral mt-1 leading-relaxed font-medium line-clamp-2">
+                  {post.summary || post.content}
+                </p>
+              </article>
+            ))}
+
+            {/* اعلانات و گردش کارهای بهستان */}
             {ANNOUNCEMENTS.map((a) => (
               <article
                 key={a.id}
@@ -775,6 +831,7 @@ export default function HomeScreen({ onNavigate }) {
             ))}
           </section>
         );
+      }
 
       default:
         return null;
@@ -800,6 +857,12 @@ export default function HomeScreen({ onNavigate }) {
       <DashboardCustomizeModal
         isOpen={isCustomizeOpen}
         onClose={() => setIsCustomizeOpen(false)}
+      />
+
+      <FeedModal
+        post={selectedFeedPost}
+        isOpen={!!selectedFeedPost}
+        onClose={() => setSelectedFeedPost(null)}
       />
     </div>
   );
