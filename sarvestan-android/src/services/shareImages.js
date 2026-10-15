@@ -5,6 +5,7 @@ import { toFaDigits, toPersianCourseName } from '../utils/faDigits.js';
 import { formatRoomTag } from '../utils/roomUtils.js';
 import { getScheduleMatrix, getViewModel, getToneForCourse } from '../data/viewModel.js';
 import { computeTopologicalStages, normName } from './curriculumEngine.js';
+import { getUniversityName, getUniversityShortName } from './behestan/session.js';
 
 const DAYS = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه'];
 
@@ -361,13 +362,13 @@ export async function renderScheduleImage({ theme } = {}) {
   ctx.textAlign = 'left';
   ctx.fillStyle = p.content;
   ctx.font = 'bold 21px Arad, "Arad", sans-serif';
-  ctx.fillText(student.fullName || 'دانشجوی صنعتی خواجه نصیر', profX, profY + 24);
+  ctx.fillText(student.fullName || 'دانشجو', profX, profY + 24);
 
   ctx.fillStyle = p.muted;
   ctx.font = '13.5px Arad, "Arad", sans-serif';
   const stdInfo = [
     student.major,
-    student.college || 'دانشگاه صنعتی خواجه نصیر طوسی',
+    student.college || getUniversityName(),
   ].filter(Boolean).join(' · ');
   ctx.fillText(stdInfo, profX, profY + 50);
 
@@ -453,8 +454,9 @@ export async function renderScheduleImage({ theme } = {}) {
   const gapAboveFooter = 20; // فاصله مناسب جدول از فوتر
   const rowsTop = gridTop + headerH + gap; // 132 + 44 + 8 = 184
   const availableH = footerY - gapAboveFooter - rowsTop; // 1016 - 20 - 184 = 812
-  const maxRows = Math.max(1, Math.min(slots.length, 6));
-  const rowH = Math.floor((availableH - (maxRows - 1) * gap) / maxRows); // (812 - 40) / 6 = 128
+  const maxRows = Math.max(1, slots.length);
+  const rowH = Math.floor((availableH - (maxRows - 1) * gap) / maxRows);
+  const isCompact = rowH < 115;
 
   if (!slots.length) {
     ctx.fillStyle = p.muted;
@@ -498,18 +500,22 @@ export async function renderScheduleImage({ theme } = {}) {
     }
 
     ctx.fillStyle = p.content;
-    ctx.font = 'bold 18px Arad, "Arad", sans-serif';
-    ctx.textAlign = 'center';
     const timeParts = String(slots[r] || '').split(/[-–]/);
     if (timeParts.length >= 2) {
-      ctx.fillText(toFaDigits(timeParts[0].trim()), timeX + timeColW / 2, y + rowH / 2 - 13);
+      const centerY = y + rowH / 2;
+      const fs = isCompact ? 15 : 18;
+      ctx.font = `bold ${fs}px Arad, "Arad", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText(toFaDigits(timeParts[0].trim()), timeX + timeColW / 2, centerY - (isCompact ? 10 : 13));
       ctx.fillStyle = p.muted;
-      ctx.font = '12px Arad, "Arad", sans-serif';
-      ctx.fillText('تا', timeX + timeColW / 2, y + rowH / 2 + 5);
+      ctx.font = `${isCompact ? 10.5 : 12}px Arad, "Arad", sans-serif`;
+      ctx.fillText('تا', timeX + timeColW / 2, centerY + (isCompact ? 3 : 5));
       ctx.fillStyle = p.content;
-      ctx.font = 'bold 18px Arad, "Arad", sans-serif';
-      ctx.fillText(toFaDigits(timeParts[1].trim()), timeX + timeColW / 2, y + rowH / 2 + 25);
+      ctx.font = `bold ${fs}px Arad, "Arad", sans-serif`;
+      ctx.fillText(toFaDigits(timeParts[1].trim()), timeX + timeColW / 2, centerY + (isCompact ? 19 : 25));
     } else {
+      ctx.font = `bold ${isCompact ? 14 : 18}px Arad, "Arad", sans-serif`;
+      ctx.textAlign = 'center';
       ctx.fillText(toFaDigits(slots[r] || ''), timeX + timeColW / 2, y + rowH / 2 + 6);
     }
 
@@ -571,62 +577,63 @@ export async function renderScheduleImage({ theme } = {}) {
         ctx.stroke();
 
         // بج «حضوری» در گوشه چپ بالا
-        const badgeW = 54;
-        const badgeH = 24;
+        const badgeW = isCompact ? 46 : 54;
+        const badgeH = isCompact ? 20 : 24;
         ctx.fillStyle = hexToRgba(tone, 0.22);
-        roundRect(ctx, cardX + 12, cy + 12, badgeW, badgeH, 7);
+        roundRect(ctx, cardX + 12, cy + (isCompact ? 8 : 12), badgeW, badgeH, 6);
         ctx.fill();
         ctx.fillStyle = tone;
-        ctx.font = 'bold 11px Arad, "Arad", sans-serif';
+        ctx.font = `bold ${isCompact ? 10 : 11}px Arad, "Arad", sans-serif`;
         ctx.textAlign = 'center';
-        ctx.fillText('حضوری', cardX + 12 + badgeW / 2, cy + 28);
+        ctx.fillText('حضوری', cardX + 12 + badgeW / 2, cy + (isCompact ? 22 : 28));
 
         // عنوان درس با فونت آراد بولد و اندازه متناسب
         ctx.direction = 'rtl';
         ctx.textAlign = 'right';
         ctx.fillStyle = p.content;
-        ctx.font = 'bold 16px Arad, "Arad", sans-serif';
+        ctx.font = `bold ${isCompact ? 14 : 16}px Arad, "Arad", sans-serif`;
         const lines = wrapText(ctx, cell.title || '', cardW - badgeW - 32, 2);
         lines.forEach((ln, lxi) => {
-          ctx.fillText(ln, cardX + cardW - 14, cy + 30 + lxi * 24);
+          ctx.fillText(ln, cardX + cardW - 14, cy + (isCompact ? 24 : 30) + lxi * (isCompact ? 20 : 24));
         });
 
         // ردیف پایین: استاد و شماره کلاس
-        const botY = cy + cardH - 16;
+        const botY = cy + cardH - (isCompact ? 10 : 16);
 
         if (cell.professor && cell.professor !== 'ـ') {
           ctx.direction = 'rtl';
           ctx.textAlign = 'right';
           ctx.fillStyle = p.muted;
-          ctx.font = '13px Arad, "Arad", sans-serif';
+          ctx.font = `${isCompact ? 11.5 : 13}px Arad, "Arad", sans-serif`;
           ctx.fillText(cell.professor, cardX + cardW - 14, botY);
         }
 
         const roomStr = formatRoomTag(cell.room);
         if (roomStr) {
-          ctx.font = 'bold 12px Arad, "Arad", sans-serif';
+          ctx.font = `bold ${isCompact ? 10.5 : 12}px Arad, "Arad", sans-serif`;
           let profW = 0;
           if (cell.professor && cell.professor !== 'ـ') {
-            ctx.font = '13px Arad, "Arad", sans-serif';
+            ctx.font = `${isCompact ? 11.5 : 13}px Arad, "Arad", sans-serif`;
             profW = ctx.measureText(cell.professor).width;
           }
-          ctx.font = 'bold 12px Arad, "Arad", sans-serif';
+          ctx.font = `bold ${isCompact ? 10.5 : 12}px Arad, "Arad", sans-serif`;
 
           // جلوگیری قاطع از هم‌پوشانی بج اتاق با نام استاد (حداقل فاصله ایمن ۱۶ پیکسل)
-          const maxRw = profW > 0 ? Math.max(30, cardW - 14 - profW - 20) : (cardW - 28);
+          const maxRw = profW > 0 ? Math.max(26, cardW - 14 - profW - 16) : (cardW - 28);
           let displayRoom = roomStr;
-          let rw = ctx.measureText(displayRoom).width + 16;
-          if (rw > maxRw && maxRw > 40) {
-            while (displayRoom.length > 2 && ctx.measureText(displayRoom + '…').width + 16 > maxRw) {
+          let rw = ctx.measureText(displayRoom).width + (isCompact ? 12 : 16);
+          if (rw > maxRw && maxRw > 30) {
+            while (displayRoom.length > 2 && ctx.measureText(displayRoom + '…').width + (isCompact ? 12 : 16) > maxRw) {
               displayRoom = displayRoom.slice(0, -1);
             }
             displayRoom = displayRoom.trim() + '…';
-            rw = ctx.measureText(displayRoom).width + 16;
+            rw = ctx.measureText(displayRoom).width + (isCompact ? 12 : 16);
           }
 
           if (rw <= maxRw || profW === 0) {
+            const rh = isCompact ? 19 : 24;
             ctx.fillStyle = hexToRgba(tone, 0.16);
-            roundRect(ctx, cardX + 12, botY - 18, rw, 24, 6);
+            roundRect(ctx, cardX + 12, botY - (isCompact ? 14 : 18), rw, rh, 5);
             ctx.fill();
 
             ctx.direction = 'rtl';
@@ -723,10 +730,10 @@ export async function renderScheduleImage({ theme } = {}) {
   ctx.font = '12px Arad, "Arad", sans-serif';
   ctx.fillText(currentTermLabel, footerX + footerW - 20, footerY + footerH / 2 + 5);
 
-  // سمت چپ فوتر: دانشگاه خواجه نصیر
+  // سمت چپ فوتر: نام دانشگاه پویا
   ctx.direction = 'rtl';
   ctx.textAlign = 'left';
-  ctx.fillText('دانشگاه صنعتی خواجه نصیر طوسی', footerX + 20, footerY + footerH / 2 + 5);
+  ctx.fillText(getUniversityName(), footerX + 20, footerY + footerH / 2 + 5);
 
   return canvas;
 }
@@ -760,7 +767,7 @@ export async function renderGpaStoryImage({ theme } = {}) {
   ctx.fillRect(0, 0, W, H);
 
   // مشخصات دانشجو در بالای صفحه به صورت یک کپسول شناور شیک
-  const studentTitle = student.fullName || 'دانشجوی صنعتی خواجه نصیر';
+  const studentTitle = student.fullName || 'دانشجو';
   const subText = [student.major, currentTermLabel].filter(Boolean).join(' · ');
   const pillText = subText ? `${studentTitle} · ${subText}` : studentTitle;
 
@@ -864,7 +871,7 @@ export async function renderGpaStoryImage({ theme } = {}) {
   // شعار تبلیغاتی سروستان
   ctx.fillStyle = p.muted;
   ctx.font = '20px Arad, "Arad", sans-serif';
-  ctx.fillText('دستیار هوشمند و مدرن دانشجویان صنعتی خواجه نصیر', W / 2, logoBoxY + logoBoxSize + 96);
+  ctx.fillText(`دستیار هوشمند و مدرن دانشجویان ${getUniversityShortName()}`, W / 2, logoBoxY + logoBoxSize + 96);
 
   // کپسول آدرس سایت سروستان برای تبلیغ و دسترسی
   const promoUrl = 'mjb4khshi.github.io/sarvestan';
@@ -1109,7 +1116,7 @@ export async function renderStudyStoryImage({ stats, student, theme }) {
   ctx.fillText(todayFa, headerX + headerW - 28, headerY + 88);
 
   // مشخصات دانشجو در کپسول شناور
-  const studentName = student?.fullName || 'دانشجوی صنعتی خواجه نصیر';
+  const studentName = student?.fullName || 'دانشجو';
   const majorText = student?.major ? ` · ${student.major}` : '';
   const infoPill = `${studentName}${majorText}`;
   ctx.font = 'bold 20px Arad, "Arad", sans-serif';
@@ -1405,11 +1412,11 @@ export async function renderCurriculumPoster({ theme, curriculumState, student }
   ].filter(Boolean);
   ctx.fillText(subInfoParts.join('  ·  '), W / 2, headerY + 60);
 
-  // چپ هدر: دانشگاه صنعتی خواجه نصیرالدین طوسی
+  // چپ هدر: نام دانشگاه پویا
   ctx.textAlign = 'left';
   ctx.fillStyle = pal.content;
   ctx.font = 'bold 15px Arad, "Arad", sans-serif';
-  ctx.fillText('دانشگاه صنعتی خواجه نصیرالدین طوسی', MARGIN + 26, headerY + 36);
+  ctx.fillText(getUniversityName(), MARGIN + 26, headerY + 36);
 
   ctx.fillStyle = pal.muted;
   ctx.font = '12px Arad, "Arad", sans-serif';
@@ -1755,7 +1762,7 @@ export async function renderCurriculumPoster({ theme, curriculumState, student }
   });
 
   // چپ فوتر: متن برندینگ سروستان
-  const footerText = 'تولیدشده با سروستان · دستیار هوشمند دانشگاه صنعتی خواجه نصیرالدین طوسی (نسخه آزمایشی چارت)';
+  const footerText = `تولیدشده با سروستان · دستیار هوشمند ${getUniversityName()} (نسخه آزمایشی چارت)`;
   ctx.textAlign = 'left';
   ctx.font = 'bold 13px Arad, "Arad", sans-serif';
   ctx.fillStyle = pal.content;

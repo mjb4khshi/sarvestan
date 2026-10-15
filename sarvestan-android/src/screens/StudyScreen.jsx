@@ -529,8 +529,9 @@ export default function StudyScreen({ onNavigate }) {
   const [calendarSubView, setCalendarSubView] = useState('month'); // 'month' | 'year' | 'timeline'
   const [timelineFilterCourse, setTimelineFilterCourse] = useState('all');
 
-  // مودال افزودن تسک
+  // مودال افزودن و ویرایش تسک
   const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState(null);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskCourse, setNewTaskCourse] = useState(coursesList[0]?.name || 'عمومی');
   const [newTaskPriority, setNewTaskPriority] = useState('medium');
@@ -558,6 +559,23 @@ export default function StudyScreen({ onNavigate }) {
     if (isoStr === tomorrowIso) return `${fullFa} (فردا)`;
     if (isoStr === dayAfterIso) return `${fullFa} (پس‌فردا)`;
     return fullFa;
+  };
+
+  const formatTaskDateShort = (isoStr) => {
+    if (!isoStr) return 'امروز';
+    if (isoStr === todayIso) return 'امروز';
+    if (isoStr === tomorrowIso) return 'فردا';
+    if (isoStr === dayAfterIso) return 'پس‌فردا';
+    const parts = String(isoStr).split('-');
+    const d = parts.length === 3 ? new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0) : new Date();
+    try {
+      return new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+        day: 'numeric',
+        month: 'short',
+      }).format(d);
+    } catch {
+      return toFaDigits(isoStr);
+    }
   };
 
   // مودال ثبت دستی مطالعه بدون نیاز به تایمر
@@ -886,22 +904,54 @@ export default function StudyScreen({ onNavigate }) {
     }
   };
 
-  const handleCreateTask = (e) => {
+  const handleOpenCreateTask = (defaultDate = selectedDate || todayIso) => {
+    setEditingTaskId(null);
+    setNewTaskTitle('');
+    setNewTaskCourse(coursesList[0]?.name || 'عمومی');
+    setNewTaskPriority('medium');
+    setNewTaskDate(defaultDate);
+    setTaskModalOpen(true);
+  };
+
+  const handleOpenEditTask = (task) => {
+    setEditingTaskId(task.id);
+    setNewTaskTitle(task.title || '');
+    setNewTaskCourse(task.courseName || coursesList[0]?.name || 'عمومی');
+    setNewTaskPriority(task.priority || 'medium');
+    setNewTaskDate(task.dateStr || todayIso);
+    setTaskModalOpen(true);
+  };
+
+  const handleSaveTask = (e) => {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
     const matched = coursesList.find((c) => c.name === newTaskCourse);
-    saveStudyTask({
-      title: newTaskTitle.trim(),
-      courseName: newTaskCourse,
-      courseCode: matched?.code || null,
-      color: getCourseColor(matched || newTaskCourse),
-      priority: newTaskPriority,
-      status: 'todo',
-      dateStr: newTaskDate || selectedDate || todayIso,
-    });
+    if (editingTaskId) {
+      saveStudyTask({
+        id: editingTaskId,
+        title: newTaskTitle.trim(),
+        courseName: newTaskCourse,
+        courseCode: matched?.code || null,
+        color: getCourseColor(matched || newTaskCourse),
+        priority: newTaskPriority,
+        dateStr: newTaskDate || todayIso,
+      });
+      setShareToast('تسک با موفقیت ویرایش شد');
+    } else {
+      saveStudyTask({
+        title: newTaskTitle.trim(),
+        courseName: newTaskCourse,
+        courseCode: matched?.code || null,
+        color: getCourseColor(matched || newTaskCourse),
+        priority: newTaskPriority,
+        status: 'todo',
+        dateStr: newTaskDate || selectedDate || todayIso,
+      });
+      setShareToast('تسک جدید به بورد اضافه شد');
+    }
+    setEditingTaskId(null);
     setNewTaskTitle('');
     setTaskModalOpen(false);
-    setShareToast('تسک جدید به بورد اضافه شد');
     setTimeout(() => setShareToast(''), 3000);
   };
 
@@ -1485,7 +1535,7 @@ export default function StudyScreen({ onNavigate }) {
 
             <button
               type="button"
-              onClick={() => setTaskModalOpen(true)}
+              onClick={() => handleOpenCreateTask()}
               className="px-3.5 py-2 rounded-xl bg-primary text-primary-content text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer hover:brightness-110 transition"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -1649,14 +1699,18 @@ export default function StudyScreen({ onNavigate }) {
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0 flex-1">
-                                <p className="text-[13px] font-bold text-base-content leading-snug">
+                                <p
+                                  onClick={() => handleOpenEditTask(t)}
+                                  className="text-[13px] font-bold text-base-content leading-snug cursor-pointer hover:text-primary transition-colors"
+                                  title="برای ویرایش تسک کلیک کنید"
+                                >
                                   {t.title}
                                 </p>
                                 <div className="flex items-center gap-2 mt-1 text-[10.5px] text-neutral flex-wrap">
                                   <span className="font-semibold text-primary">{t.courseName}</span>
                                   {tDate && (
-                                    <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-base-500/25 text-neutral font-bold">
-                                      {tDate === todayIso ? 'امروز' : toFaDigits(tDate)}
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-base-500/25 text-neutral font-bold">
+                                      {formatTaskDateShort(tDate)}
                                     </span>
                                   )}
                                   {t.timeSpentSeconds > 0 && (
@@ -1690,7 +1744,7 @@ export default function StudyScreen({ onNavigate }) {
                                 <span>شروع مطالعه</span>
                               </button>
 
-                              {/* کلیدهای جابجایی بین ستون‌ها و حذف */}
+                              {/* کلیدهای جابجایی بین ستون‌ها، ویرایش و حذف */}
                               <div className="flex items-center gap-1">
                                 {col.id === 'todo' && (
                                   <button
@@ -1734,6 +1788,15 @@ export default function StudyScreen({ onNavigate }) {
                                     <RotateCcw className="w-3.5 h-3.5" />
                                   </button>
                                 )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditTask(t)}
+                                  className="p-1.5 rounded-xl bg-base-500/25 text-neutral hover:text-primary hover:bg-primary-soft transition active:scale-95 cursor-pointer"
+                                  title="ویرایش تکلیف"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
 
                                 <button
                                   type="button"
@@ -2588,10 +2651,7 @@ export default function StudyScreen({ onNavigate }) {
                   </span>
                   <button
                     type="button"
-                    onClick={() => {
-                      setNewTaskDate(selectedDate);
-                      setTaskModalOpen(true);
-                    }}
+                    onClick={() => handleOpenCreateTask(selectedDate)}
                     className="px-2 py-0.5 rounded-lg bg-primary-soft text-primary hover:bg-primary hover:text-white font-bold text-[10.5px] border border-primary/25 active:scale-95 transition cursor-pointer flex items-center gap-1"
                   >
                     <Plus className="w-3 h-3" />
@@ -2629,7 +2689,13 @@ export default function StudyScreen({ onNavigate }) {
                             {isDone && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                           </button>
                           <div className="min-w-0 flex-1">
-                            <p className={`text-[12px] font-bold text-base-content truncate ${isDone ? 'line-through text-neutral' : ''}`}>
+                            <p
+                              onClick={() => handleOpenEditTask(t)}
+                              className={`text-[12px] font-bold text-base-content truncate cursor-pointer hover:text-primary transition-colors ${
+                                isDone ? 'line-through text-neutral' : ''
+                              }`}
+                              title="برای ویرایش تسک کلیک کنید"
+                            >
                               {t.title}
                             </p>
                             <p className="text-[10px] text-neutral truncate">
@@ -2649,6 +2715,14 @@ export default function StudyScreen({ onNavigate }) {
                               <Play className="w-3 h-3 fill-current" />
                             </button>
                           )}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditTask(t)}
+                            className="p-1 rounded-lg text-neutral hover:text-primary hover:bg-primary-soft transition cursor-pointer"
+                            title="ویرایش تسک"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
                           <button
                             type="button"
                             onClick={() => deleteStudyTask(t.id)}
@@ -2926,7 +3000,9 @@ export default function StudyScreen({ onNavigate }) {
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center justify-between pb-2 border-b border-base-500/30">
-                    <h3 className="text-sm font-black text-base-content">تعریف تسک یا مبحث جدید</h3>
+                    <h3 className="text-sm font-black text-base-content">
+                      {editingTaskId ? 'ویرایش تکلیف' : 'تعریف تسک یا مبحث جدید'}
+                    </h3>
                     <button
                       type="button"
                       onClick={() => setTaskModalOpen(false)}
@@ -2936,7 +3012,7 @@ export default function StudyScreen({ onNavigate }) {
                     </button>
                   </div>
 
-                  <form onSubmit={handleCreateTask} className="space-y-3.5 text-right">
+                  <form onSubmit={handleSaveTask} className="space-y-3.5 text-right">
                     <div>
                       <label className="text-[11px] font-bold text-neutral block mb-1">عنوان تکلیف یا سرفصل:</label>
                       <input
@@ -2955,7 +3031,7 @@ export default function StudyScreen({ onNavigate }) {
                         value={newTaskCourse}
                         onChange={setNewTaskCourse}
                         courses={coursesList}
-                        modalTitle="انتخاب درس برای تسک جدید"
+                        modalTitle={editingTaskId ? 'تغییر درس تسک' : 'انتخاب درس برای تسک جدید'}
                       />
                     </div>
 
@@ -3013,7 +3089,7 @@ export default function StudyScreen({ onNavigate }) {
                         type="submit"
                         className="px-5 py-2.5 rounded-xl bg-primary text-primary-content text-xs font-black shadow-md cursor-pointer hover:brightness-110 active:scale-95 transition"
                       >
-                        ثبت تسک
+                        {editingTaskId ? 'ذخیره تغییرات' : 'ثبت تسک'}
                       </button>
                     </div>
                   </form>

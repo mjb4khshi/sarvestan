@@ -2,18 +2,6 @@ import { createContext, useContext, useState, useEffect } from 'react';
 
 export const SARV_THEMES = [
   {
-    id: 'laboo',
-    name: 'White & Beetroot',
-    persianName: 'سفید و لبویی',
-    badge: 'محدود',
-    isLimited: true,
-    icon: '🍠',
-    mode: 'light',
-    primary: '#931139',
-    base: '#ffffff',
-    accent: '#c4285c',
-  },
-  {
     id: 'persian-light',
     name: 'Persian Light',
     persianName: 'ایرانی روشن',
@@ -169,14 +157,15 @@ const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
   const [currentTheme, setCurrentTheme] = useState(() => {
+    try {
+      localStorage.removeItem('sarvestan_laboo_default_v1');
+    } catch {}
     const saved = localStorage.getItem('sarvestan_theme');
-    const labooDefaultApplied = localStorage.getItem('sarvestan_laboo_default_v1');
-    if (!labooDefaultApplied) {
-      localStorage.setItem('sarvestan_laboo_default_v1', 'true');
-      localStorage.setItem('sarvestan_theme', 'laboo');
-      return 'laboo';
+    if (saved === 'laboo' || !saved) {
+      localStorage.setItem('sarvestan_theme', 'persian-light');
+      return 'persian-light';
     }
-    return saved || 'laboo';
+    return saved;
   });
 
   useEffect(() => {
