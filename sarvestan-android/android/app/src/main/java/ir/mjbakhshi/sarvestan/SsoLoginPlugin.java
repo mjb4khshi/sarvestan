@@ -893,7 +893,7 @@ public class SsoLoginPlugin extends Plugin {
             try {
                 Map<String, String> cookies = new LinkedHashMap<>();
                 String entryUrl = "https://accounts.aut.ac.ir/cas/login?service=https%3A%2F%2Fportal.aut.ac.ir%2Findex.html%3Fsso%3D101";
-                HttpResponse page1 = executeHttp(entryUrl, "GET", null, null, null, cookies);
+                HttpResult page1 = executeHttp(entryUrl, "GET", null, null, null, cookies);
 
                 Pattern execPat = Pattern.compile("name=[\"']execution[\"']\\s+value=[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
                 Matcher execMat = execPat.matcher(page1.body != null ? page1.body : "");
@@ -915,7 +915,7 @@ public class SsoLoginPlugin extends Plugin {
                 formBody.append("&_eventId=").append(URLEncoder.encode("submit", "UTF-8"));
                 formBody.append("&geolocation=");
 
-                HttpResponse loginRes = executeHttp("https://accounts.aut.ac.ir/cas/login", "POST", formBody.toString(), "application/x-www-form-urlencoded", entryUrl, cookies);
+                HttpResult loginRes = executeHttp("https://accounts.aut.ac.ir/cas/login", "POST", formBody.toString(), "application/x-www-form-urlencoded", entryUrl, cookies);
 
                 String ticket = null;
                 if (loginRes.location != null) {
@@ -950,7 +950,7 @@ public class SsoLoginPlugin extends Plugin {
                 // Step 5: تبادل بلیط در سامانه بهستان امیرکبیر
                 String verifyUrl = "https://portal.aut.ac.ir/frmc/Authentication/CAS/";
                 String verifyBody = "{\"act\":\"09\",\"r\":{\"code\":\"\",\"ticket\":\"" + ticket + "\",\"l\":\"\",\"p\":\"\",\"d\":\"0\",\"c\":\"\",\"rsc\":\"101\"},\"rp\":{}}";
-                HttpResponse verifyRes = executeHttp(verifyUrl, "POST", verifyBody, "application/json", "https://portal.aut.ac.ir/browser/fa/?sso=101&ticket=" + URLEncoder.encode(ticket, "UTF-8"), cookies);
+                HttpResult verifyRes = executeHttp(verifyUrl, "POST", verifyBody, "application/json", "https://portal.aut.ac.ir/browser/fa/?sso=101&ticket=" + URLEncoder.encode(ticket, "UTF-8"), cookies);
 
                 JSONObject verifyJson = new JSONObject(verifyRes.body);
                 String sid = verifyJson.optJSONObject("oaut") != null && verifyJson.getJSONObject("oaut").optJSONObject("rp") != null
@@ -972,7 +972,7 @@ public class SsoLoginPlugin extends Plugin {
                 String resolvedUserId = null;
                 try {
                     String navBody = "{\"r\":{\"fid\":\"11130\",\"ft\":\"0\",\"subfrm\":\"\"},\"act\":\"nav\",\"rp\":{\"sp\":\"{\\\"BrnNo\\\":\\\"0\\\",\\\"BrnLimit\\\":\\\"0\\\",\\\"UsrType\\\":\\\"0\\\",\\\"TrmType\\\":\\\"2\\\"}\",\"loc\":\"fa\",\"ut\":\"0\",\"b\":\"0\",\"sid\":\"" + sid + "\"},\"t\":" + JSONObject.quote(currentTicket) + "}";
-                    HttpResponse navRes = executeHttp("https://portal.aut.ac.ir/frm/sys/sys.svc/", "POST", navBody, "application/json", "https://portal.aut.ac.ir/browser/fa/", cookies);
+                    HttpResult navRes = executeHttp("https://portal.aut.ac.ir/frm/sys/sys.svc/", "POST", navBody, "application/json", "https://portal.aut.ac.ir/browser/fa/", cookies);
                     JSONObject navJson = new JSONObject(navRes.body);
                     if (navJson.has("t")) currentTicket = navJson.getString("t");
                     JSONObject outpar = navJson.optJSONObject("outpar");
