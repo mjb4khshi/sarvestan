@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileCheck2,
@@ -13,6 +14,7 @@ import {
   Download,
   CheckCircle2,
   Clock,
+  Table2,
   CircleDashed,
   X,
   Copy,
@@ -31,12 +33,19 @@ import {
   BellOff,
   RotateCcw,
   CreditCard,
+  SlidersHorizontal,
+  Bot,
+  Users,
 } from 'lucide-react';
 import UpdateModal from '../components/UpdateModal';
 import ClassAlarmModal from '../components/ClassAlarmModal';
 import CurriculumChartModal from '../components/CurriculumChartModal';
+import DashboardCustomizeModal from '../components/DashboardCustomizeModal';
+import AiAdvisorPromptModal from '../components/AiAdvisorPromptModal';
+import BatmanMask from '../components/BatmanMask';
+import { useBatMode } from '../services/batMode';
 import SarvSwitch from '../components/SarvSwitch';
-import FinanceScreen from './FinanceScreen';
+import FinanceModal from '../components/FinanceModal';
 import { checkForUpdate, CURRENT_VERSION } from '../services/updater';
 import {
   clearLiveData,
@@ -46,6 +55,7 @@ import {
 } from '../services/behestan';
 import { clearSsoCookies } from '../services/behestan/ssoLoginNative';
 import { clearSavedCreds } from '../services/loginFlow';
+import { getUniversityOrigin, getSelectedUniversity } from '../services/behestan/session';
 
 import {
   cancelAllReminders,
@@ -80,7 +90,7 @@ import { useSarvestanData } from '../hooks/useSarvestanData';
 import { useTheme } from '../context/ThemeContext';
 import SessionPanel from '../components/SessionPanel';
 import { toFaDigits, formatLastSync, getLastSyncTimestamp } from '../utils/faDigits';
-import { getGpaStatusBadge } from './HomeScreen';
+import { getGpaStatusBadge } from '../utils/gpaBadge';
 import {
   renderScheduleImage,
   renderGpaStoryImage,
@@ -156,6 +166,7 @@ export default function MoreScreen({
     };
   }, []);
   const [iconModalOpen, setIconModalOpen] = useState(false);
+  const [dashboardModalOpen, setDashboardModalOpen] = useState(false);
   const [iconToast, setIconToast] = useState('');
   const [clearDataModalOpen, setClearDataModalOpen] = useState(false);
   const [clearingData, setClearingData] = useState(false);
@@ -165,6 +176,56 @@ export default function MoreScreen({
   const [dndEnabled, setDndEnabled] = useState(() => getDndDuringClass());
   const [dndToggling, setDndToggling] = useState(false);
   const { currentIconId, currentIcon, setAppIcon, icons: appIcons } = useAppIcon();
+  const {
+    isBatMode,
+    toggleBatMode,
+    isBatNotifEnabled,
+    setBatNotifEnabled,
+    testBatNotification,
+    openNotificationSettings: openBatNotificationSettings,
+  } = useBatMode();
+  const [batNotifToggling, setBatNotifToggling] = useState(false);
+
+  const handleToggleBatNotif = async (nextState) => {
+    setBatNotifToggling(true);
+    try {
+      const res = await setBatNotifEnabled(nextState);
+      if (nextState) {
+        if (res?.ok) {
+          setResetToast('اعلان شبانه «احتیاج شهر به بتمن» برای هر شب ساعت ۲۳:۰۰ فعال شد.');
+        } else if (res?.blockedInSettings) {
+          setResetToast('دسترسی اعلان‌ها در تنظیمات سیستم مسدود است. لطفاً آن را فعال کنید.');
+          await openBatNotificationSettings();
+        } else {
+          setResetToast(res?.error || 'خطا در فعال‌سازی دسترسی اعلان');
+        }
+      } else {
+        setResetToast('اعلان شبانه بت‌سیگنال غیرفعال شد.');
+      }
+      setTimeout(() => setResetToast(''), 4500);
+    } catch (e) {
+      setResetToast('خطا در تغییر وضعیت اعلان');
+      setTimeout(() => setResetToast(''), 3500);
+    } finally {
+      setBatNotifToggling(false);
+    }
+  };
+
+  const handleTestBatNotif = async () => {
+    try {
+      setResetToast('در حال ارسال اعلان تستی بت‌سیگنال...');
+      const res = await testBatNotification();
+      if (res?.ok) {
+        setResetToast('اعلان «احتیاج شهر به بتمن» با موفقیت ارسال شد.');
+      } else {
+        setResetToast(res?.error || 'خطا در ارسال اعلان آزمایشی');
+      }
+      setTimeout(() => setResetToast(''), 4000);
+    } catch {
+      setResetToast('خطا در ارسال اعلان آزمایشی');
+      setTimeout(() => setResetToast(''), 3500);
+    }
+  };
 
   useEffect(() => {
     if (initialFinanceOpen) {
@@ -308,6 +369,7 @@ export default function MoreScreen({
   const [chartModalOpen, setChartModalOpen] = useState(initialChartOpen);
   const [aboutModalOpen, setAboutModalOpen] = useState(false);
   const [referralModalOpen, setReferralModalOpen] = useState(false);
+  const [aiPromptModalOpen, setAiPromptModalOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState('all');
   const [copiedInvite, setCopiedInvite] = useState(false);
   const [shareBusy, setShareBusy] = useState('');
@@ -318,7 +380,10 @@ export default function MoreScreen({
   // بستن بالاترین مودال هنگام فشردن دکمه بازگشت اندروید
   useEffect(() => {
     const handleCloseTopModal = (e) => {
-      if (financeModalOpen) {
+      if (aiPromptModalOpen) {
+        setAiPromptModalOpen(false);
+        e.preventDefault();
+      } else if (financeModalOpen) {
         closeFinance();
         e.preventDefault();
       } else if (chartModalOpen) {
@@ -347,6 +412,7 @@ export default function MoreScreen({
     window.addEventListener('sarvCloseTopModal', handleCloseTopModal);
     return () => window.removeEventListener('sarvCloseTopModal', handleCloseTopModal);
   }, [
+    aiPromptModalOpen,
     financeModalOpen,
     chartModalOpen,
     alarmModalOpen,
@@ -357,18 +423,28 @@ export default function MoreScreen({
     resetModalOpen,
   ]);
 
-  const handleShareSchedule = async () => {
-    if (shareBusy) return;
+  const selectedUni = getSelectedUniversity();
+  const isAut = selectedUni === 'aut';
+  const [scheduleShareFormat, setScheduleShareFormat] = useState('matrix');
+  const [scheduleShareRendering, setScheduleShareRendering] = useState(false);
+
+  const handleShareSchedule = async (format = scheduleShareFormat) => {
+    if (shareBusy || scheduleShareRendering) return;
     setShareBusy('schedule');
+    setScheduleShareRendering(true);
     setShareMsg('');
     try {
-      const canvas = await renderScheduleImage({ theme: activeThemeMeta });
+      const activeFormat = isAut ? 'timeline' : format;
+      const canvas = await renderScheduleImage({
+        theme: activeThemeMeta,
+        view: activeFormat,
+      });
       setSharePreview({
         url: canvasToDataUrl(canvas),
         kind: 'schedule',
         canvas,
         title: 'برنامه هفتگی من | سروستان',
-        filename: 'sarvestan-schedule.png',
+        filename: `sarvestan-schedule-${activeFormat}.png`,
       });
       setShareMsg('پیش‌نمایش آماده شد — گزینهٔ اشتراک‌گذاری یا ذخیره را انتخاب کنید');
     } catch (e) {
@@ -376,7 +452,14 @@ export default function MoreScreen({
       setShareMsg('خطا در ساخت تصویر: ' + String(e?.message || e));
     } finally {
       setShareBusy('');
+      setScheduleShareRendering(false);
     }
+  };
+
+  const handleChangeScheduleShareFormat = async (newFormat) => {
+    if (newFormat === scheduleShareFormat || scheduleShareRendering) return;
+    setScheduleShareFormat(newFormat);
+    await handleShareSchedule(newFormat);
   };
 
   const handleShareGpa = async () => {
@@ -442,7 +525,7 @@ export default function MoreScreen({
 
 
   const INVITE_TEXT =
-    'سلام! 👋\nدیدم هنوز داری با سامانه بهستان کلنجار میری، گفتم سروستان رو بهت معرفی کنم 🌿\n\nاپلیکیشن هوشمند دانشجویان خواجه نصیر (نسخه جدید ۱.۲ پاسارگاد):\n⚡ کارکرد کاملاً آفلاین برنامه کلاسی و امتحانات\n📱 ۳ ویجت زنده و هوشمند برای صفحه اصلی گوشی\n✨ تایپوگرافی جذاب آراد نقاط ۲ (Dots 2)\n🍠 تم اختصاصی جدید سفید و لبویی (نسخه محدود)\n🎓 پشتیبانی کامل از دانشجویان کهاد (دورشته‌ای)\n🔕 حالت سکوت خودکار گوشی سر کلاس (DND)\n🍱 یادآور هفتگی رزرو غذای سماد\n📊 کارنامه، محاسبه‌گر معدل و تحلیل بدهی شهریه\n🔒 ۱۰۰٪ امن، بدون واسطه و بدون نیاز به سرور یا فیلترشکن\n\n📱 دانلود مستقیم نسخه اندروید و افزونه مرورگر:\nhttps://mjb4khshi.github.io/sarvestan';
+    'سلام! 👋\nدیدم هنوز داری با سامانه بهستان کلنجار میری، گفتم سروستان رو بهت معرفی کنم 🌿\n\nاپلیکیشن هوشمند دانشجویان (نسخه جدید ۲ تهران):\n⚡ کارکرد کاملاً آفلاین برنامه کلاسی و امتحانات\n📱 ۳ ویجت زنده و هوشمند برای صفحه اصلی گوشی\n✨ تایپوگرافی جذاب آراد نقاط ۲ (Dots 2)\n☀️ تم اصیل ایرانی روشن و دارک\n🎓 پشتیبانی کامل از دانشجویان کهاد (دورشته‌ای)\n🔕 حالت سکوت خودکار گوشی سر کلاس (DND)\n🍱 یادآور هفتگی رزرو غذای سماد\n📊 کارنامه، محاسبه‌گر معدل و تحلیل بدهی شهریه\n🔒 ۱۰۰٪ امن، بدون واسطه و بدون نیاز به سرور یا فیلترشکن\n\n📱 دانلود مستقیم نسخه اندروید و افزونه مرورگر:\nhttps://mjb4khshi.github.io/sarvestan';
 
   const handleCopyInvite = () => {
     navigator.clipboard?.writeText(INVITE_TEXT);
@@ -484,17 +567,20 @@ export default function MoreScreen({
         animate={{ opacity: 1, y: 0 }}
         className="sarv-card p-4 flex items-center gap-3.5"
       >
-        {STUDENT.photo ? (
-          <img
-            src={STUDENT.photo}
-            alt=""
-            className="w-13 h-13 rounded-2xl object-cover shadow-sm border border-base-500/40 shrink-0"
-          />
-        ) : (
-          <div className="w-13 h-13 rounded-2xl bg-primary text-primary-content font-black text-xl grid place-items-center shrink-0 shadow-sm">
-            {(STUDENT.fullName || '؟').slice(0, 1)}
-          </div>
-        )}
+        <div className="relative shrink-0 w-13 h-13">
+          {STUDENT.photo ? (
+            <img
+              src={STUDENT.photo}
+              alt=""
+              className="w-full h-full rounded-2xl object-cover shadow-sm border border-base-500/40"
+            />
+          ) : (
+            <div className="w-full h-full rounded-2xl bg-primary text-primary-content font-black text-xl grid place-items-center shadow-sm">
+              {(STUDENT.fullName || '؟').slice(0, 1)}
+            </div>
+          )}
+          <BatmanMask />
+        </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[15px] font-bold text-base-content truncate">
@@ -518,7 +604,11 @@ export default function MoreScreen({
             </span>
           </p>
           <p className="text-[10.5px] text-neutral truncate mt-0.5">
-            {[STUDENT.college, STUDENT.major].filter(Boolean).join(' · ') || '—'}
+            {[
+              STUDENT.college,
+              STUDENT.major && !String(STUDENT.college || '').includes(STUDENT.major) ? STUDENT.major : null,
+              STUDENT.level,
+            ].filter(Boolean).join(' · ') || '—'}
           </p>
         </div>
       </motion.section>
@@ -643,11 +733,36 @@ export default function MoreScreen({
       <section className="space-y-1.5">
         <h3 className="text-[12.5px] font-bold text-neutral px-1">خدمات و وضعیت آموزشی</h3>
         <div className="sarv-card overflow-hidden divide-y divide-base-500/30">
+          {/* متن برای هوش مصنوعی (مشاوره تحصیلی) */}
+          <button
+            type="button"
+            onClick={() => setAiPromptModalOpen(true)}
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors cursor-pointer group"
+          >
+            <div className="flex items-start gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-primary-soft text-primary border border-primary-soft mt-0.5 group-hover:scale-105 transition-transform">
+                <Bot className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-[13.5px] font-bold text-base-content truncate">متن برای هوش مصنوعی</p>
+                  <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-primary-soft text-primary border border-primary-soft">
+                    مشاور تحصیلی
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-neutral mt-0.5">
+                  تولید پرامپت معدل، سوابق و برنامه برای ChatGPT، Claude و Gemini
+                </p>
+              </div>
+            </div>
+            <ChevronLeft className="w-4 h-4 text-neutral shrink-0 mt-2" />
+          </button>
+
           {/* امور مالی و شهریه */}
           <button
             type="button"
-            onClick={() => setFinanceModalOpen(true)}
-            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors"
+            onClick={() => (onNavigate ? onNavigate('finance') : setFinanceModalOpen(true))}
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors cursor-pointer"
           >
             <div className="flex items-start gap-3 min-w-0">
               <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-success-soft text-success border border-success-soft mt-0.5">
@@ -704,8 +819,8 @@ export default function MoreScreen({
           {/* چارت و وضعیت دروس */}
           <button
             type="button"
-            onClick={() => setChartModalOpen(true)}
-            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors"
+            onClick={() => (onNavigate ? onNavigate('chart') : setChartModalOpen(true))}
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors cursor-pointer"
           >
             <div className="flex items-start gap-3 min-w-0">
               <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-accent-soft text-accent border border-accent-soft mt-0.5">
@@ -731,7 +846,7 @@ export default function MoreScreen({
           {/* نامه‌ها و گواهی‌ها */}
           <button
             type="button"
-            onClick={() => window.open('https://behestan.kntu.ac.ir/', '_blank')}
+            onClick={() => window.open(getUniversityOrigin() + '/', '_blank')}
             className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors"
           >
             <div className="flex items-start gap-3 min-w-0">
@@ -755,7 +870,7 @@ export default function MoreScreen({
           {/* درخواست‌های آموزشی */}
           <button
             type="button"
-            onClick={() => window.open('https://behestan.kntu.ac.ir/', '_blank')}
+            onClick={() => window.open(getUniversityOrigin() + '/', '_blank')}
             className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors"
           >
             <div className="flex items-start gap-3 min-w-0">
@@ -861,14 +976,136 @@ export default function MoreScreen({
         </div>
       </section>
 
-      {/* شخصی‌سازی ظاهر و آیکون اپلیکیشن */}
+      {/* شخصی‌سازی ظاهر و چیدمان */}
       <section className="space-y-1.5">
         <h3 className="text-[12.5px] font-bold text-neutral px-1">شخصی‌سازی ظاهر</h3>
         <div className="sarv-card overflow-hidden divide-y divide-base-500/30">
+          {/* چیدمان و ویجت‌های داشبورد */}
+          <button
+            type="button"
+            onClick={() => setDashboardModalOpen(true)}
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 transition-colors group cursor-pointer"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl bg-primary-soft text-primary grid place-items-center shrink-0 transition-transform group-hover:scale-105">
+                <SlidersHorizontal className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-[13.5px] font-bold text-base-content">چیدمان و ویجت‌های داشبورد</p>
+                  <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-full bg-primary-soft text-primary">
+                    جدید
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-neutral mt-0.5">
+                  تغییر ترتیب، حذف و اضافه کردن کارت‌های صفحه اصلی
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-[11px] font-bold text-primary">تنظیم</span>
+              <ChevronLeft className="w-4 h-4 text-neutral" />
+            </div>
+          </button>
+
+          {/* حالت بتمن (ایستر اگ) */}
+          {isBatMode && (
+            <div className="bg-base-500/15 border-b border-base-content/5 divide-y divide-base-content/5">
+              <div className="p-3.5 flex items-center justify-between gap-3 hover:bg-base-500/25 transition-colors">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="w-9 h-9 rounded-xl bg-amber-400/15 border border-amber-400/35 grid place-items-center shrink-0 p-1.5 shadow-sm">
+                    <svg viewBox="0 0 122.13 69.89" className="w-full h-full">
+                      <path
+                        fill="#f7dd30"
+                        d="M121.06,35c0,18.71-26.86,33.88-60,33.88S1.06,53.66,1.06,35s26.87-33.89,60-33.89,60,15.17,60,33.89Z"
+                      />
+                      <path
+                        fill="#000000"
+                        d="M51.72,24.46c-14.49,5.37-21.86-8-14.49-15.74-11.75,3-30.86,11.49-30.86,25.63,0,12.83,12.49,20.09,21.49,23.22-8.68-10.74,3.25-19.16,13.7-7.41C49.69,35.73,59.28,56.44,61,59.58h0c1.71-3.14,11.31-23.85,19.44-9.42,10.45-11.75,22.38-3.33,13.7,7.41,9-3.13,21.49-10.39,21.49-23.22,0-14.14-19.11-22.63-30.86-25.63,7.37,7.74,0,21.11-14.49,15.74-1.67-2-2.75-6.11-2.75-18.24-1.94,1.26-3.33,5.71-3.45,6a12,12,0,0,0-6.15,0c-.12-.32-1.51-4.77-3.45-6,0,12.13-1.08,16.25-2.75,18.24ZM122.13,35c0,9.76-6.93,18.56-18.12,24.88-11,6.22-26.2,10.06-42.95,10.06S29.13,66.05,18.12,59.83C6.92,53.51,0,44.71,0,35S6.92,16.39,18.12,10.07C29.13,3.85,44.32,0,61.06,0S93,3.85,104,10.07C115.2,16.39,122.13,25.18,122.13,35ZM103,58c10.52-5.94,17-14.09,17-23s-6.51-17.1-17-23c-10.7-6-25.52-9.78-41.91-9.78s-31.2,3.74-41.9,9.78C8.64,17.85,2.13,26,2.13,35S8.64,52,19.16,58c10.7,6.05,25.52,9.79,41.9,9.79S92.27,64,103,58Z"
+                      />
+                    </svg>
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-[13px] font-bold text-base-content">حالت شوالیه تاریکی (بتمن)</p>
+                      <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-600 dark:text-amber-400 border border-amber-400/30">
+                        ایستر اگ فعال
+                      </span>
+                    </div>
+                    <p className="text-[10.5px] text-neutral mt-0.5 truncate">
+                      بک‌گراند خفاشی گاتهام، ماسک چهره و آیکون بتمن
+                    </p>
+                  </div>
+                </div>
+                <SarvSwitch
+                  checked={isBatMode}
+                  onChange={() => toggleBatMode()}
+                  variant="warn"
+                  aria-label="حالت بتمن"
+                />
+              </div>
+
+              {/* تنظیم اعلان شبانه ساعت ۱۱ شب (احتیاج شهر به بتمن) */}
+              <div className="p-3.5 bg-base-500/10">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="w-9 h-9 rounded-xl bg-amber-400/15 text-amber-500 border border-amber-400/30 grid place-items-center shrink-0">
+                      <BellRing className="w-4.5 h-4.5" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-[13px] font-bold text-base-content">اعلان شبانه گاتهام (ساعت ۱۱ شب)</p>
+                        <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-600 dark:text-amber-400 border border-amber-400/30 font-mono">
+                          ۲۳:۰۰
+                        </span>
+                      </div>
+                      <p className="text-[10.5px] text-neutral mt-0.5 truncate">
+                        ارسال اعلان «احتیاج شهر به بتمن» هر شب رأس ساعت ۱۱
+                      </p>
+                    </div>
+                  </div>
+                  <SarvSwitch
+                    checked={isBatNotifEnabled}
+                    onChange={(val) => handleToggleBatNotif(val)}
+                    disabled={batNotifToggling}
+                    variant="warn"
+                    aria-label="اعلان شبانه بتمن"
+                  />
+                </div>
+
+                {isBatNotifEnabled && (
+                  <div className="mt-2.5 pt-2 border-t border-base-content/5 flex items-center justify-between gap-2">
+                    <span className="text-[10.5px] text-neutral flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                      <span>فعال · هر شب رأس ساعت ۲۳:۰۰</span>
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={handleTestBatNotif}
+                        className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-amber-400/15 hover:bg-amber-400/25 text-amber-600 dark:text-amber-400 border border-amber-400/30 transition-colors cursor-pointer"
+                      >
+                        تست اعلان
+                      </button>
+                      <button
+                        type="button"
+                        onClick={openBatNotificationSettings}
+                        className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-base-500/30 hover:bg-base-500/50 text-neutral transition-colors cursor-pointer"
+                      >
+                        تنظیمات دسترسی
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* آیکون اپلیکیشن */}
           <button
             type="button"
             onClick={() => setIconModalOpen(true)}
-            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 transition-colors group"
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 transition-colors group cursor-pointer"
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className="shrink-0 transition-transform group-hover:scale-105">
@@ -878,7 +1115,7 @@ export default function MoreScreen({
                 <div className="flex items-center gap-2">
                   <p className="text-[13.5px] font-bold text-base-content">آیکون اپلیکیشن</p>
                   <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-full bg-primary-soft text-primary">
-                    ۱۲ طرح
+                    {toFaDigits((isBatMode ? appIcons : appIcons.filter((ic) => ic.id !== 'batman')).length)} طرح
                   </span>
                 </div>
                 <p className="text-[10.5px] text-neutral mt-0.5">
@@ -962,7 +1199,7 @@ export default function MoreScreen({
         <div className="flex items-center justify-between px-1">
           <h3 className="text-[12.5px] font-bold text-neutral">نسخه و به‌روزرسانی</h3>
           <span className="text-[11px] font-semibold text-neutral/70 font-mono">
-            v{CURRENT_VERSION} · پاسارگاد
+            v{CURRENT_VERSION} · تهران
           </span>
         </div>
         <div className="sarv-card overflow-hidden">
@@ -1022,8 +1259,8 @@ export default function MoreScreen({
                     : updateState.error
                     ? `${updateState.error} — کلیک برای تلاش دوباره`
                     : updateState.checked
-                    ? `نسخه ${CURRENT_VERSION} (پاسارگاد) آخرین نگارش منتشرشده است ✓`
-                    : `نسخه کنونی: ${CURRENT_VERSION} (پاسارگاد) · کلیک برای بررسی`}
+                    ? `نسخه ${CURRENT_VERSION} (تهران) آخرین نگارش منتشرشده است ✓`
+                    : `نسخه کنونی: ${CURRENT_VERSION} (تهران) · کلیک برای بررسی`}
                 </p>
               </div>
             </div>
@@ -1160,57 +1397,16 @@ export default function MoreScreen({
           طراحی و توسعه توسط <span className="font-mono font-bold text-base-content">@mjb4khshi</span> با چای و حوصله بسیار ☕
         </p>
         <p className="text-[10px] text-neutral/60 font-mono">
-          نسخه {toFaDigits('1.2')} پاسارگاد سروستان همراه · Sarv UI
+          نسخه {toFaDigits('2')} تهران سروستان همراه · Sarv UI
         </p>
       </div>
 
       {/* مودال تمام‌صفحه: امور مالی و شهریه */}
-      <AnimatePresence>
-        {financeModalOpen && (
-          <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={closeFinance}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-
-            <motion.div
-              initial={{ y: '100%', opacity: 0.5 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: '100%', opacity: 0.5 }}
-              transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-              className="relative z-10 w-full max-w-[440px] rounded-t-3xl sm:rounded-3xl bg-base border border-base-500/50 p-4 shadow-2xl h-[90vh] flex flex-col"
-            >
-              {/* هدر مودال امور مالی */}
-              <div className="flex items-center justify-between pb-3 border-b border-base-500/30 shrink-0">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-success-soft text-success grid place-items-center shadow-sm">
-                    <CreditCard className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-[15px] font-black text-base-content">امور مالی و شهریه</h3>
-                    <p className="text-[11px] text-neutral">ریز تراز مالی، شهریه و رسید رسمی سرو</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeFinance}
-                  className="w-8 h-8 rounded-full bg-base-500/30 text-neutral hover:text-base-content grid place-items-center transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* بدنه محتوا */}
-              <div className="overflow-y-auto flex-1 no-scrollbar pt-1 pb-4">
-                <FinanceScreen onNavigate={onNavigate} />
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <FinanceModal
+        isOpen={financeModalOpen}
+        onClose={closeFinance}
+        onNavigate={onNavigate}
+      />
 
       {/* مودال تمام‌صفحه و تعاملی: چارت و نقشه راه تحصیلی */}
       <AnimatePresence>
@@ -1275,7 +1471,7 @@ export default function MoreScreen({
                   {[
                     { icon: '⚡', label: 'آفلاین و سریع', sub: 'برنامه و تقویم' },
                     { icon: '📱', label: 'ویجت‌های زنده', sub: 'صفحه اصلی گوشی' },
-                    { icon: '🎨', label: 'آراد Dots 2', sub: 'تم سفید و لبویی' },
+                    { icon: '🎨', label: 'آراد Dots 2', sub: 'تم‌های چشم‌نواز' },
                     { icon: '🎓', label: 'پشتیبانی کهاد', sub: 'دانشجویان دورشته‌ای' },
                     { icon: '🔕', label: 'سایلنت خودکار', sub: 'حالت DND سر کلاس' },
                     { icon: '🔒', label: '۱۰۰٪ امن و محلی', sub: 'بدون سرور و واسطه' },
@@ -1294,7 +1490,7 @@ export default function MoreScreen({
                 <div className="sarv-card p-3.5 bg-base-500/15 border border-dashed border-base-500/40 text-[12px] leading-relaxed">
                   <p className="text-base-content font-bold mb-2 flex items-center justify-between">
                     <span>متن آماده برای ارسال:</span>
-                    <span className="text-[10px] text-accent font-mono font-bold bg-accent/15 px-2 py-0.5 rounded-full">نسخه ۱.۲ پاسارگاد</span>
+                    <span className="text-[10px] text-accent font-mono font-bold bg-accent/15 px-2 py-0.5 rounded-full">نسخه ۲ تهران</span>
                   </p>
                   <p className="text-neutral select-all whitespace-pre-wrap font-sans text-[11.5px] leading-relaxed">
                     {INVITE_TEXT}
@@ -1474,11 +1670,53 @@ export default function MoreScreen({
                   </div>
                 </div>
 
+                {/* شورای هماهنگی سروستان */}
+                <div className="p-3.5 rounded-2xl bg-base-500/20 border border-base-500/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold text-base-content text-[13px] flex items-center gap-1.5">
+                      <Users className="w-4 h-4 text-primary" />
+                      <span>شورای هماهنگی سروستان</span>
+                    </p>
+                    <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-primary-soft text-primary border border-primary/25">
+                      ۶ دانشگاه همکار
+                    </span>
+                  </div>
+                  <p className="text-[11.5px] text-neutral leading-relaxed">
+                    شورای هماهنگی سروستان متشکل از جمعی از دانشجویان دانشگاه‌های خواجه نصیر، شهید بهشتی، علم و صنعت، تهران، صنعتی امیرکبیر و تربیت دبیر شهید رجایی است که با هدف ارتقا، همفکری و هماهنگی گسترش زیست‌بوم سروستان در میان دانشگاه‌ها فعالیت می‌کند.
+                  </p>
+
+                  <div className="space-y-1.5 pt-1">
+                    {[
+                      { name: 'محمدجواد بخشی ایرج', role: 'دبیر شورا', uni: 'خواجه نصیر' },
+                      { name: 'سید محمدحسین حائری', role: 'هماهنگ‌کننده و پشتیبانی شورا', uni: 'خواجه نصیر' },
+                      { name: 'امیرحسن رضایی', role: 'نماینده شورا', uni: 'امیرکبیر' },
+                      { name: 'محمدحسین شفیعی', role: 'نماینده شورا', uni: 'تهران' },
+                      { name: 'محمدسجاد زنگنه', role: 'نماینده شورا', uni: 'شهید بهشتی' },
+                      { name: 'مهدی خسروی', role: 'نماینده شورا', uni: 'تربیت دبیر شهید رجایی' },
+                      { name: 'محمدرضا اسفندیار', role: 'نماینده شورا', uni: 'علم و صنعت' },
+                    ].map((m, idx) => (
+                      <div
+                        key={idx}
+                        className="p-2 rounded-xl bg-base-200/50 border border-base-500/25 flex items-center justify-between gap-2 text-[11.5px]"
+                      >
+                        <div className="min-w-0">
+                          <span className="font-bold text-base-content">{m.name}</span>
+                          <span className="text-neutral mx-1.5">•</span>
+                          <span className="text-neutral/80 text-[10.5px]">{m.role}</span>
+                        </div>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-base-500/30 text-base-content shrink-0">
+                          {m.uni}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="pt-2 flex justify-between items-center text-[11px] text-neutral border-t border-base-500/30">
                   <span>
                     طراحی و توسعه: <strong className="text-base-content font-mono font-bold">@mjb4khshi</strong>
                   </span>
-                  <span className="font-mono">v1.2.0 · پاسارگاد</span>
+                  <span className="font-mono">v{CURRENT_VERSION} · تهران</span>
                 </div>
               </div>
             </motion.div>
@@ -1536,14 +1774,55 @@ export default function MoreScreen({
                 </button>
               </div>
 
+              {/* انتخاب فرمت جدول یا تایم‌لاین برای برنامه هفتگی در سایر دانشگاه‌ها */}
+              {sharePreview.kind === 'schedule' && !isAut && (
+                <div className="flex items-center justify-center pb-1 pt-1 shrink-0">
+                  <div className="inline-flex p-1 rounded-xl bg-base-500/25 border border-base-500/40 gap-1">
+                    <button
+                      type="button"
+                      disabled={scheduleShareRendering}
+                      onClick={() => handleChangeScheduleShareFormat('matrix')}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        scheduleShareFormat === 'matrix'
+                          ? 'bg-primary text-primary-content shadow-xs'
+                          : 'text-neutral hover:text-base-content'
+                      }`}
+                    >
+                      <Table2 className="w-3.5 h-3.5" />
+                      جدول ماتریسی
+                    </button>
+                    <button
+                      type="button"
+                      disabled={scheduleShareRendering}
+                      onClick={() => handleChangeScheduleShareFormat('timeline')}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        scheduleShareFormat === 'timeline'
+                          ? 'bg-primary text-primary-content shadow-xs'
+                          : 'text-neutral hover:text-base-content'
+                      }`}
+                    >
+                      <Clock className="w-3.5 h-3.5" />
+                      تایم‌لاین پیوسته
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* کانتینر اسکرول و پیش‌نمایش تصویر */}
-              <div className="flex-1 overflow-y-auto py-3 pr-0.5">
-                <div className="relative rounded-2xl overflow-hidden border border-base-500/50 shadow-lg bg-black/40">
-                  <img
-                    src={sharePreview.url}
-                    alt="پیش‌نمایش استوری سروستان"
-                    className="w-full h-auto object-contain block"
-                  />
+              <div className="flex-1 overflow-y-auto py-2.5 pr-0.5">
+                <div className="relative rounded-2xl overflow-hidden border border-base-500/50 shadow-lg bg-black/40 min-h-[140px] flex items-center justify-center">
+                  {scheduleShareRendering ? (
+                    <div className="p-8 flex flex-col items-center gap-2 text-neutral">
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                      <span className="text-[11px] font-medium">در حال تولید تصویر...</span>
+                    </div>
+                  ) : (
+                    <img
+                      src={sharePreview.url}
+                      alt="پیش‌نمایش استوری سروستان"
+                      className="w-full h-auto object-contain block"
+                    />
+                  )}
                 </div>
               </div>
 
@@ -1646,7 +1925,7 @@ export default function MoreScreen({
               {/* شبکه کارت‌های آیکون */}
               <div className="overflow-y-auto py-3 space-y-2 flex-1 pr-1">
                 <div className="grid grid-cols-2 gap-2.5">
-                  {appIcons.map((ic) => {
+                  {(isBatMode ? appIcons : appIcons.filter((ic) => ic.id !== 'batman')).map((ic) => {
                     const isSelected = currentIconId === ic.id;
                     return (
                       <button
@@ -1861,6 +2140,16 @@ export default function MoreScreen({
           setAlarmModalOpen(false);
           setDndEnabled(getDndDuringClass());
         }}
+      />
+      {/* مودال شخصی‌سازی چیدمان داشبورد */}
+      <DashboardCustomizeModal
+        isOpen={dashboardModalOpen}
+        onClose={() => setDashboardModalOpen(false)}
+      />
+      {/* مودال پرامپت و مشاور تحصیلی هوش مصنوعی */}
+      <AiAdvisorPromptModal
+        isOpen={aiPromptModalOpen}
+        onClose={() => setAiPromptModalOpen(false)}
       />
     </div>
   );

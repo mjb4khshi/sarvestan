@@ -59,17 +59,30 @@ export function getStudyTasks() {
   return read(STORAGE_KEYS.TASKS, []);
 }
 
+export function getStudyTasksByDate(dateStr) {
+  const tasks = getStudyTasks();
+  if (!dateStr || dateStr === 'all') return tasks;
+  return tasks.filter((t) => (t.dateStr || toLocalDateString(new Date(t.createdAt || Date.now()))) === dateStr);
+}
+
 export function saveStudyTask(task) {
   const tasks = getStudyTasks();
   const now = Date.now();
+  const todayStr = toLocalDateString(new Date());
+  const taskDateStr = task.dateStr || todayStr;
   let savedTask = null;
   if (task.id) {
     const idx = tasks.findIndex((t) => t.id === task.id);
     if (idx >= 0) {
-      savedTask = { ...tasks[idx], ...task, updatedAt: now };
+      savedTask = {
+        ...tasks[idx],
+        ...task,
+        dateStr: task.dateStr !== undefined ? task.dateStr : (tasks[idx].dateStr || todayStr),
+        updatedAt: now,
+      };
       tasks[idx] = savedTask;
     } else {
-      savedTask = { ...task, createdAt: now, updatedAt: now };
+      savedTask = { ...task, dateStr: taskDateStr, createdAt: now, updatedAt: now };
       tasks.unshift(savedTask);
     }
   } else {
@@ -77,6 +90,7 @@ export function saveStudyTask(task) {
       ...task,
       id: `task_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       status: task.status || 'todo',
+      dateStr: taskDateStr,
       timeSpentSeconds: task.timeSpentSeconds || 0,
       createdAt: now,
       updatedAt: now,
@@ -119,7 +133,7 @@ export function addTimeSpentToTask(taskId, seconds) {
   }
 }
 
-// ── سشن‌های مطالعه (Sessions) ──
+// ── نشست‌های مطالعه (Sessions) ──
 
 export function getStudySessions() {
   return read(STORAGE_KEYS.SESSIONS, []);

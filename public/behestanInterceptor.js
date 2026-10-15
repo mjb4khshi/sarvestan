@@ -108,6 +108,16 @@
       .trim();
   }
 
+  function cleanCodeKey(code) {
+    if (!code) return '';
+    return String(code)
+      .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+      .replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+      .replace(/_\d+$/, '')
+      .replace(/\D/g, '')
+      .trim();
+  }
+
   // واحد و اساتید دروس از گزارش‌های بهستان (کد درس → واحد و استاد)
   const unitByCode = Object.create(null);
   const professorByCode = Object.create(null);
@@ -116,7 +126,9 @@
   function rememberCourseUnits(courses) {
     if (!Array.isArray(courses)) return;
     for (const c of courses) {
-      if (c && c.code && c.units > 0) unitByCode[String(c.code)] = c.units;
+      if (!c) continue;
+      const k = cleanCodeKey(c.code);
+      if (k && c.units > 0) unitByCode[k] = c.units;
     }
   }
 
@@ -126,7 +138,8 @@
       if (!c) continue;
       const prof = c.professor;
       if (prof && prof !== 'ـ') {
-        if (c.code) professorByCode[String(c.code)] = prof;
+        const k = cleanCodeKey(c.code);
+        if (k) professorByCode[k] = prof;
         if (c.name) professorByName[normalizeCourseName(c.name)] = prof;
       }
     }
@@ -157,16 +170,21 @@
 
   function parseTimeRange(raw) {
     if (!raw) return '';
-    // "10:30-09:00" or "10:30-09:00" → "۰۹:۰۰ - ۱۰:۳۰"
-    const m = String(raw).match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
-    if (!m) return String(raw).trim();
-    let start = m[2];
-    let end = m[1];
-    const pad = (t) => {
-      const [h, mi] = t.split(':');
-      return h.padStart(2, '0') + ':' + mi;
+    const norm = String(raw)
+      .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+      .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+    const matches = [...norm.matchAll(/(\d{1,2}):(\d{2})/g)];
+    if (matches.length < 2) return faDigits(String(raw).trim());
+    const t1 = parseInt(matches[0][1], 10) * 60 + parseInt(matches[0][2], 10);
+    const t2 = parseInt(matches[1][1], 10) * 60 + parseInt(matches[1][2], 10);
+    const startM = Math.min(t1, t2);
+    const endM = Math.max(t1, t2);
+    const pad = (mins) => {
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
     };
-    return faDigits(pad(start)) + ' - ' + faDigits(pad(end));
+    return faDigits(`${pad(startM)} - ${pad(endM)}`);
   }
 
   function mapTermFromTitle(title) {
@@ -231,8 +249,13 @@
       const nameM = title.match(/نام درس\s*:\s*(.+?)(?:\s*شماره درس|$)/);
       const codeM = title.match(/شماره درس\s*:\s*(\d+)/);
       const groupM = title.match(/گروه\s*:\s*(\d+)/);
-      const timeM = title.match(/ساعت\s*:\s*([0-9:]+\s*-\s*[0-9:]+)/);
-      const capM = title.match(/تعداد ثبت نامي\s*:\s*(\d+)/);
+
+      const normAll = (title + ' ' + (textHint || ''))
+        .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+        .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+      const timeM = normAll.match(/ساعت\s*[:\-]?\s*([0-9]{1,2}:[0-9]{2}\s*[-–]\s*[0-9]{1,2}:[0-9]{2})/);
+      const capM = normAll.match(/تعداد ثبت نامي\s*[:\-]?\s*(\d+)/);
+
       const courseName = normalizeCourseName(
         (nameM ? nameM[1] : cleanHtml(String(textHint || '').split('گروه')[0]))
           .replace(/\s+/g, ' ')
@@ -244,20 +267,36 @@
       const group = groupM ? groupM[1] : '';
       const classTime = timeM ? timeM[1].trim() : '';
       const capacity = capM ? capM[1] : '';
-      const units = unitByCode[code] || 0;
+      const kCode = cleanCodeKey(code);
+      const units = unitByCode[kCode] || 0;
 
-      const profM = (title + ' ' + (textHint || '')).match(/(?:نام\s*استاد|استاد|مدرس)\s*:\s*([^<\n\r]+?)(?=\s*(?:محل|امتحان|ساعت|تعداد|شماره|$))/i);
-      const parsedProf = profM ? normalizeCourseName(profM[1].trim()) : '';
-      const resolvedProf = parsedProf || professorByCode[code] || professorByName[courseName] || 'ـ';
+      let parsedProf = '';
+      const profM = (title + ' ' + (textHint || '')).match(
+        /(?:نام\s*(?:استاد|مدرس)|استاد|مدرس)\s*[:\-]?\s*([^<\n\r]+?)(?=\s*(?:محل|امتحان|ساعت|تعداد|شماره|گروه|واحد|$))/i
+      );
+      if (profM) {
+        parsedProf = normalizeCourseName(profM[1].trim());
+      }
+      if (!parsedProf && textHint) {
+        const drM = textHint.match(/(?:دکتر|مهندس|استادیار|دانشیار)\s+([^\d<\n\r:]{3,30})/i);
+        if (drM) {
+          parsedProf = normalizeCourseName(drM[0].trim());
+        }
+      }
+      const resolvedProf = parsedProf || professorByCode[kCode] || professorByName[courseName] || 'ـ';
 
-      const hallM = textHint ? textHint.match(/محل\s*:\s*(.+?)(?=\s*امتحان|$)/) : null;
-      const examM = textHint ? textHint.match(/امتحان\s*:\s*([0-9]{4}\/[0-9]{2}\/[0-9]{2})/) : null;
+      const hallM = textHint ? textHint.match(/محل\s*[:\-]?\s*(.+?)(?=\s*امتحان|$)/) : null;
+      const examM = textHint ? textHint.match(/امتحان\s*[:\-]?\s*([0-9]{4}\/[0-9]{2}\/[0-9]{2})/) : null;
       let examTime = '';
       if (examM && textHint) {
         const afterExam = textHint.slice(textHint.indexOf('امتحان'));
-        const et = afterExam.match(/ساعت\s*:\s*([0-9]{1,2}:[0-9]{2}\s*-\s*[0-9]{1,2}:[0-9]{2})/);
+        const et = afterExam.match(/ساعت\s*[:\-]?\s*([0-9]{1,2}:[0-9]{2}\s*[-–]\s*[0-9]{1,2}:[0-9]{2})/);
         if (et) examTime = et[1].trim();
       }
+
+      const hall = (hallM ? hallM[1].replace(/\s+/g, ' ').trim() : '') || 'ـ';
+      const slotTime = parseTimeRange(classTime) || 'ـ';
+      const slot = day ? { day, time: slotTime, hall } : null;
 
       const key = code + '|' + group + '|' + courseName;
       if (!courseMap.has(key)) {
@@ -270,8 +309,9 @@
           type: 'ـ',
           professor: resolvedProf,
           days: day ? [day] : [],
-          time: parseTimeRange(classTime) || 'ـ',
-          hall: (hallM ? hallM[1].replace(/\s+/g, ' ').trim() : '') || 'ـ',
+          daySlots: slot ? [slot] : [],
+          time: slotTime,
+          hall,
           examDate: examM ? examM[1] : 'ـ',
           examTime: examTime ? parseTimeRange(examTime) : 'ـ',
           capacity: capacity || 'ـ',
@@ -283,18 +323,19 @@
         const cur = courseMap.get(key);
         if (resolvedProf !== 'ـ' && (!cur.professor || cur.professor === 'ـ')) cur.professor = resolvedProf;
         if (day && !cur.days.includes(day)) cur.days.push(day);
+        if (!cur.daySlots) cur.daySlots = [];
+        if (slot && !cur.daySlots.some(s => s.day === day && s.time === slotTime)) {
+          cur.daySlots.push(slot);
+        }
         if (units > 0) cur.units = units;
         if (classTime && !cur.timeSlotsRaw.includes(classTime)) {
           cur.timeSlotsRaw.push(classTime);
           if (!cur.classTimeRaw) {
             cur.classTimeRaw = classTime;
-            cur.time = parseTimeRange(classTime);
+            cur.time = slotTime;
           }
         }
-        if (hallM) {
-          const hall = hallM[1].replace(/\s+/g, ' ').trim();
-          if (hall && (cur.hall === 'ـ' || !cur.hall)) cur.hall = hall;
-        }
+        if (hall && (cur.hall === 'ـ' || !cur.hall)) cur.hall = hall;
         if (examM && (!cur.examDate || cur.examDate === 'ـ')) cur.examDate = examM[1];
       }
     }
@@ -621,8 +662,36 @@
         }
         // تشخیص از متن سربرگ گزارش
         if (!formCode && bms.includes('برنامه هفتگي')) formCode = '78';
-        if (!formCode && bms.includes('ثبت‌نام') && bms.includes('88')) formCode = '88';
+        if (!formCode && (bms.includes('ثبت‌نام') || bms.includes('88') || bms.includes('تأييديه ثبت'))) formCode = '88';
         if (!formCode && bms.includes('نتيجه ثبت')) formCode = '77';
+        if (!formCode && (bms.includes('امتحان') || bms.includes('428'))) formCode = '428';
+
+        // استخراج مشخصات دانشجو از ساختار متادیتا (B1/B2) یا متن هدر گزارش‌های بهستان
+        const b1Match = String(outpar.BMt || '').match(/\bB1=["']([^"']+)["']/i);
+        const b2Match = String(outpar.BMt || '').match(/\bB2=["']([^"']+)["']/i);
+        const b4Match = String(outpar.BMt || '').match(/\bB4=["']([^"']+)["']/i);
+        const l1Match = String(outpar.BMt || '').match(/\bL1=["']([^"']+)["']/i);
+
+        const allReportText = (bms + ' ' + String(outpar.BMt || '')).replace(/[۰-۹]/g, d => '0123456789'['۰۱۲۳۴۵۶۷۸۹'.indexOf(d)]);
+        const bmsStdMatch = allReportText.match(/(?:شماره|کد)\s*(?:دانشجوی[یي]|دانشجو)?\s*[:\-]?\s*(\d{7,10})/i) ||
+                            allReportText.match(/\b(40[0-9]{5,8}|9[5-9][0-9]{5,8})\b/);
+        const bmsNameMatch = (bms + ' ' + String(outpar.BMt || '')).match(/(?:نام\s*و\s*نام\s*خانوادگی|نام\s*دانشجو)\s*[:\-]?\s*([^\d\n\r:—\-]{3,35})(?=\s*(?:شماره|دانشکده|رشته|دوره|مقطع|$))/i);
+
+        const sId = (b1Match && b1Match[1]) || (bmsStdMatch ? bmsStdMatch[1] : null);
+        const sName = (b2Match && cleanHtml(decodeHtmlEntities(b2Match[1]))) || (bmsNameMatch ? bmsNameMatch[1].trim() : null);
+        const sFaculty = (b4Match && cleanHtml(decodeHtmlEntities(b4Match[1]))) || null;
+        const sMajor = (l1Match && cleanHtml(decodeHtmlEntities(l1Match[1]))) || sFaculty;
+
+        if (sId || sName) {
+          if (sId && !sessionCache.studentId) sessionCache.studentId = sId;
+          sendData('profile_update', {
+            ...(sId ? { studentId: sId } : {}),
+            ...(sName ? { fullName: sName } : {}),
+            ...(sFaculty ? { faculty: sFaculty } : {}),
+            ...(sMajor ? { major: sMajor } : {}),
+            isLoggedIn: true
+          });
+        }
 
         let termHint = '';
         try {
@@ -647,11 +716,12 @@
             const termId = parsed.termId || termHint || '4051';
             // غنی‌سازی با اساتید و واحدهای شناخته‌شده
             for (const c of parsed.courses) {
+              const k = cleanCodeKey(c.code);
               if (!c.professor || c.professor === 'ـ') {
-                c.professor = professorByCode[c.code] || professorByName[c.name] || 'ـ';
+                c.professor = (k && professorByCode[k]) || professorByName[c.name] || 'ـ';
               }
               if (!c.units || c.units === 0) {
-                c.units = unitByCode[c.code] || 0;
+                c.units = (k && unitByCode[k]) || 0;
               }
             }
             sendData('schedule', { termId, courses: parsed.courses, source: '78' });
@@ -1044,20 +1114,100 @@
     console.log('[Sarvestan] sessionCache cleared');
   }
 
-  /** تشخیص نشست واقعی بهستان — انعطاف‌پذیر برای SPA */
-  function isBehestanSessionAlive() {
+  function getCookie(name) {
     try {
-      const sid = localStorage.getItem('sid');
-      const un = localStorage.getItem('un');
-      const u = localStorage.getItem('u');
-      const t = localStorage.getItem('t');
-      // کلیدهای ممکن دیگر
-      const sidAlt = localStorage.getItem('SID') || localStorage.getItem('sessionId');
-      const hasTicket = Boolean(t && String(t).length > 10);
-      // حداقل یک شناسه دانشجو + تیکت یا sid
-      if (hasTicket && (sid || un || u || sidAlt)) return true;
-      // SPA ممکن است فقط sid داشته باشد
+      const match = document.cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]*)'));
+      return match ? decodeURIComponent(match[1]) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function findStudentInfoInDOM() {
+    let std = null;
+    let name = null;
+
+    // ۱. بررسی حافظه محلی و سشن
+    try {
+      std = localStorage.getItem('un') || localStorage.getItem('std') || localStorage.getItem('stdno') || localStorage.getItem('studentId') ||
+            sessionStorage.getItem('un') || sessionStorage.getItem('std');
+    } catch {}
+
+    // ۲. بررسی کوکی‌ها
+    if (!std) {
+      std = getCookie('un') || getCookie('std') || getCookie('studentId') || getCookie('stdno');
+    }
+
+    // ۳. بررسی فیلدهای ورودی و هیدین فرم‌ها
+    if (!std) {
+      try {
+        const inp = document.querySelector('input[name="un"], input[name="std"], input[name="AUWo"], #Fld_StdNo');
+        if (inp && inp.value && /^\d{7,10}$/.test(inp.value.trim())) std = inp.value.trim();
+      } catch {}
+    }
+
+    // ۴. بررسی المان‌های ساختار یافته با شناسه مشخص
+    try {
+      const stdEl = document.querySelector('#Fld_StdNo, #lblStdNo, [id*="StdNo"], [id*="StudentNo"]');
+      if (stdEl && stdEl.innerText) {
+        const m = stdEl.innerText.replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).match(/\b\d{7,10}\b/);
+        if (m) std = m[0];
+      }
+      const nameEl = document.querySelector('#Fld_StdName, #lblStdName, #lblUserName, [id*="StdName"], .user-title, .user-name, .header-user');
+      if (nameEl && nameEl.innerText) {
+        const n = nameEl.innerText.replace(/^(دانشجو|کاربر|نام)\s*[:\-]?\s*/, '').trim();
+        if (n && n.length > 2 && !n.includes('ورود')) name = n;
+      }
+    } catch {}
+
+    // ۵. بررسی متن بدنه صفحه در صورت نبودن المان اختصاصی
+    if (!std && document.body) {
+      const text = document.body.innerText.replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+      const m = text.match(/(?:شماره|کد)\s*(?:دانشجوی[یي]|دانشجو)?\s*[:\-]?\s*([0-9]{7,10})/i) ||
+                text.match(/\b(40[0-9]{5,8}|9[5-9][0-9]{5,8})\b/);
+      if (m) std = m[1];
+    }
+
+    return { studentId: std, studentName: name };
+  }
+
+  /** تشخیص جامع و انعطاف‌پذیر نشست فعال بهستان / گلستان برای تمام دانشگاه‌ها */
+  function isBehestanSessionAlive() {
+    if (userLoggedOut || isManualLogoutLocked()) return false;
+    try {
+      // الف: توکن مستقیم در حافظه یا کش
+      const sid = getSid();
+      const ticket = getTicket();
+      if (ticket && String(ticket).length > 10 && sid) return true;
       if (sid && sid.length > 8) return true;
+      if (sessionCache.sid || sessionCache.ticket) return true;
+
+      // ب: مشخصات دانشجو در DOM، فرم‌ها یا کوکی‌ها
+      const info = findStudentInfoInDOM();
+      if (info.studentId && info.studentId !== 'ـ') return true;
+      if (info.studentName && info.studentName.length > 2) return true;
+
+      // ج: کوکی‌های لاگین موفق
+      const cookies = document.cookie || '';
+      if (cookies.includes('sid=') || cookies.includes('Ticket=') || cookies.includes('ASP.NET_SessionId=') || cookies.includes('JSESSIONID=')) {
+        const isLoginPage = window.location.pathname.toLowerCase().includes('login') &&
+                            Boolean(document.querySelector('input[type="password"]'));
+        if (!isLoginPage) return true;
+      }
+
+      // د: کلمات کلیدی پرتال احرازشده
+      const rawText = document.body ? document.body.innerText : '';
+      if (rawText && (
+        rawText.includes('خروج از سامانه') ||
+        rawText.includes('اطلاعات تحصیلی') ||
+        rawText.includes('گزارش های آموزش') ||
+        rawText.includes('پیشخوان خدمت') ||
+        rawText.includes('کارنامه ترمی') ||
+        rawText.includes('تاییدیه ثبت نام')
+      )) {
+        return true;
+      }
+
       return false;
     } catch {
       return false;
@@ -1113,34 +1263,53 @@
   }
 
   function getSid() {
-    // بعد از لاگاوت فقط به localStorage اعتماد کن — نه کش
-    const ls = localStorage.getItem('sid');
-    if (ls) return ls;
+    try {
+      const ls = localStorage.getItem('sid') || localStorage.getItem('SID') || localStorage.getItem('sessionId');
+      if (ls) return ls;
+    } catch {}
+    try {
+      const ss = sessionStorage.getItem('sid') || sessionStorage.getItem('SID');
+      if (ss) return ss;
+    } catch {}
+    const cookieSid = getCookie('sid') || getCookie('SID') || getCookie('sessionId');
+    if (cookieSid) return cookieSid;
+    try {
+      const input = document.querySelector('input[name="sid"], input[name="SID"], input[id="sid"]');
+      if (input && input.value) return input.value;
+    } catch {}
+    if (window.sid || window.SID) return window.sid || window.SID;
+    try {
+      if (window.top && (window.top.sid || window.top.SID)) return window.top.sid || window.top.SID;
+    } catch {}
     if (userLoggedOut || isManualLogoutLocked()) return null;
-    return sessionCache.sid;
+    return sessionCache.sid || null;
   }
 
   function getTicket() {
-    const ls = localStorage.getItem('t');
-    if (ls) return normalizeTicket(ls);
+    try {
+      const ls = localStorage.getItem('t') || localStorage.getItem('Ticket') || localStorage.getItem('ticket');
+      if (ls) return normalizeTicket(ls);
+    } catch {}
+    try {
+      const ss = sessionStorage.getItem('t') || sessionStorage.getItem('Ticket');
+      if (ss) return normalizeTicket(ss);
+    } catch {}
+    const cookieT = getCookie('t') || getCookie('Ticket') || getCookie('ticket');
+    if (cookieT) return normalizeTicket(cookieT);
+    try {
+      const input = document.querySelector('input[name="t"], input[name="Ticket"], input[id="Ticket"]');
+      if (input && input.value) return normalizeTicket(input.value);
+    } catch {}
+    if (window.ticket || window.Ticket) return normalizeTicket(window.ticket || window.Ticket);
     if (userLoggedOut || isManualLogoutLocked()) return null;
-    return normalizeTicket(sessionCache.ticket);
+    return normalizeTicket(sessionCache.ticket) || null;
   }
 
   function getStudentId() {
-    const ls = localStorage.getItem('un') || localStorage.getItem('std') || localStorage.getItem('stdno') || localStorage.getItem('studentId') || sessionStorage.getItem('un') || sessionStorage.getItem('std');
-    if (ls) return ls;
+    const info = findStudentInfoInDOM();
+    if (info.studentId) return info.studentId;
     if (userLoggedOut || isManualLogoutLocked()) return null;
     if (sessionCache.studentId) return sessionCache.studentId;
-    if (!isBehestanSessionAlive()) return null;
-    const rawText = document.body ? document.body.innerText : '';
-    const text = rawText.replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
-    const m = text.match(/(?:شماره|کد)\s*(?:دانشجوی[یي]|دانشجو)?\s*[:\-]?\s*([0-9]{7,10})/i) ||
-              text.match(/\b(40[0-9]{5,8}|9[5-9][0-9]{5,8})\b/);
-    if (m) {
-      sessionCache.studentId = m[1];
-      return m[1];
-    }
     return null;
   }
 
@@ -1184,7 +1353,8 @@
             MaxHlp: 200
           };
           try {
-            const resp = await fetch('https://behestan.kntu.ac.ir/frm/BAS0237_CMP_ViewReport/BAS0237_CMP_ViewReport.svc/', {
+            const apiOrigin = window.location.origin || 'https://behestan.kntu.ac.ir';
+            const resp = await fetch(`${apiOrigin}/frm/BAS0237_CMP_ViewReport/BAS0237_CMP_ViewReport.svc/`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(reqBody)
@@ -1216,26 +1386,22 @@
     markLoggedIn();
 
     const now = Date.now();
-    const sid = getSid();
-    const t = getTicket();
+    const sid = getSid() || '1';
+    const t = getTicket() || JSON.stringify({ Ticket: '', IdleTime: 5 });
     const studentId = getStudentId();
     const userId = localStorage.getItem('u') || sessionCache.userId;
 
-    if (!sid || !t || !studentId) {
-      if (now - skipLogAt > 5000) {
-        skipLogAt = now;
-        console.log('[Sarvestan] proactive sync waiting...', {
-          hasSid: !!sid,
-          hasTicket: !!t,
-          hasStudentId: !!studentId,
-          hasUserId: !!userId
-        });
-      }
-      return;
+    // ارسال مشخصات اولیه دانشجو در صورت کشف
+    const info = findStudentInfoInDOM();
+    if (info.studentId || info.studentName) {
+      if (info.studentId && !sessionCache.studentId) sessionCache.studentId = info.studentId;
+      sendData('session_info', { studentId: info.studentId, studentName: info.studentName });
+      sendData('profile_update', { studentId: info.studentId, fullName: info.studentName, isLoggedIn: true });
     }
 
+    const effectiveStd = studentId || info.studentId || sessionCache.studentId;
     hasSynced = true;
-    console.log('[Sarvestan] Starting paced proactive sync for student:', studentId);
+    console.log('[Sarvestan] Starting paced proactive sync, student:', effectiveStd || '(detecting from reports)');
 
     // ── صف سریالی با تأخیر — مثل UI اصلی بهستان، همزمان نه ──
     const RP_BASE = {
@@ -1255,191 +1421,186 @@
     function postJson(url, body) {
       return fetch(url, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json, text/plain, */*' },
         body: typeof body === 'string' ? body : JSON.stringify(body)
       }).then((r) => r.text());
     }
 
+    async function navForm(fid, { cmpId = null, fop = null, ft = '0' } = {}) {
+      const r = { fid: String(fid), ft: String(ft), subfrm: '' };
+      if (cmpId) r.CmpId = cmpId;
+      const rp = {
+        sp: '{"TrmType":"2","BrnNo":"0","BrnLimit":"0","UsrType":"0"}',
+        loc: 'fa',
+        ut: '0',
+        b: '0',
+        sid: sid,
+      };
+      if (fop) rp.fop = fop;
+      try {
+        const txt = await postJson(`${window.location.origin}/frm/sys/sys.svc/`, { r, act: 'nav', rp, t });
+        return JSON.parse(txt);
+      } catch (e) {
+        return null;
+      }
+    }
+
     async function runQueue() {
       try {
-        // ۰) برنامه هفتگی را اول بیاور تا ماژول برنامه سریع پر شود
-        const viewJobsEarly = [
+        const apiOrigin = window.location.origin || 'https://behestan.kntu.ac.ir';
+        const isAutOrSbu = window.location.hostname.includes('aut.ac.ir') || window.location.hostname.includes('sbu.ac.ir');
+
+        // ۱. فعال‌سازی نشست میزکار بهستان (فرم ۱۱۱۳۰)
+        await navForm('11130');
+        await delay(250);
+
+        // ۲. گزارش‌های ViewReport با توالی مرورگر:
+        // ۸۸ (تأییدیه ثبت‌نام برای شناسایی ترم، مشخصات دانشجو B1/B2 و اساتید)
+        // ۷۷ (نتیجه ثبت‌نام برای اسامی قطعی اساتید و واحدها)
+        // ۷۸ (برنامه هفتگی برای ساعات و روزهای کلاس)
+        // ۴۲۸ (برنامه امتحانات)
+        const viewReports = [
+          { f: '88', term: null },
+          { f: '77', term: '4051' },
+          { f: '78', term: '4051' },
+          { f: '428', term: '4051' },
           { f: '78', term: '4042' },
-          { f: '78', term: '4041' },
-          { f: '78', term: '4051' }
+          { f: '88', term: '4042' },
+          { f: '77', term: '4042' },
+          { f: '428', term: '4042' },
         ];
-        let seq0 = 800000005;
-        for (const job of viewJobsEarly) {
+
+        let seqNum = 800000010;
+        for (const job of viewReports) {
           if (userLoggedOut || isManualLogoutLocked()) return;
           await delay(350);
-          const bmv = '<Root><N id="4" ft="7" fs="0" M="' + job.term + '" F="' + job.term + '"/></Root>';
-          const reqBody = {
-            rp: {
-              ft: '1',
-              f: job.f,
-              seq: String(seq0++),
-              subfrm: '0',
-              sid: sid,
-              ct: '',
-              sp: '{"UsrType":"0","TrmType":"2"}',
-              ut: '0'
-            },
-            t: t,
-            r: { Ra3: '0', BMu: '<Root/>', BMv: bmv, AFek: '1' },
-            act: '08',
-            MaxHlp: 200
-          };
+
           try {
-            const txt = await postJson(
-              'https://behestan.kntu.ac.ir/frm/BAS0237_CMP_ViewReport/BAS0237_CMP_ViewReport.svc/',
-              reqBody
-            );
+            await navForm(job.f, { ft: '1' });
+            if (isAutOrSbu) {
+              await postJson(`${apiOrigin}/frm/BAS0203_CMP_REP_MultiFilter/BAS0203_CMP_REP_MultiFilter.svc/`, {
+                rp: { ft: '1', f: String(job.f), seq: String(seqNum++), subfrm: '0', sid, ct: '', sp: '{"UsrType":"0","TrmType":"2"}', ut: '0', c: '110001' },
+                t, r: { AFZ6: '0' }, act: '00', MaxHlp: 200
+              }).catch(() => {});
+              await postJson(`${apiOrigin}/frm/BAS0203_CMP_Sort_REP_FILTER2/BAS0203_CMP_Sort_REP_FILTER2.svc/`, {
+                rp: { ft: '1', f: String(job.f), seq: String(seqNum++), subfrm: '0', sid, ct: '', sp: '{"UsrType":"0","TrmType":"2"}', ut: '0', c: '110067' },
+                t, r: {}, act: '08', MaxHlp: 200
+              }).catch(() => {});
+            }
+
+            const bmv = job.term ? '<Root><N id="4" ft="7" fs="0" M="' + job.term + '" F="' + job.term + '"/></Root>' : '<Root/>';
+            const reqBody = {
+              rp: {
+                ft: '1',
+                f: job.f,
+                seq: String(seqNum++),
+                subfrm: '0',
+                sid,
+                ct: '',
+                sp: '{"UsrType":"0","TrmType":"2"}',
+                ut: '0',
+                c: 110015
+              },
+              t,
+              r: { Ra3: '0', BMu: '<Root/>', BMv: bmv, AFek: '1' },
+              act: '08',
+              MaxHlp: 200
+            };
+            const txt = await postJson(`${apiOrigin}/frm/BAS0237_CMP_ViewReport/BAS0237_CMP_ViewReport.svc/`, reqBody);
             processResponseData('BAS0237_CMP_ViewReport', txt, JSON.stringify(reqBody));
           } catch (err) {
-            console.warn('[Sarvestan] early 78 fail', job.term, err);
+            console.warn('[Sarvestan] ViewReport fail', job.f, err);
           }
         }
 
-        // ۱) جامع دانشجو — مثل فرم ۱۱۱۴۷
-        await delay(300);
-        const txt1 = await postJson(
-          'https://behestan.kntu.ac.ir/frm/F1825_PROCESS_STDTOTALINFOTrmStat_BEH/F1825_PROCESS_STDTOTALINFOTrmStat_BEH.svc/',
-          {
-            r: { AUWo: studentId },
-            act: '20',
-            rp: { ...RP_BASE, f: '11147', seq: '800000001' },
-            t: t
-          }
-        );
-        processResponseData('STDTOTALINFOTrmStat', txt1);
+        // ۳. فرم‌های جامع دانشجو، کارنامه، نمرات و مشخصات
+        const activeStd = sessionCache.studentId || effectiveStd || getStudentId();
+        if (activeStd) {
+          // الف) جامع دانشجو (F1825: کارنامه، معدل، نمرات و مالی) با توالی کامل مرورگر
+          await delay(350);
+          try {
+            await navForm('11147');
+            await postJson(`${apiOrigin}/frm/F1825_PROCESS_STDTOTALINFO_BEH/F1825_PROCESS_STDTOTALINFO_BEH.svc/`, {
+              r: { ATxW: activeStd },
+              act: 'RR',
+              rp: { ...RP_BASE, seq: String(seqNum++), c: '110379' },
+              t
+            }).catch(() => {});
 
-        // ۲) عکس پرسنلی
-        await delay(500);
-        const txt2 = await postJson(
-          'https://behestan.kntu.ac.ir/frm/F1809_PROCESS_STD_Personally_BH/F1809_PROCESS_STD_Personally_BH.svc/',
-          {
-            r: { AUWs: studentId },
-            act: '08',
-            rp: { ...RP_BASE, f: '11141', seq: '800000002' },
-            t: t
+            const txt1 = await postJson(`${apiOrigin}/frm/F1825_PROCESS_STDTOTALINFOTrmStat_BEH/F1825_PROCESS_STDTOTALINFOTrmStat_BEH.svc/`, {
+              r: { AUWo: activeStd },
+              act: '20',
+              rp: { ...RP_BASE, seq: String(seqNum++), c: '110381' },
+              t
+            });
+            processResponseData('STDTOTALINFOTrmStat', txt1);
+          } catch (err) {
+            console.warn('[Sarvestan] F1825 fail', err);
           }
-        );
-        processResponseData('STD_Personally', txt2);
 
-        // ۳) گردش‌کار
+          // ب) عکس پرسنلی (F1809)
+          await delay(350);
+          try {
+            await navForm('11141');
+            const txt2 = await postJson(`${apiOrigin}/frm/F1809_PROCESS_STD_Personally_BH/F1809_PROCESS_STD_Personally_BH.svc/`, {
+              r: { AUWs: activeStd },
+              act: '08',
+              rp: { ...RP_BASE, f: '11141', seq: String(seqNum++), c: '110383' },
+              t
+            });
+            processResponseData('STD_Personally', txt2);
+          } catch (err) {
+            console.warn('[Sarvestan] F1809 fail', err);
+          }
+
+          // ج) خلاصه وضعیت دروس و چارت (F1814)
+          await delay(350);
+          try {
+            await navForm('11126');
+            const txt3 = await postJson(`${apiOrigin}/frm/F1814_PROCESS_STDAllCrs/F1814_PROCESS_STDAllCrs.svc/`, {
+              r: { AUWo: activeStd, BrnNo: '0', CurStatus: '1' },
+              act: '08',
+              rp: { ...RP_BASE, f: '11126', seq: String(seqNum++) },
+              t
+            });
+            processResponseData('F1814_PROCESS_STDAllCrs', txt3);
+          } catch (err) {
+            console.warn('[Sarvestan] F1814 fail', err);
+          }
+        }
+
+        // ۴. پیشخوان خدمت و نامه‌ها (F6524)
         if (userId) {
-          await delay(400);
-          const txt3 = await postJson(
-            'https://behestan.kntu.ac.ir/frm/F6524_PROCESS_DASHBOARD_BEH/F6524_PROCESS_DASHBOARD_BEH.svc/',
-            {
+          await delay(300);
+          try {
+            const txtWf = await postJson(`${apiOrigin}/frm/F6524_PROCESS_DASHBOARD_BEH/F6524_PROCESS_DASHBOARD_BEH.svc/`, {
               r: { AVsa: userId, AVsl: '1', AVsm: '0', AW4r: '5', AW4s: '', AvD9: '', AxI9: '{}' },
               act: '24',
-              rp: { ...RP_BASE, f: '21122', seq: '800000003' },
-              t: t
-            }
-          );
-          processResponseData('DASHBOARD_BEH', txt3);
-        }
-
-        // ۴) وضعیت دروس F1814 — دو مرحله با فاصله
-        await delay(400);
-        const f1814a = {
-          rp: { ...RP_BASE, f: '11126', seq: '800000004' },
-          t: t,
-          r: {},
-          act: '00',
-          MaxHlp: 200
-        };
-        const txt4 = await postJson(
-          'https://behestan.kntu.ac.ir/frm/F1814_PROCESS_STDAllCrs/F1814_PROCESS_STDAllCrs.svc/',
-          f1814a
-        );
-        let ahug = studentId;
-        try {
-          const j = JSON.parse(txt4);
-          ahug = (j.outpar && j.outpar.AHug) || ahug;
-        } catch (_) {}
-        await delay(400);
-        const f1814b = {
-          rp: f1814a.rp,
-          t: t,
-          r: {
-            AHug: ahug,
-            AHug_xml: ahug
-              ? '<row _LMustCI="1" _LkId="' + ahug + '" ID="' + ahug + '" ID_desc="" ID_tip="' + ahug + '"></row>'
-              : ''
-          },
-          act: '08',
-          MaxHlp: 200
-        };
-        const txt5 = await postJson(
-          'https://behestan.kntu.ac.ir/frm/F1814_PROCESS_STDAllCrs/F1814_PROCESS_STDAllCrs.svc/',
-          f1814b
-        );
-        processResponseData('F1814_PROCESS_STDAllCrs', txt5);
-
-        // ۵) گزارش‌های ViewReport — فقط یکی‌یکی با فاصله ۱٫۵ ثانیه (مثل کلیک کاربر)
-        // اولویت: ۷۸ ترم‌های پایانی، سپس ۸۸، سپس ۴۲۸
-        const viewJobs = [
-          { f: '78', term: '4042' },
-          { f: '78', term: '4041' },
-          { f: '78', term: '4051' },
-          { f: '88', term: '4051' },
-          { f: '428', term: '4042' }
-        ];
-        let seq = 800000010;
-        for (const job of viewJobs) {
-          if (userLoggedOut || isManualLogoutLocked()) {
-            console.log('[Sarvestan] queue aborted — session ended');
-            return;
-          }
-          await delay(700);
-          const bmv = job.term
-            ? '<Root><N id="4" ft="7" fs="0" M="' + job.term + '" F="' + job.term + '"/></Root>'
-            : '<Root/>';
-          const reqBody = {
-            rp: {
-              ft: '1',
-              f: job.f,
-              seq: String(seq++),
-              subfrm: '0',
-              sid: sid,
-              ct: '',
-              sp: '{"UsrType":"0","TrmType":"2"}',
-              ut: '0'
-            },
-            t: t,
-            r: {
-              Ra3: '0',
-              BMu: '<Root/>',
-              BMv: bmv,
-              AFek: '1'
-            },
-            act: '08',
-            MaxHlp: 200
-          };
-          try {
-            const txt = await postJson(
-              'https://behestan.kntu.ac.ir/frm/BAS0237_CMP_ViewReport/BAS0237_CMP_ViewReport.svc/',
-              reqBody
-            );
-            processResponseData('BAS0237_CMP_ViewReport', txt, JSON.stringify(reqBody));
+              rp: { ...RP_BASE, f: '21122', seq: String(seqNum++) },
+              t
+            });
+            processResponseData('DASHBOARD_BEH', txtWf);
           } catch (err) {
-            console.warn('[Sarvestan] ViewReport job fail', job.f, job.term, err);
+            console.warn('[Sarvestan] F6524 fail', err);
           }
         }
-        console.log('[Sarvestan] paced proactive sync finished');
+        console.log('[Sarvestan] clean proactive sync finished successfully');
       } catch (err) {
-        console.warn('[Sarvestan] paced sync error', err);
+        console.warn('[Sarvestan] sync error', err);
       }
     }
 
     runQueue();
   }
 
-  // فقط یک‌بار دیرتر — نه بمباران اولیه
-  setTimeout(triggerProactiveSync, 4000);
+  // تلاش برای همگام‌سازی سریع و مجدد
+  setTimeout(triggerProactiveSync, 1500);
+  setTimeout(triggerProactiveSync, 5000);
   setTimeout(triggerProactiveSync, 12000);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(triggerProactiveSync, 1000));
+  }
 
   // هر ۱۰ دقیقه فقط اگر نشست زنده باشد — نه هر ۳۰ ثانیه
   setInterval(() => {

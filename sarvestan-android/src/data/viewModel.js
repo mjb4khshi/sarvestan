@@ -14,7 +14,7 @@ import { termIdToLabel, detectCurrentTermId, isProjectCourse, isInternshipCourse
 import { resolveTotalDegreeCredits, buildCurriculumState } from '../services/curriculumEngine.js';
 import { toFaDigits, toFaDigits as faDigits } from '../utils/faDigits.js';
 import { simplifyRoomName, formatRoomTag } from '../utils/roomUtils.js';
-import { getStudentId } from '../services/behestan/session.js';
+import { getStudentId, getSelectedUniversity } from '../services/behestan/session.js';
 import devDataset from './devDatasetLoader.js';
 
 function faNum(n, digits = 0) {
@@ -64,6 +64,8 @@ function cleanCourseName(name) {
     .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧۸۹'.indexOf(d)))
     .replace(/[ي]/g, 'ی')
     .replace(/[ك]/g, 'ک')
+    .replace(/^(?:ورود\s*به\s*)?فضای\s*مجازی(?:\s*درس)?\s*[:\-–—]?\s*/gi, '')
+    .replace(/^کلاس\s*[:\-–—]\s*/gi, '')
     .replace(/‌/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -230,7 +232,21 @@ function buildViewModel() {
   const nowH = new Date().getHours() + new Date().getMinutes() / 60;
   const currentTerm = detectCurrentTermId(snap.courses || []) || '4051';
 
-  const allCourses = getCurrentTermSchedule(currentTerm) || [];
+  const rawSchedule = getCurrentTermSchedule(currentTerm) || [];
+  const allCourses = rawSchedule.map((sc) => {
+    if (sc.units && Number(sc.units) > 0) return sc;
+    const scCode = cleanCourseCode(sc.code);
+    const scName = cleanCourseName(sc.name || sc.course || sc.title || '');
+    const matched = (snap.courses || []).find((c) => {
+      const cCode = cleanCourseCode(c.code);
+      const cName = cleanCourseName(c.name || c.title || '');
+      return (scCode && cCode && scCode === cCode) || (scName && cName && scName === cName);
+    });
+    if (matched && matched.units) {
+      return { ...sc, units: Number(matched.units) };
+    }
+    return sc;
+  });
   const todayCourses = day ? getTodayClasses(day) : [];
 
   // مرتب‌سازی صعودی کلاس‌های امروز بر اساس ساعت شروع (از صبح تا عصر)
@@ -272,6 +288,9 @@ function buildViewModel() {
       color: getToneForCourse(c, allCourses),
       absences: Number(c.absences) || 0,
       maxAbsences: c.maxAbsences != null ? Number(c.maxAbsences) : 3,
+      course: c,
+      virtualUrl: c.virtualUrl,
+      hasVirtualClass: c.hasVirtualClass,
     };
   });
 
@@ -479,9 +498,25 @@ function buildViewModel() {
 
   const fullName = profile.fullName || (isDevStudent ? devProf.fullName : '') || '';
   const resolvedStudentId = currentSid || (isDevStudent ? devProf.studentId : '');
-  const college = profile.faculty || (isDevStudent ? devProf.faculty : '') || '';
+  const rawFaculty = profile.faculty || (isDevStudent ? devProf.faculty : '') || '';
   const major = profile.major || (isDevStudent ? devProf.major : '') || '';
-  const level = profile.level || (isDevStudent ? devProf.level : '') || '';
+  const college = rawFaculty
+    ? (rawFaculty.startsWith('دانشکده') ? rawFaculty : `دانشکده ${rawFaculty}`)
+    : (major ? (major.startsWith('دانشکده') ? major : `دانشکده ${major.replace(/—.*$/, '').trim()}`) : '');
+
+  let level = profile.level || (isDevStudent ? devProf.level : '') || '';
+  if (!level && resolvedStudentId) {
+    const rawSid = String(resolvedStudentId).replace(/\D/g, '');
+    if (rawSid.length >= 7) {
+      const degDigit = rawSid.length === 8 ? rawSid[3] : rawSid[2];
+      if (degDigit === '3') level = 'کارشناسی';
+      else if (degDigit === '2') level = 'کارشناسی ارشد';
+      else if (degDigit === '1') level = 'دکتری';
+      else level = 'کارشناسی';
+    } else {
+      level = 'کارشناسی';
+    }
+  }
   const term = profile.term || (isDevStudent ? devProf.term : '') || '';
   const photo = profile.photo || (isDevStudent ? devProf.photo : null);
 
@@ -495,13 +530,35 @@ function buildViewModel() {
   const liveTerms = buildTermsFromLive(snap);
   const activeTermUnits = Number(liveTerms[0]?.totalUnits) || 0;
 
-  // واحد اخذشدهٔ ترم جاری: جامع‌ترین و دقیق‌ترین مقدار ممکن از تمامی منابع
-  let enrolledUnits = Math.max(
-    scheduleUnits,
-    curriculum?.enrolledCredits || 0,
-    activeTermUnits,
-    parseNum(sum.credits) || 0
+  // استخراج واحد ترم جاری از کارنامه (F1825 transcripts)
+  const currentTranscript = (snap.transcripts || []).find((t) => String(t.termId) === String(currentTerm));
+  const transcriptUnits = parseNum(currentTranscript?.registeredUnits) || 0;
+
+  // استخراج واحد از متادیتای گزارش ۷۸ یا پروفایل
+  const profileUnits = parseNum(profile.enrolledUnits) || parseNum(profile.totalUnits) || 0;
+
+  // واحدهای ثبت‌شده در snap.courses برای ترم جاری
+  const currentCourses = (snap.courses || []).filter(
+    (c) => String(c.termId) === String(currentTerm) && courseState(c) !== 'dropped' && courseState(c) !== 'waitlist',
   );
+  const currentCoursesUnits = currentCourses.reduce(
+    (s, c) => s + (parseNum(c.units) || (isProjectCourse(c.name || c.title) ? 3 : isInternshipCourse(c.name || c.title) ? 2 : 0)),
+    0
+  );
+
+  // واحد اخذشدهٔ ترم جاری: اولویت قطعی با مقادیر معتبر ترم جاری
+  let enrolledUnits =
+    scheduleUnits > 0
+      ? scheduleUnits
+      : currentCoursesUnits > 0
+        ? currentCoursesUnits
+        : transcriptUnits > 0
+          ? transcriptUnits
+          : profileUnits > 0
+            ? profileUnits
+            : activeTermUnits > 0
+              ? activeTermUnits
+              : curriculum?.enrolledCredits || parseNum(sum.credits) || 0;
 
   const droppedCourses = (snap.courses || []).filter(
     (c) => c.termId === currentTerm && courseState(c) === 'dropped',
@@ -608,7 +665,7 @@ function courseState(c, activeTermId = '4051') {
   // روی برنامهٔ ثبت‌نام یا برچسب ثبت‌شده → در حال اخذ
   if (c.onSchedule || c.isRegistration || reg === 'registered') return 'enrolled';
   // ترم جاری بدون نمره و بدون وضعیت — enrolled
-  if (!c.grade && (c.termId === activeTermId || c.termId === '4051' || c.isRegistration || !c.termId)) return 'enrolled';
+  if (!c.grade && (c.termId === activeTermId || (c.termId && c.termId === '4051') || c.isRegistration)) return 'enrolled';
   return 'unknown';
 }
 
@@ -695,9 +752,32 @@ function buildTermsFromLive(snap) {
     }
   }
 
+  let deletedList = [];
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('sarvestan_behestan_deleted_courses');
+      if (raw) deletedList = JSON.parse(raw);
+    }
+  } catch {}
+
+  const activeAllCourses = allCourses.filter((c) => {
+    if (!deletedList.length) return true;
+    const cCode = cleanCourseCode(c.code);
+    const cName = cleanCourseName(c.name || c.title || '');
+    return !deletedList.some((d) => {
+      if (d.id && c.id && d.id === c.id) return true;
+      const dCode = cleanCourseCode(d.code);
+      const dName = cleanCourseName(d.name || d.title || '');
+      if (dCode && cCode && dCode === cCode) {
+        if (!dName || dName === cName) return true;
+      }
+      return false;
+    });
+  });
+
   const transMap = new Map((snap.transcripts || []).map((t) => [String(t.termId), t]));
   const byTerm = new Map();
-  for (const c of allCourses) {
+  for (const c of activeAllCourses) {
     const tid = c.termId || 'unknown';
     if (!byTerm.has(tid)) byTerm.set(tid, []);
     byTerm.get(tid).push(c);
@@ -856,12 +936,23 @@ function courseSlots(c) {
   return [];
 }
 
-const CANONICAL_SLOTS_DEF = [
+const CANONICAL_SLOTS_KNTU = [
   { id: 'early', start: 420, end: 510, label: '۰۷:۰۰ – ۰۸:۳۰', optional: true },
   { id: 'slot-1', start: 450, end: 540, label: '۰۷:۳۰ – ۰۹:۰۰', optional: false },
   { id: 'slot-2', start: 540, end: 630, label: '۰۹:۰۰ – ۱۰:۳۰', optional: false },
   { id: 'slot-3', start: 630, end: 720, label: '۱۰:۳۰ – ۱۲:۰۰', optional: false },
   { id: 'lunch', start: 720, end: 810, label: '۱۲:۰۰ – ۱۳:۳۰', optional: true },
+  { id: 'slot-4', start: 810, end: 900, label: '۱۳:۳۰ – ۱۵:۰۰', optional: false },
+  { id: 'slot-5', start: 900, end: 990, label: '۱۵:۰۰ – ۱۶:۳۰', optional: false },
+  { id: 'slot-6', start: 990, end: 1080, label: '۱۶:۳۰ – ۱۸:۰۰', optional: false },
+  { id: 'evening', start: 1080, end: 1170, label: '۱۸:۰۰ – ۱۹:۳۰', optional: true },
+];
+
+const CANONICAL_SLOTS_AUT = [
+  { id: 'slot-1', start: 465, end: 555, label: '۰۷:۴۵ – ۰۹:۱۵', optional: false },
+  { id: 'slot-2', start: 555, end: 645, label: '۰۹:۱۵ – ۱۰:۴۵', optional: false },
+  { id: 'slot-3', start: 645, end: 735, label: '۱۰:۴۵ – ۱۲:۱۵', optional: false },
+  { id: 'lunch', start: 735, end: 810, label: '۱۲:۱۵ – ۱۳:۳۰', optional: true },
   { id: 'slot-4', start: 810, end: 900, label: '۱۳:۳۰ – ۱۵:۰۰', optional: false },
   { id: 'slot-5', start: 900, end: 990, label: '۱۵:۰۰ – ۱۶:۳۰', optional: false },
   { id: 'slot-6', start: 990, end: 1080, label: '۱۶:۳۰ – ۱۸:۰۰', optional: false },
@@ -882,7 +973,7 @@ export function getScheduleMatrix() {
   if (hasThu) days.push('پنجشنبه');
   if (hasFri) days.push('جمعه');
 
-  // بررسی نیاز به اسلات‌های اختیاری بر اساس کلاس‌های موجود
+  // استخراج تمام بازه‌های زمانی کلاس‌ها برای تحلیل الگوی زمان‌بندی
   const allSlotRanges = [];
   for (const c of courses) {
     for (const s of courseSlots(c)) {
@@ -891,17 +982,26 @@ export function getScheduleMatrix() {
     }
   }
 
+  // تشخیص خودکار دانشگاه یا الگوی ساعتی (امیرکبیر با دقایق ۴۵ و ۱۵ در برابر خواجه نصیر با ۳۰ و ۰۰)
+  const selectedUni = getSelectedUniversity();
+  const hasAutPattern = allSlotRanges.some((r) => {
+    const sm = r.start % 60;
+    return sm === 45 || sm === 15;
+  });
+  const isAut = selectedUni === 'aut' || hasAutPattern;
+  const canonicalDefs = isAut ? CANONICAL_SLOTS_AUT : CANONICAL_SLOTS_KNTU;
+
   const isEarlyActive = allSlotRanges.some(
-    (r) => r.start < 450 && rangeOverlap(r.start, r.end, 420, 510) >= 35,
+    (r) => r.start < (isAut ? 465 : 450) && rangeOverlap(r.start, r.end, 420, 510) >= 30,
   );
   const isLunchActive = allSlotRanges.some(
-    (r) => rangeOverlap(r.start, r.end, 720, 810) >= 45,
+    (r) => rangeOverlap(r.start, r.end, isAut ? 735 : 720, 810) >= 35,
   );
   const isEveningActive = allSlotRanges.some(
-    (r) => r.end > 1080 && rangeOverlap(r.start, r.end, 1080, 1170) >= 35,
+    (r) => r.end > 1080 && rangeOverlap(r.start, r.end, 1080, 1170) >= 30,
   );
 
-  const activeSlots = CANONICAL_SLOTS_DEF.filter((sd) => {
+  const activeSlots = canonicalDefs.filter((sd) => {
     if (sd.id === 'early') return isEarlyActive;
     if (sd.id === 'lunch') return isLunchActive;
     if (sd.id === 'evening') return isEveningActive;
@@ -919,35 +1019,53 @@ export function getScheduleMatrix() {
       const r = parseRange(s.time);
       if (!r) continue;
 
+      const duration = r.end - r.start;
       const overlaps = activeSlots.map((sd, idx) => ({
         idx,
+        slotDef: sd,
         overlap: rangeOverlap(r.start, r.end, sd.start, sd.end),
         startDiff: Math.abs(sd.start - r.start),
       }));
 
-      // نگاشت به اسلات‌هایی با همپوشانی معنادار (حداقل ۳۵ دقیقه)
-      let matched = overlaps.filter((x) => x.overlap >= 35);
-      if (matched.length === 0) {
+      let matched = [];
+      if (duration <= 105) {
+        // کلاس‌های استاندارد (۷۵ تا ۹۰ یا ۱۰۰ دقیقه) دقیقاً به بهترین اسلات منطبق می‌شوند
         const best = overlaps.reduce((max, cur) => {
           if (cur.overlap > max.overlap) return cur;
           if (cur.overlap === max.overlap && cur.startDiff < max.startDiff) return cur;
           return max;
         }, overlaps[0]);
-        matched = [best];
+        matched = [{ idx: best.idx, isContinuation: false }];
+      } else {
+        // کلاس‌های چندساعته (کارگاه‌های ۳ ساعته، ۲ ساعته و...)
+        const sortedOverlaps = overlaps.filter((x) => x.overlap >= 40).sort((a, b) => a.idx - b.idx);
+        if (sortedOverlaps.length === 0) {
+          const best = overlaps.reduce((max, cur) => (cur.overlap > max.overlap ? cur : max), overlaps[0]);
+          matched = [{ idx: best.idx, isContinuation: false }];
+        } else {
+          matched = sortedOverlaps.map((item, i) => ({
+            idx: item.idx,
+            isContinuation: i > 0,
+          }));
+        }
       }
 
-      const item = {
-        id: c.id || c.code || `course_${ci}`,
-        code: c.code,
-        title: c.name || c.title || 'درس',
-        room: formatRoomTag(s.hall || c.hall) || s.hall || c.hall || 'ـ',
-        professor: c.professor || 'ـ',
-        time: s.time || c.time || '',
-        color: c.color || tone,
-        course: c,
-      };
-
       for (const m of matched) {
+        const item = {
+          id: c.id || c.code || `course_${ci}`,
+          code: c.code,
+          title: c.name || c.title || 'درس',
+          room: formatRoomTag(s.hall || c.hall) || s.hall || c.hall || 'ـ',
+          professor: c.professor || 'ـ',
+          time: s.time || c.time || '',
+          color: c.color || tone,
+          course: c,
+          virtualUrl: c.virtualUrl,
+          hasVirtualClass: c.hasVirtualClass,
+          isContinuation: m.isContinuation,
+          range: r,
+        };
+
         const key = `${m.idx}-${di}`;
         if (!cells[key]) {
           cells[key] = {
@@ -964,10 +1082,19 @@ export function getScheduleMatrix() {
               (x.title === item.title && x.professor === item.professor),
           );
           if (!isDuplicate) {
+            // تداخل واقعی فقط زمانی است که بازه زمانی دقیق دو درس با هم همپوشانی معنادار (حداقل ۲۰ دقیقه) داشته باشند
+            const hasRealConflict = existingItems.some((x) => {
+              if (x.isContinuation && item.isContinuation) return false;
+              if (x.range && item.range) {
+                return rangeOverlap(x.range.start, x.range.end, item.range.start, item.range.end) >= 20;
+              }
+              return true;
+            });
+
             cells[key] = {
               ...cells[key],
               items: [...existingItems, item],
-              hasConflict: true,
+              hasConflict: hasRealConflict,
             };
           }
         }
@@ -975,7 +1102,7 @@ export function getScheduleMatrix() {
     }
   });
 
-  return { days, slots, cells };
+  return { days, slots, cells, isAut };
 }
 
 let _persianFmt = null;
@@ -1009,30 +1136,58 @@ function gregToPersianParts(gy, gm, gd) {
 }
 
 export function jalaliToDate(jy, jm, jd) {
-  const gyBase = jy + (jm >= 7 ? 622 : 621);
-  const probe = (dayOfYear) => {
-    const t = new Date(Date.UTC(gyBase, 0, 1, 12) + (dayOfYear - 1) * 86400000);
-    return gregToPersianParts(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate());
-  };
-  const cmpParts = (a, b) =>
-    a[0] !== b[0] ? a[0] - b[0] : a[1] !== b[1] ? a[1] - b[1] : a[2] - b[2];
-  let lo = 1;
-  let hi = 370;
-  let iter = 0;
-  while (lo <= hi && iter < 24) {
-    iter++;
-    const mid = (lo + hi) >> 1;
-    const parts = probe(mid);
-    if (!parts) return null;
-    const cmp = cmpParts(parts, [jy, jm, jd]);
-    if (cmp > 0) hi = mid - 1;
-    else if (cmp < 0) lo = mid + 1;
-    else {
-      const t = new Date(Date.UTC(gyBase, 0, 1, 12) + (mid - 1) * 86400000);
-      return new Date(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate());
-    }
+  let y = Number(jy);
+  let m = Number(jm);
+  let d = Number(jd);
+  if (!y || !m || !d) return null;
+  let gy;
+  if (y > 979) {
+    gy = 1600;
+    y -= 979;
+  } else {
+    gy = 621;
   }
-  return null;
+  let days =
+    365 * y +
+    Math.floor(y / 33) * 8 +
+    Math.floor(((y % 33) + 3) / 4) +
+    78 +
+    d +
+    (m < 7 ? (m - 1) * 31 : (m - 7) * 30 + 186);
+  gy += 400 * Math.floor(days / 146097);
+  days %= 146097;
+  if (days > 36524) {
+    gy += 100 * Math.floor(--days / 36524);
+    days %= 36524;
+    if (days >= 365) days++;
+  }
+  gy += 4 * Math.floor(days / 1461);
+  days %= 1461;
+  if (days > 365) {
+    gy += Math.floor((days - 1) / 365);
+    days = (days - 1) % 365;
+  }
+  const sal_a = [
+    0,
+    31,
+    (gy % 4 === 0 && gy % 100 !== 0) || gy % 400 === 0 ? 29 : 28,
+    31,
+    30,
+    31,
+    30,
+    31,
+    31,
+    30,
+    31,
+    30,
+    31,
+  ];
+  let gm;
+  for (gm = 0; gm < 13 && days >= sal_a[gm]; gm++) {
+    days -= sal_a[gm];
+  }
+  const gd = days + 1;
+  return new Date(gy, gm - 1, gd, 12, 0, 0);
 }
 
 function toLatinDigits(s) {

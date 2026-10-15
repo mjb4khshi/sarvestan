@@ -2,18 +2,6 @@ import { createContext, useContext, useState, useEffect } from 'react';
 
 export const SARV_THEMES = [
   {
-    id: 'laboo',
-    name: 'White & Beetroot',
-    persianName: 'سفید و لبویی',
-    badge: 'محدود',
-    isLimited: true,
-    icon: '🍠',
-    mode: 'light',
-    primary: '#931139',
-    base: '#ffffff',
-    accent: '#c4285c',
-  },
-  {
     id: 'persian-light',
     name: 'Persian Light',
     persianName: 'ایرانی روشن',
@@ -169,22 +157,29 @@ const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
   const [currentTheme, setCurrentTheme] = useState(() => {
-    const saved = localStorage.getItem('sarvestan_theme');
-    const labooDefaultApplied = localStorage.getItem('sarvestan_laboo_default_v1');
-    if (!labooDefaultApplied) {
-      localStorage.setItem('sarvestan_laboo_default_v1', 'true');
-      localStorage.setItem('sarvestan_theme', 'laboo');
-      return 'laboo';
-    }
-    return saved || 'laboo';
+    try {
+      localStorage.removeItem('sarvestan_laboo_default_v1');
+      const saved = localStorage.getItem('sarvestan_theme');
+      if (saved && saved !== 'laboo' && SARV_THEMES.some((t) => t.id === saved)) {
+        return saved;
+      }
+    } catch {}
+    return 'persian-light';
   });
 
   useEffect(() => {
     document.documentElement.setAttribute('datatheme', currentTheme);
     document.documentElement.setAttribute('data-theme', currentTheme);
     const meta = SARV_THEMES.find((t) => t.id === currentTheme);
-    document.documentElement.setAttribute('data-theme-mode', meta?.mode || 'dark');
-    localStorage.setItem('sarvestan_theme', currentTheme);
+    const mode = meta?.mode || 'dark';
+    document.documentElement.setAttribute('data-theme-mode', mode);
+    try {
+      localStorage.setItem('sarvestan_theme', currentTheme);
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+      if (metaThemeColor) {
+        metaThemeColor.setAttribute('content', mode === 'dark' ? '#000000' : '#ffffff');
+      }
+    } catch {}
   }, [currentTheme]);
 
   // واکنش خودکار به تغییر تم/حالت شب و روز در تنظیمات گوشی (Mobile Settings)

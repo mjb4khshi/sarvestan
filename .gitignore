@@ -5,7 +5,8 @@ node_modules/
 dist/
 *.apk
 *.aab
-!/sarvestan.apk
+scratch/
+**/scratch/
 
 # Private / sensitive HAR files, student datasets, and personal dumps — NEVER commit
 *.har
@@ -45,8 +46,14 @@ inspect*
 find_reports.*
 test_*.mjs
 test_*.js
+test_*.cjs
 **/test_*.mjs
 **/test_*.js
+**/test_*.cjs
+analyze_*
+**/analyze_*
+payload.json
+**/payload.json
 
 # Logs & Environment
 *.log

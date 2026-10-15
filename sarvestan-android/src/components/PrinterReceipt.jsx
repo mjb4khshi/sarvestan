@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { Printer, ExternalLink, AlertTriangle } from 'lucide-react';
+import { getSelectedUniversity, getUniversityName } from '../services/behestan/session';
 
 const fmt = (v) => Number(v || 0).toLocaleString('fa-IR');
 
@@ -53,7 +54,7 @@ export default function PrinterReceipt({
           className="print-receipt relative border border-dashed border-base-500/60 bg-base px-4 py-3.5 space-y-2 text-right rounded-b-2xl shadow-md"
         >
           <div className="text-center space-y-0.5 pb-2 border-b border-dashed border-base-500/50">
-            <div className="text-[12px] font-bold text-base-content">دانشگاه صنعتی خواجه نصیر طوسی</div>
+            <div className="text-[12px] font-bold text-base-content">{getUniversityName(getSelectedUniversity())}</div>
             <div className="text-[10px] text-neutral font-medium">گواهی وضعیت حسابداری و شهریه</div>
             <div className="text-[9px] text-neutral font-mono mt-0.5">
               {dateLabel} · {timeLabel}

@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BookOpenCheck,
@@ -27,6 +28,11 @@ import { toFaDigits, toPersianCourseName } from '../utils/faDigits';
 import { useTheme } from '../context/ThemeContext';
 import CurriculumGraphView from './CurriculumGraphView';
 import {
+  setManualCourseEquivalence,
+  removeManualCourseEquivalence,
+  buildCurriculumState,
+} from '../services/curriculumEngine';
+import {
   renderCurriculumPoster,
   shareCanvas,
   canvasToDataUrl,
@@ -45,7 +51,7 @@ export default function CurriculumChartModal({
   // تب نمای کلی: 'categories' (سرفصل‌ها و تطبیق)، 'graph' (گراف تعاملی جریان)، یا 'all' (فهرست جامع)
   const [activeTab, setActiveTab] = useState('categories');
 
-  // فیلتر سریع وضعیت: 'all' | 'available' | 'locked' | 'passed' | 'enrolled'
+  // فیلتر سریع وضعیت: 'all' | 'available' | 'locked' | 'passed' | 'enrolled' | 'equivalent'
   const [statusFilter, setStatusFilter] = useState('all');
 
   // جستجو در نام یا کد درس
@@ -54,13 +60,23 @@ export default function CurriculumChartModal({
   // درس انتخاب‌شده برای نمایش مودال جزئیات پیش‌نیازها و پیش‌درآمدها
   const [selectedCourse, setSelectedCourse] = useState(null);
 
+  // شیت انتخاب درس جهت معادل‌سازی دستی
+  const [equivTargetCourse, setEquivTargetCourse] = useState(null);
+  const [equivSearchQuery, setEquivSearchQuery] = useState('');
+  const [, setCurriculumTick] = useState(0);
+
   // پیش‌نمایش پوستر جهت اشتراک‌گذاری
   const [posterPreview, setPosterPreview] = useState(null);
   const [posterGenerating, setPosterGenerating] = useState(false);
   const [posterMsg, setPosterMsg] = useState('');
   const [copiedPoster, setCopiedPoster] = useState(false);
 
-  if (!isOpen || !curriculumState) return null;
+  const effectiveCurriculum = useMemo(() => {
+    if (curriculumState && curriculumState.allCourses?.length) {
+      return curriculumState;
+    }
+    return buildCurriculumState([], student || {}, null, null);
+  }, [curriculumState, student]);
 
   const {
     degreeTitle,
@@ -76,19 +92,86 @@ export default function CurriculumChartModal({
     semesters = [],
     categories = [],
     allCourses = [],
-  } = curriculumState;
+  } = effectiveCurriculum;
+
+  // گوش فرادادن به تغییرات معادل‌سازی‌ها جهت به‌روزرسانی رندر
+  useEffect(() => {
+    const handleUpdate = () => {
+      setCurriculumTick((t) => t + 1);
+    };
+    window.addEventListener('sarvestan:curriculum-update', handleUpdate);
+    return () => window.removeEventListener('sarvestan:curriculum-update', handleUpdate);
+  }, []);
+
+  const availableUserCourses = useMemo(() => {
+    const list = effectiveCurriculum?.userCourses || [];
+    if (!equivSearchQuery.trim()) return list;
+    const q = equivSearchQuery.trim().toLowerCase();
+    return list.filter((c) => {
+      const n = (c.name || '').toLowerCase();
+      const code = String(c.code || '');
+      return n.includes(q) || code.includes(q);
+    });
+  }, [effectiveCurriculum?.userCourses, equivSearchQuery]);
+
+  const handleApplyEquivalence = (targetCourse) => {
+    if (!equivTargetCourse || !targetCourse) return;
+    setManualCourseEquivalence(equivTargetCourse, targetCourse);
+    if (
+      selectedCourse &&
+      (selectedCourse.code === equivTargetCourse.code || selectedCourse.name === equivTargetCourse.name)
+    ) {
+      setSelectedCourse({
+        ...selectedCourse,
+        isEquivalent: true,
+        equivSource: 'manual',
+        equivInfo: {
+          chartCode: equivTargetCourse.code,
+          chartName: equivTargetCourse.name,
+          targetCode: targetCourse.code,
+          targetName: targetCourse.name,
+          source: 'manual',
+        },
+        status: targetCourse.isPassed ? 'passed' : 'enrolled',
+        gradeDisplay: targetCourse.gradeDisplay || (targetCourse.isPassed ? 'قبول' : 'در حال اخذ'),
+        termTaken: targetCourse.termTaken || '',
+      });
+    }
+    setEquivTargetCourse(null);
+  };
+
+  const handleRemoveEquivalence = (course) => {
+    if (!course) return;
+    removeManualCourseEquivalence(course);
+    if (selectedCourse && (selectedCourse.code === course.code || selectedCourse.name === course.name)) {
+      setSelectedCourse({
+        ...selectedCourse,
+        isEquivalent: false,
+        equivSource: null,
+        equivInfo: null,
+        status: selectedCourse.prerequisites?.every((p) => p.isPassed) ? 'available' : 'locked',
+        gradeDisplay: null,
+      });
+    }
+  };
 
   // فیلتر دروس بر اساس جستجو و وضعیت
   const filterCourse = (c) => {
-    if (statusFilter !== 'all' && c.status !== statusFilter) return false;
+    if (statusFilter === 'equivalent' && !c.isEquivalent) return false;
+    else if (statusFilter !== 'all' && statusFilter !== 'equivalent' && c.status !== statusFilter) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       const nameMatch = (c.name || '').toLowerCase().includes(q);
       const codeMatch = String(c.code || '').includes(q);
-      if (!nameMatch && !codeMatch) return false;
+      const equivMatch =
+        c.equivInfo &&
+        ((c.equivInfo.targetName || '').toLowerCase().includes(q) ||
+          String(c.equivInfo.targetCode || '').includes(q));
+      if (!nameMatch && !codeMatch && !equivMatch) return false;
     }
     return true;
   };
+
 
   // تولید پوستر گرافیکی چارت
   const handleGeneratePoster = async () => {
@@ -147,15 +230,17 @@ export default function CurriculumChartModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[75] flex items-end sm:items-center justify-center p-0 sm:p-4">
+  if (!isOpen) return null;
+
+  const modalContent = (
+    <div className="fixed inset-0 z-[999] flex items-end sm:items-center justify-center p-0 sm:p-4">
       {/* لایه تاریک پشت‌زمینه */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="absolute inset-0 bg-black/70 backdrop-blur-md"
+        className="absolute inset-0 bg-black/75 backdrop-blur-md"
       />
 
       {/* کانتینر اصلی مودال تمام‌صفحه */}
@@ -333,6 +418,7 @@ export default function CurriculumChartModal({
                 { id: 'passed', label: `پاس‌شده (${toFaDigits(passedCount)}) ✓` },
                 { id: 'enrolled', label: `در حال اخذ (${toFaDigits(allCourses.filter((c) => c.status === 'enrolled').length)}) ⏳` },
                 { id: 'locked', label: `قفل‌شده (${toFaDigits(lockedCount)}) 🔒` },
+                { id: 'equivalent', label: `تطبیق واحد (${toFaDigits(allCourses.filter((c) => c.isEquivalent).length)}) 🔄` },
               ].map((f) => {
                 const isSel = statusFilter === f.id;
                 return (
@@ -387,6 +473,12 @@ export default function CurriculumChartModal({
                         {toFaDigits(c.units)} واحد
                       </span>
                     </div>
+                    {c.isEquivalent && (
+                      <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-md bg-accent-soft text-accent flex items-center gap-1 w-fit">
+                        <Sparkles className="w-2.5 h-2.5 shrink-0" />
+                        <span className="truncate max-w-[200px]">معادل: {toPersianCourseName(c.equivInfo?.targetName || 'تطبیقی')}</span>
+                      </span>
+                    )}
                     <div className="flex items-center justify-between text-[10.5px] text-neutral pt-1 border-t border-base-500/15">
                       <span className="font-bold">{c.category || 'درس دانشگاهی'}</span>
                       <span
@@ -455,6 +547,12 @@ export default function CurriculumChartModal({
                             <p className="text-[10px] text-neutral mt-0.5">
                               {c.code ? `کد ${toFaDigits(c.code)}` : ''} · {toFaDigits(c.units)} واحد
                             </p>
+                            {c.isEquivalent && (
+                              <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-md bg-accent-soft text-accent flex items-center gap-1 w-fit mt-0.5">
+                                <Sparkles className="w-2.5 h-2.5 shrink-0" />
+                                <span className="truncate max-w-[200px]">معادل: {toPersianCourseName(c.equivInfo?.targetName || 'تطبیقی')}</span>
+                              </span>
+                            )}
                           </div>
 
                           <div className="shrink-0 flex items-center gap-1.5">
@@ -553,6 +651,71 @@ export default function CurriculumChartModal({
                       : 'قفل — نیاز به پاس کردن پیش‌نیاز 🔒'}
                   </span>
                 </div>
+
+                {/* بخش تطبیق و معادل‌سازی درس */}
+                <div className="p-3.5 rounded-2xl bg-base-500/15 border border-base-500/25 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] font-black text-base-content flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-accent" />
+                      وضعیت تطبیق و معادل‌سازی واحد
+                    </span>
+                    {selectedCourse.isEquivalent && (
+                      <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-md bg-accent/20 text-accent">
+                        {selectedCourse.equivSource === 'manual' ? 'تطبیق دستی کاربر' : 'تطبیق رسمی بهستان'}
+                      </span>
+                    )}
+                  </div>
+
+                  {selectedCourse.isEquivalent ? (
+                    <div className="space-y-2">
+                      <div className="p-2.5 rounded-xl bg-accent-soft/30 border border-accent/25 text-right">
+                        <span className="text-[10px] text-neutral block font-medium">معادل‌شده با درس:</span>
+                        <p className="text-[12.5px] font-black text-accent mt-0.5">
+                          {toPersianCourseName(selectedCourse.equivInfo?.targetName || 'درس تطبیقی')}
+                        </p>
+                        {selectedCourse.equivInfo?.targetCode && (
+                          <p className="text-[10px] text-neutral mt-0.5">
+                            کد درس گذرانده: {toFaDigits(selectedCourse.equivInfo.targetCode)}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setEquivTargetCourse(selectedCourse)}
+                          className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>تغییر یا انتخاب درس دیگر...</span>
+                        </button>
+                        {selectedCourse.equivSource === 'manual' && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveEquivalence(selectedCourse)}
+                            className="text-[11px] font-bold text-danger hover:underline flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>حذف معادل‌سازی دستی</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <p className="text-[10.5px] text-neutral leading-relaxed">
+                        این درس را با کد یا نام دیگری گذرانده‌اید؟ می‌توانید آن را به یکی از دروس کارنامه خود متصل کنید.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setEquivTargetCourse(selectedCourse)}
+                        className="w-full py-2 px-3 rounded-xl bg-accent/15 hover:bg-accent/25 text-accent border border-accent/30 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>معادل‌سازی با یکی از دروس گذرانده‌شده (تطبیق واحد)</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
 
                 {/* فهرست پیش‌نیازها با وضعیت قبولی یا مانده */}
                 <div className="space-y-2">
@@ -685,7 +848,93 @@ export default function CurriculumChartModal({
           )}
         </AnimatePresence>
 
+        {/* ۵.۵. شیت/مودال انتخاب درس برای معادل‌سازی دستی */}
+        <AnimatePresence>
+          {equivTargetCourse && (
+            <div className="fixed inset-0 z-[95] flex items-end sm:items-center justify-center p-0 sm:p-4">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setEquivTargetCourse(null)}
+                className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              />
+              <motion.div
+                initial={{ y: '100%', opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: '100%', opacity: 0 }}
+                transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+                className="relative z-10 w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-base border border-base-500/50 p-4 shadow-2xl max-h-[85vh] flex flex-col space-y-3"
+              >
+                <div className="flex items-center justify-between pb-2 border-b border-base-500/30 shrink-0">
+                  <div>
+                    <h3 className="text-[13.5px] font-black text-base-content">
+                      انتخاب درس گذرانده‌شده برای معادل‌سازی
+                    </h3>
+                    <p className="text-[10.5px] text-accent mt-0.5 font-bold truncate max-w-[280px]">
+                      معادل با: {toPersianCourseName(equivTargetCourse.name)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEquivTargetCourse(null)}
+                    className="w-7 h-7 rounded-full bg-base-500/30 text-neutral hover:text-base-content grid place-items-center"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* جستجو در دروس کاربر */}
+                <div className="relative shrink-0">
+                  <Search className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-neutral" />
+                  <input
+                    type="text"
+                    value={equivSearchQuery}
+                    onChange={(e) => setEquivSearchQuery(e.target.value)}
+                    placeholder="جستجو در نام یا کد درس‌های کارنامه شما..."
+                    className="w-full pl-3 pr-8 py-2 rounded-xl bg-base-500/20 border border-base-500/30 text-[11.5px] text-base-content placeholder-neutral focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                {/* فهرست دروس گذرانده‌شده کاربر */}
+                <div className="flex-1 overflow-y-auto space-y-1.5 pr-0.5 no-scrollbar max-h-[50vh]">
+                  {availableUserCourses.length > 0 ? (
+                    availableUserCourses.map((uc, uidx) => (
+                      <button
+                        key={uc.code || uc.normalizedName || uidx}
+                        type="button"
+                        onClick={() => handleApplyEquivalence(uc)}
+                        className="w-full p-2.5 rounded-xl bg-base-500/15 hover:bg-primary/15 hover:border-primary/40 border border-base-500/20 text-right flex items-center justify-between gap-2 transition-all cursor-pointer group"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-[12px] font-bold text-base-content group-hover:text-primary transition-colors truncate">
+                            {toPersianCourseName(uc.name)}
+                          </p>
+                          <p className="text-[10px] text-neutral mt-0.5">
+                            {uc.code ? `کد ${toFaDigits(uc.code)}` : ''} · {toFaDigits(uc.units || 2)} واحد {uc.termTaken ? `· ترم ${toFaDigits(uc.termTaken)}` : ''}
+                          </p>
+                        </div>
+                        <div className="shrink-0 flex items-center gap-1.5">
+                          <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-md bg-success-soft text-success">
+                            {uc.gradeDisplay || (uc.isPassed ? 'قبول' : 'در حال اخذ')}
+                          </span>
+                          <Check className="w-3.5 h-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="text-[11px] text-neutral text-center py-6">
+                      درسی در سوابق تحصیلی شما با این مشخصات یافت نشد.
+                    </p>
+                  )}
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
         {/* ۶. مودال پیش‌نمایش و همرسانی پوستر گرافیکی چارت */}
+
         <AnimatePresence>
           {posterPreview && (
             <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-0 sm:p-4">
@@ -782,4 +1031,7 @@ export default function CurriculumChartModal({
       </motion.div>
     </div>
   );
+
+  if (typeof document === 'undefined') return modalContent;
+  return createPortal(modalContent, document.body);
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -15,8 +16,10 @@ import {
   Calculator,
   UserX,
   Minus,
+  Globe,
 } from 'lucide-react';
 import { toFaDigits } from '../utils/faDigits';
+import { getSelectedUniversity } from '../services/behestan/session';
 import SarvTimePickerModal from './SarvTimePickerModal';
 import OdometerNumber from './OdometerNumber';
 
@@ -50,6 +53,7 @@ export default function CourseEditModal({
   onDelete,
 }) {
   const isEditing = Boolean(course && (course.id || course.name || course.code));
+  const isUt = getSelectedUniversity() === 'ut';
 
   const [name, setName] = useState('');
   const [professor, setProfessor] = useState('');
@@ -64,7 +68,7 @@ export default function CourseEditModal({
   const [color, setColor] = useState('primary');
   const [absences, setAbsences] = useState(0);
   const [maxAbsences, setMaxAbsences] = useState(3);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteConfirmModalOpen, setDeleteConfirmModalOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [timePickerState, setTimePickerState] = useState({
     isOpen: false,
@@ -75,7 +79,7 @@ export default function CourseEditModal({
 
   useEffect(() => {
     if (isOpen) {
-      setConfirmDelete(false);
+      setDeleteConfirmModalOpen(false);
       setErrorMsg('');
       if (course) {
         setName(course.name || course.title || '');
@@ -241,13 +245,14 @@ export default function CourseEditModal({
   };
 
   const handleDelete = () => {
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      return;
-    }
+    setDeleteConfirmModalOpen(true);
+  };
+
+  const handleConfirmActualDelete = () => {
     if (course) {
       onDelete(course.id || course.code || course);
     }
+    setDeleteConfirmModalOpen(false);
     onClose();
   };
 
@@ -303,6 +308,25 @@ export default function CourseEditModal({
                   <div className="p-3 rounded-xl bg-danger-soft text-danger text-[11.5px] font-bold border border-danger/30 flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 shrink-0" />
                     <span>{errorMsg}</span>
+                  </div>
+                )}
+
+                {isEditing && isUt && (
+                  <div className="p-2.5 rounded-xl bg-primary-soft/40 border border-primary/20 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-primary shrink-0" />
+                      <span className="text-[11.5px] font-bold text-base-content">
+                        کلاس مجازی دانشگاه تهران
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => window.open(course?.virtualUrl || 'https://elearning.ut.ac.ir/', '_blank')}
+                      className="px-2.5 py-1 rounded-lg bg-primary text-primary-content text-[11px] font-bold hover:brightness-110 active:scale-95 transition flex items-center gap-1 shadow-xs cursor-pointer"
+                    >
+                      <Globe className="w-3 h-3" />
+                      <span>ورود به کلاس</span>
+                    </button>
                   </div>
                 )}
 
@@ -682,14 +706,11 @@ export default function CourseEditModal({
                   <button
                     type="button"
                     onClick={handleDelete}
-                    className={`px-3 py-2.5 rounded-xl text-[11.5px] font-bold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer ${
-                      confirmDelete
-                        ? 'bg-danger text-danger-content font-black shadow-sm'
-                        : 'bg-danger-soft text-danger hover:bg-danger/20 border border-danger/20'
-                    }`}
+                    className="px-3 py-2.5 rounded-xl text-[11.5px] font-bold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer bg-danger-soft text-danger hover:bg-danger/20 border border-danger/20"
+                    title="حذف درس از برنامه سروستان"
                   >
                     <Trash2 className="w-4 h-4" />
-                    <span>{confirmDelete ? 'مطمئنید؟ حذف' : 'حذف درس'}</span>
+                    <span>حذف درس</span>
                   </button>
                 )}
 
@@ -727,6 +748,73 @@ export default function CourseEditModal({
         setTimePickerState((prev) => ({ ...prev, isOpen: false }));
       }}
     />
+
+    {/* مودال تایید اختصاصی حذف درس از سروستان */}
+    {typeof document !== 'undefined' &&
+      createPortal(
+        <AnimatePresence>
+          {deleteConfirmModalOpen && (
+            <div
+              className="fixed inset-0 z-[100060] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs"
+              onClick={() => setDeleteConfirmModalOpen(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.94, opacity: 0, y: 12 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.94, opacity: 0, y: 12 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-sm sarv-card p-5 space-y-4 border border-danger/30 shadow-2xl text-center select-none"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-danger-soft text-danger mx-auto grid place-items-center shadow-xs">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+
+                <div className="space-y-1">
+                  <h3 className="text-[14px] font-black text-base-content">
+                    حذف درس از سروستان
+                  </h3>
+                  <p className="text-xs font-bold text-primary truncate px-2">
+                    «{name || course?.name || 'این درس'}»
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-danger/10 border border-danger/20 text-right space-y-2 text-[11px] leading-relaxed">
+                  <div className="flex items-center gap-1.5 text-danger font-bold text-[11.5px]">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>توجه بسیار مهم:</span>
+                  </div>
+                  <p className="text-base-content/85 text-[10.5px]">
+                    حذف این درس فقط در <strong>سروستان</strong> اعمال می‌شود و برنامه‌ریزی داخلی شما را به‌روز می‌کند.
+                  </p>
+                  <p className="text-neutral text-[10px]">
+                    ⚠️ این عملیات به‌هیچ‌وجه درس را در سامانه بهستان یا پرتال آموزش دانشگاه حذف نمی‌کند. برای حذف آموزشی یا حذف اضطراری، حتماً باید از پرتال رسمی دانشگاه اقدام فرمایید.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteConfirmModalOpen(false)}
+                    className="flex-1 py-2.5 rounded-xl bg-base-500/20 hover:bg-base-500/35 text-base-content text-xs font-bold transition active:scale-95 cursor-pointer"
+                  >
+                    انصراف
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmActualDelete}
+                    className="flex-1 py-2.5 rounded-xl bg-danger text-danger-content text-xs font-bold hover:brightness-110 transition active:scale-95 flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>تایید و حذف</span>
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
   </>
   );
 }

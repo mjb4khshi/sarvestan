@@ -1,0 +1,1019 @@
+/**
+ * پارسرهای خروجی بهستان — همان منطق behestanInterceptor.js
+ * بدون وابستگی به chrome / window اضافه
+ */
+import { simplifyRoomName } from '../../utils/roomUtils.js';
+
+export function parseBehestanXmlGrid(xmlStr) {
+  if (!xmlStr || typeof xmlStr !== 'string') return [];
+  const rows = [];
+  const rowRe = /<row\s+([^>]*?)\/?>/gi;
+  let match;
+  while ((match = rowRe.exec(xmlStr)) !== null) {
+    const attrs = {};
+    const attrRe = /(\w+)="([^"]*)"/g;
+    let am;
+    while ((am = attrRe.exec(match[1])) !== null) {
+      attrs[am[1]] = decodeEntities(am[2]);
+    }
+    rows.push(attrs);
+  }
+  return rows;
+}
+
+export function decodeEntities(s) {
+  if (!s) return '';
+  return String(s)
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#x0D;/g, ' ')
+    .replace(/&#\d+;/g, ' ')
+    .replace(/&nbsp;/g, ' ');
+}
+
+export function cleanHtml(str) {
+  if (!str) return '';
+  return decodeEntities(str)
+    .replace(/<svg\b[\s\S]*?<\/svg>/gi, ' ')
+    .replace(/<title\b[\s\S]*?<\/title>/gi, ' ')
+    .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/[يى]/g, 'ی')
+    .replace(/ك/g, 'ک')
+    .replace(/ۀ/g, 'ه')
+    .trim();
+}
+
+/**
+ * وضعیت ثبت‌نام درس:
+ * - registered: روی برنامهٔ فرم ۸۸ / ثبت‌شده
+ * - dropped: حذف اضطراری / حذف شده / حذف ايثار
+ * - waitlist: در انتظار / لیست انتظار
+ */
+export function normalizeRegStatus(raw, { onSchedule = false, hasGrade = false, gradePassed = false } = {}) {
+  const s = cleanHtml(raw || '')
+    .replace(/[يى]/g, 'ی')
+    .replace(/ك/g, 'ک');
+  if (/حذف\s*اضطرار|حذف\s*شده|حذف\s*ايثار|حذف\s*ایثار|cancell?ed|dropped/i.test(s)) {
+    return 'dropped';
+  }
+  if (/انتظار|ليست\s*انتظار|لیست\s*انتظار|wait\s*list|waitlist|در\s*صف/i.test(s)) {
+    return 'waitlist';
+  }
+  if (gradePassed || (hasGrade && /قبول|مشروط|نمره/i.test(s))) return 'passed';
+  if (onSchedule) return 'registered';
+  if (hasGrade) return 'passed';
+  return 'unknown';
+}
+
+/** کد درس از F2 مثل «5505050 گروه 59» یا C1 مثل «5505050_59» */
+export function extractCourseCode(...parts) {
+  for (const p of parts) {
+    const s = cleanHtml(p || '');
+    const m = s.match(/(\d{5,})/);
+    if (m) return m[1];
+  }
+  return '';
+}
+
+export function isProjectCourse(name) {
+  if (!name) return false;
+  const s = String(name).trim();
+  if (/مديريت\s*پروژه|مدیریت\s*پروژه|کنترل\s*پروژه|كنترل\s*پروژه/i.test(s)) return false;
+  return /پروژه/i.test(s);
+}
+
+export function isInternshipCourse(name) {
+  if (!name) return false;
+  return /کارآموزی|كارآموزي|کارورزی|كارورزي/i.test(String(name));
+}
+
+/**
+ * گزارش ۷۷ — وضعیت واقعی دروس ترم (ثبت‌نام / لیست انتظار / حذف)
+ * C5 = وضعیت درس، L3 = مرحله، S2/S3 = خلاصهٔ لیست انتظار
+ */
+export function parseReport77(outpar, termHint) {
+  const bmT = String(outpar?.BMt || '');
+  if (!bmT || bmT.indexOf('<row') === -1) {
+    return {
+      termId: termHint || '',
+      courses: [],
+      waitlistUnits: 0,
+      waitlistCount: 0,
+      enrolledUnits: 0,
+    };
+  }
+
+  const rows = parseBehestanXmlGrid(bmT);
+  const courses = [];
+  let waitlistUnits = 0;
+  let waitlistCount = 0;
+  let enrolledUnits = 0;
+
+  for (const row of rows) {
+    // S1/S2/S3 فقط روی ردیف گروه‌بندی تکرار می‌شوند
+    const s1 = toNum(row.S1);
+    const s2 = toNum(row.S2);
+    const s3 = toNum(row.S3);
+    if (s1 != null && s1 > 0) enrolledUnits = s1;
+    if (s2 != null && s2 > 0) waitlistUnits = s2;
+    if (s3 != null && s3 > 0) waitlistCount = s3;
+
+    const codeGroup = cleanHtml(row.C1 || '');
+    if (!codeGroup) continue;
+    const code = extractCourseCode(codeGroup, row.C1);
+    const rawC2 = String(row.C2 || '');
+    const elearnMatch = (rawC2 + ' ' + String(row.C1 || '')).match(/href=["'](https?:\/\/[^"']+)["']/i);
+    const hasVirtual = /فضای\s*مجازی|elearning|vc\.ut\.ac\.ir/i.test(rawC2 + ' ' + String(row.C1 || ''));
+    const virtualUrl = elearnMatch ? elearnMatch[1].replace(/\\/g, '').replace(/&amp;/g, '&') : (hasVirtual ? 'https://elearning.ut.ac.ir/' : undefined);
+    const name = normalizeCourseName(cleanHtml(rawC2));
+    if (!name) continue;
+
+    const statusRaw = cleanHtml(row.C5 || '');
+    const phaseRaw = cleanHtml(row.L3 || '');
+    const typeRaw = cleanHtml(row.C6 || '');
+    const combined = `${statusRaw} ${phaseRaw}`;
+    const regStatus = normalizeRegStatus(combined, {
+      onSchedule: true,
+      hasGrade: false,
+    });
+    // اگر normalize چیزی نگفت و روی برنامه است → registered
+    const finalStatus =
+      regStatus === 'unknown' || regStatus === 'passed' ? 'registered' : regStatus;
+
+    const daySlots = [];
+    const days = [];
+    const timeRaw = cleanHtml(row.C8 || '');
+    const dayHints = [
+      ['شنبه', /شنبه/i],
+      ['یکشنبه', /يك\s*شنبه|یکشنبه/i],
+      ['دوشنبه', /دو\s*شنبه/i],
+      ['سه‌شنبه', /سه\s*شنبه/i],
+      ['چهارشنبه', /چهار\s*شنبه/i],
+      ['پنجشنبه', /پنج\s*شنبه/i],
+    ];
+    for (const [day, re] of dayHints) {
+      if (re.test(timeRaw)) {
+        days.push(day);
+        const tm = timeRaw.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+        if (tm) {
+          daySlots.push({
+            day,
+            time: normalizeTimeRange(tm[1] + '-' + tm[2]),
+            hall: 'ـ',
+          });
+        }
+      }
+    }
+    const examM = timeRaw.match(/(\d{4}[./]\d{1,2}[./]\d{1,2})/);
+    const examTimeM = timeRaw.match(/ساعت\s*:\s*(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+
+    courses.push({
+      code,
+      group: (codeGroup.match(/_(\d+)/) || [])[1] || '',
+      name,
+      units: toNum(row.C3) || (isProjectCourse(name) ? 3 : isInternshipCourse(name) ? 2 : 0),
+      professor: normalizeCourseName(cleanHtml(row.C7 || '')) || 'ـ',
+      type: typeRaw || 'ثبت‌نام',
+      days,
+      time: daySlots[0]?.time || 'ـ',
+      hall: daySlots[0]?.hall || 'ـ',
+      examDate: examM ? faDigits(examM[1].replace(/[./]/g, '/')) : 'ـ',
+      examTime: examTimeM
+        ? normalizeTimeRange(examTimeM[1] + '-' + examTimeM[2])
+        : 'ـ',
+      classTimeRaw: daySlots[0]?.time || '',
+      daySlots,
+      isLive: true,
+      isRegistration: finalStatus === 'registered',
+      onSchedule: finalStatus === 'registered',
+      regStatus: finalStatus,
+      statusRaw,
+      phaseRaw,
+      hasVirtualClass: hasVirtual,
+      virtualUrl: virtualUrl || 'https://elearning.ut.ac.ir/',
+    });
+  }
+
+  const termId =
+    termHint ||
+    mapTermFromTitle(String(outpar?.BMs || '')) ||
+    detectTermFromCourses(courses) ||
+    '4051';
+
+  const coursesWithTerm = courses.map((c) => ({ ...c, termId }));
+
+  return { termId, courses: coursesWithTerm, waitlistUnits, waitlistCount, enrolledUnits };
+}
+
+function detectTermFromCourses(courses) {
+  // فرم ۷۷ معمولاً ترم جاری را می‌دهد — از BMs یا hint
+  return null;
+}
+
+export function faDigits(str) {
+  const map = '۰۱۲۳۴۵۶۷۸۹';
+  return String(str ?? '').replace(/[0-9]/g, (d) => map[+d]);
+}
+
+export function normalizeCourseName(name) {
+  if (!name) return '';
+  return String(name)
+    .replace(/[يى]/g, 'ی')
+    .replace(/ك/g, 'ک')
+    .replace(/ـ/g, '')
+    // حذف پیشوندهای ناخواسته مانند ورود به فضای مجازی یا پیشوند کلاس
+    .replace(/^(?:ورود\s*به\s*)?فضای\s*مجازی(?:\s*درس)?\s*[:\-–—]?\s*/gi, '')
+    .replace(/^کلاس\s*[:\-–—]\s*/gi, '')
+    .replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[+d])
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function normalizeDayName(raw) {
+  if (!raw) return '';
+  const s = cleanHtml(String(raw))
+    .replace(/[يى]/g, 'ی')
+    .replace(/ك/g, 'ک')
+    .replace(/[\u200c\s]+/g, ' ')
+    .trim();
+  if (/^یک\s*شنبه/i.test(s)) return 'یکشنبه';
+  if (/^سه\s*شنبه/i.test(s)) return 'سه‌شنبه';
+  if (/^دو\s*شنبه/i.test(s)) return 'دوشنبه';
+  if (/^چهار\s*شنبه/i.test(s)) return 'چهارشنبه';
+  if (/^پنج\s*شنبه/i.test(s)) return 'پنجشنبه';
+  if (/^جمعه/i.test(s)) return 'جمعه';
+  if (/^شنبه/i.test(s)) return 'شنبه';
+
+  if (/یک\s*شنبه/i.test(s)) return 'یکشنبه';
+  if (/سه\s*شنبه/i.test(s)) return 'سه‌شنبه';
+  if (/دو\s*شنبه/i.test(s)) return 'دوشنبه';
+  if (/چهار\s*شنبه/i.test(s)) return 'چهارشنبه';
+  if (/پنج\s*شنبه/i.test(s)) return 'پنجشنبه';
+  if (/جمعه/i.test(s)) return 'جمعه';
+  if (/شنبه/i.test(s)) return 'شنبه';
+  return s;
+}
+
+export function parseTimeRange(raw) {
+  if (!raw) return '';
+  const m = String(raw).match(/(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})/);
+  if (!m) return String(raw).trim();
+  return normalizeTimeRange(m[1] + '-' + m[2]);
+}
+
+// نرمال start-end (بدون جابه‌جایی اشتباه)
+export function normalizeTimeRange(raw) {
+  if (!raw) return '';
+  const s = String(raw)
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+  const m = s.match(/(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})/);
+  if (!m) return String(raw).trim();
+  const toMin = (t) => {
+    const [h, mm] = t.split(':').map(Number);
+    return h * 60 + mm;
+  };
+  let [start, end] = [m[1], m[2]];
+  if (toMin(end) < toMin(start)) {
+    [start, end] = [end, start];
+  }
+  const pad = (t) => (t.length === 4 ? '0' + t : t);
+  return pad(start) + ' - ' + pad(end);
+}
+
+/** تبدیل عدد فارسی/عربی/مخلوط به number */
+export function toNum(v) {
+  if (v === null || v === undefined || v === '') return 0;
+  const s = String(v)
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[^\d.]/g, '');
+  if (!s) return 0;
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function extractPhotoDataUrl(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  let s = raw.trim().replace(/<\/?PHOTO\s*>/gi, '');
+  s = s.replace(/^data:image\/(jpeg|jpg|png|webp);base64,/i, '');
+  // بهستان گاهی base64 را با پیشوند /9j بدون data: می‌دهد — همان JPEG است
+  const b64 = s.replace(/[^A-Za-z0-9+/=]/g, '');
+  if (b64.length < 200) return null;
+  const mime = b64.startsWith('iVBOR') ? 'image/png' : 'image/jpeg';
+  return `data:${mime};base64,${b64}`;
+}
+
+export function mapTermFromTitle(bms) {
+  const s = String(bms || '');
+  if (/05[_-]06|۰۵[_-]۰۶|1405[_-]1406|۱۴۰۵[_-]۱۴۰۶|06[_-]05|۰۶[_-]۰۵|1406[_-]1405|۱۴۰۶[_-]۱۴۰۵/.test(s)) {
+    if (s.includes('دوم')) return '4052';
+    if (s.includes('تابستان')) return '4053';
+    return '4051';
+  }
+  if (/04[_-]05|۰۴[_-]۰۵|1404[_-]1405|۱۴۰۴[_-]۱۴۰۵|05[_-]04|۰۵[_-]۰۴|1405[_-]1404|۱۴۰۵[_-]۱۴۰۴/.test(s)) {
+    if (s.includes('دوم')) return '4042';
+    if (s.includes('تابستان')) return '4043';
+    return '4041';
+  }
+  if (s.includes('06-05') || s.includes('۰۶-۰۵') || s.includes('1406-1405') || s.includes('۱۴۰۶-۱۴۰۵')) return '4051';
+  if ((s.includes('05-04') || s.includes('1405-1404') || s.includes('۱۴۰۵-۱۴۰۴')) && s.includes('دوم')) return '4042';
+  if ((s.includes('05-04') || s.includes('1405-1404') || s.includes('۱۴۰۵-۱۴۰۴')) && s.includes('اول')) return '4041';
+  const yearM = s.match(/(?:140|۱۴۰)([0-9۰-۹])\s*[-–_]\s*(?:140|۱۴۰)([0-9۰-۹])/);
+  if (yearM) {
+    const y = '۰۱۲۳۴۵۶۷۸۹'.indexOf(yearM[1]) !== -1 ? '۰۱۲۳۴۵۶۷۸۹'.indexOf(yearM[1]) : yearM[1];
+    const sem = s.includes('دوم') ? '2' : s.includes('تابستان') ? '3' : '1';
+    return `40${y}${sem}`;
+  }
+  return '';
+}
+
+/** گزارش ۷۸ — برنامه هفتگی از M2 */
+export function parseReport78Schedule(outpar, termHint) {
+  const bmT = outpar?.BMt || '';
+  if (!bmT || bmT === '<Root></Root>') return { termId: termHint || '', courses: [] };
+
+  const m2Match = bmT.match(/M2="([^"]*)"/);
+  if (!m2Match) return { termId: termHint || '', courses: [] };
+  const m2Html = decodeEntities(m2Match[1]);
+  if (!m2Html || m2Html.indexOf('<TABLE') === -1) return { termId: termHint || '', courses: [] };
+
+  const body = m2Html.replace(/<\/?THEAD>/gi, '');
+  const courseMap = new Map();
+
+  function extractCourseFromTitle(title, day, textHint) {
+    const nameM = title.match(/نام درس\s*:\s*(.+?)(?:\s*شماره درس|$)/);
+    const codeM = title.match(/شماره درس\s*:\s*(\d+)/);
+    const groupM = title.match(/گروه\s*:\s*(\d+)/);
+    const timeM = title.match(/ساعت\s*:\s*([0-9:]+\s*-\s*[0-9:]+)/);
+    const capM = title.match(/تعداد ثبت نامي\s*:\s*(\d+)/);
+    const courseName = normalizeCourseName(
+      (nameM ? nameM[1] : cleanHtml(String(textHint || '').split('گروه')[0]))
+        .replace(/\s+/g, ' ')
+        .trim(),
+    );
+    if (!courseName || !/نام درس/.test(title)) return;
+
+    const code = codeM ? codeM[1] : '';
+    const group = groupM ? groupM[1] : '';
+    const classTime = timeM ? timeM[1].trim() : '';
+    const capacity = capM ? capM[1] : '';
+
+    const profM = (title + ' ' + (textHint || '')).match(/(?:نام\s*استاد|استاد|مدرس)\s*:\s*([^<\n\r]+?)(?=\s*(?:محل|امتحان|ساعت|تعداد|شماره|$))/i);
+    const parsedProf = profM ? normalizeCourseName(profM[1].trim()) : '';
+    const hallM = textHint ? textHint.match(/محل\s*:\s*(.+?)(?=\s*امتحان|$)/) : null;
+    const examM = textHint ? textHint.match(/امتحان\s*:\s*([0-9]{4}\/[0-9]{2}\/[0-9]{2})/) : null;
+    let examTime = '';
+    if (examM && textHint) {
+      const afterExam = textHint.slice(textHint.indexOf('امتحان'));
+      const et = afterExam.match(/ساعت\s*:\s*([0-9]{1,2}:[0-9]{2}\s*-\s*[0-9]{1,2}:[0-9]{2})/);
+      if (et) examTime = et[1].trim();
+    }
+
+    const key = code + '|' + group + '|' + courseName;
+    const normTime = normalizeTimeRange(classTime);
+    const normHall = (hallM ? simplifyRoomName(hallM[1].replace(/\s+/g, ' ').trim()) : '') || 'ـ';
+    const initialSlot = day && normTime ? [{ day, time: normTime, hall: normHall }] : [];
+    const elearnMatch = String(title + ' ' + (textHint || '')).match(/href=["'](https?:\/\/[^"']+)["']/i);
+    const hasVirtual = /فضای\s*مجازی|elearning|vc\.ut\.ac\.ir/i.test(title + ' ' + (textHint || ''));
+    const virtualUrl = elearnMatch ? elearnMatch[1].replace(/\\/g, '').replace(/&amp;/g, '&') : (hasVirtual ? 'https://elearning.ut.ac.ir/' : undefined);
+
+    if (!courseMap.has(key)) {
+      courseMap.set(key, {
+        id: code || courseName,
+        code,
+        name: courseName,
+        group: group || '۰۱',
+        units: isProjectCourse(courseName) ? 3 : isInternshipCourse(courseName) ? 2 : 0,
+        type: 'ـ',
+        professor: parsedProf || 'ـ',
+        days: day ? [day] : [],
+        time: normTime || 'ـ',
+        hall: normHall,
+        examDate: examM ? faDigits(examM[1]) : 'ـ',
+        examTime: examTime ? normalizeTimeRange(examTime) : 'ـ',
+        capacity: capacity || 'ـ',
+        classTimeRaw: classTime,
+        timeSlotsRaw: classTime ? [classTime] : [],
+        daySlots: initialSlot,
+        isLive: true,
+        hasVirtualClass: hasVirtual,
+        virtualUrl: virtualUrl || 'https://elearning.ut.ac.ir/',
+      });
+    } else {
+      const cur = courseMap.get(key);
+      if (hasVirtual) {
+        cur.hasVirtualClass = true;
+        if (virtualUrl) cur.virtualUrl = virtualUrl;
+      }
+      if (parsedProf && (!cur.professor || cur.professor === 'ـ')) cur.professor = parsedProf;
+      if (day && !cur.days.includes(day)) cur.days.push(day);
+      if (classTime && !cur.timeSlotsRaw.includes(classTime)) cur.timeSlotsRaw.push(classTime);
+      if (day && normTime) {
+        if (!cur.daySlots) cur.daySlots = [];
+        if (!cur.daySlots.some((s) => s.day === day && s.time === normTime)) {
+          cur.daySlots.push({ day, time: normTime, hall: normHall || cur.hall || 'ـ' });
+        }
+      }
+    }
+  }
+
+  const dayMarkers = [];
+  const dayCellRe = /<TD[^>]*>([\s\S]*?)<\/TD>/gi;
+  let dcm;
+  while ((dcm = dayCellRe.exec(body)) !== null) {
+    const candidate = normalizeDayName(dcm[1]);
+    if (['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'].includes(candidate)) {
+      const plain = cleanHtml(dcm[1]);
+      if (plain.length < 25) dayMarkers.push({ index: dcm.index, day: candidate });
+    }
+  }
+
+  const titleRe = /TITLE\s*=\s*"([^"]*)"/gi;
+  let tm;
+  while ((tm = titleRe.exec(body)) !== null) {
+    const title = decodeEntities(tm[1]);
+    if (!/نام درس/.test(title)) continue;
+    let day = '';
+    for (let i = dayMarkers.length - 1; i >= 0; i--) {
+      if (dayMarkers[i].index < tm.index) {
+        day = dayMarkers[i].day;
+        break;
+      }
+    }
+    const near = body.slice(tm.index, tm.index + 700);
+    extractCourseFromTitle(title, day, cleanHtml(near));
+  }
+
+  const courses = [...courseMap.values()];
+  const termId = termHint || mapTermFromTitle(outpar?.BMs || '');
+
+  // استخراج متادیتای دانشجو از متغیرهای ردیف گزارش ۷۸
+  const pick = (k) => {
+    const m = bmT.match(new RegExp(`(?:\\b${k}\\b)=["']([^"']*)["']`, 'i'));
+    return m ? cleanHtml(decodeEntities(m[1])) : '';
+  };
+  const photoMatch = bmT.match(/SRC=['"](data:image\/[^'"]+)['"]/i);
+  const l1Units = parseInt(pick('L1').replace(/[^\d]/g, ''), 10) || undefined;
+  const meta = {
+    auwId: pick('B1') || undefined,
+    studentId: pick('B1') || undefined,
+    fullName: pick('B2') || undefined,
+    facultyCode: pick('B3') || undefined,
+    faculty: pick('B4') || undefined,
+    term: pick('B5') || undefined,
+    level: pick('B6') || undefined,
+    major: pick('B8') || pick('B4') || undefined,
+    photo: photoMatch ? photoMatch[1] : undefined,
+    totalUnits: l1Units,
+    enrolledUnits: l1Units,
+  };
+
+  return { termId, courses, meta };
+}
+
+/** گزارش ۸۸ — برنامه هنگام ثبت‌نام */
+export function parseReport88Registration(outpar, termHint) {
+  const bmT = String(outpar?.BMt || '');
+  if (!bmT || bmT.indexOf('<row') === -1) {
+    return { termId: termHint || '4051', courses: [] };
+  }
+
+  const dayCols = {
+    C6: 'شنبه',
+    C7: 'یکشنبه',
+    C8: 'دوشنبه',
+    C9: 'سه‌شنبه',
+    C10: 'چهارشنبه',
+    C11: 'پنجشنبه',
+    C12: 'جمعه',
+  };
+
+  const termId = termHint || mapTermFromTitle(String(outpar?.BMs || '')) || '4051';
+  const rows = parseBehestanXmlGrid(bmT);
+  const courses = rows.map((row) => {
+    const codeGroup = cleanHtml(row.C1 || '');
+    const code = extractCourseCode(codeGroup, row.C1);
+    const group = (codeGroup.match(/_(\d+)/) || [])[1] || '۰۱';
+    const days = [];
+    let firstTime = '';
+    let firstHall = '';
+    // زمان و محل مخصوص هر روز — C6..C12 هرکدام بازهٔ خودشان را دارند
+    const daySlots = [];
+
+    for (const [col, day] of Object.entries(dayCols)) {
+      const cell = cleanHtml(row[col] || '');
+      if (!cell) continue;
+      const timeM = cell.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+      const rawHall = cell.replace(/\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}/, '').trim() || 'ـ';
+      const hall = simplifyRoomName(rawHall) || rawHall;
+      if (timeM) {
+        const t = normalizeTimeRange(timeM[1] + '-' + timeM[2]);
+        days.push(day);
+        daySlots.push({ day, time: t, hall });
+        if (!firstTime) {
+          firstTime = t;
+          firstHall = hall;
+        }
+      }
+    }
+
+    const examRaw = cleanHtml(row.C14 || '');
+    const examDay = cleanHtml(row.C13 || '');
+    const examDateM = examRaw.match(/(\d{4}\/\d{1,2}\/\d{1,2})/);
+    const examTimeM = examRaw.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+
+    return {
+      id: code,
+      code,
+      group: group || '۰۱',
+      termId,
+      name: normalizeCourseName(cleanHtml(row.C2 || '')),
+      units: parseInt(cleanHtml(row.C3 || '0'), 10) || (isProjectCourse(cleanHtml(row.C2 || '')) ? 3 : isInternshipCourse(cleanHtml(row.C2 || '')) ? 2 : 0),
+      professor: normalizeCourseName(cleanHtml(row.C5 || '')) || 'ـ',
+      type: 'ثبت‌نام',
+      days: days.length ? days : examDay ? [normalizeDayName(examDay)] : [],
+      time: firstTime || 'ـ',
+      hall: firstHall || 'ـ',
+      examDate: examDateM ? faDigits(examDateM[1]) : 'ـ',
+      examTime: examTimeM ? normalizeTimeRange(examTimeM[1] + '-' + examTimeM[2]) : 'ـ',
+      classTimeRaw: firstTime,
+      daySlots,
+      timeSlotsRaw: [],
+      isLive: true,
+      isRegistration: true,
+      onSchedule: true,
+      regStatus: 'registered',
+    };
+  }).filter((c) => c.name);
+
+  return { termId, courses };
+}
+
+/** گزارش ۴۲۸ — کارت امتحان */
+export function parseReport428Exams(outpar, termHint) {
+  const bmT = outpar?.BMt || '';
+  if (!bmT || bmT === '<Root></Root>' || bmT.indexOf('<row') === -1) {
+    return { termId: termHint || '', exams: [] };
+  }
+  const rows = parseBehestanXmlGrid(bmT);
+  const exams = rows
+    .map((row) => {
+      const codeGroup = cleanHtml(row.C1 || '');
+      const codeM = codeGroup.match(/(\d{5,})/);
+      const when = cleanHtml(row.C5 || '');
+      const day = normalizeCourseName(cleanHtml(row.C4 || ''));
+      const dateM = when.match(/(\d{4}\/\d{1,2}\/\d{1,2})/);
+      const timeM = when.match(/(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})/);
+      return {
+        id: codeM ? codeM[1] : codeGroup || row.C2,
+        code: codeM ? codeM[1] : '',
+        codeGroup,
+        name: normalizeCourseName(cleanHtml(row.C2 || '')),
+        professor: normalizeCourseName(cleanHtml(row.C3 || '')),
+        day,
+        examDate: dateM ? faDigits(dateM[1]) : day,
+        examTime: timeM ? faDigits(timeM[1]) + ' - ' + faDigits(timeM[2]) : faDigits(when),
+        hall: simplifyRoomName(cleanHtml(row.C6 || '')) || normalizeCourseName(cleanHtml(row.C6 || '')) || 'ـ',
+        invigilator: normalizeCourseName(cleanHtml(row.C7 || '')) || 'ـ',
+        isLive: true,
+      };
+    })
+    .filter((e) => e.name);
+
+  return { termId: termHint || mapTermFromTitle(outpar?.BMs || '') || '4051', exams };
+}
+
+/** متادیتای دانشجو از گزارش ۸۸ — B1=شناسه AUW، B2=نام، B3=کد دانشکده، B4=دانشکده، B5=ترم، B6=مقطع */
+export function parseReport88Meta(outpar) {
+  const bmT = outpar?.BMt || '';
+  if (!bmT) return null;
+  const pick = (key) => {
+    const m = bmT.match(new RegExp(`(?:\\b${key}\\b)=["']([^"']*)["']`, 'i'));
+    return m ? cleanHtml(decodeEntities(m[1])) : '';
+  };
+  const auwId = pick('B1');
+  const fullName = pick('B2');
+  if (!auwId && !fullName) return null;
+  return {
+    auwId,
+    fullName,
+    facultyCode: pick('B3'),
+    faculty: pick('B4'),
+    term: pick('B5'),
+    level: pick('B6'),
+    // رشته از L1 (گروه آموزشی) یا B4 دانشکده
+    major: pick('L1') || pick('B4'),
+  };
+}
+
+/** امتحانات از دروس ثبت‌نامی ۸۸ (C14 تاریخ و ساعت) — گزارش ۴۲۸ ترم جاری خالی است */
+export function examsFromRegistration(courses, termId) {
+  const exams = (courses || [])
+    // تاریخ شمسی با ارقام فارسی ذخیره می‌شود — هر دو شکل را بپذیر
+    .filter(
+      (c) =>
+        c.examDate &&
+        c.examDate !== 'ـ' &&
+        /[0-9۰-۹]{4}\/[0-9۰-۹]{1,2}\/[0-9۰-۹]{1,2}/.test(c.examDate || ''),
+    )
+    .map((c) => ({
+      id: c.code || c.name,
+      code: c.code || '',
+      name: c.name,
+      units: c.units || 0,
+      professor: c.professor || 'ـ',
+      day: '',
+      examDate: c.examDate,
+      examTime: c.examTime || 'ـ',
+      hall: c.hall || 'ـ',
+      isLive: true,
+    }));
+  return { termId: termId || '4051', exams };
+}
+
+/** برچسب فارسی ترم از شناسهٔ عددی — 4051 → نیمسال اول ۱۴۰۵–۱۴۰۶؛ 4052/4053 تابستان */
+export function termIdToLabel(termId) {
+  const tid = String(termId || '');
+  if (!/^\d{4}$/.test(tid)) return tid ? `ترم ${faDigits(tid)}` : '';
+  const y = 1000 + parseInt(tid.slice(0, 3), 10);
+  const last = tid.charAt(3);
+  let semName;
+  if (last === '1') semName = 'نیمسال اول';
+  else if (last === '2') semName = 'نیمسال دوم';
+  else if (last === '3' || last === '4') semName = 'تابستان';
+  const next = last === '3' || last === '4' ? y : y + 1;
+  const range = last === '3' || last === '4' ? String(y) : `${y}–${next}`;
+  return `${semName} ${faDigits(range)}`;
+}
+
+/** شناسهٔ ترم جاری: بزرگ‌ترین termId در دیتا یا 4051 */
+export function detectCurrentTermId(courses) {
+  const ids = (courses || [])
+    .map((c) => String(c?.termId || '').trim())
+    .filter((t) => /^\d{4}$/.test(t));
+  if (!ids.length) return '4051';
+  return ids.sort().reverse()[0];
+}
+
+/** F1825 — کارنامه / دروس / مالی */
+export function parseF1825(data) {
+  const grids = data?.rset?.grd || [];
+  const result = {
+    courses: [],
+    finance: null,
+    transcripts: [],
+    profile: null,
+  };
+
+  if (grids[1]?.xml) {
+    result.courses = parseBehestanXmlGrid(grids[1].xml)
+      .map((row) => {
+        const code = extractCourseCode(row.F2, row.F3, row.F4, row.F5);
+        const gradeRaw = String(row.F9 || '').trim();
+        const statusRaw = cleanHtml(row.F10 || '');
+        const gradeModeRaw = cleanHtml(row.F11 || '');
+        const crsModeRaw = cleanHtml(row.F12 || '');
+        const typeRaw = cleanHtml(row.F13 || '');
+        const regModeRaw = cleanHtml(row.F14 || '');
+        const note = cleanHtml(row.F17 || '');
+        const regTypeRaw = cleanHtml(row.F23 || '');
+        const regKindRaw = cleanHtml(row.F24 || '');
+        const a0 = String(row.A0 || '').trim();
+
+        const hasGrade = Boolean(gradeRaw && gradeRaw !== 'ـ' && gradeRaw !== '-');
+        const g = toNum(gradeRaw);
+        const gradePassed = hasGrade && g !== null && g >= 10;
+
+        const combined = `${statusRaw} ${gradeModeRaw} ${crsModeRaw} ${typeRaw} ${regTypeRaw} ${regKindRaw} ${note}`;
+        let regStatus = normalizeRegStatus(combined, {
+          onSchedule: false,
+          hasGrade,
+          gradePassed,
+        });
+
+        // بررسی دقیق‌تر فیلدهای اختصاصی بهستان (F11 وضع نمره، F23 وضع ثبت‌نام، A0 نوع ردیف)
+        const isDropped =
+          regStatus === 'dropped' ||
+          /حذف\s*اضطرار|حذف\s*شده|حذف\s*ايثار|حذف\s*ایثار|cancell?ed|dropped/i.test(
+            `${gradeModeRaw} ${crsModeRaw} ${statusRaw}`,
+          );
+        const isWait =
+          regStatus === 'waitlist' ||
+          a0 === '3' ||
+          /انتظار|ليست\s*انتظار|لیست\s*انتظار|wait\s*list|waitlist/i.test(
+            `${regTypeRaw} ${gradeModeRaw} ${crsModeRaw} ${statusRaw}`,
+          );
+
+        let status = statusRaw;
+        if (isDropped) {
+          regStatus = 'dropped';
+          status = gradeModeRaw || 'حذف اضطراری';
+        } else if (isWait) {
+          regStatus = 'waitlist';
+          status = 'در انتظار';
+        } else if (hasGrade) {
+          status = statusRaw || (gradePassed ? 'قبول' : 'مردود');
+        } else if (/ثبت/i.test(regTypeRaw) || /ثبت/i.test(regKindRaw) || a0 === '1') {
+          regStatus = 'registered';
+          status = statusRaw || 'ثبت شده';
+        }
+
+        const elearnMatch = String(row.F1 || '').match(/href=["'](https?:\/\/[^"']+)["']/i);
+        const virtualUrl = elearnMatch ? elearnMatch[1].replace(/\\/g, '').replace(/&amp;/g, '&') : undefined;
+
+        return {
+          code,
+          name: normalizeCourseName(cleanHtml(row.F1)),
+          group: cleanHtml(row.F2).match(/گروه\s*(\S+)/)?.[1] || cleanHtml(row.F6) || '',
+          units: toNum(row.F7) || (isProjectCourse(cleanHtml(row.F1)) ? 3 : isInternshipCourse(cleanHtml(row.F1)) ? 2 : 0),
+          grade: gradeRaw,
+          // برای UI کارنامه: قبول/مردود/حذف اضطراری/در انتظار
+          status: status || '',
+          regStatus,
+          type: typeRaw || 'تخصصی',
+          tuitionRial: row.F15 || '',
+          termId: String(row.F18 || '').trim(),
+          note,
+          gradeMode: gradeModeRaw,
+          regType: regTypeRaw,
+          onSchedule: false,
+          virtualUrl,
+        };
+      })
+      .filter((c) => c.name);
+  }
+
+  if (grids[2]?.xml) {
+    const finRows = parseBehestanXmlGrid(grids[2].xml);
+    let latestDebtRial = 0;
+    let overallDebtRial = 0;
+    const termsSummary = finRows.map((row) => {
+      // F9 بدهی همین ترم است — اگر خالی باشد بدهی ترم صفر است و تسویه شده
+      const numDebt = toNum(row.F9) || 0;
+      const rowOverall = toNum(row.F13) || 0;
+      if (rowOverall > 0 && overallDebtRial === 0) overallDebtRial = rowOverall;
+      const totalBill = toNum(row.F7) || 0;
+      const totalPaid = toNum(row.F8) || 0;
+      const fixed = toNum(row.F1) || 0;
+      const variable = toNum(row.F2) || 0;
+      const insurance = toNum(row.F3) || 0;
+      const tid = String(row.F10 || '').trim();
+      if (numDebt > 0 && latestDebtRial === 0) latestDebtRial = numDebt;
+      return {
+        termId: tid,
+        termTitle: cleanHtml(row.F11) || `ترم ${tid}`,
+        fixedTuitionRial: fixed,
+        variableTuitionRial: variable,
+        insuranceRial: insurance,
+        totalBillRial: totalBill,
+        totalPaidRial: totalPaid,
+        debtRial: numDebt,
+        debtToman: Math.floor(numDebt / 10),
+        status: numDebt > 0 ? 'بدهکار' : 'تسویه کامل',
+      };
+    });
+    const finalTotalDebt = overallDebtRial > 0 ? overallDebtRial : latestDebtRial;
+    result.finance = {
+      totalDebtRial: finalTotalDebt,
+      totalDebtToman: Math.floor(finalTotalDebt / 10),
+      statusText: finalTotalDebt > 0 ? 'بدهکار' : 'تسویه حساب کامل',
+      termsSummary,
+    };
+  }
+
+  let finalGpa = '';
+  let finalTotalUnits = 0;
+  if (grids[3]?.xml) {
+    const gpaRows = parseBehestanXmlGrid(grids[3].xml);
+    result.transcripts = gpaRows.map((row) => {
+      const termId = String(row.F1 || '').trim();
+      const regUnits = toNum(row.F3);
+      const cumRegUnits = toNum(row.F4);
+      // F5/F6: واحدهای گذرانده ترم (CTRMPASUNT)، F7: مجموع واحدهای گذرانده کل کارنامه (TOTPASUNT)، F10: حذف اضطراری
+      const termUnits = toNum(row.F5) ?? toNum(row.F6) ?? regUnits;
+      const totUnits = toNum(row.F7) ?? cumRegUnits;
+      const droppedUnits = toNum(row.F10) || 0;
+      const termGpa = String(row.F12 || '').trim();
+      const cumGpa = String(row.F13 || '').trim();
+      if (totUnits > finalTotalUnits) finalTotalUnits = totUnits;
+      if (cumGpa) finalGpa = cumGpa;
+      return {
+        termId,
+        termTitle: `نیم‌سال تحصیلی ${termId}`,
+        termGpa: termGpa || 'ـ',
+        cumulativeGpa: cumGpa || termGpa,
+        passedUnits: termUnits,
+        totalPassedUnits: totUnits,
+        registeredUnits: regUnits,
+        cumulativeRegisteredUnits: cumRegUnits,
+        droppedUnits,
+        standing: toNum(termGpa) >= 17 ? 'ممتاز' : 'عادی',
+        courses: result.courses.filter((c) => c.termId === termId),
+      };
+    }).filter((t) => t.termId);
+  }
+
+  if (!finalTotalUnits) {
+    const passedCourses = result.courses.filter(
+      (c) =>
+        c.regStatus === 'passed' ||
+        (toNum(c.grade) >= 10 && c.regStatus !== 'dropped' && c.regStatus !== 'waitlist'),
+    );
+    finalTotalUnits = passedCourses.reduce((s, c) => s + (c.units || 0), 0);
+  }
+
+  // اگر گرید ۳ خالی بود، معدل را از دروس نمره‌دار حساب کن
+  if (!finalGpa) {
+    const scored = result.courses.filter((c) => c.grade && c.grade !== 'ـ' && c.grade !== '-');
+    if (scored.length) {
+      let pts = 0;
+      let units = 0;
+      for (const c of scored) {
+        const g = toNum(c.grade);
+        const u = c.units || 1;
+        pts += g * u;
+        units += u;
+      }
+      if (units > 0) finalGpa = (pts / units).toFixed(2);
+    }
+  }
+
+  result.profile = {
+    gpa: finalGpa || 'ـ',
+    totalUnitsPassed: finalTotalUnits,
+  };
+  return result;
+}
+
+/** F1809 — عکس پرسنلی و اطلاعات شناسنامه‌ای */
+export function parseF1809(data) {
+  const outpar = data?.outpar || {};
+  const photo =
+    extractPhotoDataUrl(outpar.AUWw || '') ||
+    extractPhotoDataUrl(outpar.PHOTO || '') ||
+    extractPhotoDataUrl(outpar.Photo || '');
+  let name =
+    cleanHtml(outpar.NA || outpar.Name || outpar.FN || '') || null;
+  let major = cleanHtml(outpar.BRN || outpar.Major || '') || null;
+  let faculty = cleanHtml(outpar.FAC || outpar.Faculty || '') || null;
+  let studentId = null;
+  let gpa = null;
+  let totalUnitsPassed = null;
+
+  const grdXml = data?.rset?.grd?.[0]?.xml || '';
+  if (grdXml) {
+    const rows = parseBehestanXmlGrid(grdXml);
+    if (rows.length && rows[0]) {
+      const r = rows[0];
+      if (!name && r.F1) name = cleanHtml(r.F1);
+      if (!major && r.F2) major = cleanHtml(r.F2);
+      if (!faculty && r.F4) faculty = cleanHtml(r.F4);
+      if (r.F12) gpa = parseFloat(r.F12) || null;
+      if (r.F13) {
+        const idM = String(r.F13).match(/\d+/);
+        if (idM) studentId = idM[0];
+      }
+      if (r.F22) {
+        const passM = String(r.F22).match(/گذرانده\s*:\s*([\d.]+)/);
+        if (passM) totalUnitsPassed = parseFloat(passM[1]) || null;
+      }
+    }
+  }
+
+  return { photo, name, major, faculty, studentId, gpa, totalUnitsPassed };
+}
+
+/** F6524 — گردش‌کار / اعلان‌ها */
+export function parseF6524(data) {
+  const grids = data?.rset?.grd || [];
+  const xml = grids[0]?.xml || data?.outpar?.BMt || '';
+  if (!xml) return [];
+  return parseBehestanXmlGrid(xml)
+    .map((row) => ({
+      id: row.F1 || row.ID || String(row.C1 || ''),
+      title: cleanHtml(row.F3 || row.F6 || row.F2 || row.C2 || row.F1 || ''),
+      body: cleanHtml(row.F6 || row.F3 || row.C3 || ''),
+      status: cleanHtml(row.F8 || row.F4 || ''),
+      date: cleanHtml(row.F7 || row.F5 || ''),
+    }))
+    .filter((r) => r.title && r.title !== '5');
+}
+
+/** F1814 — خلاصه وضعیت دروس */
+export function parseF1814CurriculumStats(data) {
+  const grids = data?.rset?.grd || [];
+  const pick = (gi) => {
+    const xml = grids[gi]?.xml || '';
+    return parseBehestanXmlGrid(xml)
+      .map((row) => ({
+        id: row.F1 || row.F2,
+        label: cleanHtml(row.F3),
+        count: parseInt(row.F4 || '0', 10) || 0,
+        units: parseFloat(row.F5 || '0') || 0,
+      }))
+      .filter((r) => r.label);
+  };
+  return {
+    byType: pick(0),
+    byStatus: pick(1),
+    byGradeStatus: pick(2),
+    byStanding: pick(3),
+  };
+}
+
+/**
+ * گزارش ۲۸۴ بهستان — «چارت درسی و وضعیت پیشرفت دانشجو» (مخصوص همان دانشجو و رشته‌اش)
+ * هر ردیف = یک جدول HTML در C1: یا سرفصل (حداقل/حداکثر درس و واحد) یا یک درس
+ * L1=معدل، L2=واحد گذرانده، L3=کل واحدهای مصوب دوره
+ * کاملاً مستقل از رشته — هیچ دیتای هاردکد ندارد.
+ */
+export function parseReport284Curriculum(outpar) {
+  const bmT = String(outpar?.BMt || '');
+  if (!bmT || bmT.indexOf('<row') === -1) return null;
+  const rows = parseBehestanXmlGrid(bmT);
+  if (!rows.length) return null;
+
+  const num = (v) => {
+    if (v === null || v === undefined) return null;
+    const s = String(v).trim();
+    // اگر بازه‌ای مانند 140-145، 140/145 یا 140 الی 145 بود، عدد اولیه بازه را بردار
+    const rangeM = s.match(/(\d+(?:\.\d+)?)\s*(?:-|–|—|\/|تا|الی)\s*(\d+(?:\.\d+)?)/);
+    if (rangeM) {
+      const n1 = parseFloat(rangeM[1]);
+      if (Number.isFinite(n1)) return n1;
+    }
+    const n = parseFloat(s.replace(/[^\d.]/g, ''));
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const first = rows[0];
+  let totalReq = num(first?.L3);
+  if (totalReq && totalReq > 200) {
+    const saneM = String(totalReq).match(/^(1[3-5]\d)/);
+    if (saneM) totalReq = Number(saneM[1]);
+    else totalReq = 140;
+  }
+
+  const result = {
+    studentId: cleanHtml(first.B1 || ''),
+    fullName: cleanHtml(first.B2 || ''),
+    advisor: cleanHtml(first.B4 || ''),
+    gpa: num(first.L1),
+    passedUnits: num(first.L2),
+    totalUnitsRequired: totalReq,
+    categories: [],
+    fetchedAt: Date.now(),
+  };
+
+  let cur = null;
+  for (const row of rows) {
+    const html = row.C1 || '';
+    if (!html) continue;
+    const cells = [...html.matchAll(/<TD\b[^>]*>([\s\S]*?)<\/TD>/gi)].map((m) => cleanHtml(m[1]));
+    if (!cells.length) continue;
+
+    // سرفصل: «<عنوان> حداقل درس n حداکثر درس n تعداد درس گذرانده از برنامه n حداقل واحد n حداکثر واحد n تعداد واحد گذرانده از برنامه n»
+    if (cells[1] && /حداقل\s*درس/.test(cells[1])) {
+      cur = {
+        title: cells[0],
+        minCourses: num(cells[2]),
+        maxCourses: num(cells[4]),
+        passedCourses: num(cells[6]),
+        minUnits: num(cells[8]),
+        maxUnits: num(cells[10]),
+        passedUnits: num(cells[12]),
+        isOutside: /خارج\s*از\s*برنامه/.test(cells[0]),
+        courses: [],
+      };
+      result.categories.push(cur);
+      continue;
+    }
+
+    // درس: [کد، نام، واحد، نوع(مصوب|معادل|گذرانده|''), کد معادل، نام معادل، واحد گذرانده، ترم، وضعیت، نوع درس]
+    const code = (cells[0] || '').match(/\d{5,}/)?.[0];
+    if (!code || !cur) continue;
+    const kind = cells[3] || '';
+    const status = cells[8] || '';
+    cur.courses.push({
+      code,
+      name: normalizeCourseName(cleanHtml(cells[1] || '')),
+      units: num(cells[2]) ?? 0,
+      kind,
+      equivCode: (cells[4] || '').match(/\d{5,}/)?.[0] || null,
+      equivName: normalizeCourseName(cleanHtml(cells[5] || '')),
+      takenUnits: num(cells[6]),
+      termId: /^\d{4}$/.test(cells[7] || '') ? cells[7] : null,
+      status,
+      isPassed: /قبول|گذرانده/.test(status) || (!!kind && /مصوب|معادل|گذرانده/.test(kind) && !!cells[7]),
+      type: cells[9] || cur.title,
+    });
+  }
+
+  return result.categories.length ? result : null;
+}

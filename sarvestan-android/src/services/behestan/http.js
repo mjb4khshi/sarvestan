@@ -4,7 +4,7 @@
  * - WebView/اندروید: origin مستقیم بهستان یا CapacitorHttp
  */
 
-import { BEHESTAN_ORIGIN } from './session';
+import { getUniversityOrigin } from './session';
 
 let chain = Promise.resolve();
 let seq = 800000100;
@@ -36,8 +36,20 @@ export function shouldUseLocalProxy() {
     const C = globalThis.Capacitor;
     if (C?.isNativePlatform?.()) return false;
     const h = location.hostname;
-    // داخل بهستان/SSO: مستقیم
-    if (h.endsWith('kntu.ac.ir') || h.includes('behestan') || h.includes('sso.kntu')) return false;
+    // داخل بهستان/SSO/شهید بهشتی/امیرکبیر: مستقیم
+    if (
+      h.endsWith('kntu.ac.ir') ||
+      h.endsWith('sbu.ac.ir') ||
+      h.endsWith('aut.ac.ir') ||
+      h.includes('behestan') ||
+      h.includes('sso.kntu') ||
+      h.includes('ems.sbu') ||
+      h.includes('ems2.ut') ||
+      h.includes('portal.aut') ||
+      h.includes('golestan.iust')
+    ) {
+      return false;
+    }
     // هر هاست لوکال / شبکهٔ داخلی dev → پراکسی
     return true;
   } catch {
@@ -56,6 +68,7 @@ async function rawPost(url, bodyObj) {
     sid = parsed?.sid || '';
   } catch {}
 
+  // sid همان مقدار کوکی ASP.NET_SessionId است؛ بدون آن IIS (هم KNTU هم SBU) نشست را نمی‌شناسد
   let fullCookie = cookie;
   if (sid && !fullCookie.includes('ASP.NET_SessionId')) {
     fullCookie = fullCookie ? `${fullCookie}; ASP.NET_SessionId=${sid}` : `ASP.NET_SessionId=${sid}`;
@@ -63,7 +76,8 @@ async function rawPost(url, bodyObj) {
 
   const http = getCapacitorHttp();
   if (http?.post) {
-    const target = url.startsWith('/') ? `${BEHESTAN_ORIGIN}${url}` : url;
+    const origin = getUniversityOrigin();
+    const target = url.startsWith('/') ? `${origin}${url}` : url;
     let postData = bodyObj;
     if (typeof bodyObj === 'string') {
       try {
@@ -78,6 +92,8 @@ async function rawPost(url, bodyObj) {
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json, text/plain, */*',
+        Origin: origin,
+        Referer: `${origin}/browser/fa/`,
         ...(fullCookie ? { Cookie: fullCookie } : {}),
       },
       connectTimeout: 20000,
@@ -93,8 +109,16 @@ async function rawPost(url, bodyObj) {
   }
 
   let finalUrl = url;
-  if (shouldUseLocalProxy() && url.startsWith('https://behestan.kntu.ac.ir')) {
-    finalUrl = url.replace('https://behestan.kntu.ac.ir', '/behestan-api');
+  if (shouldUseLocalProxy()) {
+    if (url.startsWith('https://behestan.kntu.ac.ir')) {
+      finalUrl = url.replace('https://behestan.kntu.ac.ir', '/behestan-api');
+    } else if (url.startsWith('https://ems.sbu.ac.ir')) {
+      finalUrl = url.replace('https://ems.sbu.ac.ir', '/sbu-api');
+    } else if (url.startsWith('https://ems2.ut.ac.ir')) {
+      finalUrl = url.replace('https://ems2.ut.ac.ir', '/ut-api');
+    } else if (url.startsWith('https://portal.aut.ac.ir')) {
+      finalUrl = url.replace('https://portal.aut.ac.ir', '/aut-api');
+    }
   }
 
   let resp;
@@ -148,5 +172,5 @@ export function enqueuePost(url, bodyObj, { minDelay = 180, maxDelay = 420 } = {
 
 export function serviceUrl(path) {
   // همیشه URL کامل بهستان بده؛ http.js در لوکال rewrite می‌کند
-  return `${BEHESTAN_ORIGIN}${path}`;
+  return `${getUniversityOrigin()}${path}`;
 }

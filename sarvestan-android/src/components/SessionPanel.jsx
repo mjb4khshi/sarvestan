@@ -3,6 +3,7 @@ import { Link2, RefreshCw, LogIn, LogOut, User, Clock, Sparkles } from 'lucide-r
 import { useSarvestanData } from '../hooks/useSarvestanData';
 import { resetSyncState } from '../services/behestan/sync';
 import { openLoginModal, isLoginModalOpen } from '../services/loginFlow';
+import { getSelectedUniversity, setSelectedUniversity } from '../services/behestan/session';
 import { toFaDigits, formatLastSync, getLastSyncTimestamp } from '../utils/faDigits';
 
 /**
@@ -94,7 +95,11 @@ export default function SessionPanel() {
       {(!live || /نشست|50216|پایان رسیده/i.test(String(syncMeta?.error || ''))) && (
         <button
           type="button"
-          onClick={() => openLoginModal()}
+          onClick={() => {
+            const curUni = session?.university || getSelectedUniversity();
+            if (curUni) setSelectedUniversity(curUni);
+            openLoginModal();
+          }}
           className="btn btn-primary w-full !py-3 text-[13px] font-bold"
         >
           <LogIn className="w-4 h-4" />

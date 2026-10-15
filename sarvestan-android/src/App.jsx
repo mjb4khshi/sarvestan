@@ -8,7 +8,9 @@ import BottomNav from './components/BottomNav';
 import HomeScreen from './screens/HomeScreen';
 import ScheduleScreen from './screens/ScheduleScreen';
 import GradesScreen from './screens/GradesScreen';
-import FinanceScreen from './screens/FinanceScreen';
+import CurriculumChartModal from './components/CurriculumChartModal';
+import FinanceModal from './components/FinanceModal';
+import { getViewModel } from './data/viewModel';
 import StudyScreen from './screens/StudyScreen';
 import MoreScreen from './screens/MoreScreen';
 import LoginScreen from './screens/LoginScreen';
@@ -23,10 +25,13 @@ import {
   closeLoginModal,
   isLoginModalOpen,
 } from './services/loginFlow';
+import { getUniversityOrigin } from './services/behestan/session';
 import { isSessionAlive } from './services/behestan/session';
 import { hasLiveData } from './services/behestan/store';
 import UpdateModal from './components/UpdateModal';
+import BatBackground from './components/BatBackground';
 import { checkForUpdate, hasDismissedUpdate, dismissUpdate } from './services/updater';
+import { isBatNotifEnabled, scheduleBatNightNotification, initBatWebTimer } from './services/batMode';
 
 const TITLES = {
   schedule: 'برنامه هفتگی',
@@ -36,6 +41,34 @@ const TITLES = {
 };
 
 const TABS_ORDER = ['schedule', 'grades', 'home', 'study', 'more'];
+
+const pageVariants = {
+  enter: (direction) => ({
+    x: direction > 0 ? -28 : 28,
+    opacity: 0,
+    scale: 0.99,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+    scale: 1,
+    transition: {
+      x: { type: 'spring', stiffness: 380, damping: 34, mass: 0.8 },
+      opacity: { duration: 0.16, ease: 'easeOut' },
+      scale: { duration: 0.16, ease: 'easeOut' },
+    },
+  },
+  exit: (direction) => ({
+    x: direction > 0 ? 28 : -28,
+    opacity: 0,
+    scale: 0.99,
+    transition: {
+      x: { duration: 0.14, ease: [0.32, 0, 0.67, 0] },
+      opacity: { duration: 0.12, ease: 'linear' },
+      scale: { duration: 0.14 },
+    },
+  }),
+};
 
 function SsoCallbackBridge() {
   useEffect(() => {
@@ -59,13 +92,14 @@ function SsoCallbackBridge() {
 function Shell() {
   const [tab, setTab] = useState('home');
   const [scheduleDefaultView, setScheduleDefaultView] = useState('cards');
-  const [chartAutoOpen, setChartAutoOpen] = useState(false);
-  const [financeAutoOpen, setFinanceAutoOpen] = useState(false);
+  const [chartModalOpen, setChartModalOpen] = useState(false);
+  const [financeModalOpen, setFinanceModalOpen] = useState(false);
   const [exitToast, setExitToast] = useState(false);
   const lastBackPressRef = useRef(0);
   const [slideDir, setSlideDir] = useState(0);
   const showBack = tab !== 'home';
   const pointerStartRef = useRef(null);
+  const vm = getViewModel();
 
   useEffect(() => {
     const qs = new URLSearchParams(window.location.search);
@@ -81,7 +115,7 @@ function Shell() {
       if (target === 'schedule') {
         handleNavigate('schedule');
       } else if (target === 'behestan') {
-        window.open('https://behestan.kntu.ac.ir/', '_blank');
+        window.open(getUniversityOrigin() + '/', '_blank');
       } else if (target === 'vc') {
         window.open('https://vc.kntu.ac.ir/', '_blank');
       }
@@ -107,6 +141,14 @@ function Shell() {
     return () => window.removeEventListener('sarvShortcut', onShortcut);
   }, []);
 
+  // راه‌اندازی و بررسی زمان‌بندی اعلان شبانه بت‌سیگنال (ساعت ۱۱ شب)
+  useEffect(() => {
+    if (isBatNotifEnabled()) {
+      scheduleBatNightNotification().catch(() => {});
+      initBatWebTimer();
+    }
+  }, []);
+
   // مدیریت رویداد دکمه فیزیکی یا ژست بازگشت (Back) اندروید
   useEffect(() => {
     const onBackButton = (e) => {
@@ -126,14 +168,14 @@ function Shell() {
         return;
       }
 
-      if (chartAutoOpen) {
-        setChartAutoOpen(false);
+      if (chartModalOpen) {
+        setChartModalOpen(false);
         e?.preventDefault?.();
         return;
       }
 
-      if (financeAutoOpen) {
-        setFinanceAutoOpen(false);
+      if (financeModalOpen) {
+        setFinanceModalOpen(false);
         e?.preventDefault?.();
         return;
       }
@@ -160,7 +202,7 @@ function Shell() {
 
     window.addEventListener('sarvBackButton', onBackButton);
     return () => window.removeEventListener('sarvBackButton', onBackButton);
-  }, [tab, chartAutoOpen, financeAutoOpen]);
+  }, [tab, chartModalOpen, financeModalOpen]);
 
   const changeTabWithDirection = (targetTab, explicitDir = null) => {
     const currentIndex = TABS_ORDER.indexOf(tab);
@@ -168,16 +210,9 @@ function Shell() {
     if (explicitDir !== null) {
       setSlideDir(explicitDir);
     } else if (currentIndex >= 0 && nextIndex >= 0) {
-      let dir = nextIndex > currentIndex ? 1 : -1;
-      // اصلاح جهت انیمیشن بین تب اصلی (میز کار) و تب پلنر (مطالعه)
-      if ((tab === 'home' && targetTab === 'study') || (tab === 'study' && targetTab === 'home')) {
-        dir = -dir;
-      }
+      const dir = nextIndex > currentIndex ? 1 : -1;
       setSlideDir(dir);
     }
-    // پاک کردن باز شدن خودکار هنگام تغییر تب عادی
-    setChartAutoOpen(false);
-    setFinanceAutoOpen(false);
     setTab(targetTab);
   };
 
@@ -189,19 +224,13 @@ function Shell() {
       if (options.view) setScheduleDefaultView(options.view);
       changeTabWithDirection('schedule');
     } else if (targetTab === 'chart') {
-      changeTabWithDirection('more');
-      setChartAutoOpen(true);
-      setFinanceAutoOpen(false);
+      setChartModalOpen(true);
+      setFinanceModalOpen(false);
     } else if (targetTab === 'finance') {
-      changeTabWithDirection('more');
-      setFinanceAutoOpen(true);
-      setChartAutoOpen(false);
+      setFinanceModalOpen(true);
+      setChartModalOpen(false);
     } else {
       changeTabWithDirection(targetTab);
-      if (targetTab === 'more') {
-        if (options.openChart) setChartAutoOpen(true);
-        if (options.openFinance) setFinanceAutoOpen(true);
-      }
     }
   };
 
@@ -240,8 +269,8 @@ function Shell() {
     const currentIndex = TABS_ORDER.indexOf(tab);
     if (currentIndex < 0) return;
 
-    // کشیدن به راست (dx > 0) -> تب بعدی سمت چپ (افزایش اندیس)
-    // کشیدن به چپ (dx < 0) -> تب قبلی سمت راست (کاهش اندیس)
+    // کشیدن انگشت به راست (dx > 0): رفتن به تب بعدی
+    // کشیدن انگشت به چپ (dx < 0): رفتن به تب قبلی
     if (dx > 0 && currentIndex < TABS_ORDER.length - 1) {
       changeTabWithDirection(TABS_ORDER[currentIndex + 1]);
     } else if (dx < 0 && currentIndex > 0) {
@@ -268,13 +297,14 @@ function Shell() {
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerCancel}
         >
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="wait" custom={slideDir}>
             <motion.main
               key={tab}
-              initial={{ opacity: 0, x: -slideDir * 12 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: slideDir * 12 }}
-              transition={{ duration: 0.14, ease: 'easeOut' }}
+              custom={slideDir}
+              variants={pageVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
               className="flex-1 min-w-0"
             >
               {tab === 'home' && <HomeScreen onNavigate={handleNavigate} />}
@@ -286,19 +316,25 @@ function Shell() {
               )}
               {tab === 'grades' && <GradesScreen onNavigate={handleNavigate} />}
               {tab === 'study' && <StudyScreen onNavigate={handleNavigate} />}
-              {tab === 'more' && (
-                <MoreScreen
-                  key={`more-${chartAutoOpen}-${financeAutoOpen}`}
-                  onNavigate={handleNavigate}
-                  initialChartOpen={chartAutoOpen}
-                  initialFinanceOpen={financeAutoOpen}
-                  onCloseChart={() => setChartAutoOpen(false)}
-                  onCloseFinance={() => setFinanceAutoOpen(false)}
-                />
-              )}
+              {tab === 'more' && <MoreScreen onNavigate={handleNavigate} />}
             </motion.main>
           </AnimatePresence>
         </div>
+
+        {/* مودال چارت تحصیلی در سطح سراسری برنامه */}
+        <CurriculumChartModal
+          isOpen={chartModalOpen}
+          onClose={() => setChartModalOpen(false)}
+          curriculumState={vm?.curriculum}
+          student={vm?.student}
+        />
+
+        {/* مودال امور مالی و شهریه در سطح سراسری برنامه */}
+        <FinanceModal
+          isOpen={financeModalOpen}
+          onClose={() => setFinanceModalOpen(false)}
+          onNavigate={handleNavigate}
+        />
 
         {/* توست تأیید خروج هنگام دکمه بازگشت */}
         <AnimatePresence>
@@ -367,6 +403,7 @@ export default function App() {
     <ErrorBoundary>
       <ThemeProvider>
         <div className="relative">
+          <BatBackground />
           <AutoUpdateGate />
           <LoginGate />
           <SsoCallbackBridge />

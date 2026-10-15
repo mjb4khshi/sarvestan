@@ -9,6 +9,7 @@ import {
   getTicket,
   getStudentId,
   getUserId,
+  getSelectedUniversity,
   isSessionAlive,
   updateTicket,
 } from './session';
@@ -37,10 +38,10 @@ import {
 } from './store';
 import devDataset from '../../data/devDatasetLoader.js';
 
-const RP_BASE = () => ({
+const RP_BASE = (seq = nextSeq()) => ({
   ft: '0',
   f: '11147',
-  seq: nextSeq(),
+  seq: String(seq),
   subfrm: '',
   sid: getSid(),
   ct: '',
@@ -49,14 +50,21 @@ const RP_BASE = () => ({
   ut: '0',
 });
 
+/** فعال‌سازی نشست پیش‌فرض میزکار بهستان (فرم ۱۱۱۳۰) */
+export async function initDesktopSession() {
+  return await navForm('11130', { ft: '0' });
+}
+
 const URLS = {
-  sys: serviceUrl('/frm/sys/sys.svc/'),
-  f1825: serviceUrl('/frm/F1825_PROCESS_STDTOTALINFOTrmStat_BEH/F1825_PROCESS_STDTOTALINFOTrmStat_BEH.svc/'),
-  f1825rr: serviceUrl('/frm/F1825_PROCESS_STDTOTALINFO_BEH/F1825_PROCESS_STDTOTALINFO_BEH.svc/'),
-  f1809: serviceUrl('/frm/F1809_PROCESS_STD_Personally_BH/F1809_PROCESS_STD_Personally_BH.svc/'),
-  f6524: serviceUrl('/frm/F6524_PROCESS_DASHBOARD_BEH/F6524_PROCESS_DASHBOARD_BEH.svc/'),
-  f1814: serviceUrl('/frm/F1814_PROCESS_STDAllCrs/F1814_PROCESS_STDAllCrs.svc/'),
-  viewReport: serviceUrl('/frm/BAS0237_CMP_ViewReport/BAS0237_CMP_ViewReport.svc/'),
+  get sys() { return serviceUrl('/frm/sys/sys.svc/'); },
+  get f1825() { return serviceUrl('/frm/F1825_PROCESS_STDTOTALINFOTrmStat_BEH/F1825_PROCESS_STDTOTALINFOTrmStat_BEH.svc/'); },
+  get f1825rr() { return serviceUrl('/frm/F1825_PROCESS_STDTOTALINFO_BEH/F1825_PROCESS_STDTOTALINFO_BEH.svc/'); },
+  get f1809() { return serviceUrl('/frm/F1809_PROCESS_STD_Personally_BH/F1809_PROCESS_STD_Personally_BH.svc/'); },
+  get f6524() { return serviceUrl('/frm/F6524_PROCESS_DASHBOARD_BEH/F6524_PROCESS_DASHBOARD_BEH.svc/'); },
+  get f1814() { return serviceUrl('/frm/F1814_PROCESS_STDAllCrs/F1814_PROCESS_STDAllCrs.svc/'); },
+  get viewReport() { return serviceUrl('/frm/BAS0237_CMP_ViewReport/BAS0237_CMP_ViewReport.svc/'); },
+  get repMultiFilter() { return serviceUrl('/frm/BAS0203_CMP_REP_MultiFilter/BAS0203_CMP_REP_MultiFilter.svc/'); },
+  get repSort() { return serviceUrl('/frm/BAS0203_CMP_Sort_REP_FILTER2/BAS0203_CMP_Sort_REP_FILTER2.svc/'); },
 };
 
 function parseJsonSafe(text) {
@@ -91,18 +99,23 @@ async function navForm(fid, { cmpId = null, fop = null, ft = '0' } = {}) {
     sid: getSid(),
   };
   if (fop) rp.fop = fop;
-  const txt = await enqueuePost(URLS.sys, { r, act: 'nav', rp, t: getTicket() });
-  const data = parseJsonSafe(txt);
-  const err = extractBehestanError(data);
-  if (err) console.warn('[client] nav', fid, err);
-  return data;
+  try {
+    const txt = await enqueuePost(URLS.sys, { r, act: 'nav', rp, t: getTicket() });
+    const data = parseJsonSafe(txt);
+    const err = extractBehestanError(data);
+    if (err) console.warn('[client] nav', fid, err);
+    return data;
+  } catch (e) {
+    console.warn('[client] nav warning:', fid, e?.message || e);
+    return null;
+  }
 }
 
 /** شناسهٔ AUW از کش پروفایل — از B1 گزارش ۸۸ یا شماره دانشجویی نشست می‌آید */
 function getAuwId() {
   try {
     const p = JSON.parse(localStorage.getItem('sarvestan_live_profile') || 'null');
-    return p?.auwId || getStudentId() || '';
+    return p?.auwId || p?.studentId || getStudentId() || '';
   } catch {
     return getStudentId() || '';
   }
@@ -135,8 +148,8 @@ export function canSync() {
 
 /** گزارش ۸۸ — ثبت‌نام ترم جاری: برنامه + امتحانات + متادیتای دانشجو (AUW/نام/دانشکده) */
 export async function fetchRegistration88(term = null) {
-  const activeTerm = term || '4051';
-  const res = await fetchViewReport('88', activeTerm);
+  // اگر ترم مشخص نشده باشد، فیلتر ارسال نمی‌شود تا بهستان ترم فعال جاری دانشجو را برگرداند
+  const res = await fetchViewReport('88', term || null);
   if (res?.error) return res;
   const meta = parseReport88Meta(res.outpar);
   if (meta) {
@@ -151,10 +164,16 @@ export async function fetchRegistration88(term = null) {
       isLoggedIn: true,
     });
   }
+  // ذخیره دروس در برنامه هفتگی و لیست دروس
+  const termKey = res.termId || term || '4051';
+  if (res.courses?.length) {
+    setScheduleForTerm(termKey, res.courses, '88');
+    mergeCourses(res.courses);
+  }
   // امتحانات ترم جاری از C14 همین گزارش (۴۲۸ ترم جاری خالی است)
-  const ex = examsFromRegistration(res.courses || [], res.termId || activeTerm);
-  if (ex.exams.length) setExamsForTerm(ex.termId, ex.exams);
-  return { ...res, meta };
+  const ex = examsFromRegistration(res.courses || [], termKey);
+  if (ex.exams.length) setExamsForTerm(termKey, ex.exams);
+  return { ...res, meta, termId: termKey };
 }
 
 /** F1825 — جامع دانشجو (توالی کامل مرورگر: nav → RR با c:110379 → act 20 با c:110381) */
@@ -166,8 +185,10 @@ export async function fetchStudentTotals() {
     return { error: 'شناسهٔ AUW نیست — گزارش ۸۸ اول زده شود', courses: [], finance: null, transcripts: [], profile: null };
   }
 
+  let seq11147 = nextSeq();
   try {
-    await navForm('11147');
+    const navRes = await navForm('11147');
+    if (navRes?.oaut?.rp?.seq) seq11147 = String(navRes.oaut.rp.seq);
   } catch (e) {
     console.warn('[client] nav 11147 warning:', e?.message || e);
   }
@@ -177,7 +198,7 @@ export async function fetchStudentTotals() {
       r: { ATxW: auwId },
       act: 'RR',
       rp: {
-        ...RP_BASE(),
+        ...RP_BASE(seq11147),
         ct: '',
         c: '110379',
         b: '0',
@@ -193,7 +214,7 @@ export async function fetchStudentTotals() {
     r: { AUWo: auwId },
     act: '20',
     rp: {
-      ...RP_BASE(),
+      ...RP_BASE(seq11147),
       ct: '',
       c: '110381',
       sp: '{"TrmType":"2","UsrType":"0"}',
@@ -228,24 +249,26 @@ export async function fetchPersonal() {
   const auwId = getAuwId();
   const studentId = getStudentId();
   const t = getTicket();
-  const body = {
-    r: { AUWs: auwId || studentId },
-    act: '08',
-    rp: { ...RP_BASE(), f: '11141', ct: '', c: '110383' },
-    t,
-  };
+  let seq11141 = nextSeq();
   try {
-    await navForm('11141');
+    const navRes = await navForm('11141');
+    if (navRes?.oaut?.rp?.seq) seq11141 = String(navRes.oaut.rp.seq);
   } catch (e) {
     console.warn('[client] nav 11141 warning:', e?.message || e);
   }
+  const body = {
+    r: { AUWs: auwId || studentId },
+    act: '08',
+    rp: { ...RP_BASE(seq11141), f: '11141', ct: '', c: '110383' },
+    t,
+  };
   const txt = await enqueuePost(URLS.f1809, body);
   const data = parseJsonSafe(txt);
   if (!data) return null;
   const apiErr = extractBehestanError(data);
   if (apiErr) return { error: apiErr };
   const parsed = parseF1809(data);
-  // studentId را از session (احتمالاً کدملی SSO) روی پروفایل مینویسیم — فقط اگر از قبل نباشد
+  // studentId را از پارس یا نشست (یا کد ملی) روی پروفایل می‌نویسیم
   let existingId = '';
   try {
     existingId = JSON.parse(localStorage.getItem('sarvestan_live_profile') || 'null')?.studentId || '';
@@ -254,7 +277,10 @@ export async function fetchPersonal() {
     photo: parsed.photo || undefined,
     fullName: parsed.name || undefined,
     major: parsed.major || undefined,
-    studentId: existingId || undefined,
+    faculty: parsed.faculty || undefined,
+    studentId: existingId || parsed.studentId || getStudentId() || undefined,
+    gpa: parsed.gpa != null ? parsed.gpa : undefined,
+    totalUnitsPassed: parsed.totalUnitsPassed != null ? parsed.totalUnitsPassed : undefined,
     isLoggedIn: true,
   });
   return parsed;
@@ -323,6 +349,47 @@ export async function fetchCurriculumStats() {
 
 /** ViewReport — 78 / 88 / 428 */
 export async function fetchViewReport(formCode, term) {
+  let seq = nextSeq();
+  try {
+    const navRes = await navForm(formCode, { ft: '1' });
+    if (navRes?.oaut?.rp?.seq) {
+      seq = String(navRes.oaut.rp.seq);
+    }
+    const navErr = extractBehestanError(navRes);
+    if (navErr) {
+      console.warn('[client] nav for ViewReport error:', formCode, navErr);
+      return { error: navErr, courses: [], exams: [], termId: term, outpar: {} };
+    }
+  } catch (e) {
+    console.warn('[client] nav for ViewReport warning:', formCode, e?.message || e);
+  }
+
+  // SBU و AUT: توالی مرورگر بین nav و ViewReport — فیلتر (c:110001) و مرتب‌سازی (c:110067)
+  const currentUni = getSelectedUniversity();
+  if (currentUni === 'sbu' || currentUni === 'aut') {
+    const filterRp = (c) => ({
+      ft: '1',
+      f: String(formCode),
+      seq,
+      subfrm: '0',
+      sid: getSid(),
+      ct: '',
+      sp: '{"UsrType":"0","TrmType":"2"}',
+      ut: '0',
+      c,
+    });
+    try {
+      parseJsonSafe(await enqueuePost(URLS.repMultiFilter, {
+        rp: filterRp('110001'), t: getTicket(), r: { AFZ6: '0' }, act: '00', MaxHlp: 200,
+      }));
+      parseJsonSafe(await enqueuePost(URLS.repSort, {
+        rp: filterRp('110067'), t: getTicket(), r: {}, act: '08', MaxHlp: 200,
+      }));
+    } catch (e) {
+      console.warn('[client] report filter steps warning:', formCode, e?.message || e);
+    }
+  }
+
   const t = getTicket();
   const sid = getSid();
   const bmv = term
@@ -332,12 +399,14 @@ export async function fetchViewReport(formCode, term) {
     rp: {
       ft: '1',
       f: String(formCode),
-      seq: nextSeq(),
+      seq,
       subfrm: '0',
       sid,
       ct: '',
       sp: '{"UsrType":"0","TrmType":"2"}',
+      loc: 'fa',
       ut: '0',
+      c: 110015,
     },
     t,
     r: { Ra3: '0', BMu: '<Root/>', BMv: bmv, AFek: '1' },
@@ -364,10 +433,15 @@ export async function fetchViewReport(formCode, term) {
 
   if (String(formCode) === '78') {
     const parsed = parseReport78Schedule(outpar, term);
+    const tid = parsed.termId || term || '4051';
     if (parsed.courses.length) {
-      setScheduleForTerm(parsed.termId || term || '4051', parsed.courses, '78');
+      setScheduleForTerm(tid, parsed.courses, '78');
+      const examObj = examsFromRegistration(parsed.courses, tid);
+      if (examObj?.exams?.length) {
+        setExamsForTerm(tid, examObj.exams);
+      }
     }
-    if (parsed.meta?.fullName) {
+    if (parsed.meta?.fullName || parsed.meta?.studentId) {
       mergeProfile({
         auwId: parsed.meta.auwId || undefined,
         studentId: parsed.meta.studentId || undefined,
@@ -376,6 +450,8 @@ export async function fetchViewReport(formCode, term) {
         level: parsed.meta.level || undefined,
         major: parsed.meta.major || undefined,
         photo: parsed.meta.photo || undefined,
+        enrolledUnits: parsed.meta.enrolledUnits || undefined,
+        totalUnits: parsed.meta.totalUnits || undefined,
         isLoggedIn: true,
       });
     }
@@ -385,6 +461,7 @@ export async function fetchViewReport(formCode, term) {
     const parsed = parseReport88Registration(outpar, term);
     if (parsed.courses.length) {
       setScheduleForTerm(parsed.termId || term || '4051', parsed.courses, '88');
+      mergeCourses(parsed.courses);
     }
     return { ...parsed, outpar };
   }

@@ -1,34 +1,21 @@
 /**
- * سرویس بررسی خودکار به‌روزرسانی افزونه مرورگر سروستان از طریق مخزن رسمی گیت‌هاب
+ * سرویس بررسی به‌روزرسانی خودکار سروستان از طریق مخزن رسمی گیت‌هاب
  * Repository: mjb4khshi/sarvestan
  */
 
+export const CURRENT_VERSION = '2.0.0';
+export const VERSION_CODENAME = 'تهران';
+export const VERSION_DISPLAY_NAME = '۲ تهران';
 export const GITHUB_REPO = 'mjb4khshi/sarvestan';
 export const GITHUB_RELEASES_API = `https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=10`;
 export const GITHUB_RELEASES_PAGE = `https://github.com/${GITHUB_REPO}/releases`;
-export const OFFICIAL_SITE_URL = 'https://mjb4khshi.github.io/sarvestan';
+export const FALLBACK_APK_URL = `https://github.com/${GITHUB_REPO}/releases/latest/download/sarvestan.apk`;
 
-const DISMISSED_UPDATE_KEY = 'sarvestan_extension_dismissed_update_tag';
-
-/**
- * دریافت نسخه کنونی افزونه (به‌صورت داینامیک از منیفست مرورگر یا فال‌بک)
- */
-export function getExtensionVersion() {
-  try {
-    if (typeof chrome !== 'undefined' && chrome?.runtime?.getManifest) {
-      const manifest = chrome.runtime.getManifest();
-      if (manifest?.version) {
-        return manifest.version;
-      }
-    }
-  } catch {}
-  return '1.2.0';
-}
-
-export const CURRENT_VERSION = getExtensionVersion();
+const DISMISSED_UPDATE_KEY = 'sarvestan_dismissed_update_tag';
 
 /**
  * تجزیه رشته نسخه به اجزای تفکیک‌شده
+ * پشتیبانی از v1.0.1، 1.0.1-beta، 1.0.0-rc2 و غیره
  */
 export function parseVersion(verStr) {
   if (!verStr) return null;
@@ -52,9 +39,10 @@ export function parseVersion(verStr) {
 }
 
 /**
- * مقایسه نسخه ریموت با نسخه محلی افزونه
+ * مقایسه نسخه ریموت با نسخه محلی
+ * برمی‌گرداند true اگر ریموت جدیدتر باشد
  */
-export function isNewerVersion(remoteStr, localStr = getExtensionVersion()) {
+export function isNewerVersion(remoteStr, localStr = CURRENT_VERSION) {
   const remote = parseVersion(remoteStr);
   const local = parseVersion(localStr);
   if (!remote || !local) return false;
@@ -67,7 +55,8 @@ export function isNewerVersion(remoteStr, localStr = getExtensionVersion()) {
     if (r < l) return false;
   }
 
-  // اگر اعداد اصلی برابر بودند
+  // اگر اعداد اصلی کاملاً برابر بودند:
+  // نسخه پایدار رسمی (بدون پیش‌وند prerelease) جدیدتر از نسخه آزمایشی همان شماره است
   if (local.prerelease && !remote.prerelease) return true;
   if (!local.prerelease && remote.prerelease) return false;
   if (local.prerelease && remote.prerelease) {
@@ -78,7 +67,7 @@ export function isNewerVersion(remoteStr, localStr = getExtensionVersion()) {
 }
 
 /**
- * تشخیص نسخه پیش‌انتشار (Pre-release)
+ * تشخیص اینکه آیا ریلیز آزمایشی (Pre-release) است یا پایدار
  */
 export function isPrereleaseRelease(release) {
   if (!release) return false;
@@ -94,46 +83,43 @@ export function isPrereleaseRelease(release) {
     name.includes('آزمایشی') ||
     name.includes('تست') ||
     name.includes('beta') ||
-    name.includes('alpha')
+    name.includes('alpha') ||
+    name.includes('preview')
   );
 }
 
 /**
- * پیدا کردن فایل زیپ افزونه از دارایی‌های انتشار
+ * پیدا کردن لینک دانلود مستقیم APK از دارایی‌های انتشار (Assets)
  */
-export function getExtensionZipDownloadUrl(release) {
-  const currentVer = getExtensionVersion();
-  const fallback = `https://github.com/${GITHUB_REPO}/releases/download/${release?.tag_name || `v${currentVer}`}/sarvestan-extension.zip`;
-
-  if (!release) return { url: fallback, size: null, name: 'sarvestan-extension.zip' };
+export function getApkDownloadUrl(release) {
+  if (!release) return { url: FALLBACK_APK_URL, size: null, name: 'sarvestan.apk' };
 
   if (Array.isArray(release.assets) && release.assets.length > 0) {
-    // جستجو برای فایلی با نام sarvestan-extension یا دارای پسوند .zip
-    const zipAsset = release.assets.find(
-      (a) => a.name && (a.name.toLowerCase().includes('extension') || a.name.toLowerCase().endsWith('.zip'))
-    ) || release.assets.find((a) => a.name && a.name.toLowerCase().endsWith('.zip'));
-
-    if (zipAsset && zipAsset.browser_download_url) {
+    const apkAsset = release.assets.find(
+      (a) => a.name && a.name.toLowerCase().endsWith('.apk')
+    );
+    if (apkAsset && apkAsset.browser_download_url) {
       return {
-        url: zipAsset.browser_download_url,
-        size: zipAsset.size || null,
-        name: zipAsset.name || 'sarvestan-extension.zip',
+        url: apkAsset.browser_download_url,
+        size: apkAsset.size || null,
+        name: apkAsset.name || 'sarvestan.apk',
       };
     }
   }
 
+  // در صورتی که فایل APK در لیست دارایی‌ها نبود، لینک مستقیم تگ را می‌سازیم
+  const tag = release.tag_name || `v${CURRENT_VERSION}`;
   return {
-    url: fallback,
+    url: `https://github.com/${GITHUB_REPO}/releases/download/${tag}/sarvestan.apk`,
     size: null,
-    name: 'sarvestan-extension.zip',
+    name: 'sarvestan.apk',
   };
 }
 
 /**
- * بررسی ریپازیتوری گیت‌هاب برای نسخه‌های جدید افزونه
+ * بررسی ریپازیتوری گیت‌هاب برای کشف نسخه‌های جدید
  */
-export async function checkForExtensionUpdate({ timeoutMs = 7000 } = {}) {
-  const currentVer = getExtensionVersion();
+export async function checkForUpdate({ timeoutMs = 7000 } = {}) {
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
 
@@ -146,30 +132,31 @@ export async function checkForExtensionUpdate({ timeoutMs = 7000 } = {}) {
     });
 
     if (!res.ok) {
-      throw new Error(`خطای سرور گیت‌هاب (${res.status})`);
+      throw new Error(`خطای ارتباط با سرور گیت‌هاب (${res.status})`);
     }
 
     const data = await res.json();
     if (!Array.isArray(data) || data.length === 0) {
       return {
         hasUpdate: false,
-        currentVersion: currentVer,
+        currentVersion: CURRENT_VERSION,
         latestRelease: null,
         error: null,
       };
     }
 
+    // فیلتر انتشارهای نامعتبر یا پیش‌نویس (draft)
     const validReleases = data.filter((r) => !r.draft);
     if (validReleases.length === 0) {
       return {
         hasUpdate: false,
-        currentVersion: currentVer,
+        currentVersion: CURRENT_VERSION,
         latestRelease: null,
         error: null,
       };
     }
 
-    // انتخاب بالاترین نسخه موجود
+    // یافتن بالاترین نسخه موجود در گیت‌هاب
     let candidate = validReleases[0];
     for (const rel of validReleases) {
       if (isNewerVersion(rel.tag_name, candidate.tag_name)) {
@@ -177,13 +164,13 @@ export async function checkForExtensionUpdate({ timeoutMs = 7000 } = {}) {
       }
     }
 
-    const hasUpdate = isNewerVersion(candidate.tag_name, currentVer);
+    const hasUpdate = isNewerVersion(candidate.tag_name, CURRENT_VERSION);
     const isPrerelease = isPrereleaseRelease(candidate);
-    const zipInfo = getExtensionZipDownloadUrl(candidate);
+    const apkInfo = getApkDownloadUrl(candidate);
 
     return {
       hasUpdate,
-      currentVersion: currentVer,
+      currentVersion: CURRENT_VERSION,
       latestRelease: {
         tagName: candidate.tag_name,
         name: candidate.name || candidate.tag_name,
@@ -191,9 +178,9 @@ export async function checkForExtensionUpdate({ timeoutMs = 7000 } = {}) {
         isPrerelease,
         publishedAt: candidate.published_at,
         htmlUrl: candidate.html_url || GITHUB_RELEASES_PAGE,
-        zipUrl: zipInfo.url,
-        zipSize: zipInfo.size,
-        zipName: zipInfo.name,
+        apkUrl: apkInfo.url,
+        apkSize: apkInfo.size,
+        apkName: apkInfo.name,
         raw: candidate,
       },
       error: null,
@@ -201,10 +188,10 @@ export async function checkForExtensionUpdate({ timeoutMs = 7000 } = {}) {
   } catch (err) {
     const isAbort = err?.name === 'AbortError';
     const msg = isAbort ? 'مهلت زمان اتصال به پایان رسید' : (err?.message || 'خطا در بررسی به‌روزرسانی');
-    console.warn('[ExtensionUpdater] Check failed:', msg);
+    console.warn('[Updater] Check failed:', msg);
     return {
       hasUpdate: false,
-      currentVersion: currentVer,
+      currentVersion: CURRENT_VERSION,
       latestRelease: null,
       error: msg,
     };
@@ -213,7 +200,10 @@ export async function checkForExtensionUpdate({ timeoutMs = 7000 } = {}) {
   }
 }
 
-export function hasDismissedExtensionUpdate(tag) {
+/**
+ * ذخیره و بررسی وضعیت رد موقت اعلان در نشست جاری
+ */
+export function hasDismissedUpdate(tag) {
   try {
     return sessionStorage.getItem(DISMISSED_UPDATE_KEY) === String(tag);
   } catch {
@@ -221,8 +211,14 @@ export function hasDismissedExtensionUpdate(tag) {
   }
 }
 
-export function dismissExtensionUpdate(tag) {
+export function dismissUpdate(tag) {
   try {
     sessionStorage.setItem(DISMISSED_UPDATE_KEY, String(tag));
+  } catch {}
+}
+
+export function clearDismissedUpdate() {
+  try {
+    sessionStorage.removeItem(DISMISSED_UPDATE_KEY);
   } catch {}
 }

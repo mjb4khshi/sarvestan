@@ -114,6 +114,12 @@ function notify() {
   });
 }
 
+export function notifyStoreChange() {
+  notify();
+}
+
+
+
 function persist(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
@@ -829,6 +835,7 @@ export function deleteScheduleCourse(termId, courseIdentifier) {
   const targetTerm = termId || resolveCurrentTermId();
   const schedule = { ...(cache.schedule || {}) };
   const list = [...(schedule[targetTerm] || [])];
+  const deletedEntries = [];
 
   const filtered = list.filter((c, i) => {
     if (!c) return false;
@@ -844,6 +851,7 @@ export function deleteScheduleCourse(termId, courseIdentifier) {
     if (i === courseIdentifier) match = true;
 
     if (match) {
+      deletedEntries.push({ id: c.id, code: c.code, name: c.name || c.title });
       try {
         const deleted = read(KEYS.DELETED_COURSES, []) || [];
         deleted.push({ id: c.id, code: c.code, name: c.name || c.title });
@@ -855,10 +863,28 @@ export function deleteScheduleCourse(termId, courseIdentifier) {
   });
 
   schedule[targetTerm] = filtered;
+
+  // همچنین حذف کامل درس از کش courses (جهت خروج قطعی از شبیه‌ساز معدل و کارنامه)
+  if (Array.isArray(cache.courses)) {
+    cache.courses = cache.courses.filter((c) => {
+      if (courseIdentifier && typeof courseIdentifier === 'object') {
+        if (courseIdentifier.id && c.id && c.id === courseIdentifier.id) return false;
+        if (courseIdentifier.code && c.code && String(c.code) === String(courseIdentifier.code)) {
+          if (!courseIdentifier.name || c.name === courseIdentifier.name) return false;
+        }
+      }
+      if (c.id && c.id === courseIdentifier) return false;
+      if (c.code && String(c.code) === String(courseIdentifier)) return false;
+      if (deletedEntries.some((d) => (d.id && c.id && d.id === c.id) || (d.code && c.code && String(d.code) === String(c.code)))) return false;
+      return true;
+    });
+    persist(KEYS.COURSES, cache.courses);
+  }
+
   try {
     localStorage.setItem(KEYS.SCHEDULE_CUSTOMIZED, 'true');
   } catch {}
-  updatePart({ schedule });
+  updatePart({ schedule, courses: cache.courses });
   return true;
 }
 

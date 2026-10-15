@@ -7,6 +7,7 @@ import {
 } from '../services/loginFlow';
 import { resetSyncState, isSyncing } from '../services/behestan/sync';
 import { hasLiveData } from '../services/behestan/store';
+import { setSelectedUniversity } from '../services/behestan/session';
 import { getViewModel } from '../data/viewModel';
 import { updateAndroidWidget, isNativeCapacitor } from '../services/androidWidget';
 
@@ -34,13 +35,20 @@ export default function DataBootstrap() {
         .then((s) => {
           if (s?.sid && s?.ticket) {
             const cur = JSON.parse(localStorage.getItem('sarvestan_mobile_session') || '{}');
-            if (cur?.sid !== s.sid || cur?.ticket !== s.ticket) {
-              console.log('[bootstrap] Loaded server session into localStorage:', s.sid);
+            const curUni = cur?.university || localStorage.getItem('sarvestan_selected_university');
+            if (curUni === 'sbu' && s.university !== 'sbu' && cur?.sid) {
+              console.log('[bootstrap] Skipping stale non-SBU server session');
+              return;
+            }
+            if (cur?.sid !== s.sid || cur?.ticket !== s.ticket || (s.university && cur?.university !== s.university)) {
+              console.log('[bootstrap] Loaded server session into localStorage:', s.sid, s.university);
+              if (s.university) setSelectedUniversity(s.university);
               applyManualSession({
                 sid: s.sid,
                 ticket: s.ticket,
                 studentId: s.studentId || undefined,
                 cookies: s.cookies || undefined,
+                university: s.university || undefined,
               });
             }
           }
@@ -49,9 +57,11 @@ export default function DataBootstrap() {
     }
   }, [applyManualSession]);
 
+  const syncingRef = useRef(false);
+
   useEffect(() => {
     if (live || hasLiveData()) {
-      triesRef.current = 0;
+      syncingRef.current = false;
       // ویجت
       if (isNativeCapacitor()) {
         try {
@@ -62,18 +72,23 @@ export default function DataBootstrap() {
     }
     if (!isSessionAlive) return;
     if (isLoginModalOpen()) return;
-    if (triesRef.current >= 3) return;
+    if (syncingRef.current) return;
 
-    triesRef.current += 1;
+    syncingRef.current = true;
     const t = setTimeout(async () => {
-      if (isLoginModalOpen() || hasLiveData()) return;
+      if (isLoginModalOpen() || hasLiveData()) {
+        syncingRef.current = false;
+        return;
+      }
       try {
         if (isSyncing()) resetSyncState();
         await sync(true);
-      } catch {}
-    }, 500);
+      } catch {
+        syncingRef.current = false;
+      }
+    }, 400);
     return () => clearTimeout(t);
-  }, [live, isSessionAlive, sync, syncMeta?.status, syncMeta?.lastSyncAt]);
+  }, [live, isSessionAlive, sync]);
 
   return null;
 }

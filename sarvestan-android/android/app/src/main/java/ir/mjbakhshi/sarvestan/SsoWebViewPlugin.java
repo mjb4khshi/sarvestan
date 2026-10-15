@@ -44,6 +44,7 @@ public class SsoWebViewPlugin extends Plugin {
     private String capturedCode;
     private String inputUsername = "";
     private String inputPassword = "";
+    private String currentUniId = "kntu";
 
     @PluginMethod
     public void login(PluginCall call) {
@@ -57,6 +58,21 @@ public class SsoWebViewPlugin extends Plugin {
         capturedCode = null;
         inputUsername = call.getString("username", "");
         inputPassword = call.getString("password", "");
+        currentUniId = call.getString("uniId", "kntu");
+        boolean isUt = "ut".equalsIgnoreCase(currentUniId);
+        boolean isAut = "aut".equalsIgnoreCase(currentUniId);
+        String ssoUrl;
+        if (isUt) {
+            String state = "st" + System.currentTimeMillis();
+            ssoUrl = "https://sso1.ut.ac.ir/ApiContainer.SSO.RCL1/connect/authorize" +
+                "?client_id=golestanSSO-xRwHTGSHGtjmLJbqr2k9GDSOoai-TCc.apigateway.ut.ac.ir" +
+                "&redirect_uri=https%3A%2F%2Fems2.ut.ac.ir%2Findex.html" +
+                "&response_type=code&scope=openid&state=" + state;
+        } else if (isAut) {
+            ssoUrl = "https://accounts.aut.ac.ir/cas/login?service=https%3A%2F%2Fportal.aut.ac.ir%2Findex.html%3Fsso%3D101";
+        } else {
+            ssoUrl = SSO_AUTH;
+        }
 
         activity.runOnUiThread(() -> {
             try {
@@ -90,7 +106,7 @@ public class SsoWebViewPlugin extends Plugin {
                 ));
 
                 TextView title = new TextView(activity);
-                title.setText("ورود به بهستان…");
+                title.setText(isUt ? "ورود به سامانه دانشگاه تهران…" : "ورود به بهستان…");
                 title.setTextColor(Color.WHITE);
                 title.setTextSize(16f);
                 title.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
@@ -160,13 +176,13 @@ public class SsoWebViewPlugin extends Plugin {
                     public void onPageFinished(WebView view, String url) {
                         super.onPageFinished(view, url);
                         bar.setVisibility(View.GONE);
-                        if (url != null && url.contains("sso.kntu.ac.ir") && !inputUsername.isEmpty()) {
+                        if (url != null && (url.contains("sso.kntu.ac.ir") || url.contains("sso1.ut.ac.ir")) && !inputUsername.isEmpty()) {
                             // فقط پر کردن فیلدها — submit خودکار حذف شد (الگوی phishing برای Play Protect)
                             String autoFillJs =
                                 "(function(){" +
                                 "  try {" +
-                                "    var u = document.querySelector('input[name=\"username\"], #username');" +
-                                "    var p = document.querySelector('input[name=\"password\"], #password');" +
+                                "    var u = document.querySelector('input[name=\"username\" i], #username, #Username, input[name=\"Username\"]');" +
+                                "    var p = document.querySelector('input[name=\"password\" i], #password, #Password, input[name=\"Password\"]');" +
                                 "    if (u && " + jsonStr(inputUsername) + ") {" +
                                 "      u.value = " + jsonStr(inputUsername) + ";" +
                                 "      u.dispatchEvent(new Event('input', { bubbles: true }));" +
@@ -191,14 +207,14 @@ public class SsoWebViewPlugin extends Plugin {
                     ViewGroup.LayoutParams.MATCH_PARENT
                 );
                 getActivity().addContentView(column, rootLp);
-                webView.loadUrl(SSO_AUTH);
+                webView.loadUrl(ssoUrl);
             } catch (Exception e) {
                 finishError("WebView: " + e.getMessage());
             }
         });
     }
 
-    /** اگر به behestan?code= رسیدیم، بگذار لود شود و بعد oauth2 بزنیم */
+    /** اگر به behestan?code= یا ems2?code= رسیدیم، بگذار لود شود و بعد oauth2 بزنیم */
     private boolean handleNav(WebView view, String url) {
         if (url == null) return false;
         // همه لینک‌ها در همین WebView
@@ -208,8 +224,8 @@ public class SsoWebViewPlugin extends Plugin {
     private void onUrlSettled(WebView view, String url) {
         if (resolved || view == null || url == null) return;
 
-        if (url.contains("behestan.kntu.ac.ir")) {
-            // کد را از URL بگیر
+        if (url.contains("behestan.kntu.ac.ir") || url.contains("ems2.ut.ac.ir") || url.contains("portal.aut.ac.ir")) {
+            // کد یا تیکت را از URL بگیر
             try {
                 int i = url.indexOf("code=");
                 if (i > 0) {
@@ -220,13 +236,13 @@ public class SsoWebViewPlugin extends Plugin {
                 }
             } catch (Exception ignore) {}
 
-            // از داخل دامنهٔ بهستان: oauth2 بزن و در localStorage بگذار
+            // از داخل دامنهٔ گلستان: احراز هویت را بزن و در localStorage بگذار
             runBehestanOauth(view, capturedCode, 0);
         }
     }
 
     /**
-     * fetch oauth2 از خود WebView (same-origin بهستان)
+     * fetch oauth2 / CAS از خود WebView (same-origin بهستان)
      * و ذخیره sid/t در localStorage — سپس خواندن و resolve
      */
     private void runBehestanOauth(WebView view, String code, int attempt) {
@@ -246,14 +262,28 @@ public class SsoWebViewPlugin extends Plugin {
                 "    window.__Ssv=JSON.stringify({ok:true,sid:sid,ticket:t,from:'ls'});" +
                 "    return;" +
                 "  }" +
-                "  var code=" + jsonStr(code) + ";" +
-                "  if(!code){" +
-                "    var m=location.href.match(/[?&]code=([^&]+)/);" +
-                "    code=m?decodeURIComponent(m[1]):null;" +
-                "  }" +
-                "  if(!code){" +
-                "    window.__Ssv=JSON.stringify({ok:false,wait:true});" +
-                "    return;" +
+                "  var isUt = location.hostname.indexOf('ut.ac.ir') >= 0;" +
+                "  var isAut = location.hostname.indexOf('aut.ac.ir') >= 0;" +
+                "  var verifyEndpoint = isAut ? '/frmc/Authentication/CAS/' : '/frmc/Authentication/oauth2/';" +
+                "  var rscVal = isAut ? '101' : (isUt ? '120' : '112');" +
+                "  var ticketParam = '';" +
+                "  var codeParam = " + jsonStr(code) + ";" +
+                "  if (isAut) {" +
+                "    var tm = location.href.match(/[?&]ticket=([^&]+)/);" +
+                "    ticketParam = tm ? decodeURIComponent(tm[1]) : '';" +
+                "    if (!ticketParam) {" +
+                "      window.__Ssv=JSON.stringify({ok:false,wait:true});" +
+                "      return;" +
+                "    }" +
+                "  } else {" +
+                "    if (!codeParam) {" +
+                "      var m = location.href.match(/[?&]code=([^&]+)/);" +
+                "      codeParam = m ? decodeURIComponent(m[1]) : null;" +
+                "    }" +
+                "    if (!codeParam) {" +
+                "      window.__Ssv=JSON.stringify({ok:false,wait:true});" +
+                "      return;" +
+                "    }" +
                 "  }" +
                 "  if (" + attempt + " < 3) {" +
                 "    window.__Ssv=JSON.stringify({ok:false,wait:true});" +
@@ -261,10 +291,10 @@ public class SsoWebViewPlugin extends Plugin {
                 "  }" +
                 "  if(window.__SsvBusy) return;" +
                 "  window.__SsvBusy=1;" +
-                "  fetch('/frmc/Authentication/oauth2/',{" +
+                "  fetch(verifyEndpoint, {" +
                 "    method:'POST'," +
                 "    headers:{'Content-Type':'application/json','Accept':'application/json'}," +
-                "    body:JSON.stringify({act:'09',r:{code:code,ticket:'',l:'',p:'',d:'0',c:'',rsc:'112'},rp:{}})" +
+                "    body:JSON.stringify({act:'09',r:{code:isAut ? '' : codeParam,ticket:ticketParam,l:'',p:'',d:'0',c:'',rsc:rscVal},rp:{}})" +
                 "  }).then(function(r){return r.text();}).then(function(txt){" +
                 "    window.__SsvBusy=0;" +
                 "    try{" +
@@ -273,7 +303,7 @@ public class SsoWebViewPlugin extends Plugin {
                 "      var tk=d&&d.t;" +
                 "      if(sid&&tk){" +
                 "        try{localStorage.setItem('sid',sid);localStorage.setItem('t',tk);}catch(e){}" +
-                "        window.__Ssv=JSON.stringify({ok:true,sid:sid,ticket:tk,from:'oauth2'});" +
+                "        window.__Ssv=JSON.stringify({ok:true,sid:sid,ticket:tk,from:'verify'});" +
                 "      }else{" +
                 "        var er=d&&d.msg&&d.msg.errors&&d.msg.errors[0];" +
                 "        window.__Ssv=JSON.stringify({ok:false,err:er||'no-sid',body:txt.slice(0,120)});" +
@@ -365,11 +395,16 @@ public class SsoWebViewPlugin extends Plugin {
             ret.put("sid", sid);
             ret.put("ticket", ticket);
             ret.put("studentId", studentId == null ? "" : studentId);
+            boolean isUt = "ut".equalsIgnoreCase(currentUniId);
+            String cookieDomain = isUt ? "https://ems2.ut.ac.ir" : "https://behestan.kntu.ac.ir";
             try {
-                String behCookies = CookieManager.getInstance().getCookie("https://behestan.kntu.ac.ir");
+                String behCookies = CookieManager.getInstance().getCookie(cookieDomain);
                 ret.put("cookies", behCookies != null ? behCookies : "");
             } catch (Exception ignore) {
                 ret.put("cookies", "");
+            }
+            if (isUt) {
+                ret.put("university", "ut");
             }
             call.resolve(ret);
         }

@@ -36,6 +36,10 @@ export function decodeEntities(s) {
 export function cleanHtml(str) {
   if (!str) return '';
   return decodeEntities(str)
+    .replace(/<svg\b[\s\S]*?<\/svg>/gi, ' ')
+    .replace(/<title\b[\s\S]*?<\/title>/gi, ' ')
+    .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
     .replace(/[يى]/g, 'ی')
@@ -122,7 +126,11 @@ export function parseReport77(outpar, termHint) {
     const codeGroup = cleanHtml(row.C1 || '');
     if (!codeGroup) continue;
     const code = extractCourseCode(codeGroup, row.C1);
-    const name = normalizeCourseName(cleanHtml(row.C2 || ''));
+    const rawC2 = String(row.C2 || '');
+    const elearnMatch = (rawC2 + ' ' + String(row.C1 || '')).match(/href=["'](https?:\/\/[^"']+)["']/i);
+    const hasVirtual = /فضای\s*مجازی|elearning|vc\.ut\.ac\.ir/i.test(rawC2 + ' ' + String(row.C1 || ''));
+    const virtualUrl = elearnMatch ? elearnMatch[1].replace(/\\/g, '').replace(/&amp;/g, '&') : (hasVirtual ? 'https://elearning.ut.ac.ir/' : undefined);
+    const name = normalizeCourseName(cleanHtml(rawC2));
     if (!name) continue;
 
     const statusRaw = cleanHtml(row.C5 || '');
@@ -186,6 +194,8 @@ export function parseReport77(outpar, termHint) {
       regStatus: finalStatus,
       statusRaw,
       phaseRaw,
+      hasVirtualClass: hasVirtual,
+      virtualUrl: virtualUrl || 'https://elearning.ut.ac.ir/',
     });
   }
 
@@ -195,7 +205,9 @@ export function parseReport77(outpar, termHint) {
     detectTermFromCourses(courses) ||
     '4051';
 
-  return { termId, courses, waitlistUnits, waitlistCount, enrolledUnits };
+  const coursesWithTerm = courses.map((c) => ({ ...c, termId }));
+
+  return { termId, courses: coursesWithTerm, waitlistUnits, waitlistCount, enrolledUnits };
 }
 
 function detectTermFromCourses(courses) {
@@ -214,6 +226,9 @@ export function normalizeCourseName(name) {
     .replace(/[يى]/g, 'ی')
     .replace(/ك/g, 'ک')
     .replace(/ـ/g, '')
+    // حذف پیشوندهای ناخواسته مانند ورود به فضای مجازی یا پیشوند کلاس
+    .replace(/^(?:ورود\s*به\s*)?فضای\s*مجازی(?:\s*درس)?\s*[:\-–—]?\s*/gi, '')
+    .replace(/^کلاس\s*[:\-–—]\s*/gi, '')
     .replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[+d])
     .replace(/\s+/g, ' ')
     .trim();
@@ -296,9 +311,25 @@ function extractPhotoDataUrl(raw) {
 
 export function mapTermFromTitle(bms) {
   const s = String(bms || '');
-  if (s.includes('06-05') || s.includes('۰۶-۰۵')) return '4051';
-  if (s.includes('05-04') && s.includes('دوم')) return '4042';
-  if (s.includes('05-04') && s.includes('اول')) return '4041';
+  if (/05[_-]06|۰۵[_-]۰۶|1405[_-]1406|۱۴۰۵[_-]۱۴۰۶|06[_-]05|۰۶[_-]۰۵|1406[_-]1405|۱۴۰۶[_-]۱۴۰۵/.test(s)) {
+    if (s.includes('دوم')) return '4052';
+    if (s.includes('تابستان')) return '4053';
+    return '4051';
+  }
+  if (/04[_-]05|۰۴[_-]۰۵|1404[_-]1405|۱۴۰۴[_-]۱۴۰۵|05[_-]04|۰۵[_-]۰۴|1405[_-]1404|۱۴۰۵[_-]۱۴۰۴/.test(s)) {
+    if (s.includes('دوم')) return '4042';
+    if (s.includes('تابستان')) return '4043';
+    return '4041';
+  }
+  if (s.includes('06-05') || s.includes('۰۶-۰۵') || s.includes('1406-1405') || s.includes('۱۴۰۶-۱۴۰۵')) return '4051';
+  if ((s.includes('05-04') || s.includes('1405-1404') || s.includes('۱۴۰۵-۱۴۰۴')) && s.includes('دوم')) return '4042';
+  if ((s.includes('05-04') || s.includes('1405-1404') || s.includes('۱۴۰۵-۱۴۰۴')) && s.includes('اول')) return '4041';
+  const yearM = s.match(/(?:140|۱۴۰)([0-9۰-۹])\s*[-–_]\s*(?:140|۱۴۰)([0-9۰-۹])/);
+  if (yearM) {
+    const y = '۰۱۲۳۴۵۶۷۸۹'.indexOf(yearM[1]) !== -1 ? '۰۱۲۳۴۵۶۷۸۹'.indexOf(yearM[1]) : yearM[1];
+    const sem = s.includes('دوم') ? '2' : s.includes('تابستان') ? '3' : '1';
+    return `40${y}${sem}`;
+  }
   return '';
 }
 
@@ -348,6 +379,9 @@ export function parseReport78Schedule(outpar, termHint) {
     const normTime = normalizeTimeRange(classTime);
     const normHall = (hallM ? simplifyRoomName(hallM[1].replace(/\s+/g, ' ').trim()) : '') || 'ـ';
     const initialSlot = day && normTime ? [{ day, time: normTime, hall: normHall }] : [];
+    const elearnMatch = String(title + ' ' + (textHint || '')).match(/href=["'](https?:\/\/[^"']+)["']/i);
+    const hasVirtual = /فضای\s*مجازی|elearning|vc\.ut\.ac\.ir/i.test(title + ' ' + (textHint || ''));
+    const virtualUrl = elearnMatch ? elearnMatch[1].replace(/\\/g, '').replace(/&amp;/g, '&') : (hasVirtual ? 'https://elearning.ut.ac.ir/' : undefined);
 
     if (!courseMap.has(key)) {
       courseMap.set(key, {
@@ -368,9 +402,15 @@ export function parseReport78Schedule(outpar, termHint) {
         timeSlotsRaw: classTime ? [classTime] : [],
         daySlots: initialSlot,
         isLive: true,
+        hasVirtualClass: hasVirtual,
+        virtualUrl: virtualUrl || 'https://elearning.ut.ac.ir/',
       });
     } else {
       const cur = courseMap.get(key);
+      if (hasVirtual) {
+        cur.hasVirtualClass = true;
+        if (virtualUrl) cur.virtualUrl = virtualUrl;
+      }
       if (parsedProf && (!cur.professor || cur.professor === 'ـ')) cur.professor = parsedProf;
       if (day && !cur.days.includes(day)) cur.days.push(day);
       if (classTime && !cur.timeSlotsRaw.includes(classTime)) cur.timeSlotsRaw.push(classTime);
@@ -419,6 +459,7 @@ export function parseReport78Schedule(outpar, termHint) {
     return m ? cleanHtml(decodeEntities(m[1])) : '';
   };
   const photoMatch = bmT.match(/SRC=['"](data:image\/[^'"]+)['"]/i);
+  const l1Units = parseInt(pick('L1').replace(/[^\d]/g, ''), 10) || undefined;
   const meta = {
     auwId: pick('B1') || undefined,
     studentId: pick('B1') || undefined,
@@ -429,6 +470,8 @@ export function parseReport78Schedule(outpar, termHint) {
     level: pick('B6') || undefined,
     major: pick('B8') || pick('B4') || undefined,
     photo: photoMatch ? photoMatch[1] : undefined,
+    totalUnits: l1Units,
+    enrolledUnits: l1Units,
   };
 
   return { termId, courses, meta };
@@ -451,6 +494,7 @@ export function parseReport88Registration(outpar, termHint) {
     C12: 'جمعه',
   };
 
+  const termId = termHint || mapTermFromTitle(String(outpar?.BMs || '')) || '4051';
   const rows = parseBehestanXmlGrid(bmT);
   const courses = rows.map((row) => {
     const codeGroup = cleanHtml(row.C1 || '');
@@ -488,6 +532,7 @@ export function parseReport88Registration(outpar, termHint) {
       id: code,
       code,
       group: group || '۰۱',
+      termId,
       name: normalizeCourseName(cleanHtml(row.C2 || '')),
       units: parseInt(cleanHtml(row.C3 || '0'), 10) || (isProjectCourse(cleanHtml(row.C2 || '')) ? 3 : isInternshipCourse(cleanHtml(row.C2 || '')) ? 2 : 0),
       professor: normalizeCourseName(cleanHtml(row.C5 || '')) || 'ـ',
@@ -507,7 +552,6 @@ export function parseReport88Registration(outpar, termHint) {
     };
   }).filter((c) => c.name);
 
-  const termId = termHint || mapTermFromTitle(String(outpar?.BMs || '')) || '4051';
   return { termId, courses };
 }
 
@@ -680,6 +724,9 @@ export function parseF1825(data) {
           status = statusRaw || 'ثبت شده';
         }
 
+        const elearnMatch = String(row.F1 || '').match(/href=["'](https?:\/\/[^"']+)["']/i);
+        const virtualUrl = elearnMatch ? elearnMatch[1].replace(/\\/g, '').replace(/&amp;/g, '&') : undefined;
+
         return {
           code,
           name: normalizeCourseName(cleanHtml(row.F1)),
@@ -696,6 +743,7 @@ export function parseF1825(data) {
           gradeMode: gradeModeRaw,
           regType: regTypeRaw,
           onSchedule: false,
+          virtualUrl,
         };
       })
       .filter((c) => c.name);
@@ -803,17 +851,42 @@ export function parseF1825(data) {
   return result;
 }
 
-/** F1809 — عکس پرسنلی */
+/** F1809 — عکس پرسنلی و اطلاعات شناسنامه‌ای */
 export function parseF1809(data) {
   const outpar = data?.outpar || {};
   const photo =
     extractPhotoDataUrl(outpar.AUWw || '') ||
     extractPhotoDataUrl(outpar.PHOTO || '') ||
     extractPhotoDataUrl(outpar.Photo || '');
-  const name =
+  let name =
     cleanHtml(outpar.NA || outpar.Name || outpar.FN || '') || null;
-  const major = cleanHtml(outpar.BRN || outpar.Major || '') || null;
-  return { photo, name, major };
+  let major = cleanHtml(outpar.BRN || outpar.Major || '') || null;
+  let faculty = cleanHtml(outpar.FAC || outpar.Faculty || '') || null;
+  let studentId = null;
+  let gpa = null;
+  let totalUnitsPassed = null;
+
+  const grdXml = data?.rset?.grd?.[0]?.xml || '';
+  if (grdXml) {
+    const rows = parseBehestanXmlGrid(grdXml);
+    if (rows.length && rows[0]) {
+      const r = rows[0];
+      if (!name && r.F1) name = cleanHtml(r.F1);
+      if (!major && r.F2) major = cleanHtml(r.F2);
+      if (!faculty && r.F4) faculty = cleanHtml(r.F4);
+      if (r.F12) gpa = parseFloat(r.F12) || null;
+      if (r.F13) {
+        const idM = String(r.F13).match(/\d+/);
+        if (idM) studentId = idM[0];
+      }
+      if (r.F22) {
+        const passM = String(r.F22).match(/گذرانده\s*:\s*([\d.]+)/);
+        if (passM) totalUnitsPassed = parseFloat(passM[1]) || null;
+      }
+    }
+  }
+
+  return { photo, name, major, faculty, studentId, gpa, totalUnitsPassed };
 }
 
 /** F6524 — گردش‌کار / اعلان‌ها */
@@ -929,11 +1002,11 @@ export function parseReport284Curriculum(outpar) {
     const status = cells[8] || '';
     cur.courses.push({
       code,
-      name: cells[1] || '',
+      name: normalizeCourseName(cleanHtml(cells[1] || '')),
       units: num(cells[2]) ?? 0,
       kind,
       equivCode: (cells[4] || '').match(/\d{5,}/)?.[0] || null,
-      equivName: cells[5] || '',
+      equivName: normalizeCourseName(cleanHtml(cells[5] || '')),
       takenUnits: num(cells[6]),
       termId: /^\d{4}$/.test(cells[7] || '') ? cells[7] : null,
       status,

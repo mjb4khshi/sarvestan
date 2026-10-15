@@ -1,7 +1,7 @@
 {
   "name": "sarvestan-dashboard",
   "private": true,
-  "version": "1.2.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +10,7 @@
     "pack": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/pack-extension.ps1"
   },
   "dependencies": {
+    "@capacitor/core": "^8.5.3",
     "canvas-confetti": "^1.9.4",
     "framer-motion": "^12.4.7",
     "lucide-react": "^1.16.0",

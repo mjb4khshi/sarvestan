@@ -5,7 +5,6 @@ node_modules/
 dist/
 *.apk
 *.aab
-!sarvestan.apk
 
 # Capacitor generated assets & plugins
 android/app/src/main/assets/public/
@@ -35,6 +34,7 @@ android/*keystore*
 # Sensitive scripts, HAR files, auth tokens, student datasets and behestan dumps
 .behestan-session.json
 *.session.json
+.iust-debug/
 scripts/
 public/dev-data/
 *.har

@@ -28,6 +28,8 @@ import {
   Copy,
   Check,
   X,
+  Globe,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import {
@@ -41,11 +43,14 @@ import { isNativeAlarms, hasClassAlarmPlugin, exportExamToCalendar, syncCurrentD
 import { getScheduleMatrix, getExamsView, parseClassTime, getToneForCourse } from '../data/viewModel';
 import { toFaDigits } from '../utils/faDigits';
 import { formatRoomTag } from '../utils/roomUtils';
+import { useBatMode } from '../services/batMode';
 import { isProjectCourse } from '../services/behestan/parsers';
 import ClassAlarmModal from '../components/ClassAlarmModal';
 import CourseEditModal from '../components/CourseEditModal';
 import ExamEditModal from '../components/ExamEditModal';
 import OdometerNumber from '../components/OdometerNumber';
+import { getSelectedUniversity, getUniversityName } from '../services/behestan/session';
+import WeeklyTimelineView from '../components/WeeklyTimelineView';
 import {
   getCurrentTermSchedule,
   updateScheduleCourse,
@@ -99,7 +104,27 @@ const softBadgeTone = {
 
 export default function ScheduleScreen({ initialView = 'cards', onViewChange }) {
   const { currentThemeMeta } = useTheme();
+  const { isBatMode } = useBatMode();
   const [activeTab, setActiveTab] = useState(initialView);
+  const selectedUni = getSelectedUniversity();
+  const isUt = selectedUni === 'ut';
+  const isAut = selectedUni === 'aut';
+
+  const [transposeMatrix, setTransposeMatrix] = useState(() => {
+    try {
+      return localStorage.getItem('sarv_matrix_transposed') === 'true';
+    } catch (_) {
+      return false;
+    }
+  });
+
+  const [matrixSubView, setMatrixSubView] = useState(() => {
+    try {
+      return localStorage.getItem('sarv_schedule_subview') || 'matrix';
+    } catch (_) {
+      return 'matrix';
+    }
+  });
 
   const { days, slots, cells } = getScheduleMatrix();
   const EXAMS_DATA = getExamsView();
@@ -290,16 +315,24 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
     showToast('نوبت امتحان با موفقیت حذف شد.');
   };
 
-  const handleQuickStory = async () => {
-    if (shareBusy) return;
+  const [shareFormat, setShareFormat] = useState('matrix');
+  const [shareRendering, setShareRendering] = useState(false);
+
+  const handleQuickStory = async (format = shareFormat) => {
+    if (shareBusy || shareRendering) return;
     setShareBusy(true);
+    setShareRendering(true);
     setStoryToast('');
     try {
-      const canvas = await renderScheduleImage({ theme: currentThemeMeta });
+      const activeFormat = isAut ? 'timeline' : format;
+      const canvas = await renderScheduleImage({
+        theme: currentThemeMeta,
+        view: activeFormat,
+      });
       setStoryPreview({
         url: canvasToDataUrl(canvas),
         canvas,
-        filename: 'sarvestan-schedule-story.png',
+        filename: `sarvestan-schedule-${activeFormat}.png`,
         title: 'برنامه هفتگی من | سروستان',
       });
       setStoryToast('تصویر باکیفیت آماده شد — گزینه ذخیره یا اشتراک را انتخاب کنید');
@@ -308,7 +341,14 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
       showToast('خطا در تولید تصویر برنامه: ' + (e?.message || e));
     } finally {
       setShareBusy(false);
+      setShareRendering(false);
     }
+  };
+
+  const handleChangeShareFormat = async (newFormat) => {
+    if (newFormat === shareFormat || shareRendering) return;
+    setShareFormat(newFormat);
+    await handleQuickStory(newFormat);
   };
 
   const handleDownloadStory = async () => {
@@ -366,7 +406,7 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
               <p className="text-[11px] text-neutral truncate">
                 {activeTab === 'exams'
                   ? `${toFaDigits(EXAMS_DATA.length)} نوبت امتحان نهایی ثبت‌شده`
-                  : `${toFaDigits(totalClasses)} جلسه کلاس در طول هفته`}
+                  : `${toFaDigits(totalClasses)} جلسه ${isBatMode ? 'غار' : 'کلاس'} در طول هفته`}
               </p>
             </div>
           </div>
@@ -460,8 +500,8 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
             }`}
           >
             <span className="relative z-10 inline-flex items-center gap-1.5">
-              <Table2 className="w-3.5 h-3.5" />
-              جدول هفتگی
+              {isAut ? <Clock className="w-3.5 h-3.5" /> : <Table2 className="w-3.5 h-3.5" />}
+              {isAut ? 'برنامه هفتگی' : 'جدول هفتگی'}
             </span>
           </button>
 
@@ -650,6 +690,8 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                     absences: Number(c.absences) || 0,
                     maxAbsences: c.maxAbsences != null ? Number(c.maxAbsences) : 3,
                     course: c,
+                    virtualUrl: c.virtualUrl,
+                    hasVirtualClass: c.hasVirtualClass,
                   };
                 });
 
@@ -664,10 +706,10 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                   return (
                     <div key={day} className="sarv-card p-6 text-center space-y-3">
                       <p className="text-[13.5px] font-bold text-base-content">
-                        هیچ کلاسی در روز {day} ثبت نشده است.
+                        هیچ {isBatMode ? 'غاری' : 'کلاسی'} در روز {day} ثبت نشده است.
                       </p>
                       <p className="text-[11.5px] text-neutral max-w-xs mx-auto">
-                        می‌توانید کلاس جبرانی یا درس دلخواه خود را برای روز {day} اضافه کنید.
+                        می‌توانید {isBatMode ? 'غار' : 'کلاس'} جبرانی یا درس دلخواه خود را برای روز {day} اضافه کنید.
                       </p>
                       <button
                         type="button"
@@ -781,7 +823,21 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                                 {toFaDigits(c.time || '—')}
                               </span>
                             </div>
-                            <div className="flex items-center gap-1.5 min-w-0 max-w-[65%]">
+                            <div className="flex items-center gap-1.5 min-w-0 max-w-[75%]">
+                              {isUt && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    window.open(c.virtualUrl || c.course?.virtualUrl || 'https://elearning.ut.ac.ir/', '_blank');
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10.5px] font-bold bg-primary-soft text-primary hover:bg-primary/20 transition active:scale-95 cursor-pointer shrink-0 border border-primary/20"
+                                  title="ورود به سامانه یادگیری الکترونیکی و کلاس مجازی دانشگاه تهران (elearning.ut.ac.ir)"
+                                >
+                                  <Globe className="w-3 h-3" />
+                                  <span>کلاس مجازی</span>
+                                </button>
+                              )}
                               <span
                                 style={isHex ? { backgroundColor: `${c.color}22`, color: c.color } : undefined}
                                 className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-bold border-0 truncate max-w-full ${
@@ -871,12 +927,28 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                               <Info className="w-3.5 h-3.5 text-accent" />
                               <span>جلسه هفتگی کلاسی ندارد (هماهنگی با استاد)</span>
                             </div>
-                            {c.examDate && c.examDate !== 'ـ' && (
-                              <div className="flex items-center gap-1 text-neutral text-[10.5px]">
-                                <CalendarDays className="w-3.5 h-3.5 text-accent" />
-                                <span>دفاع/امتحان: {toFaDigits(c.examDate)}</span>
-                              </div>
-                            )}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {isUt && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    window.open(c.virtualUrl || c.course?.virtualUrl || 'https://elearning.ut.ac.ir/', '_blank');
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10.5px] font-bold bg-primary-soft text-primary hover:bg-primary/20 transition active:scale-95 cursor-pointer shrink-0 border border-primary/20"
+                                  title="ورود به سامانه یادگیری الکترونیکی و کلاس مجازی دانشگاه تهران (elearning.ut.ac.ir)"
+                                >
+                                  <Globe className="w-3 h-3" />
+                                  <span>کلاس مجازی</span>
+                                </button>
+                              )}
+                              {c.examDate && c.examDate !== 'ـ' && (
+                                <div className="flex items-center gap-1 text-neutral text-[10.5px]">
+                                  <CalendarDays className="w-3.5 h-3.5 text-accent" />
+                                  <span>دفاع/امتحان: {toFaDigits(c.examDate)}</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </article>
                       );
@@ -889,7 +961,7 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
         </motion.div>
       )}
 
-      {/* محتوای جدول ماتریسی (گزارش ۷۸) */}
+      {/* محتوای جدول هفتگی (ماتریس بهستان و تایم‌لاین پیوسته) */}
       {activeTab === 'matrix' && (
         <motion.div
           key="matrix-view"
@@ -899,117 +971,286 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
           transition={{ duration: 0.2 }}
           className="space-y-4"
         >
-          {/* راهنمای اسکرول افقی */}
-          <div className="sarv-card px-3.5 py-2.5 flex items-center justify-between text-[11px] text-neutral">
-            <span className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-primary" />
-              ماتریس کامل ساعات و روزها
-            </span>
-            <span className="text-primary font-medium">👈 اسکرول افقی به چپ</span>
-          </div>
+          {/* راهنمای جدول، سوییچ بین ماتریس و تایم‌لاین و دکمه جابجایی سطر و ستون */}
+          {isAut ? (
+            <div className="sarv-card px-3 py-2 flex items-center justify-between text-[11px] text-neutral gap-2 whitespace-nowrap overflow-hidden">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-2 h-2 rounded-full bg-primary animate-pulse shrink-0" />
+                <span className="font-bold text-base-content text-[11.5px] truncate">تایم‌لاین پیوسته هفتگی</span>
+                <span className="text-[10px] text-neutral shrink-0">(پلی‌تکنیک تهران)</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px] text-primary shrink-0 font-medium">
+                <Clock className="w-3.5 h-3.5 text-primary" />
+                <span>نمایش دقیق و بدون تداخل زمانی</span>
+              </div>
+            </div>
+          ) : (
+            <div className="sarv-card px-3 py-2 flex items-center justify-between text-[11px] text-neutral gap-2 whitespace-nowrap overflow-hidden">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <div className="inline-flex p-0.5 rounded-xl bg-base-500/25 border border-base-500/35">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMatrixSubView('matrix');
+                      try { localStorage.setItem('sarv_schedule_subview', 'matrix'); } catch (_) {}
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer ${
+                      matrixSubView === 'matrix' ? 'bg-primary text-primary-content shadow-xs' : 'text-neutral hover:text-base-content'
+                    }`}
+                  >
+                    جدول ماتریسی
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMatrixSubView('timeline');
+                      try { localStorage.setItem('sarv_schedule_subview', 'timeline'); } catch (_) {}
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer ${
+                      matrixSubView === 'timeline' ? 'bg-primary text-primary-content shadow-xs' : 'text-neutral hover:text-base-content'
+                    }`}
+                  >
+                    تایم‌لاین شناور
+                  </button>
+                </div>
+              </div>
 
-          {/* محفظه اسکرول جدول */}
-          <div className="sarv-card overflow-hidden shadow-sm">
-            <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
-              <table className="w-full text-center border-collapse min-w-[640px] table-fixed">
-                <thead>
-                  <tr className="bg-base-500/25 border-b border-base-500/40">
-                    <th className="sticky right-0 z-20 bg-base/95 backdrop-blur-md px-2 py-3 text-[11px] font-bold text-neutral w-[74px] min-w-[74px] max-w-[74px] border-b border-base-500/40 shadow-[2px_0_6px_-2px_rgba(0,0,0,0.2)]">
-                      ساعت
-                    </th>
-                    {days.map((d) => (
-                      <th
-                        key={d}
-                        className="px-2 py-3 text-[12px] font-bold text-base-content min-w-[105px] max-w-[135px] w-[115px]"
-                      >
-                        {d}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {slots.map((slot, si) => (
-                    <tr
-                      key={slot}
-                      className={`border-b border-base-500/20 ${si % 2 === 1 ? 'bg-base-500/10' : ''}`}
+              {matrixSubView === 'matrix' ? (
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setTransposeMatrix((prev) => {
+                        const next = !prev;
+                        try {
+                          localStorage.setItem('sarv_matrix_transposed', String(next));
+                        } catch (_) {}
+                        return next;
+                      })
+                    }
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary-soft text-primary hover:bg-primary/20 active:scale-95 transition-all font-bold text-[10.5px] border border-primary/25 cursor-pointer shadow-2xs group"
+                    title="جابجایی سطر و ستون جدول"
+                  >
+                    <motion.span
+                      animate={{ rotate: transposeMatrix ? 180 : 0 }}
+                      transition={{ type: 'spring', stiffness: 350, damping: 22 }}
+                      className="grid place-items-center"
                     >
-                      <td className="sticky right-0 z-10 bg-base/95 backdrop-blur-md px-2 py-2.5 text-[10.5px] text-neutral font-mono whitespace-nowrap shadow-[2px_0_6px_-2px_rgba(0,0,0,0.2)]">
-                        {toFaDigits(slot)}
-                      </td>
-                      {days.map((_, di) => {
-                        const cell = cells[`${si}-${di}`];
-                        if (!cell) {
+                      <ArrowLeftRight className="w-3 h-3 text-primary" />
+                    </motion.span>
+                    <span>{transposeMatrix ? 'سطر: روز' : 'سطر: ساعت'}</span>
+                  </button>
+                  <span className="text-primary font-medium text-[9.5px] opacity-80 flex items-center gap-0.5">
+                    <ChevronLeft className="w-3 h-3" />
+                    <span>اسکرول</span>
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-[10px] text-neutral">
+                  <Clock className="w-3.5 h-3.5 text-primary" />
+                  <span>نمایش پیوسته ساعتی</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {isAut || matrixSubView === 'timeline' ? (
+            <WeeklyTimelineView
+              courses={getCurrentTermSchedule()}
+              onCourseClick={handleOpenEditCourse}
+            />
+          ) : (
+            <>
+              {/* محفظه اسکرول جدول */}
+              <div className="sarv-card overflow-hidden shadow-sm">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={transposeMatrix ? 'matrix-transposed' : 'matrix-normal'}
+                    initial={{ opacity: 0, scale: 0.98, y: 8, filter: 'blur(3px)' }}
+                    animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
+                    exit={{ opacity: 0, scale: 0.98, y: -8, filter: 'blur(3px)' }}
+                    transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+                    className="overflow-x-auto"
+                    style={{ WebkitOverflowScrolling: 'touch' }}
+                  >
+                    <table className="w-full text-center border-collapse min-w-[640px] table-fixed">
+                    <thead>
+                      <tr className="bg-base-500/25 border-b border-base-500/40">
+                        <th className="sticky right-0 z-20 bg-base/95 backdrop-blur-md px-2 py-3 text-[11px] font-bold text-neutral w-[74px] min-w-[74px] max-w-[74px] border-b border-base-500/40 shadow-[2px_0_6px_-2px_rgba(0,0,0,0.2)]">
+                          {transposeMatrix ? 'روز' : 'ساعت'}
+                        </th>
+                        {transposeMatrix
+                          ? slots.map((slot) => (
+                              <th
+                                key={slot}
+                                className="px-2 py-3 text-[11px] font-bold text-base-content min-w-[105px] max-w-[135px] w-[115px] font-mono whitespace-nowrap"
+                              >
+                                {toFaDigits(slot)}
+                              </th>
+                            ))
+                          : days.map((d) => (
+                              <th
+                                key={d}
+                                className="px-2 py-3 text-[12px] font-bold text-base-content min-w-[105px] max-w-[135px] w-[115px]"
+                              >
+                                {d}
+                              </th>
+                            ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const renderCell = (si, di) => {
+                          const cell = cells[`${si}-${di}`];
+                          if (!cell) {
+                            return (
+                              <td key={`${si}-${di}`} className="p-1 align-top">
+                                <div className="h-12 rounded-xl bg-transparent" />
+                              </td>
+                            );
+                          }
+
+                          const items = Array.isArray(cell.items) && cell.items.length ? cell.items : [cell];
+                          const hasConflict = cell.hasConflict ?? (items.length > 1);
+
                           return (
-                            <td key={di} className="p-1 align-top">
-                              <div className="h-12 rounded-xl bg-transparent" />
+                            <td key={`${si}-${di}`} className="p-1 align-top min-w-[105px] max-w-[135px] w-[115px]">
+                              {hasConflict && (
+                                <div className="mb-1.5 px-2 py-0.5 rounded-lg bg-danger/15 border border-danger/30 text-[9.5px] font-bold text-danger flex items-center justify-between">
+                                  <span>⚠️ تداخل ({toFaDigits(items.length)})</span>
+                                </div>
+                              )}
+                              <div className="space-y-1.5">
+                                {items.map((item, idx) => {
+                                  const isHex = String(item.color || '').startsWith('#') || String(item.color || '').startsWith('rgb');
+
+                                  if (item.isContinuation) {
+                                    return (
+                                      <div
+                                        key={item.id || idx}
+                                        onClick={() => handleOpenEditCourse(item.course || item)}
+                                        style={isHex ? { borderColor: item.color, backgroundColor: `${item.color}18`, color: item.color } : undefined}
+                                        className={`rounded-xl border border-dashed p-2 text-right transition-all hover:scale-[1.02] cursor-pointer hover:ring-2 hover:ring-primary/40 shadow-xs ${
+                                          isHex ? '' : (cellTone[item.color] || cellTone.primary)
+                                        }`}
+                                        title={`ادامه کلاس ${item.title}`}
+                                      >
+                                        <p className="text-[11px] font-bold leading-tight line-clamp-2">
+                                          ↳ ادامه {item.title}
+                                        </p>
+                                        {item.time && (
+                                          <p className="text-[9.5px] font-mono font-medium opacity-90 mt-0.5">
+                                            {toFaDigits(item.time)}
+                                          </p>
+                                        )}
+                                        <div className="mt-1 flex items-center justify-between gap-1 text-[10px] opacity-85">
+                                          <span className="flex items-center gap-1 min-w-0 flex-1 truncate" title={item.room}>
+                                            <MapPin className="w-2.5 h-2.5 shrink-0" />
+                                            <span className="truncate">{formatRoomTag(item.room) || toFaDigits(item.room)}</span>
+                                          </span>
+                                          {(item.course?.absences > 0 || item.absences > 0) && (
+                                            <span
+                                              className={`px-1 py-0.2 rounded font-mono text-[9px] font-bold shrink-0 ${
+                                                (item.course?.absences || item.absences) >= (item.course?.maxAbsences || item.maxAbsences || 3)
+                                                  ? 'bg-danger text-danger-content'
+                                                  : 'bg-warn text-warn-content'
+                                              }`}
+                                            >
+                                              {toFaDigits(item.course?.absences || item.absences)}/{toFaDigits(item.course?.maxAbsences || item.maxAbsences || 3)}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <p className="text-[9px] opacity-75 truncate mt-0.5">
+                                          {item.professor}
+                                        </p>
+                                      </div>
+                                    );
+                                  }
+
+                                  return (
+                                    <div
+                                      key={item.id || idx}
+                                      onClick={() => handleOpenEditCourse(item.course || item)}
+                                      style={isHex ? { borderColor: item.color, backgroundColor: `${item.color}18`, color: item.color } : undefined}
+                                      className={`rounded-xl border p-2 text-right transition-all hover:scale-[1.02] cursor-pointer hover:ring-2 hover:ring-primary/40 shadow-xs ${
+                                        isHex ? '' : (cellTone[item.color] || cellTone.primary)
+                                      }`}
+                                      title="برای مشاهده و ویرایش درس کلیک کنید"
+                                    >
+                                      <p className="text-[11px] font-bold leading-tight line-clamp-2">
+                                        {item.title}
+                                      </p>
+                                      {item.time && (
+                                        <p className="text-[9.5px] font-mono font-medium opacity-90 mt-0.5">
+                                          {toFaDigits(item.time)}
+                                        </p>
+                                      )}
+                                      <div className="mt-1 flex items-center justify-between gap-1 text-[10px] opacity-85">
+                                        <span className="flex items-center gap-1 min-w-0 flex-1 truncate" title={item.room}>
+                                          <MapPin className="w-2.5 h-2.5 shrink-0" />
+                                          <span className="truncate">{formatRoomTag(item.room) || toFaDigits(item.room)}</span>
+                                        </span>
+                                        {(item.course?.absences > 0 || item.absences > 0) && (
+                                          <span
+                                            className={`px-1 py-0.2 rounded font-mono text-[9px] font-bold shrink-0 ${
+                                              (item.course?.absences || item.absences) >= (item.course?.maxAbsences || item.maxAbsences || 3)
+                                                ? 'bg-danger text-danger-content'
+                                                : 'bg-warn text-warn-content'
+                                            }`}
+                                          >
+                                            {toFaDigits(item.course?.absences || item.absences)}/{toFaDigits(item.course?.maxAbsences || item.maxAbsences || 3)}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p className="text-[9px] opacity-75 truncate mt-0.5">
+                                        {item.professor}
+                                      </p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </td>
                           );
+                        };
+
+                        if (transposeMatrix) {
+                          return days.map((day, di) => (
+                            <tr
+                              key={day}
+                              className={`border-b border-base-500/20 ${di % 2 === 1 ? 'bg-base-500/10' : ''}`}
+                            >
+                              <td className="sticky right-0 z-10 bg-base/95 backdrop-blur-md px-2 py-2.5 text-[11.5px] font-bold text-base-content whitespace-nowrap shadow-[2px_0_6px_-2px_rgba(0,0,0,0.2)]">
+                                {day}
+                              </td>
+                              {slots.map((_, si) => renderCell(si, di))}
+                            </tr>
+                          ));
                         }
 
-                        const items = Array.isArray(cell.items) && cell.items.length ? cell.items : [cell];
-                        const hasConflict = items.length > 1;
+                        return slots.map((slot, si) => (
+                          <tr
+                            key={slot}
+                            className={`border-b border-base-500/20 ${si % 2 === 1 ? 'bg-base-500/10' : ''}`}
+                          >
+                            <td className="sticky right-0 z-10 bg-base/95 backdrop-blur-md px-2 py-2.5 text-[10.5px] text-neutral font-mono whitespace-nowrap shadow-[2px_0_6px_-2px_rgba(0,0,0,0.2)]">
+                              {toFaDigits(slot)}
+                            </td>
+                            {days.map((_, di) => renderCell(si, di))}
+                          </tr>
+                        ));
+                      })()}
+                    </tbody>
+                  </table>
+                  </motion.div>
+                </AnimatePresence>
+              </div>
 
-                        return (
-                          <td key={di} className="p-1 align-top min-w-[105px] max-w-[135px] w-[115px]">
-                            {hasConflict && (
-                              <div className="mb-1.5 px-2 py-0.5 rounded-lg bg-danger/15 border border-danger/30 text-[9.5px] font-bold text-danger flex items-center justify-between">
-                                <span>⚠️ تداخل ({toFaDigits(items.length)})</span>
-                              </div>
-                            )}
-                            <div className="space-y-1.5">
-                              {items.map((item, idx) => {
-                                const isHex = String(item.color || '').startsWith('#') || String(item.color || '').startsWith('rgb');
-                                return (
-                                  <div
-                                    key={item.id || idx}
-                                    onClick={() => handleOpenEditCourse(item.course || item)}
-                                    style={isHex ? { borderColor: item.color, backgroundColor: `${item.color}18`, color: item.color } : undefined}
-                                    className={`rounded-xl border p-2 text-right transition-all hover:scale-[1.02] cursor-pointer hover:ring-2 hover:ring-primary/40 shadow-xs ${
-                                      isHex ? '' : (cellTone[item.color] || cellTone.primary)
-                                    }`}
-                                    title="برای مشاهده و ویرایش درس کلیک کنید"
-                                  >
-                                    <p className="text-[11px] font-bold leading-tight line-clamp-2">
-                                      {item.title}
-                                    </p>
-                                    <div className="mt-1 flex items-center justify-between gap-1 text-[10px] opacity-85">
-                                      <span className="flex items-center gap-1 min-w-0 flex-1 truncate" title={item.room}>
-                                        <MapPin className="w-2.5 h-2.5 shrink-0" />
-                                        <span className="truncate">{formatRoomTag(item.room) || toFaDigits(item.room)}</span>
-                                      </span>
-                                      {(item.course?.absences > 0 || item.absences > 0) && (
-                                        <span
-                                          className={`px-1 py-0.2 rounded font-mono text-[9px] font-bold shrink-0 ${
-                                            (item.course?.absences || item.absences) >= (item.course?.maxAbsences || item.maxAbsences || 3)
-                                              ? 'bg-danger text-danger-content'
-                                              : 'bg-warn text-warn-content'
-                                          }`}
-                                        >
-                                          {toFaDigits(item.course?.absences || item.absences)}/{toFaDigits(item.course?.maxAbsences || item.maxAbsences || 3)}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <p className="text-[9px] opacity-75 truncate mt-0.5">
-                                      {item.professor}
-                                    </p>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="sarv-card p-3 flex items-center justify-between text-[11px] text-neutral">
-            <span>ساعت نماز و ناهار: {toFaDigits('۱۲:۳۰')} تا {toFaDigits('۱۳:۳۰')}</span>
-            <span className="text-primary font-bold">دانشگاه صنعتی خواجه نصیر</span>
-          </div>
+              <div className="sarv-card p-3 flex items-center justify-between text-[11px] text-neutral">
+                <span>ساعت نماز و ناهار: {toFaDigits('۱۲:۳۰')} تا {toFaDigits('۱۳:۳۰')}</span>
+                <span className="text-primary font-bold">{getUniversityName(getSelectedUniversity())}</span>
+              </div>
+            </>
+          )}
         </motion.div>
       )}
 
@@ -1266,14 +1507,55 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                 </button>
               </div>
 
+              {/* انتخاب فرمت جدول یا تایم‌لاین برای سایر دانشگاه‌ها */}
+              {!isAut && (
+                <div className="flex items-center justify-center pb-1 pt-1 shrink-0">
+                  <div className="inline-flex p-1 rounded-xl bg-base-500/25 border border-base-500/40 gap-1">
+                    <button
+                      type="button"
+                      disabled={shareRendering}
+                      onClick={() => handleChangeShareFormat('matrix')}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        shareFormat === 'matrix'
+                          ? 'bg-primary text-primary-content shadow-xs'
+                          : 'text-neutral hover:text-base-content'
+                      }`}
+                    >
+                      <Table2 className="w-3.5 h-3.5" />
+                      جدول ماتریسی
+                    </button>
+                    <button
+                      type="button"
+                      disabled={shareRendering}
+                      onClick={() => handleChangeShareFormat('timeline')}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        shareFormat === 'timeline'
+                          ? 'bg-primary text-primary-content shadow-xs'
+                          : 'text-neutral hover:text-base-content'
+                      }`}
+                    >
+                      <Clock className="w-3.5 h-3.5" />
+                      تایم‌لاین پیوسته
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* کانتینر پیش‌نمایش تصویر */}
-              <div className="flex-1 overflow-y-auto py-3 pr-0.5">
-                <div className="relative rounded-2xl overflow-hidden border border-base-500/50 shadow-lg bg-black/40">
-                  <img
-                    src={storyPreview.url}
-                    alt="پیش‌نمایش استوری برنامه هفتگی"
-                    className="w-full h-auto object-contain block"
-                  />
+              <div className="flex-1 overflow-y-auto py-2.5 pr-0.5">
+                <div className="relative rounded-2xl overflow-hidden border border-base-500/50 shadow-lg bg-black/40 min-h-[140px] flex items-center justify-center">
+                  {shareRendering ? (
+                    <div className="p-8 flex flex-col items-center gap-2 text-neutral">
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                      <span className="text-[11px] font-medium">در حال تولید تصویر...</span>
+                    </div>
+                  ) : (
+                    <img
+                      src={storyPreview.url}
+                      alt="پیش‌نمایش استوری برنامه هفتگی"
+                      className="w-full h-auto object-contain block"
+                    />
+                  )}
                 </div>
               </div>
 

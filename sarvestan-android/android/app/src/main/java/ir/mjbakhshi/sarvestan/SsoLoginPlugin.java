@@ -35,6 +35,9 @@ import java.util.regex.Pattern;
 public class SsoLoginPlugin extends Plugin {
 
     private static final String TAG = "SsoLogin";
+    private static final Map<String, String> sSavedUtSsoCookies = new LinkedHashMap<>();
+    private static final Map<String, String> sSavedKntuSsoCookies = new LinkedHashMap<>();
+
     private static class HttpResult {
         int status;
         String location;
@@ -69,12 +72,14 @@ public class SsoLoginPlugin extends Plugin {
         } catch (Exception ignore) {}
 
         if (!cookies.isEmpty()) {
-            boolean isBeh = url.getHost() != null && url.getHost().contains("behestan");
+            boolean isBeh = url.getHost() != null && (url.getHost().contains("behestan") || url.getHost().contains("ems2.ut.ac.ir"));
             StringBuilder sb = new StringBuilder();
             for (Map.Entry<String, String> e : cookies.entrySet()) {
                 String k = e.getKey();
-                // کوکی‌های Keycloak فقط برای sso — فرستادن آن‌ها به IIS نشست کاری را خراب می‌کند
+                // کوکی‌های درگاه احراز هویت (Keycloak یا sso1.ut) فقط برای SSO است و فرستادن آن‌ها به IIS نشست را خراب می‌کند
                 if (isBeh && (k.startsWith("KC_") || k.startsWith("KEYCLOAK_")
+                        || k.startsWith(".AspNetCore") || k.startsWith("idsrv") || k.startsWith("SignInMessage")
+                        || k.startsWith("__RequestVerification")
                         || k.equals("AUTH_SESSION_ID") || k.equals("KC_RESTART")
                         || k.equals("JSESSIONID") || k.equals("OAuth_Token_Request_State"))) {
                     continue;
@@ -178,15 +183,38 @@ public class SsoLoginPlugin extends Plugin {
     public void login(PluginCall call) {
         String username = call.getString("username", "").trim();
         String password = call.getString("password", "");
+        String uniId = call.getString("uniId", "kntu");
 
         if (username.isEmpty() || password.isEmpty()) {
             call.reject("نام کاربری و رمز عبور الزامی است");
             return;
         }
 
+        if ("ut".equalsIgnoreCase(uniId)) {
+            loginUt(call, username, password);
+        } else if ("aut".equalsIgnoreCase(uniId)) {
+            loginAut(call, username, password);
+        } else {
+            loginKntu(call, username, password);
+        }
+    }
+
+    private void loginKntu(PluginCall call, String username, String password) {
         new Thread(() -> {
             try {
+                String selectedUserNo = call.getString("selectedUserNo", null);
+                String selectedUserType = call.getString("selectedUserType", "1");
                 Map<String, String> cookies = new LinkedHashMap<>();
+                if (selectedUserNo != null && !selectedUserNo.isEmpty()) {
+                    synchronized (sSavedKntuSsoCookies) {
+                        cookies.putAll(sSavedKntuSsoCookies);
+                    }
+                } else {
+                    synchronized (sSavedKntuSsoCookies) {
+                        sSavedKntuSsoCookies.clear();
+                    }
+                }
+
                 String state = "st" + System.currentTimeMillis();
                 String authUrl = "https://sso.kntu.ac.ir/realms/kntu/protocol/openid-connect/auth" +
                     "?client_id=behestan.kntu.ac.ir" +
@@ -361,9 +389,6 @@ public class SsoLoginPlugin extends Plugin {
                     return;
                 }
 
-                String selectedUserNo = call.getString("selectedUserNo", null);
-                String selectedUserType = call.getString("selectedUserType", "1");
-
                 String sid = null;
                 if (oauthJson.has("oaut") && !oauthJson.isNull("oaut")) {
                     JSONObject oaut = oauthJson.getJSONObject("oaut");
@@ -407,6 +432,10 @@ public class SsoLoginPlugin extends Plugin {
 
                     // اگر هنوز انتخاب نشده، لیست را برای انتخاب کاربر به فرانت‌اند بفرست
                     if (selectedUserNo == null || selectedUserNo.isEmpty()) {
+                        synchronized (sSavedKntuSsoCookies) {
+                            sSavedKntuSsoCookies.clear();
+                            sSavedKntuSsoCookies.putAll(cookies);
+                        }
                         JSObject selectFail = new JSObject();
                         selectFail.put("ok", false);
                         selectFail.put("code", "needs-kahad-selection");
@@ -513,6 +542,10 @@ public class SsoLoginPlugin extends Plugin {
                     studentId = username; // نام کاربری SSO — گزارش ۸۸ بعداً شمارهٔ دانشجویی واقعی را جایگزین می‌کند
                 }
 
+                synchronized (sSavedKntuSsoCookies) {
+                    sSavedKntuSsoCookies.clear();
+                }
+
                 JSObject ret = new JSObject();
                 ret.put("ok", true);
                 ret.put("sid", sid);
@@ -528,6 +561,451 @@ public class SsoLoginPlugin extends Plugin {
             } catch (Exception e) {
                 Log.e(TAG, "Login error: " + e.getMessage(), e);
                 call.reject("خطای ارتباط با سرور احراز هویت: " + e.getMessage());
+            }
+        }).start();
+    }
+
+    private void loginUt(PluginCall call, String username, String password) {
+        new Thread(() -> {
+            try {
+                String selectedUserNo = call.getString("selectedUserNo", null);
+                String selectedUserType = call.getString("selectedUserType", "1");
+
+                Map<String, String> cookies = new LinkedHashMap<>();
+                if (selectedUserNo != null && !selectedUserNo.isEmpty()) {
+                    synchronized (sSavedUtSsoCookies) {
+                        cookies.putAll(sSavedUtSsoCookies);
+                    }
+                } else {
+                    synchronized (sSavedUtSsoCookies) {
+                        sSavedUtSsoCookies.clear();
+                    }
+                }
+
+                String state = "st" + System.currentTimeMillis();
+                String clientId = "golestanSSO-xRwHTGSHGtjmLJbqr2k9GDSOoai-TCc.apigateway.ut.ac.ir";
+                String redirectUri = "https://ems2.ut.ac.ir/index.html";
+                String authUrl = "https://sso1.ut.ac.ir/ApiContainer.SSO.RCL1/connect/authorize" +
+                        "?client_id=" + URLEncoder.encode(clientId, "UTF-8") +
+                        "&redirect_uri=" + URLEncoder.encode(redirectUri, "UTF-8") +
+                        "&response_type=code&scope=openid&state=" + state;
+
+                // ۱) دریافت صفحه فرم لاگین sso1.ut.ac.ir یا ریدایرکت خودکار در صورت وجود نشست فعال
+                String currentUrl = authUrl;
+                HttpResult page1 = null;
+                String code = null;
+                for (int i = 0; i < 6; i++) {
+                    page1 = executeHttp(currentUrl, "GET", null, null, null, cookies);
+                    if (page1.status >= 300 && page1.status < 400 && page1.location != null) {
+                        currentUrl = new URL(new URL(currentUrl), page1.location).toString();
+                        code = extractCodeFromUrl(currentUrl);
+                        if (code != null) break;
+                        continue;
+                    }
+                    break;
+                }
+
+                // اگر از قبل نشست SSO فعال بوده و کد تولید شده باشد، دیگر فرم لاگین ارسال نمی‌شود
+                if (code == null) {
+                    if (page1 == null || page1.body == null || page1.body.isEmpty()) {
+                        call.reject("عدم دریافت پاسخ از سرور احراز هویت دانشگاه تهران");
+                        return;
+                    }
+
+                    // استخراج __RequestVerificationToken
+                    String token = "";
+                    Matcher mTok = Pattern.compile("name=[\"']__RequestVerificationToken[\"'][^>]+value=[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE).matcher(page1.body);
+                    if (mTok.find()) {
+                        token = mTok.group(1);
+                    } else {
+                        Matcher mTok2 = Pattern.compile("value=[\"']([^\"']+)[\"'][^>]+name=[\"']__RequestVerificationToken[\"']", Pattern.CASE_INSENSITIVE).matcher(page1.body);
+                        if (mTok2.find()) token = mTok2.group(1);
+                    }
+
+                    // استخراج ReturnUrl
+                    String returnUrl = "";
+                    Matcher mRet = Pattern.compile("id=[\"']ReturnUrl[\"'][^>]+value=[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE).matcher(page1.body);
+                    if (mRet.find()) {
+                        returnUrl = decodeHtml(mRet.group(1));
+                    } else {
+                        Matcher mRet2 = Pattern.compile("[?&]ReturnUrl=([^&]+)", Pattern.CASE_INSENSITIVE).matcher(currentUrl);
+                        if (mRet2.find()) {
+                            returnUrl = URLDecoder.decode(mRet2.group(1), "UTF-8");
+                        }
+                    }
+
+                    // ارسال فرم به https://sso1.ut.ac.ir/ApiContainer.SSO.RCL1/Account/login
+                    StringBuilder postParams = new StringBuilder();
+                    postParams.append("ReturnUrl=").append(URLEncoder.encode(returnUrl, "UTF-8"));
+                    postParams.append("&captcha=");
+                    postParams.append("&Username=").append(URLEncoder.encode(username, "UTF-8"));
+                    postParams.append("&Password=").append(URLEncoder.encode(password, "UTF-8"));
+                    postParams.append("&RememberLogin=").append(URLEncoder.encode("true", "UTF-8"));
+                    postParams.append("&button=").append(URLEncoder.encode("login", "UTF-8"));
+                    postParams.append("&__RequestVerificationToken=").append(URLEncoder.encode(token, "UTF-8"));
+                    postParams.append("&RememberLogin=").append(URLEncoder.encode("false", "UTF-8"));
+
+                    String postUrl = "https://sso1.ut.ac.ir/ApiContainer.SSO.RCL1/Account/login";
+                    HttpResult postRes = executeHttp(postUrl, "POST", postParams.toString(), "application/x-www-form-urlencoded", currentUrl, cookies);
+
+                    // دنبال کردن ریدایرکت‌های ۳۰۲ با متد GET (مشابه مرورگر)
+                    for (int i = 0; i < 8 && postRes != null && postRes.status >= 300 && postRes.status < 400 && postRes.location != null; i++) {
+                        postUrl = new URL(new URL(postUrl), postRes.location).toString();
+                        code = extractCodeFromUrl(postUrl);
+                        if (code != null) break;
+                        postRes = executeHttp(postUrl, "GET", null, null, null, cookies);
+                    }
+
+                    if (code == null && postUrl != null) {
+                        code = extractCodeFromUrl(postUrl);
+                    }
+                    if (code == null && postRes != null && postRes.body != null) {
+                        Matcher mCode = Pattern.compile("[?&]code=([A-Za-z0-9._~%-]+)").matcher(postRes.body);
+                        if (mCode.find()) code = URLDecoder.decode(mCode.group(1), "UTF-8");
+                    }
+
+                    if (code == null) {
+                        String err = "";
+                        if (postRes != null && postRes.body != null) {
+                            if (postRes.body.contains("نام کاربری و یا رمز عبور اشتباه است") ||
+                                postRes.body.contains("نام کاربری یا کلمه عبور نادرست است") ||
+                                postRes.body.contains("کلمه عبور اشتباه است") ||
+                                postRes.body.contains("Invalid username or password")) {
+                                err = "نام کاربری یا رمز عبور اشتباه است.";
+                            } else {
+                                Matcher mVal = Pattern.compile("validation-summary-errors[^>]*>[\\s\\S]*?<li>([\\s\\S]*?)<\\/li>", Pattern.CASE_INSENSITIVE).matcher(postRes.body);
+                                if (mVal.find()) {
+                                    err = decodeHtml(mVal.group(1).replaceAll("<[^>]+>", " ").trim());
+                                } else {
+                                    Matcher mErr = Pattern.compile("class=[\"'][^\"']*alert-danger[^\"']*[\"'][^>]*>([\\s\\S]*?)<\\/div>", Pattern.CASE_INSENSITIVE).matcher(postRes.body);
+                                    if (mErr.find()) {
+                                        err = decodeHtml(mErr.group(1).replaceAll("<[^>]+>", " ").trim());
+                                    }
+                                }
+                            }
+                        }
+                        if (err.isEmpty()) {
+                            if (postRes == null) {
+                                err = "عدم دریافت پاسخ از سرور احراز هویت دانشگاه تهران";
+                            } else if (postRes.status >= 500) {
+                                err = "خطای سرور احراز هویت دانشگاه تهران (کد " + postRes.status + ")";
+                            } else {
+                                err = "نام کاربری یا رمز عبور اشتباه است.";
+                            }
+                        }
+                        boolean isBadCred = err.contains("رمز عبور") || err.contains("کاربری");
+                        JSObject fail = new JSObject();
+                        fail.put("ok", false);
+                        fail.put("error", err);
+                        fail.put("code", isBadCred ? "bad-credentials" : "sso-error");
+                        call.reject(err, isBadCred ? "bad-credentials" : "sso-error", fail);
+                        return;
+                    }
+                }
+
+                // ذخیره کوکی‌های فعال درگاه احراز هویت برای مرحله دوم انتخاب پرونده (طرح کهاد)
+                synchronized (sSavedUtSsoCookies) {
+                    sSavedUtSsoCookies.clear();
+                    sSavedUtSsoCookies.putAll(cookies);
+                }
+
+                // گرم کردن نشست بهستان تهران (act=00)
+                try {
+                    executeHttp("https://ems2.ut.ac.ir/frm/loginapi/loginapi.svc/", "POST", "{\"r\":{},\"rp\":{},\"act\":\"00\"}", "application/json", "https://ems2.ut.ac.ir/browser/fa/", cookies);
+                } catch (Exception ignore) {}
+
+                // تبادل کد oauth2 با بهستان تهران (rsc: 120)
+                JSONObject verifyObj = new JSONObject();
+                verifyObj.put("code", code);
+                verifyObj.put("ticket", "");
+                verifyObj.put("l", "");
+                verifyObj.put("p", "");
+                verifyObj.put("d", "0");
+                verifyObj.put("c", "");
+                verifyObj.put("rsc", "120");
+                if (selectedUserNo != null && !selectedUserNo.isEmpty()) {
+                    verifyObj.put("un", selectedUserNo);
+                    verifyObj.put("ut", selectedUserType);
+                }
+
+                JSONObject reqJson = new JSONObject();
+                reqJson.put("act", "09");
+                reqJson.put("r", verifyObj);
+                reqJson.put("rp", new JSONObject());
+
+                HttpResult oauthRes = executeHttp("https://ems2.ut.ac.ir/frmc/Authentication/oauth2/", "POST", reqJson.toString(), "application/json", "https://ems2.ut.ac.ir/browser/fa/", cookies);
+
+                if (oauthRes.body == null || oauthRes.body.isEmpty()) {
+                    call.reject("پاسخ احراز هویت گلستان تهران خالی بود");
+                    return;
+                }
+
+                JSONObject oauthJson = new JSONObject(oauthRes.body);
+                String sid = null;
+                if (oauthJson.has("oaut") && !oauthJson.isNull("oaut")) {
+                    JSONObject oaut = oauthJson.getJSONObject("oaut");
+                    if (oaut.has("rp") && !oaut.isNull("rp")) {
+                        sid = oaut.getJSONObject("rp").optString("sid", null);
+                    }
+                }
+                String ticket = oauthJson.optString("t", null);
+
+                // بررسی کهاد / چند پرونده
+                JSONArray accounts = null;
+                if (oauthJson.has("rset") && !oauthJson.isNull("rset")) {
+                    JSONObject rset = oauthJson.getJSONObject("rset");
+                    if (rset.has("grd") && !rset.isNull("grd")) {
+                        JSONArray grd = rset.getJSONArray("grd");
+                        if (grd.length() > 0) {
+                            String xml = grd.getJSONObject(0).optString("xml", "");
+                            if (xml.contains("accountInfo")) {
+                                try {
+                                    JSONObject accObj = new JSONObject(xml);
+                                    accounts = accObj.optJSONArray("accountInfo");
+                                } catch (Exception ignore) {}
+                            }
+                        }
+                    }
+                }
+
+                if ((ticket == null || ticket.isEmpty() || "null".equals(ticket)) && accounts != null && accounts.length() > 0) {
+                    if (selectedUserNo == null || selectedUserNo.isEmpty()) {
+                        for (int i = 0; i < accounts.length(); i++) {
+                            JSONObject acc = accounts.getJSONObject(i);
+                            if (username.equals(acc.optString("UserNo", ""))) {
+                                selectedUserNo = acc.optString("UserNo");
+                                selectedUserType = acc.optString("UserType", "1");
+                                break;
+                            }
+                        }
+                    }
+
+                    if (selectedUserNo == null || selectedUserNo.isEmpty()) {
+                        JSObject kahadRes = new JSObject();
+                        kahadRes.put("ok", false);
+                        kahadRes.put("code", "needs-kahad-selection");
+                        JSONArray cleanAccs = new JSONArray();
+                        for (int i = 0; i < accounts.length(); i++) {
+                            JSONObject a = accounts.getJSONObject(i);
+                            JSONObject item = new JSONObject();
+                            java.util.Iterator<String> it = a.keys();
+                            while (it.hasNext()) {
+                                String k = it.next();
+                                item.put(k, a.opt(k));
+                            }
+                            if (!item.has("DegreeName") || item.optString("DegreeName").isEmpty()) {
+                                String d = a.optString("UserLabel", "");
+                                if (d.isEmpty()) d = a.optString("DegreeDes", "");
+                                if (d.isEmpty()) d = a.optString("DegreeName", "");
+                                if (d.isEmpty()) d = a.optString("FieldDes", "");
+                                if (d.isEmpty()) d = "دانشجو: " + a.optString("UserNo");
+                                item.put("DegreeName", d);
+                            }
+                            cleanAccs.put(item);
+                        }
+                        kahadRes.put("accounts", cleanAccs);
+                        kahadRes.put("accountsRaw", cleanAccs.toString());
+                        call.reject("اکانت دارای چند پرونده تحصیلی است (طرح کهاد)", "needs-kahad-selection", kahadRes);
+                        return;
+                    }
+                }
+
+                if (sid == null || ticket == null || ticket.isEmpty() || "null".equals(ticket)) {
+                    String err = "نشست کاری از سامانه گلستان تهران دریافت نشد";
+                    if (oauthJson.has("msg") && !oauthJson.isNull("msg")) {
+                        JSONObject msg = oauthJson.getJSONObject("msg");
+                        if (msg.has("errors") && !msg.isNull("errors")) {
+                            JSONArray errArr = msg.getJSONArray("errors");
+                            if (errArr.length() > 0) {
+                                err = errArr.optString(0, err);
+                            }
+                        }
+                    }
+                    call.reject(err);
+                    return;
+                }
+
+                // ورود موفقیت‌آمیز — پاکسازی کوکی‌های موقت
+                synchronized (sSavedUtSsoCookies) {
+                    sSavedUtSsoCookies.clear();
+                }
+
+                // فعال‌سازی نشست (sys.svc nav 11130)
+                String studentId = selectedUserNo != null && !selectedUserNo.isEmpty() ? selectedUserNo : username;
+                String userId = username;
+
+                try {
+                    JSONObject navReq = new JSONObject();
+                    JSONObject navR = new JSONObject();
+                    navR.put("fid", "11130");
+                    navR.put("ft", "0");
+                    navR.put("subfrm", "");
+                    navReq.put("r", navR);
+                    navReq.put("act", "nav");
+                    JSONObject navRp = new JSONObject();
+                    navRp.put("loc", "fa");
+                    navRp.put("ut", "0");
+                    navRp.put("b", "0");
+                    navRp.put("sid", sid);
+                    navRp.put("sp", "{\"BrnNo\":\"0\",\"BrnLimit\":\"0\",\"UsrType\":\"0\",\"TrmType\":\"2\"}");
+                    navReq.put("rp", navRp);
+                    if (ticket != null) {
+                        navReq.put("t", ticket);
+                    }
+
+                    HttpResult navRes = executeHttp("https://ems2.ut.ac.ir/frm/sys/sys.svc/", "POST", navReq.toString(), "application/json", "https://ems2.ut.ac.ir/browser/fa/", cookies);
+                    if (navRes.body != null && !navRes.body.isEmpty()) {
+                        JSONObject navData = new JSONObject(navRes.body);
+                        if (navData.has("t") && !navData.isNull("t")) ticket = navData.getString("t");
+                        if (navData.has("outpar") && !navData.isNull("outpar")) {
+                            JSONObject outpar = navData.getJSONObject("outpar");
+                            if (outpar.has("std")) studentId = outpar.getString("std");
+                            if (outpar.has("u")) userId = outpar.getString("u");
+                        }
+                    }
+                } catch (Exception ignore) {}
+
+                StringBuilder cookieSb = new StringBuilder();
+                for (Map.Entry<String, String> e : cookies.entrySet()) {
+                    if (cookieSb.length() > 0) cookieSb.append("; ");
+                    cookieSb.append(e.getKey()).append("=").append(e.getValue());
+                }
+
+                JSObject res = new JSObject();
+                res.put("ok", true);
+                res.put("sid", sid);
+                res.put("ticket", ticket);
+                res.put("cookies", cookieSb.toString());
+                res.put("studentId", studentId);
+                res.put("userId", userId);
+                res.put("university", "ut");
+                res.put("source", "native_java");
+                call.resolve(res);
+            } catch (Exception ex) {
+                Log.e(TAG, "UT login error", ex);
+                call.reject("خطای ورود دانشگاه تهران: " + ex.getMessage());
+            }
+        }).start();
+    }
+
+    private void loginAut(PluginCall call, String username, String password) {
+        new Thread(() -> {
+            try {
+                Map<String, String> cookies = new LinkedHashMap<>();
+                String entryUrl = "https://accounts.aut.ac.ir/cas/login?service=https%3A%2F%2Fportal.aut.ac.ir%2Findex.html%3Fsso%3D101";
+                HttpResult page1 = executeHttp(entryUrl, "GET", null, null, null, cookies);
+
+                Pattern execPat = Pattern.compile("name=[\"']execution[\"']\\s+value=[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
+                Matcher execMat = execPat.matcher(page1.body != null ? page1.body : "");
+                String execution = "";
+                if (execMat.find()) {
+                    execution = execMat.group(1);
+                } else {
+                    Pattern execPat2 = Pattern.compile("value=[\"']([^\"']+)[\"']\\s+name=[\"']execution[\"']", Pattern.CASE_INSENSITIVE);
+                    Matcher execMat2 = execPat2.matcher(page1.body != null ? page1.body : "");
+                    if (execMat2.find()) {
+                        execution = execMat2.group(1);
+                    }
+                }
+
+                StringBuilder formBody = new StringBuilder();
+                formBody.append("username=").append(URLEncoder.encode(username, "UTF-8"));
+                formBody.append("&password=").append(URLEncoder.encode(password, "UTF-8"));
+                formBody.append("&execution=").append(URLEncoder.encode(execution, "UTF-8"));
+                formBody.append("&_eventId=").append(URLEncoder.encode("submit", "UTF-8"));
+                formBody.append("&geolocation=");
+
+                HttpResult loginRes = executeHttp("https://accounts.aut.ac.ir/cas/login", "POST", formBody.toString(), "application/x-www-form-urlencoded", entryUrl, cookies);
+
+                String ticket = null;
+                if (loginRes.location != null) {
+                    Matcher tm = Pattern.compile("[?&]ticket=([^&]+)").matcher(loginRes.location);
+                    if (tm.find()) ticket = URLDecoder.decode(tm.group(1), "UTF-8");
+                }
+                if (ticket == null && loginRes.body != null) {
+                    Matcher tm = Pattern.compile("[?&]ticket=([^&\"'\\s]+)").matcher(loginRes.body);
+                    if (tm.find()) ticket = URLDecoder.decode(tm.group(1), "UTF-8");
+                }
+
+                if (ticket == null) {
+                    Pattern alertPat = Pattern.compile("class=[\"'][^\"']*alert[^\"']*[\"'][^>]*>([\\s\\S]*?)</div>", Pattern.CASE_INSENSITIVE);
+                    Matcher am = alertPat.matcher(loginRes.body != null ? loginRes.body : "");
+                    String errMsg = "نام کاربری یا رمز عبور اشتباه است.";
+                    if (am.find()) {
+                        errMsg = am.group(1).replaceAll("<[^>]+>", "").trim();
+                    }
+                    JSObject ret = new JSObject();
+                    ret.put("ok", false);
+                    ret.put("error", errMsg);
+                    ret.put("code", "bad-credentials");
+                    call.resolve(ret);
+                    return;
+                }
+
+                // Step 4: گرم کردن نشست وب بهستان (loginapi act 00)
+                try {
+                    executeHttp("https://portal.aut.ac.ir/frm/loginapi/loginapi.svc/", "POST", "{\"r\":{},\"rp\":{},\"act\":\"00\"}", "application/json", "https://portal.aut.ac.ir/browser/fa/", cookies);
+                } catch (Exception ignore) {}
+
+                // Step 5: تبادل بلیط در سامانه بهستان امیرکبیر
+                String verifyUrl = "https://portal.aut.ac.ir/frmc/Authentication/CAS/";
+                String verifyBody = "{\"act\":\"09\",\"r\":{\"code\":\"\",\"ticket\":\"" + ticket + "\",\"l\":\"\",\"p\":\"\",\"d\":\"0\",\"c\":\"\",\"rsc\":\"101\"},\"rp\":{}}";
+                HttpResult verifyRes = executeHttp(verifyUrl, "POST", verifyBody, "application/json", "https://portal.aut.ac.ir/browser/fa/?sso=101&ticket=" + URLEncoder.encode(ticket, "UTF-8"), cookies);
+
+                JSONObject verifyJson = new JSONObject(verifyRes.body);
+                String sid = verifyJson.optJSONObject("oaut") != null && verifyJson.getJSONObject("oaut").optJSONObject("rp") != null
+                    ? verifyJson.getJSONObject("oaut").getJSONObject("rp").optString("sid", "")
+                    : "";
+                String behestanTicket = verifyJson.optString("t", "");
+
+                if (sid.isEmpty() || behestanTicket.isEmpty()) {
+                    JSObject ret = new JSObject();
+                    ret.put("ok", false);
+                    ret.put("error", "نشست از سامانه بهستان امیرکبیر دریافت نشد");
+                    call.resolve(ret);
+                    return;
+                }
+
+                // Step 6: فعال‌سازی نشست کاری + دریافت شماره دانشجویی
+                String currentTicket = behestanTicket;
+                String resolvedStudentId = username;
+                String resolvedUserId = null;
+                try {
+                    String navBody = "{\"r\":{\"fid\":\"11130\",\"ft\":\"0\",\"subfrm\":\"\"},\"act\":\"nav\",\"rp\":{\"sp\":\"{\\\"BrnNo\\\":\\\"0\\\",\\\"BrnLimit\\\":\\\"0\\\",\\\"UsrType\\\":\\\"0\\\",\\\"TrmType\\\":\\\"2\\\"}\",\"loc\":\"fa\",\"ut\":\"0\",\"b\":\"0\",\"sid\":\"" + sid + "\"},\"t\":" + JSONObject.quote(currentTicket) + "}";
+                    HttpResult navRes = executeHttp("https://portal.aut.ac.ir/frm/sys/sys.svc/", "POST", navBody, "application/json", "https://portal.aut.ac.ir/browser/fa/", cookies);
+                    JSONObject navJson = new JSONObject(navRes.body);
+                    if (navJson.has("t")) currentTicket = navJson.getString("t");
+                    JSONObject outpar = navJson.optJSONObject("outpar");
+                    if (outpar != null) {
+                        if (outpar.has("std") && !outpar.isNull("std")) resolvedStudentId = outpar.getString("std");
+                        if (outpar.has("u") && !outpar.isNull("u")) resolvedUserId = outpar.getString("u");
+                    }
+                } catch (Exception ignore) {}
+
+                StringBuilder cookieHeader = new StringBuilder();
+                for (Map.Entry<String, String> entry : cookies.entrySet()) {
+                    if (entry.getKey().toLowerCase().contains("sso")) continue;
+                    if (cookieHeader.length() > 0) cookieHeader.append("; ");
+                    cookieHeader.append(entry.getKey()).append("=").append(entry.getValue());
+                }
+                if (!cookieHeader.toString().contains("ASP.NET_SessionId=")) {
+                    if (cookieHeader.length() > 0) cookieHeader.append("; ");
+                    cookieHeader.append("ASP.NET_SessionId=").append(sid);
+                }
+
+                JSObject ret = new JSObject();
+                ret.put("ok", true);
+                ret.put("sid", sid);
+                ret.put("ticket", currentTicket);
+                ret.put("studentId", resolvedStudentId);
+                if (resolvedUserId != null) ret.put("userId", resolvedUserId);
+                ret.put("university", "aut");
+                ret.put("cookies", cookieHeader.toString());
+                ret.put("source", "native_java");
+                call.resolve(ret);
+            } catch (Exception ex) {
+                Log.e(TAG, "AUT login error", ex);
+                call.reject("خطا در احراز هویت دانشگاه صنعتی امیرکبیر: " + ex.getMessage());
             }
         }).start();
     }

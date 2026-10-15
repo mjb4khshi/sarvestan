@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -16,13 +16,58 @@ import { useSarvestanData } from '../hooks/useSarvestanData';
 import { toFaDigits } from '../utils/faDigits';
 import { getLocalNotes, clearLocalNotes } from '../services/behestan/store';
 import { useAppIcon } from '../services/appIcon';
+import { enableBatMode, useBatMode } from '../services/batMode';
+import { getSelectedUniversity, getUniversityName } from '../services/behestan/session';
 
 export default function TopBar({ title, onBack }) {
   const { currentTheme, setTheme, themes, activeThemeMeta } = useTheme();
-  const { workflows, live } = useSarvestanData();
+  const { workflows, live, session } = useSarvestanData();
   const { currentIcon } = useAppIcon();
+  const { isBatMode } = useBatMode();
   const [themeSheetOpen, setThemeSheetOpen] = useState(false);
   const [notifySheetOpen, setNotifySheetOpen] = useState(false);
+  const [batmanHoldProgress, setBatmanHoldProgress] = useState(0);
+  const batmanTimerRef = useRef(null);
+  const batmanIntervalRef = useRef(null);
+  const batmanTriggeredRef = useRef(false);
+
+  const startBatmanHold = (e) => {
+    batmanTriggeredRef.current = false;
+    const startTime = Date.now();
+    const duration = 5000;
+
+    clearInterval(batmanIntervalRef.current);
+    clearTimeout(batmanTimerRef.current);
+
+    batmanIntervalRef.current = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const pct = Math.min(100, Math.round((elapsed / duration) * 100));
+      setBatmanHoldProgress(pct);
+    }, 50);
+
+    batmanTimerRef.current = setTimeout(async () => {
+      batmanTriggeredRef.current = true;
+      clearInterval(batmanIntervalRef.current);
+      setBatmanHoldProgress(0);
+
+      // فعال‌سازی حالت بتمن (آیکون و بک‌گراند) بدون تغییر تم جاری
+      await enableBatMode();
+
+      // ارسال رویداد رژه خفاش‌ها
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sarvestan-bat-celebrate', { detail: { celebrate: true } }));
+      }
+
+      // بستن شیت انتخاب تم
+      setThemeSheetOpen(false);
+    }, duration);
+  };
+
+  const cancelBatmanHold = () => {
+    clearTimeout(batmanTimerRef.current);
+    clearInterval(batmanIntervalRef.current);
+    setBatmanHoldProgress(0);
+  };
 
   const localNotes = getLocalNotes();
   const allNotifications = [
@@ -68,6 +113,24 @@ export default function TopBar({ title, onBack }) {
                 >
                   <ChevronLeft className="w-4.5 h-4.5 rotate-180" />
                 </button>
+              ) : isBatMode ? (
+                <div className="w-8 h-7 flex items-center justify-center">
+                  <svg
+                    viewBox="0 0 122.13 69.89"
+                    className="w-7.5 h-auto drop-shadow-sm transition-transform hover:scale-110 active:scale-95"
+                    aria-label="شوالیه تاریکی"
+                    title="حالت بتمن فعال است"
+                  >
+                    <path
+                      fill="#f7dd30"
+                      d="M121.06,35c0,18.71-26.86,33.88-60,33.88S1.06,53.66,1.06,35s26.87-33.89,60-33.89,60,15.17,60,33.89Z"
+                    />
+                    <path
+                      fill="#000000"
+                      d="M51.72,24.46c-14.49,5.37-21.86-8-14.49-15.74-11.75,3-30.86,11.49-30.86,25.63,0,12.83,12.49,20.09,21.49,23.22-8.68-10.74,3.25-19.16,13.7-7.41C49.69,35.73,59.28,56.44,61,59.58h0c1.71-3.14,11.31-23.85,19.44-9.42,10.45-11.75,22.38-3.33,13.7,7.41,9-3.13,21.49-10.39,21.49-23.22,0-14.14-19.11-22.63-30.86-25.63,7.37,7.74,0,21.11-14.49,15.74-1.67-2-2.75-6.11-2.75-18.24-1.94,1.26-3.33,5.71-3.45,6a12,12,0,0,0-6.15,0c-.12-.32-1.51-4.77-3.45-6,0,12.13-1.08,16.25-2.75,18.24ZM122.13,35c0,9.76-6.93,18.56-18.12,24.88-11,6.22-26.2,10.06-42.95,10.06S29.13,66.05,18.12,59.83C6.92,53.51,0,44.71,0,35S6.92,16.39,18.12,10.07C29.13,3.85,44.32,0,61.06,0S93,3.85,104,10.07C115.2,16.39,122.13,25.18,122.13,35ZM103,58c10.52-5.94,17-14.09,17-23s-6.51-17.1-17-23c-10.7-6-25.52-9.78-41.91-9.78s-31.2,3.74-41.9,9.78C8.64,17.85,2.13,26,2.13,35S8.64,52,19.16,58c10.7,6.05,25.52,9.79,41.9,9.79S92.27,64,103,58Z"
+                    />
+                  </svg>
+                </div>
               ) : (
                 <svg
                   viewBox="0 0 1080 1080"
@@ -92,7 +155,9 @@ export default function TopBar({ title, onBack }) {
                 )}
               </h1>
               <span className="text-[10px] text-neutral truncate">
-                {title ? 'سامانه هوشمند دانشجویی' : 'دانشگاه صنعتی خواجه نصیر طوسی'}
+                {title
+                  ? 'سامانه هوشمند دانشجویی'
+                  : getUniversityName(session?.university || getSelectedUniversity())}
               </span>
             </div>
           </div>
@@ -180,24 +245,47 @@ export default function TopBar({ title, onBack }) {
                     {themes.map((theme) => {
                       const isSelected = currentTheme === theme.id;
                       const isLimited = Boolean(theme.isLimited || theme.badge);
+                      const isBatman = theme.id === 'batman';
+                      const isCharging = isBatman && batmanHoldProgress > 0;
+
                       return (
                         <button
                           key={theme.id}
                           type="button"
-                          onClick={() => {
+                          onClick={(e) => {
+                            if (isBatman && batmanTriggeredRef.current) {
+                              batmanTriggeredRef.current = false;
+                              e.preventDefault();
+                              e.stopPropagation();
+                              return;
+                            }
                             setTheme(theme.id);
                             setThemeSheetOpen(false);
                           }}
-                          className={`w-full flex items-center justify-between p-3 rounded-2xl transition-all text-right border relative overflow-hidden ${
-                            isSelected
+                          onPointerDown={isBatman ? startBatmanHold : undefined}
+                          onPointerUp={isBatman ? cancelBatmanHold : undefined}
+                          onPointerLeave={isBatman ? cancelBatmanHold : undefined}
+                          onPointerCancel={isBatman ? cancelBatmanHold : undefined}
+                          className={`w-full flex items-center justify-between p-3 rounded-2xl transition-all text-right border relative overflow-hidden select-none cursor-pointer ${
+                            isCharging
+                              ? 'bg-black text-[#ffe600] border-[#ffe600] shadow-[0_0_25px_rgba(255,230,0,0.4)] scale-[0.99]'
+                              : isSelected
                               ? 'bg-primary/12 border-primary/50 text-primary font-bold shadow-sm'
                               : isLimited
                               ? 'bg-gradient-to-l from-[#931139]/10 via-base-500/20 to-[#931139]/5 border-[#931139]/35 text-base-content hover:border-[#931139]/60 shadow-xs'
                               : 'bg-base-500/15 border-base-500/30 text-base-content hover:bg-base-500/30'
                           }`}
                         >
-                          <div className="flex items-center gap-3">
-                            {/* پیش‌نمایش ۳ رنگ شاخص پالت: کاملاً منظم، بدون هم‌پوشانی و با کادر تفکیک‌شده */}
+                          {/* نوار شارژ ۵ ثانیه‌ای فعال‌سازی ایستر اگ بتمن */}
+                          {isCharging && (
+                            <div
+                              className="absolute inset-0 bg-[#ffe600]/25 pointer-events-none transition-all duration-75"
+                              style={{ width: `${batmanHoldProgress}%` }}
+                            />
+                          )}
+
+                          <div className="flex items-center gap-3 relative z-10">
+                            {/* پیش‌نمایش ۳ رنگ شاخص پالت */}
                             <div className={`flex items-center gap-1.5 p-1 rounded-xl bg-base-500/20 border ${isLimited ? 'border-[#931139]/40 shadow-xs shadow-[#931139]/15' : 'border-base-500/35'} shrink-0 shadow-2xs`}>
                               <span
                                 className="w-3.5 h-3.5 rounded-full border border-black/20 dark:border-white/20 shadow-2xs shrink-0"
@@ -226,18 +314,24 @@ export default function TopBar({ title, onBack }) {
                                   </span>
                                 )}
                               </div>
-                              <p className="text-[10px] text-neutral mt-0.5">
-                                {theme.mode === 'dark' ? 'حالت تاریک' : 'حالت روشن'} · {theme.name}
-                              </p>
+                              {isCharging ? (
+                                <p className="text-[10px] text-[#ffe600] font-black mt-0.5 animate-pulse">
+                                  در حال احضار خفاش شب... {toFaDigits(Math.max(1, Math.ceil((5000 - (batmanHoldProgress / 100) * 5000) / 1000)))} ثانیه نگه دارید
+                                </p>
+                              ) : (
+                                <p className="text-[10px] text-neutral mt-0.5">
+                                  {theme.mode === 'dark' ? 'حالت تاریک' : 'حالت روشن'} · {theme.name}
+                                </p>
+                              )}
                             </div>
                           </div>
                           {isSelected ? (
-                            <div className="w-6 h-6 rounded-full bg-primary text-primary-content grid place-items-center shrink-0">
+                            <div className="w-6 h-6 rounded-full bg-primary text-primary-content grid place-items-center shrink-0 relative z-10">
                               <Check className="w-3.5 h-3.5" />
                             </div>
                           ) : (
-                            <span className={`text-[11px] font-mono ${isLimited ? 'text-[#931139] font-bold' : 'text-neutral/60'}`}>
-                              {isLimited ? 'ویژه' : 'انتخاب'}
+                            <span className={`text-[11px] font-mono relative z-10 ${isCharging ? 'text-[#ffe600] font-black' : isLimited ? 'text-[#931139] font-bold' : 'text-neutral/60'}`}>
+                              {isCharging ? 'در حال احضار...' : isLimited ? 'ویژه' : 'انتخاب'}
                             </span>
                           )}
                         </button>

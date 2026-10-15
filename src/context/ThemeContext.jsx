@@ -1,67 +1,25 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 
 export const SARV_THEMES = [
   {
-    id: 'laboo',
-    name: 'White & Beetroot',
-    persianName: 'سفید و لبویی',
-    badge: 'محدود',
-    isLimited: true,
-    icon: '🍠',
-    mode: 'light',
-    primary: '#931139',
-    base: '#ffffff',
-    description: 'تم اختصاصی سفید و لبویی با کنتراست شفاف و جذاب، نسخه ویژه و محدود',
-  },
-  {
-    id: 'sarv',
-    name: 'Sarv Signature',
-    persianName: 'سَرو (امضای اختصاصی)',
-    icon: '🌿',
-    mode: 'dark',
-    primary: '#10b981',
-    base: '#051510',
-    description: 'تم اختصاصی و اصیل دیزاین‌سیستم سَرو با سبز زمردین و مشکی جنگلی عمیق'
-  },
-  {
-    id: 'persian-dark',
-    name: 'Persian Dark',
-    persianName: 'پرشین دارک (اصیل)',
-    icon: '🌙',
-    mode: 'dark',
-    primary: '#0066a4',
-    base: '#000000',
-    description: 'تم استاندارد تیره با کنتراست متعادل و فیروزه‌ای آرامش‌بخش'
-  },
-  {
     id: 'persian-light',
     name: 'Persian Light',
-    persianName: 'پرشین لایت (روشن)',
+    persianName: 'ایرانی روشن',
     icon: '☀️',
     mode: 'light',
     primary: '#0066a4',
     base: '#ffffff',
-    description: 'پالت سفید گرم، تمیز و خوانا برای محیط‌های روشن'
+    accent: '#fe28a2',
   },
   {
-    id: 'persian-dark-sharp',
-    name: 'Persian Dark Sharp',
-    persianName: 'پرشین دارک شارپ (زاویه‌دار)',
-    icon: '📐',
+    id: 'persian-dark',
+    name: 'Persian Dark',
+    persianName: 'ایرانی تاریک',
+    icon: '🌙',
     mode: 'dark',
-    primary: '#0066a4',
+    primary: '#0077c2',
     base: '#000000',
-    description: 'نسخه بدون انحنا (Border Radius: 0) با سبک نئو بروتالیسم مدرن'
-  },
-  {
-    id: 'persian-light-sharp',
-    name: 'Persian Light Sharp',
-    persianName: 'پرشین لایت شارپ',
-    icon: '📐',
-    mode: 'light',
-    primary: '#0066a4',
-    base: '#ffffff',
-    description: 'نسخه زاویه‌دار روشن با لبه‌های تیز صنعتی'
+    accent: '#fe28a2',
   },
   {
     id: 'cyberpunk',
@@ -71,27 +29,27 @@ export const SARV_THEMES = [
     mode: 'dark',
     primary: '#00f0ff',
     base: '#08090d',
-    description: 'کنتراست شدید مشکی کربنی با نئون فیروزه‌ای و زرد ولتاژ بالا'
+    accent: '#ff007f',
   },
   {
     id: 'tokyo-midnight',
-    name: 'Tokyo Midnight',
-    persianName: 'توکیو نیمه‌شب',
+    name: 'Karaj Midnight',
+    persianName: 'کرج نیمه‌شب',
     icon: '🌃',
     mode: 'dark',
     primary: '#8b5cf6',
     base: '#090a16',
-    description: 'شب‌های درخشان توکیو با بنفش نئونی و درخشش ارغوانی'
+    accent: '#06b6d4',
   },
   {
     id: 'ocean-abyss',
-    name: 'Ocean Abyss',
-    persianName: 'اعماق اقیانوس',
+    name: 'Persian Gulf',
+    persianName: 'خلیج فارس',
     icon: '🌊',
     mode: 'dark',
     primary: '#06b6d4',
     base: '#060d17',
-    description: 'آبی اقیانوسی عمیق با نور ساطع فیروزه‌ای مرجانی'
+    accent: '#38bdf8',
   },
   {
     id: 'emerald',
@@ -101,7 +59,7 @@ export const SARV_THEMES = [
     mode: 'dark',
     primary: '#10b981',
     base: '#06130b',
-    description: 'سبزهای پر رمز و راز جنگل با هایلایت نعنایی زنده'
+    accent: '#34d399',
   },
   {
     id: 'royal-purple',
@@ -111,7 +69,7 @@ export const SARV_THEMES = [
     mode: 'dark',
     primary: '#a855f7',
     base: '#0d0718',
-    description: 'ارغوانی لوکس سلطنتی با حس نجومی و سحرآمیز'
+    accent: '#ec4899',
   },
   {
     id: 'crimson',
@@ -121,7 +79,7 @@ export const SARV_THEMES = [
     mode: 'dark',
     primary: '#f43f5e',
     base: '#110507',
-    description: 'قرمز یاقوتی چشم‌نواز با گرمای شعله‌های سرخ'
+    accent: '#fb7185',
   },
   {
     id: 'coffee-roast',
@@ -131,17 +89,17 @@ export const SARV_THEMES = [
     mode: 'dark',
     primary: '#d97706',
     base: '#120d09',
-    description: 'رنگ‌های گرم قهوه برشته و مس سوخته برای شب‌های طولانی مطالعه'
+    accent: '#f59e0b',
   },
   {
     id: 'sunset',
-    name: 'Sunset Terracotta',
-    persianName: 'غروب کویر (روشن)',
+    name: 'Robat Karim Sunset',
+    persianName: 'غروب رباط کریم',
     icon: '🌅',
     mode: 'light',
     primary: '#ff5e36',
     base: '#fffbf7',
-    description: 'رنگ‌های گرم آجری، خامه و درخشش طلایی خورشید غروب'
+    accent: '#e11d48',
   },
   {
     id: 'matcha',
@@ -151,7 +109,7 @@ export const SARV_THEMES = [
     mode: 'light',
     primary: '#15803d',
     base: '#fbfdfa',
-    description: 'تم ملایم چای سبز با انرژی طبیعی و حسی ارگانیک و دلپذیر'
+    accent: '#65a30d',
   },
   {
     id: 'nordic',
@@ -161,54 +119,102 @@ export const SARV_THEMES = [
     mode: 'light',
     primary: '#0284c7',
     base: '#f8fafc',
-    description: 'سفید و نقره‌ای یخچال‌های طبیعی اسکاندیناوی، سرد و با طراوت'
+    accent: '#0ea5e9',
   },
   {
-    id: 'rose-gold',
-    name: 'Rose Gold',
-    persianName: 'رز گلد براق (روشن)',
-    icon: '🌸',
+    id: 'batman',
+    name: 'The Dark Knight',
+    persianName: 'بتمن (شوالیه تاریکی)',
+    icon: '🦇',
+    mode: 'dark',
+    primary: '#ffe600',
+    base: '#000000',
+    accent: '#ef4444',
+  },
+  {
+    id: 'monochrome',
+    name: 'Noir Monochrome',
+    persianName: 'سیاه و سفید (تاریک)',
+    icon: '🖤',
+    mode: 'dark',
+    primary: '#ffffff',
+    base: '#000000',
+    accent: '#71717a',
+  },
+  {
+    id: 'monochrome-light',
+    name: 'Paper Monochrome',
+    persianName: 'سیاه و سفید (روشن)',
+    icon: '🤍',
     mode: 'light',
-    primary: '#e11d48',
-    base: '#fff8f9',
-    description: 'ترکیب لوکس صورتی ملایم، مرواریدی و متالیک شیک'
-  }
+    primary: '#000000',
+    base: '#f8f8f8',
+    accent: '#71717a',
+  },
 ];
 
 const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
   const [currentTheme, setCurrentTheme] = useState(() => {
-    const saved = localStorage.getItem('sarvestan_theme');
-    const labooDefaultApplied = localStorage.getItem('sarvestan_laboo_default_v1');
-    if (!labooDefaultApplied) {
-      localStorage.setItem('sarvestan_laboo_default_v1', 'true');
-      localStorage.setItem('sarvestan_theme', 'laboo');
-      return 'laboo';
-    }
-    return saved || 'laboo';
+    try {
+      localStorage.removeItem('sarvestan_laboo_default_v1');
+      const saved = localStorage.getItem('sarvestan_theme');
+      if (saved && saved !== 'laboo' && SARV_THEMES.some((t) => t.id === saved)) {
+        return saved;
+      }
+    } catch {}
+    return 'persian-light';
   });
 
   useEffect(() => {
-    // Apply both datatheme and data-theme to support all Sarv UI variants
     document.documentElement.setAttribute('datatheme', currentTheme);
     document.documentElement.setAttribute('data-theme', currentTheme);
-    const meta = SARV_THEMES.find(t => t.id === currentTheme);
-    document.documentElement.setAttribute('data-theme-mode', meta?.mode || 'dark');
-    localStorage.setItem('sarvestan_theme', currentTheme);
+    const meta = SARV_THEMES.find((t) => t.id === currentTheme);
+    const mode = meta?.mode || 'dark';
+    document.documentElement.setAttribute('data-theme-mode', mode);
+    try {
+      localStorage.setItem('sarvestan_theme', currentTheme);
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+      if (metaThemeColor) {
+        metaThemeColor.setAttribute('content', mode === 'dark' ? '#000000' : '#ffffff');
+      }
+    } catch {}
   }, [currentTheme]);
 
-  const activeThemeMeta = SARV_THEMES.find(t => t.id === currentTheme) || SARV_THEMES[0];
+  // واکنش خودکار به تغییر تم/حالت شب و روز در تنظیمات گوشی (Mobile Settings)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleSystemChange = (e) => {
+      const saved = localStorage.getItem('sarvestan_theme');
+      if (!saved || saved === 'persian-light' || saved === 'persian-dark') {
+        const next = e.matches ? 'persian-dark' : 'persian-light';
+        setCurrentTheme(next);
+      }
+    };
+    try {
+      media.addEventListener('change', handleSystemChange);
+      return () => media.removeEventListener('change', handleSystemChange);
+    } catch {
+      media.addListener(handleSystemChange);
+      return () => media.removeListener(handleSystemChange);
+    }
+  }, []);
+
+  const activeThemeMeta =
+    SARV_THEMES.find((t) => t.id === currentTheme) || SARV_THEMES[0];
 
   return (
-    <ThemeContext.Provider value={{
-      currentTheme,
-      setTheme: setCurrentTheme,
-      themes: SARV_THEMES,
-      availableThemes: SARV_THEMES,
-      activeThemeMeta,
-      isDark: activeThemeMeta.mode === 'dark'
-    }}>
+    <ThemeContext.Provider
+      value={{
+        currentTheme,
+        setTheme: setCurrentTheme,
+        themes: SARV_THEMES,
+        activeThemeMeta,
+        isDark: activeThemeMeta.mode === 'dark',
+      }}
+    >
       {children}
     </ThemeContext.Provider>
   );

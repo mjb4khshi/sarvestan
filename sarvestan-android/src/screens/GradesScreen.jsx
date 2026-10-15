@@ -9,18 +9,22 @@ import {
   Sparkles,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
   CheckSquare,
   Square,
   TrendingUp,
   Plus,
   Minus,
+  Bot,
 } from 'lucide-react';
 import { getViewModel } from '../data/viewModel';
 import { toFaDigits } from '../utils/faDigits';
 import OdometerNumber from '../components/OdometerNumber';
 import SarvCheckbox from '../components/SarvCheckbox';
 import GpaTrendGraph from '../components/GpaTrendGraph';
-import { getGpaStatusBadge } from './HomeScreen';
+import AiAdvisorPromptModal from '../components/AiAdvisorPromptModal';
+import { getGpaStatusBadge } from '../utils/gpaBadge';
+import { subscribeStore } from '../services/behestan';
 
 function scoreColor(scoreVal, status) {
   if (status === 'حذف اضطراری') {
@@ -40,10 +44,16 @@ function scoreColor(scoreVal, status) {
 }
 
 export default function GradesScreen({ onNavigate }) {
-  const vm = getViewModel();
-  const TERMS = vm.termsData?.length ? vm.termsData : [];
+  const [storeVer, setStoreVer] = useState(0);
+  useEffect(() => {
+    const unsub = subscribeStore(() => setStoreVer((v) => v + 1));
+    return unsub;
+  }, []);
+
+  const vm = useMemo(() => getViewModel(), [storeVer]);
+  const TERMS = useMemo(() => (vm.termsData?.length ? vm.termsData : []), [vm]);
   // ترم انتخاب‌شده — پیش‌فرض آخرین ترم جاری
-  const [selectedTermId, setSelectedTermId] = useState(TERMS[0]?.id);
+  const [selectedTermId, setSelectedTermId] = useState(() => TERMS[0]?.id);
   const activeTerm = useMemo(
     () => TERMS.find((t) => t.id === selectedTermId) || TERMS[0],
     [selectedTermId, TERMS],
@@ -57,6 +67,7 @@ export default function GradesScreen({ onNavigate }) {
 
   // درسی که هم‌اکنون نمره آن به صورت دستی در حال تایپ است
   const [editingCourseId, setEditingCourseId] = useState(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
 
   // وضعیت دروس شبیه‌سازی‌شده فقط برای آخرین ترم (نمره پیش‌فرض ۲۰ بر اساس درخواست کاربر)
   const [simCourses, setSimCourses] = useState(() => {
@@ -73,11 +84,19 @@ export default function GradesScreen({ onNavigate }) {
     return init;
   });
 
-  // به‌روزرسانی زنده وضعیت دروس هنگام تغییر در داده‌های برنامه یا کش
+  // به‌روزرسانی زنده وضعیت دروس هنگام تغییر در داده‌های برنامه یا کش و هرس دروس حذف‌شده
   useEffect(() => {
     if (!TERMS[0]?.courses) return;
+    const currentCourseIds = new Set(TERMS[0].courses.map((c) => c.id));
     setSimCourses((prev) => {
-      const next = { ...prev };
+      const next = {};
+      // حفظ دروس موجود که حذف نشده‌اند
+      Object.keys(prev).forEach((id) => {
+        if (currentCourseIds.has(id)) {
+          next[id] = prev[id];
+        }
+      });
+      // افزودن یا به‌روزرسانی دروس ترم جاری
       TERMS[0].courses.forEach((c) => {
         if (!next[c.id]) {
           next[c.id] = {
@@ -330,6 +349,33 @@ export default function GradesScreen({ onNavigate }) {
         onSelectTerm={(termId) => setSelectedTermId(termId)}
       />
 
+      {/* بنر هوشمند مشاوره تحصیلی با هوش مصنوعی */}
+      <button
+        type="button"
+        onClick={() => setAiModalOpen(true)}
+        className="w-full sarv-card p-3.5 flex items-center justify-between gap-3 border border-base-500/35 hover:border-primary/40 bg-base-500/10 hover:bg-base-500/20 text-right transition-all cursor-pointer group"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="w-9 h-9 rounded-2xl bg-primary-soft text-primary grid place-items-center shrink-0 shadow-xs group-hover:scale-105 transition-transform">
+            <Bot className="w-5 h-5" />
+          </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <p className="text-[13px] font-bold text-base-content truncate">
+                مشاوره تحصیلی با هوش مصنوعی
+              </p>
+              <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-md bg-primary-soft text-primary">
+                پرامپت هوشمند
+              </span>
+            </div>
+            <p className="text-[10.5px] text-neutral truncate mt-0.5">
+              تحلیل معدل، سوابق و برنامه‌ریزی دروس برای ChatGPT، Claude و Gemini
+            </p>
+          </div>
+        </div>
+        <ChevronLeft className="w-4 h-4 text-neutral shrink-0 group-hover:text-primary transition-colors" />
+      </button>
+
       {/* ابزار محاسبه‌گر معدل کل و معدل ترم — فقط برای آخرین ترم تحصیلی */}
       {isLatestTerm ? (
         <section className="sarv-card p-4 border border-accent-soft">
@@ -458,7 +504,7 @@ export default function GradesScreen({ onNavigate }) {
                               <Minus className="w-3.5 h-3.5" />
                             </button>
 
-                            {/* نمایش انیمیشن کیلومترشمار نمره با امکان کلیک برای تایپ دستی مستقیم (مثلاً ۱۹.۹۸) */}
+                            {/* نمایش نمره با فونت مونو تمیز و تبولار با امکان کلیک برای تایپ دستی مستقیم (مثلاً ۱۹.۹۸) */}
                             {editingCourseId === c.id ? (
                               <div className="w-[52px] px-1 text-center flex items-center justify-center">
                                 <input
@@ -491,14 +537,12 @@ export default function GradesScreen({ onNavigate }) {
                             ) : (
                               <div
                                 onClick={() => setEditingCourseId(c.id)}
-                                className="min-w-[48px] px-1 text-center flex items-center justify-center cursor-pointer hover:bg-base-500/20 rounded-lg transition-colors py-0.5"
+                                className="min-w-[48px] px-1.5 text-center flex items-center justify-center cursor-pointer hover:bg-base-500/20 rounded-lg transition-colors py-0.5"
                                 title="برای ویرایش دستی نمره کلیک کنید"
                               >
-                                <OdometerNumber
-                                  value={sim.score.toFixed(2)}
-                                  height={20}
-                                  className="text-[14px] text-primary"
-                                />
+                                <span className="text-[13.5px] font-black font-mono text-primary tabular-nums tracking-wide">
+                                  {toFaDigits(sim.score.toFixed(2))}
+                                </span>
                               </div>
                             )}
 
@@ -596,6 +640,12 @@ export default function GradesScreen({ onNavigate }) {
       <p className="text-center text-[10.5px] text-neutral pt-1 pb-2">
         اطلاعات مستقیماً از فرم ۷۹ بهستان واکشی شده و کاملاً با توکن‌های سرو هماهنگ است
       </p>
+
+      {/* مودال پرامپت مشاوره تحصیلی هوش مصنوعی */}
+      <AiAdvisorPromptModal
+        isOpen={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+      />
     </div>
   );
 }
