@@ -4,7 +4,6 @@ import {
   Download,
   GraduationCap,
   Smartphone,
-  Heart,
   X,
   Bell,
   LayoutGrid,
@@ -45,51 +44,35 @@ const RELEASES_URL = 'https://github.com/mjb4khshi/sarvestan/releases/latest';
 // اعضای شورای هماهنگی سروستان
 const COUNCIL_MEMBERS = [
   {
-    name: 'شایان مقدسی',
+    name: 'سید محمدحسین حائری',
     uni: 'صنعتی خواجه نصیر',
-    role: 'نماینده دانشجویی',
+    role: 'هماهنگ‌کننده و پشتیبانی شورا',
   },
   {
-    name: 'ایلیا رضایی',
-    uni: 'شهید بهشتی',
-    role: 'نماینده دانشجویی',
+    name: 'امیرحسن رضایی',
+    uni: 'صنعتی امیرکبیر',
+    role: 'نماینده شورا',
   },
   {
-    name: 'سبحان احمدیان',
-    uni: 'علم و صنعت ایران',
-    role: 'نماینده دانشجویی',
-  },
-  {
-    name: 'حسین اکبری',
-    uni: 'شهید بهشتی',
-    role: 'نماینده دانشجویی',
-  },
-  {
-    name: 'امیرمحمد نجاتی',
+    name: 'محمدحسین شفیعی',
     uni: 'دانشگاه تهران',
-    role: 'نماینده دانشجویی',
+    role: 'نماینده شورا',
   },
   {
-    name: 'محمدحسین خلیلی',
-    uni: 'تربیت دبیر شهید رجایی',
-    role: 'نماینده دانشجویی',
+    name: 'محمدسجاد زنگنه',
+    uni: 'شهید بهشتی',
+    role: 'نماینده شورا',
   },
-];
-
-// لیست همراهان، تسترها و حامیان نسخه بتا
-const CONTRIBUTORS = [
-  { name: 'ابوالفضل رستگار' },
-  { name: 'فاطمه احمدی' },
-  { name: 'علی عسگری' },
-  { name: 'کیانا زاهدی' },
-  { name: 'امیرحسین پورمحمدی' },
-  { name: 'مریم حسینی' },
-  { name: 'پرهام قنبری' },
-  { name: 'سارا میرزایی' },
-  { name: 'نوید علیزاده' },
-  { name: 'نیلوفر راد' },
-  { name: 'سینا کاظمی' },
-  { name: 'الهام سعیدی' },
+  {
+    name: 'مهدی خسروی',
+    uni: 'تربیت دبیر شهید رجایی',
+    role: 'نماینده شورا',
+  },
+  {
+    name: 'محمدرضا اسفندیار',
+    uni: 'علم و صنعت',
+    role: 'نماینده شورا',
+  },
 ];
 
 // دانشگاه‌های تحت پوشش
@@ -481,9 +464,9 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* گرید منظم ۶ نماینده دانشگاه‌های همکار در شورا */}
+          {/* گرید منظم ۶ عضو دیگر شورا */}
           <div className="space-y-3 pt-2">
-            <h4 className="text-xs font-bold text-slate-600">نمایندگان دانشگاه‌های همکار در شورا:</h4>
+            <h4 className="text-xs font-bold text-slate-600">اعضای شورا:</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {COUNCIL_MEMBERS.map((member, idx) => (
                 <div
@@ -545,30 +528,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* قدردانی از همراهان و تسترها */}
-      <section className="py-12 px-4 sm:px-6 border-t border-slate-200 bg-white">
-        <div className="max-w-4xl mx-auto space-y-6 text-center">
-          <div className="flex items-center justify-center gap-2 text-xs font-bold text-slate-600">
-            <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
-            <span>قدردانی صمیمانه از همراهان، تسترها و حامیان نسخه بتا</span>
-          </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            {CONTRIBUTORS.map((c, idx) => (
-              <span
-                key={idx}
-                className="px-3 py-1 rounded-xl bg-slate-100 border border-slate-200/80 text-xs font-medium text-slate-800"
-              >
-                {c.name}
-              </span>
-            ))}
-          </div>
-
-          <p className="text-[11px] text-slate-500 leading-relaxed max-w-lg mx-auto">
-            با تشکر و قدردانی ویژه از <strong>اشکان جلالی</strong> بابت همراهی و مشاوره‌های فنی در مسیر طراحی و انتشار سروستان.
-          </p>
-        </div>
-      </section>
 
       {/* فوتر مینیمال و تمیز */}
       <footer className="py-8 px-4 sm:px-6 border-t border-slate-200 bg-slate-50 text-xs text-slate-500">
