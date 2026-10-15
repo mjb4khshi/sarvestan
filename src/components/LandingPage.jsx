@@ -127,7 +127,7 @@ export default function LandingPage() {
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-base text-base-content font-sans antialiased selection:bg-primary/20 selection:text-primary transition-colors duration-300">
+    <div data-theme="sarv" className="min-h-screen bg-base text-base-content font-sans antialiased selection:bg-[#10b981]/20 selection:text-[#10b981] transition-colors duration-300">
       {/* نوار ناوبری بالا */}
       <header className="sticky top-0 z-40 bg-base/80 backdrop-blur-md border-b border-base-500/20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
@@ -139,7 +139,7 @@ export default function LandingPage() {
             />
             <div className="flex items-center gap-2">
               <span className="font-black text-base tracking-tight text-base-content">سروستان</span>
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-primary-soft text-primary border border-primary/25">
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#10b981]/15 text-[#10b981] border border-[#10b981]/30">
                 ۲ تهران
               </span>
             </div>
@@ -173,7 +173,7 @@ export default function LandingPage() {
             </a>
             <a
               href={LATEST_APK_URL}
-              className="px-3.5 py-1.5 rounded-xl bg-primary text-primary-content text-xs font-bold flex items-center gap-1.5 shadow-sm hover:brightness-105 active:scale-95 transition-all"
+              className="px-3.5 py-1.5 rounded-xl bg-[#10b981] hover:bg-[#059669] text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-[#10b981]/25 hover:brightness-105 active:scale-95 transition-all"
             >
               <Download className="w-3.5 h-3.5" />
               <span>دانلود اندروید</span>
@@ -188,14 +188,14 @@ export default function LandingPage() {
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-primary/10 rounded-full blur-[120px] pointer-events-none -z-10" />
 
         <div className="max-w-4xl mx-auto text-center space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-base-500/20 border border-base-500/30 text-xs font-bold text-neutral">
-            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span>نگارش رسمی ۲.۰.۰ (تهران) هم‌اکنون در دسترس است</span>
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#10b981]/15 border border-[#10b981]/30 text-xs font-bold text-[#10b981]">
+            <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" />
+            <span>سروستانی به گستره تهران • نگارش رسمی ۲.۰.۰ هم‌اکنون در دسترس است</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl md:text-6xl font-black text-base-content leading-tight sm:leading-tight tracking-tight">
             سروستان؛ تجربه نو و هوشمند <br className="hidden sm:inline" />
-            <span className="text-primary">
+            <span className="text-[#10b981]">
               آموزش دانشگاهی
             </span>
           </h1>
@@ -208,11 +208,11 @@ export default function LandingPage() {
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
             <a
               href={LATEST_APK_URL}
-              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-primary text-primary-content text-sm font-bold flex items-center justify-center gap-2.5 shadow-lg shadow-primary/25 hover:brightness-105 active:scale-95 transition-all"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-[#10b981] hover:bg-[#059669] text-white text-sm font-bold flex items-center justify-center gap-2.5 shadow-lg shadow-[#10b981]/30 hover:brightness-105 active:scale-95 transition-all"
             >
               <Download className="w-4 h-4" />
               <span>دانلود مستقیم نسخه اندروید (APK)</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-lg bg-black/20 font-mono font-bold">
+              <span className="text-[10px] px-2 py-0.5 rounded-lg bg-black/20 text-white font-mono font-bold">
                 {toFaDigits('5.3')} MB
               </span>
             </a>
@@ -231,15 +231,15 @@ export default function LandingPage() {
           {/* مزایای کلیدی زیر دکمه */}
           <div className="pt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-neutral">
             <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#10b981]" />
               <span>۱۰۰٪ امن، محلی و بدون سرور واسطه</span>
             </span>
             <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#10b981]" />
               <span>کارکرد مستقل بدون نیاز به فیلترشکن</span>
             </span>
             <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#10b981]" />
               <span>سازگار با اندروید ۸ به بالا</span>
             </span>
           </div>
@@ -251,15 +251,15 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto space-y-8">
           {/* هدر بخش دانشگاه‌ها */}
           <div className="text-center space-y-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-soft text-primary text-xs font-bold border border-primary/25">
-              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#10b981]/15 text-[#10b981] text-xs font-bold border border-[#10b981]/30">
+              <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" />
               <span>پوشش یکپارچه دانشگاهی • نگارش ۲.۰.۰ تهران</span>
             </div>
             <h2 className="text-2xl sm:text-4xl font-black text-base-content tracking-tight">
-              دانشگاه‌های تحت پوشش سروستان
+              سروستانی به گستره تهران
             </h2>
             <p className="text-xs sm:text-sm text-neutral max-w-xl mx-auto leading-relaxed">
-              پلتفرم هوشمند سروستان با هدف تسهیل فرایندهای آموزشی، دسترسی مستقل به سامانه‌های بهستان و گلستان دانشگاه‌های کشور را فراهم ساخته است.
+              پلتفرم هوشمند سروستان با هدف تسهیل فرایندهای آموزشی، دسترسی مستقل به سامانه‌های بهستان و گلستان دانشگاه‌های برتر پایتخت را فراهم ساخته است.
             </p>
           </div>
 
@@ -417,7 +417,7 @@ export default function LandingPage() {
                     <h3 className="text-base sm:text-lg font-black text-base-content">
                       محمدجواد بخشی ایرج
                     </h3>
-                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-primary text-primary-content">
+                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#10b981] text-white shadow-xs">
                       دبیر شورا و توسعه‌دهنده
                     </span>
                   </div>
@@ -486,7 +486,7 @@ export default function LandingPage() {
       {/* بخش دانلود اصلی */}
       <section id="download" className="py-16 sm:py-24 px-4 sm:px-6 border-t border-base-500/20 bg-base-500/5">
         <div className="max-w-3xl mx-auto text-center space-y-6">
-          <div className="w-12 h-12 rounded-2xl bg-primary text-primary-content grid place-items-center mx-auto shadow-md">
+          <div className="w-12 h-12 rounded-2xl bg-[#10b981] text-white grid place-items-center mx-auto shadow-lg shadow-[#10b981]/30">
             <Download className="w-6 h-6" />
           </div>
 
@@ -501,7 +501,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <a
               href={LATEST_APK_URL}
-              className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-primary text-primary-content text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/25 hover:brightness-105 active:scale-95 transition-all"
+              className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-[#10b981] hover:bg-[#059669] text-white text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#10b981]/30 hover:brightness-105 active:scale-95 transition-all"
             >
               <Download className="w-4 h-4" />
               <span>دانلود مستقیم sarvestan.apk</span>
