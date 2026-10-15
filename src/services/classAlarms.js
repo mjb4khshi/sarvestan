@@ -1,0 +1,1107 @@
+/**
+ * سرویس یادآوری و آلارم کلاس‌های سروستان
+ * - نوتیفیکیشن هوشمند داخلی اپ: ۱۰/۱۵ دقیقه قبل + لحظه شروع کلاس
+ * - تنظیم در ساعت رسمی سیستم (AlarmClock intent تکرارشونده هفتگی)
+ * - مدیریت مجوزها، ماندگاری تنظیمات و لغو کامل
+ */
+
+import { getCurrentTermSchedule, hasLiveData } from './behestan/store';
+import { detectCurrentTermId } from './behestan/parsers';
+import { parseClassTime, getScheduleMatrix, jalaliToDate } from '../data/viewModel';
+
+const SETTINGS_KEY = 'sarvestan_class_reminders_settings';
+const SCHEDULED_IDS_KEY = 'sarvestan_class_reminders_ids';
+
+export const SAMAD_SETTINGS_KEY = 'sarvestan_samad_reminder_settings';
+export const SAMAD_REMINDER_ID = 19999;
+export const SAMAD_URL = 'https://samad.app/login';
+
+export const DAY_CAL = {
+  شنبه: 7, // Calendar.SATURDAY
+  یکشنبه: 1,
+  دوشنبه: 2,
+  'سه‌شنبه': 3,
+  'چهارشنبه': 4,
+  پنجشنبه: 5,
+  جمعه: 6,
+};
+
+export function normalizeDay(raw) {
+  if (!raw) return null;
+  const s = String(raw).replace(/[\u200c\s]/g, '').trim();
+  if (s.includes('چهارشنبه')) return 'چهارشنبه';
+  if (s.includes('سهشنبه')) return 'سه‌شنبه';
+  if (s.includes('دوشنبه')) return 'دوشنبه';
+  if (s.includes('یکشنبه')) return 'یکشنبه';
+  if (s.includes('پنجشنبه')) return 'پنجشنبه';
+  if (s.includes('جمعه')) return 'جمعه';
+  if (s.includes('شنبه')) return 'شنبه';
+  return null;
+}
+
+export function parseTimeStartEnd(raw) {
+  if (!raw) return null;
+  const s = String(raw)
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[\u200c]/g, ' ');
+
+  // 1. الگوی HH:MM (مانند 07:30 - 09:00 یا 8:00 تا 10:00)
+  const matches = [...s.matchAll(/(\d{1,2}):(\d{2})/g)];
+  if (matches.length >= 2) {
+    const h1 = parseInt(matches[0][1], 10);
+    const m1 = parseInt(matches[0][2], 10);
+    const h2 = parseInt(matches[1][1], 10);
+    const m2 = parseInt(matches[1][2], 10);
+    const t1 = h1 * 60 + m1;
+    const t2 = h2 * 60 + m2;
+    const startM = Math.min(t1, t2);
+    const endM = Math.max(t1, t2);
+    const sh = Math.floor(startM / 60) % 24;
+    const sm = startM % 60;
+    const eh = Math.floor(endM / 60) % 24;
+    const em = endM % 60;
+    return {
+      start: { hour: sh, minute: sm },
+      end: { hour: eh, minute: em },
+      timeStr: `${String(sh).padStart(2, '0')}:${String(sm).padStart(2, '0')} - ${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`,
+    };
+  }
+  if (matches.length === 1) {
+    const h1 = parseInt(matches[0][1], 10);
+    const m1 = parseInt(matches[0][2], 10);
+    const startM = h1 * 60 + m1;
+    const endM = startM + 90; // پیش‌فرض ۹۰ دقیقه
+    const sh = Math.floor(startM / 60) % 24;
+    const sm = startM % 60;
+    const eh = Math.floor(endM / 60) % 24;
+    const em = endM % 60;
+    return {
+      start: { hour: sh, minute: sm },
+      end: { hour: eh, minute: em },
+      timeStr: `${String(sh).padStart(2, '0')}:${String(sm).padStart(2, '0')}`,
+    };
+  }
+
+  // 2. الگوی ساعات ساده بدون دقیقه (مانند ۸-۱۰ یا 8 الی 10 یا 8 تا 10)
+  const bareMatch = s.match(/(\d{1,2})\s*(?:[-–—]|تا|الی)\s*(\d{1,2})/);
+  if (bareMatch) {
+    const h1 = parseInt(bareMatch[1], 10);
+    const h2 = parseInt(bareMatch[2], 10);
+    const startH = Math.min(h1, h2) % 24;
+    const endH = Math.max(h1, h2) % 24;
+    return {
+      start: { hour: startH, minute: 0 },
+      end: { hour: endH, minute: 0 },
+      timeStr: `${String(startH).padStart(2, '0')}:00 - ${String(endH).padStart(2, '0')}:00`,
+    };
+  }
+
+  return null;
+}
+
+function plugins() {
+  try {
+    return globalThis.Capacitor?.Plugins || {};
+  } catch {
+    return {};
+  }
+}
+
+export function hasClassAlarmPlugin() {
+  return Boolean(plugins().ClassAlarms);
+}
+
+export function isNativeAlarms() {
+  try {
+    return Boolean(globalThis.Capacitor?.isNativePlatform?.());
+  } catch {
+    return false;
+  }
+}
+
+function courseSlots(c) {
+  if (Array.isArray(c.daySlots) && c.daySlots.length) return c.daySlots;
+  if (Array.isArray(c.days) && c.days.length) {
+    return c.days.map((d) => ({
+      day: d,
+      time: c.time || c.classTimeRaw || c.slot || '',
+      hall: c.hall || c.room || 'ـ',
+    }));
+  }
+  if (c.day) {
+    return [
+      {
+        day: c.day,
+        time: c.time || c.classTimeRaw || c.slot || '',
+        hall: c.hall || c.room || 'ـ',
+      },
+    ];
+  }
+  return [];
+}
+
+/**
+ * دریافت کلیه جلسات هفتگی برای یادآوری و آلارم
+ * استخراج اولویت‌دار از ماتریس کلاسی (getScheduleMatrix) و بهستان
+ */
+export function collectWeeklySlots() {
+  const list = [];
+  const seen = new Set();
+
+  // ۱. اولویت اول و قطعی: استخراج مستقیم از getCurrentTermSchedule (دروس با زمان‌بندی دقیق بدون برش در جدول)
+  try {
+    const courses = getCurrentTermSchedule() || [];
+    for (const c of courses) {
+      for (const s of courseSlots(c)) {
+        const day = normalizeDay(s.day);
+        if (!day || !DAY_CAL[day]) continue;
+        const rawTime = s.time || c.time || c.classTimeRaw || c.slot;
+        const parsed = parseTimeStartEnd(rawTime);
+        if (!parsed) continue;
+        const title = c.name || c.title || c.course || 'کلاس';
+        const key = `${title}-${day}-${parsed.start.hour}:${parsed.start.minute}-${parsed.end.hour}:${parsed.end.minute}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push({
+            id: c.id || c.code || `slot_${key}`,
+            title,
+            name: title,
+            label: title,
+            day,
+            days: [day],
+            time: parsed.timeStr || rawTime,
+            slot: parsed.timeStr || rawTime,
+            hour: parsed.start.hour,
+            minute: parsed.start.minute,
+            endHour: parsed.end.hour,
+            endMinute: parsed.end.minute,
+            hall: s.hall || c.hall || c.room || '',
+            room: s.hall || c.hall || c.room || '',
+            professor: c.professor || '',
+          });
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[collectWeeklySlots] courses extract error:', e);
+  }
+
+  // ۲. در صورتی که به هر دلیلی دروسی یافت نشد، استخراج کمکی از ماتریس کلاسی
+  if (list.length === 0) {
+    try {
+      const matrix = getScheduleMatrix();
+      const daysList = matrix.days || ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه'];
+      const slotsList = matrix.slots || [];
+      const cells = matrix.cells || {};
+
+      for (const [coord, cell] of Object.entries(cells)) {
+        if (!cell) continue;
+        const [siStr, diStr] = coord.split('-');
+        const si = parseInt(siStr, 10);
+        const di = parseInt(diStr, 10);
+        const rawDay = daysList[di];
+        const day = normalizeDay(rawDay);
+        if (!day || !DAY_CAL[day]) continue;
+
+        const rawTime = cell.time || slotsList[si] || '';
+        const parsed = parseTimeStartEnd(rawTime);
+        if (!parsed) continue;
+
+        const title = cell.title || 'کلاس';
+        const key = `${title}-${day}-${parsed.start.hour}:${parsed.start.minute}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push({
+            id: `cell_${coord}`,
+            title,
+            name: title,
+            label: title,
+            day,
+            days: [day],
+            time: parsed.timeStr || rawTime,
+            slot: slotsList[si] || rawTime,
+            hour: parsed.start.hour,
+            minute: parsed.start.minute,
+            endHour: parsed.end.hour,
+            endMinute: parsed.end.minute,
+            hall: cell.room && cell.room !== 'ـ' ? cell.room : '',
+            room: cell.room && cell.room !== 'ـ' ? cell.room : '',
+            professor: cell.professor && cell.professor !== 'ـ' ? cell.professor : '',
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('[collectWeeklySlots] matrix extract error:', e);
+    }
+  }
+
+  // مرتب‌سازی بر اساس روز هفته و سپس ساعت شروع
+  const dayOrder = { شنبه: 0, یکشنبه: 1, دوشنبه: 2, 'سه‌شنبه': 3, 'چهارشنبه': 4, پنجشنبه: 5, جمعه: 6 };
+  list.sort((a, b) => {
+    const da = dayOrder[a.day] ?? 99;
+    const db = dayOrder[b.day] ?? 99;
+    if (da !== db) return da - db;
+    const ta = a.hour * 60 + a.minute;
+    const tb = b.hour * 60 + b.minute;
+    return ta - tb;
+  });
+
+  return list;
+}
+
+function pad(n) {
+  return String(n).padStart(2, '0');
+}
+
+/**
+ * ساخت لیست نوتیف‌ها: برای هر جلسه، تا ۷ روز آینده (شامل اعلان‌های پیش‌آگاهی، شروع و حالت مزاحم نشوید)
+ */
+export function buildReminderItems({
+  daysAhead = 84, // ۱۲ هفته (کل طول ترم تحصیلی به جای فقط ۷ روز)
+  leadMinutes = 10,
+  notifyAtStart = true,
+  dndDuringClass = false,
+} = {}) {
+  const slots = collectWeeklySlots();
+  const items = [];
+  let id = 17001;
+  const now = new Date();
+
+  for (const slot of slots) {
+    for (const dayFa of slot.days) {
+      const calDay = DAY_CAL[dayFa];
+      if (!calDay) continue;
+      for (let d = 0; d < daysAhead; d++) {
+        const when = new Date(now);
+        when.setDate(when.getDate() + d);
+        when.setHours(slot.hour, slot.minute, 0, 0);
+
+        // JS: 0=یکشنبه … 6=شنبه  ↔  Calendar: 1=یکشنبه … 7=شنبه
+        const jsDay = when.getDay();
+        const asCalDay = jsDay === 0 ? 1 : jsDay + 1;
+        if (asCalDay !== calDay) continue;
+
+        const hall = slot.hall ? ` (محل: ${slot.hall})` : '';
+        const startAt = when.getTime();
+        const preAt = startAt - leadMinutes * 60_000;
+
+        const whenEnd = new Date(when);
+        const eh = slot.endHour ?? (slot.hour + 1);
+        const em = slot.endMinute ?? (slot.minute + 30);
+        whenEnd.setHours(eh, em, 0, 0);
+        const endAt = whenEnd.getTime();
+
+        if (leadMinutes > 0 && preAt > Date.now()) {
+          items.push({
+            id: id++,
+            triggerAtMs: preAt,
+            title: `⏰ ${leadMinutes} دقیقه تا کلاس ${slot.title || slot.label}`,
+            body: `کلاس «${slot.title || slot.label}» ساعت ${pad(slot.hour)}:${pad(slot.minute)} شروع می‌شود${hall}`,
+            kind: 'pre',
+            slotKey: `${dayFa}-${pad(slot.hour)}:${pad(slot.minute)}`,
+          });
+        }
+        if (notifyAtStart && startAt > Date.now()) {
+          items.push({
+            id: id++,
+            triggerAtMs: startAt,
+            title: `🔔 شروع کلاس ${slot.title || slot.label}`,
+            body: `کلاس «${slot.title || slot.label}» هم‌اکنون آغاز شد${hall}${dndDuringClass ? ' (حالت مزاحم نشوید فعال شد)' : ''}`,
+            kind: 'start',
+            dndMode: dndDuringClass ? 'start' : null,
+            slotKey: `${dayFa}-${pad(slot.hour)}:${pad(slot.minute)}`,
+          });
+        } else if (dndDuringClass && startAt > Date.now()) {
+          items.push({
+            id: id++,
+            triggerAtMs: startAt,
+            title: `🔇 سایلنت کلاس ${slot.title || slot.label}`,
+            body: `کلاس «${slot.title || slot.label}» آغاز شد — حالت مزاحم نشوید فعال شد.`,
+            kind: 'dnd_start',
+            dndMode: 'start',
+            slotKey: `${dayFa}-${pad(slot.hour)}:${pad(slot.minute)}`,
+          });
+        }
+
+        // زمان بازگردانی صدا پس از اتمام کلاس
+        if (dndDuringClass && endAt > Date.now()) {
+          items.push({
+            id: id++,
+            triggerAtMs: endAt,
+            title: `🔊 پایان کلاس ${slot.title || slot.label}`,
+            body: `کلاس «${slot.title || slot.label}» به پایان رسید — صدای گوشی به حالت عادی بازگشت.`,
+            kind: 'dnd_end',
+            dndMode: 'end',
+            slotKey: `${dayFa}-${pad(eh)}:${pad(em)}`,
+          });
+        }
+      }
+    }
+  }
+
+  items.sort((a, b) => a.triggerAtMs - b.triggerAtMs);
+  return items;
+}
+
+/**
+ * زمان‌بندی یادآوری کلاس‌ها در سیستم
+ */
+export async function scheduleClassReminders({
+  daysAhead = 84, // ۱۲ هفته پوشش کامل جلسات ترم
+  leadMinutes = 10,
+  notifyAtStart = true,
+  dndDuringClass = null,
+  includeSamad = null,
+} = {}) {
+  const p = plugins().ClassAlarms;
+  if (!p?.scheduleReminders) {
+    return { ok: false, error: 'پلاگین ClassAlarms در این دستگاه در دسترس نیست', code: 'no-plugin' };
+  }
+
+  const currentSettings = getReminderSettings();
+  const effectiveDnd =
+    dndDuringClass !== null ? Boolean(dndDuringClass) : Boolean(currentSettings.dndDuringClass);
+
+  const items = buildReminderItems({
+    daysAhead,
+    leadMinutes,
+    notifyAtStart,
+    dndDuringClass: effectiveDnd,
+  });
+
+  // اضافه کردن یادآور هفتگی سماد در صورت فعال بودن
+  const samadSettings = getSamadReminderSettings();
+  const shouldAddSamad = includeSamad !== null ? Boolean(includeSamad) : samadSettings.enabled;
+  if (shouldAddSamad) {
+    items.push(buildSamadReminderItem(samadSettings.hour, samadSettings.minute));
+  }
+
+  if (!items.length) {
+    return {
+      ok: true,
+      scheduled: 0,
+      message: 'هیچ کلاس یا یادآوری پیش‌رویی برای تنظیم یافت نشد.',
+    };
+  }
+
+  try {
+    const oldIdsRaw = localStorage.getItem(SCHEDULED_IDS_KEY);
+    if (oldIdsRaw) {
+      try {
+        const oldIds = JSON.parse(oldIdsRaw);
+        if (Array.isArray(oldIds) && oldIds.length && p.cancelReminders) {
+          await p.cancelReminders({ ids: oldIds });
+        }
+      } catch {}
+    }
+
+    const payload = items.map((x) => ({
+      id: x.id,
+      triggerAtMs: x.triggerAtMs,
+      title: x.title,
+      body: x.body,
+      url: x.url || null,
+      dndMode: x.dndMode || null,
+    }));
+
+    const res = await p.scheduleReminders({ items: payload });
+    const scheduledIds = items.map((x) => x.id);
+    localStorage.setItem(SCHEDULED_IDS_KEY, JSON.stringify(scheduledIds));
+
+    return {
+      ok: true,
+      scheduled: res.scheduled ?? items.length,
+      skipped: res.skipped ?? 0,
+      count: items.length,
+    };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
+
+/**
+ * لغو تمام یادآورهای کلاس‌ها و سامانه سماد
+ */
+export async function cancelAllReminders() {
+  const p = plugins().ClassAlarms;
+  try {
+    const cancelIds = new Set([SAMAD_REMINDER_ID]);
+    const oldIdsRaw = localStorage.getItem(SCHEDULED_IDS_KEY);
+    if (oldIdsRaw) {
+      const oldIds = JSON.parse(oldIdsRaw);
+      if (Array.isArray(oldIds) && oldIds.length) {
+        oldIds.forEach((id) => cancelIds.add(id));
+      }
+    }
+    if (p?.cancelReminders) {
+      await p.cancelReminders({ ids: Array.from(cancelIds) });
+    }
+    localStorage.removeItem(SCHEDULED_IDS_KEY);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
+
+/**
+ * ایجاد آلارم در برنامه ساعت سیستم (Clock App) برای تمام کلاس‌ها
+ */
+export async function importSystemAlarms({ skipUi = false } = {}) {
+  const p = plugins().ClassAlarms;
+  if (!p?.importAlarms) {
+    return { ok: false, error: 'پلاگین ClassAlarms در این دستگاه در دسترس نیست', code: 'no-plugin' };
+  }
+
+  const slots = collectWeeklySlots();
+  if (!slots.length) {
+    return { ok: false, error: 'هیچ کلاسی در برنامه هفتگی برای آلارم یافت نشد' };
+  }
+
+  // تجمیع جلسات یک درس خاص در طول روزهای هفته (بدون تداخل با دروس دیگر)
+  const byCourseTime = new Map();
+  for (const s of slots) {
+    const courseTitle = s.title || s.name || s.label || 'کلاس';
+    const key = `${courseTitle}-${s.hour}:${s.minute}`;
+    if (!byCourseTime.has(key)) {
+      byCourseTime.set(key, {
+        name: courseTitle,
+        hour: s.hour,
+        minute: s.minute,
+        days: [],
+      });
+    }
+    const item = byCourseTime.get(key);
+    if (!item.days.includes(s.day)) item.days.push(s.day);
+  }
+
+  const items = [...byCourseTime.values()].map((x) => ({
+    hour: x.hour,
+    minute: x.minute,
+    days: x.days,
+    label: `کلاس ${x.name}`,
+  }));
+
+  try {
+    const res = await p.importAlarms({ items, skipUi });
+    return { ok: true, ...res, total: items.length };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
+
+/**
+ * ساخت آلارم در ساعت گوشی برای یک درس خاص (کاملاً دقیق و تضمینی)
+ */
+export async function importAlarmsForCourse(courseLike, { skipUi = false } = {}) {
+  const p = plugins().ClassAlarms;
+  if (!p?.importAlarms) {
+    return { ok: false, error: 'پلاگین ClassAlarms در این دستگاه در دسترس نیست', code: 'no-plugin' };
+  }
+
+  const name = courseLike?.name || courseLike?.title || courseLike?.course || 'کلاس';
+  let hour = null;
+  let minute = null;
+  let days = [];
+
+  // اولویت ۱: مقدار ساعت و دقیقه مستقیم
+  if (courseLike?.hour != null && courseLike?.minute != null) {
+    hour = Number(courseLike.hour);
+    minute = Number(courseLike.minute);
+  } else {
+    // اولویت ۲: پارس رشته زمان
+    const parsed = parseTimeStartEnd(courseLike?.time || courseLike?.classTimeRaw || courseLike?.slot);
+    if (parsed) {
+      hour = parsed.start.hour;
+      minute = parsed.start.minute;
+    }
+  }
+
+  // استخراج روزها
+  if (Array.isArray(courseLike?.days) && courseLike.days.length) {
+    days = courseLike.days.map(normalizeDay).filter(Boolean);
+  } else if (courseLike?.day) {
+    const d = normalizeDay(courseLike.day);
+    if (d) days = [d];
+  }
+
+  if (!days.length) {
+    days = ['شنبه'];
+  }
+
+  if (hour == null || minute == null) {
+    return { ok: false, error: 'ساعت برگزاری این درس قابل تشخیص نبود' };
+  }
+
+  const items = [
+    {
+      hour,
+      minute,
+      days,
+      label: `کلاس ${name}`,
+    },
+  ];
+
+  try {
+    const res = await p.importAlarms({ items, skipUi });
+    return { ok: true, ...res, total: items.length };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
+
+/**
+ * بررسی وضعیت دسترسی نوتیفیکیشن بدون نمایش درخواست
+ */
+export async function checkNotificationPermission() {
+  const p = plugins().ClassAlarms;
+  if (!p?.checkNotificationPermission) {
+    if (typeof Notification !== 'undefined') {
+      return { granted: Notification.permission === 'granted' };
+    }
+    return { granted: true };
+  }
+  try {
+    return await p.checkNotificationPermission();
+  } catch {
+    return { granted: true };
+  }
+}
+
+/**
+ * بررسی و درخواست مجوز نوتیفیکیشن
+ */
+export async function requestNotificationPermission() {
+  const p = plugins().ClassAlarms;
+  if (!p?.requestNotificationPermission) return { granted: true };
+  try {
+    return await p.requestNotificationPermission();
+  } catch (e) {
+    return { granted: false, error: String(e?.message || e) };
+  }
+}
+
+/**
+ * هدایت مستقیم به صفحه تنظیمات نوتیفیکیشن اپ در اندروید
+ */
+export async function openNotificationSettings() {
+  const p = plugins().ClassAlarms;
+  if (p?.openNotificationSettings) {
+    try {
+      return await p.openNotificationSettings();
+    } catch {}
+  }
+  return { ok: false };
+}
+
+/**
+ * بررسی مجوز زمان‌بندی دقیق در اندروید ۱۲+
+ */
+export async function checkExactPermission() {
+  const p = plugins().ClassAlarms;
+  if (!p?.canScheduleExact) return { ok: true };
+  try {
+    return await p.canScheduleExact();
+  } catch {
+    return { ok: true };
+  }
+}
+
+export async function requestExactPermission() {
+  const p = plugins().ClassAlarms;
+  if (!p?.requestExactPermission) return { ok: false };
+  try {
+    return await p.requestExactPermission();
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
+
+/**
+ * ارسال یک اعلان تستی زنده به گوشی برای راستی‌آزمایی صدا و مجوزها
+ */
+export async function testClassNotification() {
+  const p = plugins().ClassAlarms;
+  if (!p?.testNotification) {
+    if (typeof Notification !== 'undefined') {
+      try {
+        if (Notification.permission !== 'granted') {
+          await Notification.requestPermission();
+        }
+        new Notification('🔔 آزمایش یادآور سروستان', {
+          body: 'اعلان‌ها و صدای زنگ یادآوری کلاس‌ها به‌درستی کار می‌کنند.',
+          icon: '/favicon.ico',
+        });
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: String(e?.message || e) };
+      }
+    }
+    return { ok: false, error: 'پلاگین در دسترس نیست' };
+  }
+
+  try {
+    return await p.testNotification({
+      title: '🔔 آزمایش یادآور سروستان',
+      body: 'اعلان‌ها و صدای زنگ یادآوری کلاس‌ها به‌درستی فعال است.',
+    });
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
+
+/**
+ * تنظیمات ذخیره‌شدهٔ یادآور
+ */
+export function getReminderSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) {
+      return {
+        enabled: false,
+        leadMinutes: 10,
+        notifyAtStart: true,
+        dndDuringClass: false,
+        lastScheduledCount: 0,
+        lastScheduledAt: null,
+      };
+    }
+    const parsed = JSON.parse(raw);
+    return {
+      enabled: Boolean(parsed.enabled),
+      leadMinutes: parsed.leadMinutes ?? 10,
+      notifyAtStart: parsed.notifyAtStart !== false,
+      dndDuringClass: Boolean(parsed.dndDuringClass),
+      lastScheduledCount: parsed.lastScheduledCount ?? 0,
+      lastScheduledAt: parsed.lastScheduledAt ?? null,
+    };
+  } catch {
+    return {
+      enabled: false,
+      leadMinutes: 10,
+      notifyAtStart: true,
+      dndDuringClass: false,
+      lastScheduledCount: 0,
+      lastScheduledAt: null,
+    };
+  }
+}
+
+export function saveReminderSettings(settings) {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch {}
+}
+
+/**
+ * بررسی دسترسی تغییر وضعیت Do Not Disturb (مزاحم نشوید)
+ */
+export async function checkDndPermission() {
+  const p = plugins().ClassAlarms;
+  if (!p?.checkDndPermission) return { granted: true };
+  try {
+    return await p.checkDndPermission();
+  } catch {
+    return { granted: true };
+  }
+}
+
+/**
+ * هدایت به صفحه دسترسی حالت مزاحم نشوید در تنظیمات اندروید
+ */
+export async function requestDndPermission() {
+  const p = plugins().ClassAlarms;
+  if (!p?.requestDndPermission) return { ok: false };
+  try {
+    return await p.requestDndPermission();
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
+
+/**
+ * نگاشت اندیس‌های getDay() جاوااسکریپت به نام روزهای فارسی
+ */
+export const JS_DAY_TO_FA = {
+  0: 'یکشنبه',
+  1: 'دوشنبه',
+  2: 'سه‌شنبه',
+  3: 'چهارشنبه',
+  4: 'پنجشنبه',
+  5: 'جمعه',
+  6: 'شنبه',
+};
+
+/**
+ * بررسی اینکه آیا در همین لحظه کلاسی در حال برگزاری است؟
+ * بازگرداندن اطلاعات کلاسی که ساعت و دقیقه کنونی در بازه آن قرار دارد
+ */
+export function getCurrentlyActiveCourse() {
+  const slots = collectWeeklySlots();
+  const now = new Date();
+  const jsDay = now.getDay();
+  const todayFa = JS_DAY_TO_FA[jsDay];
+  const asCalDay = jsDay === 0 ? 1 : jsDay + 1;
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  for (const slot of slots) {
+    const isToday =
+      (slot.days && slot.days.some((d) => normalizeDay(d) === todayFa)) ||
+      normalizeDay(slot.day) === todayFa ||
+      (slot.days && slot.days.some((d) => DAY_CAL[normalizeDay(d)] === asCalDay));
+
+    if (!isToday) continue;
+
+    const startMinutes = slot.hour * 60 + slot.minute;
+    const endMinutes =
+      (slot.endHour != null ? slot.endHour : slot.hour + 1) * 60 +
+      (slot.endMinute != null ? slot.endMinute : slot.minute + 30);
+
+    if (currentMinutes >= startMinutes && currentMinutes < endMinutes) {
+      return {
+        ...slot,
+        currentMinutes,
+        startMinutes,
+        endMinutes,
+        remainingMinutes: endMinutes - currentMinutes,
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * اعمال مستقیم وضعیت سایلنت / Do Not Disturb در سطح سیستم‌عامل
+ */
+export async function setNativeDndMode(enabled) {
+  const p = plugins().ClassAlarms;
+  if (!p?.setDndMode) return { ok: true, noPlugin: true };
+  try {
+    return await p.setDndMode({ enabled: Boolean(enabled) });
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
+
+/**
+ * دریافت وضعیت زنده DND سیستم‌عامل
+ */
+export async function getNativeDndMode() {
+  const p = plugins().ClassAlarms;
+  if (!p?.getDndMode) return { isDnd: false };
+  try {
+    return await p.getDndMode();
+  } catch {
+    return { isDnd: false };
+  }
+}
+
+/**
+ * همگام‌سازی فوری وضعیت زنگ گوشی بر اساس کلاس‌های همین لحظه
+ */
+export async function syncCurrentDndState() {
+  const isDndSettingOn = getDndDuringClass();
+  if (!isDndSettingOn) return { ok: true, active: false };
+
+  const activeCourse = getCurrentlyActiveCourse();
+  if (activeCourse) {
+    const res = await setNativeDndMode(true);
+    if (res?.needsPermission) {
+      await requestDndPermission();
+    }
+    return { ok: true, active: true, activeCourse, mode: 'silent' };
+  } else {
+    await setNativeDndMode(false);
+    return { ok: true, active: false };
+  }
+}
+
+/**
+ * دریافت وضعیت فعال بودن حالت مزاحم نشوید حین کلاس
+ */
+export function getDndDuringClass() {
+  return Boolean(getReminderSettings().dndDuringClass);
+}
+
+/**
+ * فعال یا غیرفعال‌سازی حالت مزاحم نشوید حین کلاس
+ * - اگر کاربر وسط بازه زمانی کلاس باشد، بلافاصله سایلنت را فعال می‌کند
+ * - آلارم بازگردانی صدا در پایان کلاس را در سیستم‌عامل زمان‌بندی می‌کند
+ */
+export async function setDndDuringClass(enabled) {
+  const s = getReminderSettings();
+  s.dndDuringClass = Boolean(enabled);
+  saveReminderSettings(s);
+
+  let permissionResult = { granted: true };
+  if (enabled) {
+    permissionResult = await checkDndPermission();
+    if (permissionResult && permissionResult.granted === false) {
+      await requestDndPermission();
+    }
+  }
+
+  let activeCourse = null;
+  let activatedNow = false;
+
+  if (enabled) {
+    // آیا در این لحظه کلاسی در جریان است؟ (مثلاً کلاس ۷ تا ۱۷ در ساعت ۱۰:۴۰)
+    activeCourse = getCurrentlyActiveCourse();
+    if (activeCourse) {
+      const res = await setNativeDndMode(true);
+      if (res?.needsPermission) {
+        await requestDndPermission();
+      }
+      activatedNow = true;
+    } else {
+      await setNativeDndMode(false);
+    }
+  } else {
+    // با خاموش کردن سایلنت، گوشی بلافاصله به حالت عادی بازمی‌گردد
+    await setNativeDndMode(false);
+  }
+
+  // به‌روزرسانی زمان‌بندی یادآورها در سیستم (شامل زمان اتمام کلاس‌های در حال جریان)
+  const res = await scheduleClassReminders({
+    leadMinutes: s.leadMinutes,
+    notifyAtStart: s.notifyAtStart,
+    dndDuringClass: Boolean(enabled),
+  });
+
+  return {
+    ok: true,
+    enabled: Boolean(enabled),
+    permissionGranted: permissionResult.granted,
+    activeCourse,
+    activatedNow,
+    ...res,
+  };
+}
+
+/**
+ * محاسبه زمان فرا رسیدن چهارشنبه آینده بر اساس ساعت و دقیقه انتخابی
+ */
+export function getNextWednesdayTimestamp(hour = 14, minute = 0) {
+  const now = new Date();
+  const target = new Date(now);
+  target.setHours(hour, minute, 0, 0);
+
+  // JS: 0=یکشنبه, 1=دوشنبه, 2=سه‌شنبه, 3=چهارشنبه, 4=پنجشنبه, 5=جمعه, 6=شنبه
+  const currentDay = now.getDay();
+  let daysUntilWednesday = (3 - currentDay + 7) % 7;
+
+  // اگر امروز چهارشنبه است و ساعت انتخابی قبلاً سپری شده، برای چهارشنبه آینده (۷ روز بعد) زمان‌بندی شود
+  if (daysUntilWednesday === 0 && target.getTime() <= now.getTime()) {
+    daysUntilWednesday = 7;
+  }
+
+  target.setDate(now.getDate() + daysUntilWednesday);
+  return target.getTime();
+}
+
+/**
+ * ساخت آبجکت نوتیفیکیشن یادآوری رزرو غذای سماد
+ */
+export function buildSamadReminderItem(hour = 14, minute = 0) {
+  const triggerAtMs = getNextWednesdayTimestamp(hour, minute);
+  return {
+    id: SAMAD_REMINDER_ID,
+    triggerAtMs,
+    title: '🍽️ یادآوری رزرو غذای سماد',
+    body: 'فرصت رزرو غذای هفته آینده سلف رو به اتمامه! برای ورود به سامانه سماد کلیک کنید.',
+    url: SAMAD_URL,
+    kind: 'samad',
+  };
+}
+
+/**
+ * دریافت تنظیمات یادآور سماد از حافظه محلی
+ */
+export function getSamadReminderSettings() {
+  try {
+    const raw = localStorage.getItem(SAMAD_SETTINGS_KEY);
+    if (!raw) {
+      return {
+        enabled: false,
+        hour: 14,
+        minute: 0,
+      };
+    }
+    const parsed = JSON.parse(raw);
+    return {
+      enabled: Boolean(parsed.enabled),
+      hour: Number.isInteger(parsed.hour) ? parsed.hour : 14,
+      minute: Number.isInteger(parsed.minute) ? parsed.minute : 0,
+    };
+  } catch {
+    return { enabled: false, hour: 14, minute: 0 };
+  }
+}
+
+/**
+ * ذخیره تنظیمات یادآور سماد در حافظه محلی
+ */
+export function saveSamadReminderSettings(settings) {
+  try {
+    localStorage.setItem(SAMAD_SETTINGS_KEY, JSON.stringify(settings));
+  } catch {}
+}
+
+/**
+ * بروزرسانی یا لغو اختصاصی یادآور سماد در سیستم
+ */
+export async function updateSamadReminder({ enabled, hour = 14, minute = 0 } = {}) {
+  saveSamadReminderSettings({ enabled, hour, minute });
+  const p = plugins().ClassAlarms;
+  if (!p?.scheduleReminders) {
+    return { ok: true, saved: true };
+  }
+
+  if (!enabled) {
+    try {
+      if (p.cancelReminders) {
+        await p.cancelReminders({ ids: [SAMAD_REMINDER_ID] });
+      }
+    } catch {}
+    return { ok: true, enabled: false };
+  }
+
+  const item = buildSamadReminderItem(hour, minute);
+  try {
+    const res = await p.scheduleReminders({
+      items: [
+        {
+          id: item.id,
+          triggerAtMs: item.triggerAtMs,
+          title: item.title,
+          body: item.body,
+          url: item.url,
+        },
+      ],
+    });
+    return { ok: true, enabled: true, triggerAtMs: item.triggerAtMs, ...res };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
+
+/**
+ * ارسال اعلان تستی زنده سماد (کلیک روی آن سامانه سماد را باز می‌کند)
+ */
+export async function testSamadNotification() {
+  const p = plugins().ClassAlarms;
+  const item = buildSamadReminderItem();
+  if (!p?.testNotification) {
+    if (typeof Notification !== 'undefined') {
+      try {
+        if (Notification.permission !== 'granted') {
+          await Notification.requestPermission();
+        }
+        const n = new Notification(item.title, {
+          body: item.body,
+          icon: '/favicon.ico',
+        });
+        n.onclick = () => {
+          window.open(SAMAD_URL, '_blank');
+        };
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: String(e?.message || e) };
+      }
+    }
+    return { ok: false, error: 'پلاگین در دسترس نیست' };
+  }
+
+  try {
+    return await p.testNotification({
+      id: SAMAD_REMINDER_ID,
+      title: item.title,
+      body: item.body,
+      url: item.url,
+    });
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
+
+/**
+ * افزودن موعد امتحان به تقویم رسمی دستگاه (Google Calendar / تقویم پیش‌فرض)
+ */
+export async function exportExamToCalendar(exam) {
+  if (!exam) return { ok: false, error: 'اطلاعات امتحان نامعتبر است' };
+
+  const courseName = exam.course || 'امتحان';
+  const title = `امتحان ${courseName}`;
+  const location = exam.room && exam.room !== 'ـ' ? `محل آزمون: ${exam.room}` : '';
+  const seatInfo = exam.seat && exam.seat !== '—' && exam.seat !== 'ـ' ? `شماره صندلی: ${exam.seat}` : '';
+  const instructor = exam.instructor && exam.instructor !== 'ـ' ? `استاد: ${exam.instructor}` : '';
+  const description = [instructor, seatInfo, location].filter(Boolean).join(' | ');
+
+  let startMs = 0;
+  let endMs = 0;
+
+  try {
+    const rawDate = String(exam.examDate || '').replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+    const dm = rawDate.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+    if (dm) {
+      const jy = parseInt(dm[1], 10);
+      const jm = parseInt(dm[2], 10);
+      const jd = parseInt(dm[3], 10);
+      const d = jalaliToDate(jy, jm, jd);
+      if (d) {
+        let sh = 8;
+        let sm = 30;
+        let eh = 10;
+        let em = 30;
+        const rawTime = String(exam.examTime || '').replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+        const tm = [...rawTime.matchAll(/(\d{1,2}):(\d{2})/g)];
+        if (tm.length >= 1) {
+          sh = parseInt(tm[0][1], 10);
+          sm = parseInt(tm[0][2], 10);
+          eh = sh + 2;
+          em = sm;
+        }
+        if (tm.length >= 2) {
+          eh = parseInt(tm[1][1], 10);
+          em = parseInt(tm[1][2], 10);
+        }
+        const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), sh, sm, 0, 0);
+        const end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), eh, em, 0, 0);
+        startMs = start.getTime();
+        endMs = end.getTime();
+      }
+    }
+  } catch (e) {
+    console.warn('[exportExamToCalendar date parse error]', e);
+  }
+
+  const p = plugins().ClassAlarms;
+  if (p?.exportToCalendar) {
+    try {
+      const res = await p.exportToCalendar({
+        title,
+        description,
+        location,
+        startMs,
+        endMs,
+      });
+      return { ok: true, ...res };
+    } catch (e) {
+      console.warn('[exportToCalendar native error, fallback to web]', e);
+    }
+  }
+
+  // لینک تحت وب گوگل کلندر در صورت عدم دسترسی به افزونه نیتیو
+  try {
+    const isoStart = startMs ? new Date(startMs).toISOString().replace(/-|:|\.\d\d\d/g, '') : '';
+    const isoEnd = endMs ? new Date(endMs).toISOString().replace(/-|:|\.\d\d\d/g, '') : '';
+    const datesParam = isoStart && isoEnd ? `&dates=${isoStart}/${isoEnd}` : '';
+    const gUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&details=${encodeURIComponent(description)}&location=${encodeURIComponent(location)}${datesParam}`;
+    window.open(gUrl, '_blank');
+    return { ok: true, web: true };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
+
+

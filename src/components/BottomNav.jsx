@@ -1,0 +1,121 @@
+import {
+  Award,
+  CalendarDays,
+  Timer,
+  LayoutGrid,
+  LayoutDashboard,
+} from 'lucide-react';
+import { motion, LayoutGroup } from 'framer-motion';
+
+/**
+ * ناوبری پایین — همه آیتم‌ها (شامل میز کار) یکسان:
+ * مستطیل پس‌زمینه + آیکون + نقطه؛ بدون پرش
+ */
+const TABS_RIGHT = [
+  { id: 'schedule', label: 'برنامه هفتگی', Icon: CalendarDays, activeColor: 'text-secondary' },
+  { id: 'grades', label: 'کارنامه و ریز نمرات', Icon: Award, activeColor: 'text-info' },
+];
+
+const TABS_CENTER = {
+  id: 'home',
+  label: 'میز کار',
+  Icon: LayoutDashboard,
+  activeColor: 'text-primary',
+};
+
+const TABS_LEFT = [
+  { id: 'study', label: 'مطالعه و پلنر', Icon: Timer, activeColor: 'text-warn' },
+  { id: 'more', label: 'سایر خدمات و تنظیمات', Icon: LayoutGrid, activeColor: 'text-accent' },
+];
+
+function NavTabItem({ id, label, Icon, active, activeColor, onChange }) {
+  const isActive = active === id;
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(id)}
+      className={`relative flex-1 min-w-0 h-12 flex flex-col items-center justify-center rounded-2xl transition-colors duration-200 outline-none select-none active:scale-95 ${
+        isActive ? 'font-bold' : 'text-neutral hover:text-base-content'
+      }`}
+      aria-label={label}
+      aria-current={isActive ? 'page' : undefined}
+    >
+      {isActive && (
+        <motion.span
+          layoutId="navTabActivePill"
+          className="absolute inset-1 rounded-2xl bg-base-500/35 border border-base-500/50 z-0 shadow-sm"
+          // tween به‌جای spring: پرش مورب/گیر روی WebView اندروید کمتر می‌شود
+          transition={{ type: 'tween', duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
+        />
+      )}
+      <span
+        className={`relative z-10 flex flex-col items-center justify-end h-8 transition-colors duration-200 ${
+          isActive ? activeColor : ''
+        }`}
+      >
+        <Icon
+          className={`w-5 h-5 transition-all duration-200 ${
+            isActive ? 'stroke-[2.4] -translate-y-[1px]' : 'stroke-[1.8] translate-y-0'
+          }`}
+        />
+        <motion.span
+          className="w-1.5 h-1.5 rounded-full bg-current shadow-sm mt-[3px]"
+          animate={{
+            opacity: isActive ? 1 : 0,
+            scale: isActive ? 1 : 0.5,
+          }}
+          transition={{ type: 'spring', stiffness: 450, damping: 28 }}
+        />
+      </span>
+    </button>
+  );
+}
+
+export default function BottomNav({ active, onChange }) {
+  return (
+    <nav
+      className="fixed bottom-0 inset-x-0 z-50 pointer-events-none pb-[env(safe-area-inset-bottom,0px)]"
+      aria-label="ناوبری اصلی برنامه"
+    >
+      {/* گرادینت بسیار نرم و محو همرنگ پس‌زمینه برای حذف آلودگی بصری زیر نوبار با حفظ حس شناور بودن */}
+      <div
+        className="absolute inset-x-0 bottom-0 h-28 pointer-events-none -z-10"
+        style={{
+          background: `linear-gradient(
+            to top,
+            var(--theme-color-base, #0a0a0c) 0%,
+            color-mix(in oklab, var(--theme-color-base, #0a0a0c) 92%, transparent) 22%,
+            color-mix(in oklab, var(--theme-color-base, #0a0a0c) 72%, transparent) 42%,
+            color-mix(in oklab, var(--theme-color-base, #0a0a0c) 45%, transparent) 62%,
+            color-mix(in oklab, var(--theme-color-base, #0a0a0c) 20%, transparent) 78%,
+            color-mix(in oklab, var(--theme-color-base, #0a0a0c) 6%, transparent) 90%,
+            transparent 100%
+          )`,
+        }}
+      />
+
+      <div className="relative mx-auto max-w-[420px] px-3 pb-2.5 pt-0 pointer-events-auto">
+        <LayoutGroup id="sarvBottomNavTabs">
+          <div
+            className="relative rounded-[22px] bg-base/95 backdrop-blur-md border border-base-500/70 shadow-[0_8px_20px_-4px_rgba(0,0,0,0.35)] px-2 py-1 grid grid-cols-5 gap-1 items-center"
+            style={{
+              backgroundColor: 'color-mix(in oklab, var(--theme-color-base, #0a0a0c) 95%, transparent)',
+              borderColor: 'color-mix(in oklab, var(--theme-color-base-500, #222222) 70%, transparent)',
+            }}
+          >
+            {TABS_RIGHT.map((t) => (
+              <NavTabItem key={t.id} {...t} active={active} onChange={onChange} />
+            ))}
+
+            {/* میز کار — دقیقاً هم‌عرض بقیه آیتم‌ها */}
+            <NavTabItem {...TABS_CENTER} active={active} onChange={onChange} />
+
+            {TABS_LEFT.map((t) => (
+              <NavTabItem key={t.id} {...t} active={active} onChange={onChange} />
+            ))}
+          </div>
+        </LayoutGroup>
+      </div>
+    </nav>
+  );
+}

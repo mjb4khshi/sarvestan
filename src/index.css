@@ -1,10 +1,8 @@
 @import "tailwindcss";
 @import "sarv-ui/sarv.css";
+@import "./sarv-themes.css";
 @plugin "sarv-ui";
 
-/* =========================================================
-   Arad Font Family Definition
-   ========================================================= */
 @font-face {
   font-family: 'Arad';
   src: url('/fonts/AradVF.woff2') format('woff2-variations'),
@@ -73,93 +71,32 @@
 @layer base {
   :root {
     --font-arad: 'Arad', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --theme-color-base: #0a0a0c;
-    --theme-color-base-content: #f8fafc;
-    --theme-color-base-500: #1f222e;
-    --theme-color-neutral: #94a3b8;
-    --theme-color-primary-content: #ffffff;
-    --theme-color-secondary-content: #ffffff;
-    --theme-color-accent-content: #ffffff;
-    --theme-color-success-content: #ffffff;
-    --theme-color-warn-content: #ffffff;
-    --theme-color-danger-content: #ffffff;
   }
 
   html, body {
     font-variation-settings: 'DSTY' 2;
   }
 
-  /* Laboo & White (سفید و لبویی - نسخه محدود تک‌طیف) */
-  [datatheme="laboo"],
-  [data-theme="laboo"] {
-    --theme-color-primary: #931139;
-    --theme-color-secondary: #aa1d4a;
-    --theme-color-accent: #c4285c;
-    --theme-color-success: #7f0d2f;
-    --theme-color-warn: #b0214e;
-    --theme-color-danger: #7f0d2f;
-    --theme-color-base: #ffffff;
-    --theme-color-base-500: #fdf0f4;
-    --theme-color-base-content: #2d0612;
-    --theme-color-neutral: #854b5f;
-    --theme-color-primary-content: #ffffff;
-    --theme-color-secondary-content: #ffffff;
-    --theme-color-accent-content: #ffffff;
-    --theme-color-success-content: #ffffff;
-    --theme-color-warn-content: #ffffff;
-    --theme-color-danger-content: #ffffff;
+  /* تم‌های غیرِ شارپ: گِرد — هماهنگ با دسکتاپ سرو */
+  html:not([datatheme*="sharp"]) {
+    --theme-radius-card: 1.15rem !important;
+    --theme-radius-button: 0.85rem !important;
+    --theme-radius-input: 0.85rem !important;
   }
 
-  /* Persian Dark explicit mapping */
-  [datatheme="persian-dark"],
-  [data-theme="persian-dark"],
-  [datatheme="persian-dark-sharp"],
-  [data-theme="persian-dark-sharp"] {
-    --theme-color-base: #000000;
-    --theme-color-base-content: #ffffff;
-    --theme-color-base-500: #1a1a1a;
-    --theme-color-neutral: #94a3b8;
-  }
-
-  /* Sarv Signature Emerald Theme (Deep Organic Forest & Vibrant Emerald) */
-  [datatheme="sarv"],
-  [data-theme="sarv"],
-  [datatheme="emerald"],
-  [data-theme="emerald"] {
-    --theme-color-primary: #10b981;
-    --theme-color-secondary: #065f46;
-    --theme-color-accent: #84cc16;
-    --theme-color-success: #22c55e;
-    --theme-color-warn: #eab308;
-    --theme-color-danger: #f43f5e;
-    --theme-color-base: #051510;
-    --theme-color-base-500: #0e2920;
-    --theme-color-base-content: #ecfdf5;
-    --theme-color-neutral: #94a3b8;
-  }
-
-  /* Persian Light and all light themes explicit mapping — ensures titles and text are crisp dark, never white */
-  [data-theme-mode="light"],
-  [datatheme="persian-light"],
-  [data-theme="persian-light"],
-  [datatheme="persian-light-sharp"],
-  [data-theme="persian-light-sharp"],
-  [datatheme="sunset"],
-  [data-theme="sunset"],
-  [datatheme="matcha"],
-  [data-theme="matcha"],
-  [datatheme="nordic"],
-  [data-theme="nordic"],
-  [datatheme="rose-gold"],
-  [data-theme="rose-gold"] {
-    --theme-color-base: #ffffff;
-    --theme-color-base-content: #0f172a;
-    --theme-color-base-500: #e2e8f0;
-    --theme-color-neutral: #475569;
+  [datatheme*="sharp"] {
+    --theme-radius-card: 0 !important;
+    --theme-radius-button: 0 !important;
+    --theme-radius-input: 0 !important;
   }
 
   html {
     scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html, body, #root {
+    min-height: 100%;
   }
 
   html, body, div, span, h1, h2, h3, h4, h5, h6, p, a,
@@ -175,237 +112,303 @@
   }
 
   body {
+    margin: 0;
     background-color: var(--theme-color-base, #0a0a0c);
     color: var(--theme-color-base-content, #f8fafc);
     transition: background-color 0.3s ease, color 0.3s ease;
     letter-spacing: -0.015em;
+    overscroll-behavior-y: none;
   }
 
-  /* Custom scrollbar matching Sarv UI theme */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: color-mix(in oklab, var(--theme-color-base-500, #444) 50%, transparent);
-    border-radius: 9999px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: var(--theme-color-primary, #0066a4);
+    width: 0;
+    height: 0;
   }
 }
 
-/* =========================================================
-   Spacious, Ultra-Clean Sarv Card & Bento Styles
-   (هماهنگ با توکن‌های radius-card سرو)
-   ========================================================= */
-.sarv-card {
-  background: color-mix(in oklab, var(--theme-color-base-500, #141414) 18%, var(--theme-color-base, #000000));
-  border: 1px solid color-mix(in oklab, var(--theme-color-base-500, #2c2c2c) 55%, transparent);
-  border-radius: var(--radius-card, 1.25rem);
-  color: var(--theme-color-base-content);
-  transition: border-color 0.25s ease, box-shadow 0.25s ease;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-.sarv-card h1,
-.sarv-card h2,
-.sarv-card h3,
-.sarv-card h4,
-.sarv-card h5,
-.sarv-card h6 {
-  color: var(--theme-color-base-content) !important;
-}
-
-.sarv-card-hover:hover {
-  border-color: color-mix(in oklab, var(--theme-color-primary, #0066a4) 45%, transparent);
-  box-shadow: 0 12px 28px -14px color-mix(in oklab, var(--theme-color-primary, #0066a4) 35%, transparent);
-}
-
-/* کارت‌های درس در ماتریس / ستون روزها — رنگ با توکن‌های سرو */
-.sarv-chip {
-  background: color-mix(in oklab, var(--chip-color, var(--theme-color-primary, #0066a4)) 12%, var(--theme-color-base, #000000));
-  border: 1px solid color-mix(in oklab, var(--chip-color, var(--theme-color-primary, #0066a4)) 30%, transparent);
-  border-radius: var(--radius-card, 1rem);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-}
-.sarv-chip:hover {
-  border-color: color-mix(in oklab, var(--chip-color, var(--theme-color-primary, #0066a4)) 55%, transparent);
-  box-shadow: 0 8px 18px -10px color-mix(in oklab, var(--chip-color, var(--theme-color-primary, #0066a4)) 45%, transparent);
-  transform: translateY(-1px);
-}
-
-/* تفکیک نوع درس با رنگ‌های رسمی سرو */
-.sarv-chip-primary   { --chip-color: var(--theme-color-primary); }
-.sarv-chip-success   { --chip-color: var(--theme-color-success); }
-.sarv-chip-info      { --chip-color: var(--theme-color-info); }
-.sarv-chip-secondary { --chip-color: var(--theme-color-secondary); }
-.sarv-chip-accent    { --chip-color: var(--theme-color-accent); }
-.sarv-chip-warn      { --chip-color: var(--theme-color-warn); }
-.sarv-chip-danger    { --chip-color: var(--theme-color-danger); }
-
-/* در تم‌های پرشین (غیر از sharp) کارت‌ها گرد باشند — برخی تم‌ها radius خیلی کوچک دارند */
-[datatheme="persian-dark"] .sarv-card,
-[datatheme="persian-light"] .sarv-card {
-  border-radius: 1rem;
-}
-[datatheme="persian-dark"] .sarv-chip,
-[datatheme="persian-light"] .sarv-chip {
-  border-radius: 0.875rem;
-}
-[datatheme="persian-dark-sharp"] .sarv-chip,
-[datatheme="persian-light-sharp"] .sarv-chip {
-  border-radius: 0 !important;
-}
-
-/* گروه‌بندی toggle نماها (مثل segmented control سرو) */
-.sarv-seg {
-  display: flex;
-  gap: 0.2rem;
-  padding: 0.2rem;
-  border-radius: var(--radius-button, 0.75rem);
-  background: color-mix(in oklab, var(--theme-color-base-500, #222) 28%, transparent);
-  border: 1px solid color-mix(in oklab, var(--theme-color-base-500, #333) 45%, transparent);
-}
-.sarv-seg > button {
-  flex: 1 1 0;
-  min-width: 0;
-}
-
-/* Badge refinements for perfect theme harmony */
-.badge[class*="badge-soft-"],
-[class*="badge-soft-"] {
-  border: none !important;
-  border-width: 0 !important;
-}
-
-.badge-soft-neutral {
-  background-color: color-mix(in oklab, var(--theme-color-neutral, #94a3b8) 22%, var(--theme-color-base, transparent)) !important;
-  color: var(--theme-color-neutral, #94a3b8) !important;
-}
-
-[data-theme-mode="light"] .badge-soft-warn,
-[datatheme="persian-light"] .badge-soft-warn,
-[data-theme="persian-light"] .badge-soft-warn,
-[datatheme="persian-light-sharp"] .badge-soft-warn,
-[data-theme="persian-light-sharp"] .badge-soft-warn,
-[datatheme="sunset"] .badge-soft-warn,
-[data-theme="sunset"] .badge-soft-warn {
-  color: #b45309 !important;
-}
-
-[data-theme-mode="light"] .badge-soft-success,
-[datatheme="persian-light"] .badge-soft-success,
-[data-theme="persian-light"] .badge-soft-success,
-[datatheme="persian-light-sharp"] .badge-soft-success,
-[data-theme="persian-light-sharp"] .badge-soft-success {
-  color: #15803d !important;
-}
-
-[data-theme-mode="light"] .badge-soft-info,
-[datatheme="persian-light"] .badge-soft-info,
-[data-theme="persian-light"] .badge-soft-info,
-[datatheme="persian-light-sharp"] .badge-soft-info,
-[data-theme="persian-light-sharp"] .badge-soft-info {
-  color: #0f766e !important;
-}
-
-/* Glowing border accent */
-.sarv-glow-primary {
-  box-shadow: 0 0 24px -8px color-mix(in oklab, var(--theme-color-primary) 35%, transparent);
-}
-
-.sarv-glow-accent {
-  box-shadow: 0 0 24px -8px color-mix(in oklab, var(--theme-color-accent) 35%, transparent);
-}
-
-/* رسید چاپی مالی — در صفحه و پرینت خوانا در هر تم */
-.print-receipt {
-  background: var(--theme-color-base, #fff) !important;
-  color: var(--theme-color-base-content, #111) !important;
-  border-color: color-mix(in oklab, var(--theme-color-base-500, #ccc) 55%, transparent) !important;
-}
-.print-receipt,
-.print-receipt * {
-  color: var(--theme-color-base-content, #111) !important;
-}
-.print-receipt .text-neutral {
-  color: color-mix(in oklab, var(--theme-color-base-content, #111) 55%, var(--theme-color-base, #fff)) !important;
-}
-.print-receipt .text-success {
-  color: var(--theme-color-success) !important;
-}
-.print-receipt .text-danger {
-  color: var(--theme-color-danger) !important;
-}
-
-@media print {
-  body * {
-    visibility: hidden !important;
+@layer components {
+  .sarv-card {
+    background: color-mix(in oklab, var(--theme-color-base-500, #141414) 18%, var(--theme-color-base, #000000));
+    border: 1px solid color-mix(in oklab, var(--theme-color-base-500, #2c2c2c) 55%, transparent);
+    border-radius: var(--radius-card, 1.25rem);
+    color: var(--theme-color-base-content);
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    will-change: transform;
   }
-  .print-receipt,
-  .print-receipt * {
-    visibility: visible !important;
+
+  /* حتی در تم‌های پرشین (غیر شارپ) کارت گرد باشد — مثل دسکتاپ */
+  [datatheme="persian-dark"] .sarv-card,
+  [datatheme="persian-light"] .sarv-card {
+    border-radius: 1.15rem;
   }
-  .print-receipt {
-    position: absolute !important;
-    inset: 0 auto auto 0 !important;
-    width: 100% !important;
-    max-width: 420px !important;
-    margin: 0 auto !important;
-    padding: 24px !important;
-    border: 1px dashed #444 !important;
-    box-shadow: none !important;
-    background: #fff !important;
-    color: #000 !important;
-    font-size: 12px !important;
-    line-height: 1.6 !important;
+
+  [datatheme*="sharp"] .sarv-card {
     border-radius: 0 !important;
   }
-  .print-receipt * {
-    color: #000 !important;
-    background: transparent !important;
-    box-shadow: none !important;
+
+  .sarv-card-hover:hover {
+    border-color: color-mix(in oklab, var(--theme-color-primary, #0066a4) 45%, transparent);
+    box-shadow: 0 12px 28px -14px color-mix(in oklab, var(--theme-color-primary, #0066a4) 35%, transparent);
   }
-}
 
-/* =========================================================
-   Smooth Liquid Theme Transitions & Showcase Replica Styles
-   ========================================================= */
-.sarv-showcase-frame,
-.sarv-showcase-frame *,
-.sarv-showcase-frame *::before,
-.sarv-showcase-frame *::after {
-  transition: background-color 0.6s cubic-bezier(0.4, 0, 0.2, 1),
-              color 0.6s cubic-bezier(0.4, 0, 0.2, 1),
-              border-color 0.6s cubic-bezier(0.4, 0, 0.2, 1),
-              fill 0.6s cubic-bezier(0.4, 0, 0.2, 1),
-              stroke 0.6s cubic-bezier(0.4, 0, 0.2, 1),
-              box-shadow 0.6s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
+  .sarv-card h1,
+  .sarv-card h2,
+  .sarv-card h3,
+  .sarv-card h4,
+  .sarv-card h5,
+  .sarv-card h6 {
+    color: var(--theme-color-base-content) !important;
+  }
 
-.sarv-showcase-frame .mock-card {
-  background-color: var(--theme-card-bg, rgba(20, 20, 25, 0.75));
-  border: 1px solid var(--theme-card-border, rgba(255, 255, 255, 0.1));
-  color: var(--theme-color-base-content, #ffffff);
-  border-radius: 0.875rem;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
+  /* Segmented control matching main Sarv dashboard */
+  .sarv-seg {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border-radius: var(--theme-radius-button, 0.85rem);
+    background: color-mix(in oklab, var(--theme-color-base-500, #222) 30%, transparent);
+    border: 1px solid color-mix(in oklab, var(--theme-color-base-500, #333) 45%, transparent);
+  }
+  .sarv-seg > button {
+    flex: 1 1 0;
+    min-width: 0;
+  }
 
-.sarv-showcase-frame .mock-title {
-  color: var(--theme-color-base-content, #ffffff) !important;
-}
+  .sarv-chip {
+    background: color-mix(in oklab, var(--chip-color, var(--theme-color-primary, #0066a4)) 12%, var(--theme-color-base, #000000));
+    border: 1px solid color-mix(in oklab, var(--chip-color, var(--theme-color-primary, #0066a4)) 30%, transparent);
+    border-radius: var(--theme-radius-card, 0.875rem);
+    transition: all 0.2s ease;
+  }
 
-.sarv-showcase-frame .mock-sub {
-  color: var(--theme-color-neutral, #94a3b8) !important;
-}
+  .sarv-chip-primary   { --chip-color: var(--theme-color-primary); }
+  .sarv-chip-success   { --chip-color: var(--theme-color-success); }
+  .sarv-chip-info      { --chip-color: var(--theme-color-info); }
+  .sarv-chip-secondary { --chip-color: var(--theme-color-secondary); }
+  .sarv-chip-accent    { --chip-color: var(--theme-color-accent); }
+  .sarv-chip-warn      { --chip-color: var(--theme-color-warn); }
+  .sarv-chip-danger    { --chip-color: var(--theme-color-danger); }
+  .sarv-chip-neutral   { --chip-color: var(--theme-color-neutral); }
 
-.sarv-showcase-frame .mock-primary {
-  color: var(--theme-color-primary, #0066a4) !important;
-}
+  .chip-primary   { --chip-color: var(--theme-color-primary); }
+  .chip-success   { --chip-color: var(--theme-color-success); }
+  .chip-info      { --chip-color: var(--theme-color-info); }
+  .chip-secondary { --chip-color: var(--theme-color-secondary); }
+  .chip-accent    { --chip-color: var(--theme-color-accent); }
+  .chip-warn      { --chip-color: var(--theme-color-warn); }
+  .chip-danger    { --chip-color: var(--theme-color-danger); }
+  .chip-neutral   { --chip-color: var(--theme-color-neutral); }
 
+  .mobile-shell {
+    width: min(100%, 430px);
+    margin-inline: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  .mobile-pad-bottom {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .glass-nav {
+    background: color-mix(in oklab, var(--theme-color-base, #000) 90%, transparent);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid color-mix(in oklab, var(--theme-color-base-500, #222) 55%, transparent);
+  }
+
+  .sarv-glow-primary {
+    box-shadow: 0 0 28px -6px color-mix(in oklab, var(--theme-color-primary) 40%, transparent);
+  }
+  .sarv-glow-accent {
+    box-shadow: 0 0 28px -6px color-mix(in oklab, var(--theme-color-accent) 40%, transparent);
+  }
+  .sarv-glow-info {
+    box-shadow: 0 0 28px -6px color-mix(in oklab, var(--theme-color-info) 40%, transparent);
+  }
+
+  .color-wash-primary { background: color-mix(in oklab, var(--theme-color-primary) 14%, transparent); }
+  .color-wash-success { background: color-mix(in oklab, var(--theme-color-success) 14%, transparent); }
+  .color-wash-info { background: color-mix(in oklab, var(--theme-color-info) 14%, transparent); }
+  .color-wash-warn { background: color-mix(in oklab, var(--theme-color-warn) 14%, transparent); }
+  .color-wash-danger { background: color-mix(in oklab, var(--theme-color-danger) 14%, transparent); }
+  .color-wash-accent { background: color-mix(in oklab, var(--theme-color-accent) 14%, transparent); }
+  .color-wash-secondary { background: color-mix(in oklab, var(--theme-color-secondary) 14%, transparent); }
+
+  /* توکن‌های رنگی پویا و ری‌اکتیو سرو — با تغییر تم زنده عوض می‌شوند */
+  .text-primary { color: var(--theme-color-primary) !important; }
+  .bg-primary { background-color: var(--theme-color-primary) !important; }
+  .border-primary { border-color: var(--theme-color-primary) !important; }
+  .bg-primary-soft { background-color: color-mix(in oklab, var(--theme-color-primary) 14%, transparent) !important; }
+  .border-primary-soft { border-color: color-mix(in oklab, var(--theme-color-primary) 32%, transparent) !important; }
+
+  .text-success { color: var(--theme-color-success) !important; }
+  .bg-success { background-color: var(--theme-color-success) !important; }
+  .border-success { border-color: var(--theme-color-success) !important; }
+  .bg-success-soft { background-color: color-mix(in oklab, var(--theme-color-success) 14%, transparent) !important; }
+  .border-success-soft { border-color: color-mix(in oklab, var(--theme-color-success) 32%, transparent) !important; }
+
+  .text-secondary { color: var(--theme-color-secondary) !important; }
+  .bg-secondary { background-color: var(--theme-color-secondary) !important; }
+  .border-secondary { border-color: var(--theme-color-secondary) !important; }
+  .bg-secondary-soft { background-color: color-mix(in oklab, var(--theme-color-secondary) 14%, transparent) !important; }
+  .border-secondary-soft { border-color: color-mix(in oklab, var(--theme-color-secondary) 32%, transparent) !important; }
+
+  .text-accent { color: var(--theme-color-accent) !important; }
+  .bg-accent { background-color: var(--theme-color-accent) !important; }
+  .border-accent { border-color: var(--theme-color-accent) !important; }
+  .bg-accent-soft { background-color: color-mix(in oklab, var(--theme-color-accent) 14%, transparent) !important; }
+  .border-accent-soft { border-color: color-mix(in oklab, var(--theme-color-accent) 32%, transparent) !important; }
+
+  .text-warn { color: var(--theme-color-warn) !important; }
+  .bg-warn { background-color: var(--theme-color-warn) !important; }
+  .border-warn { border-color: var(--theme-color-warn) !important; }
+  .bg-warn-soft { background-color: color-mix(in oklab, var(--theme-color-warn) 14%, transparent) !important; }
+  .border-warn-soft { border-color: color-mix(in oklab, var(--theme-color-warn) 32%, transparent) !important; }
+
+  .text-info { color: var(--theme-color-info) !important; }
+  .bg-info { background-color: var(--theme-color-info) !important; }
+  .border-info { border-color: var(--theme-color-info) !important; }
+  .bg-info-soft { background-color: color-mix(in oklab, var(--theme-color-info) 14%, transparent) !important; }
+  .border-info-soft { border-color: color-mix(in oklab, var(--theme-color-info) 32%, transparent) !important; }
+
+  .text-danger { color: var(--theme-color-danger) !important; }
+  .bg-danger { background-color: var(--theme-color-danger) !important; }
+  .border-danger { border-color: var(--theme-color-danger) !important; }
+  .bg-danger-soft { background-color: color-mix(in oklab, var(--theme-color-danger) 14%, transparent) !important; }
+  .border-danger-soft { border-color: color-mix(in oklab, var(--theme-color-danger) 32%, transparent) !important; }
+
+  .text-primary-content { color: var(--theme-color-primary-content, #ffffff) !important; }
+  .text-secondary-content { color: var(--theme-color-secondary-content, #ffffff) !important; }
+  .text-accent-content { color: var(--theme-color-accent-content, #ffffff) !important; }
+  .text-success-content { color: var(--theme-color-success-content, #ffffff) !important; }
+  .text-warn-content { color: var(--theme-color-warn-content, #ffffff) !important; }
+  .text-danger-content { color: var(--theme-color-danger-content, #ffffff) !important; }
+  .text-info-content { color: var(--theme-color-info-content, #ffffff) !important; }
+
+  /* حذف فلش‌ها و بالا پایین پیش‌فرض مرورگر در فیلدهای عددی */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none !important;
+    margin: 0 !important;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield !important;
+  }
+
+  /* 🌿 استایل و انیمیشن رسمی چک‌باکس سرو (Sarv UI Checkbox) */
+  .checkbox {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--cb-size, 1.25rem);
+    height: var(--cb-size, 1.25rem);
+    border-radius: var(--theme-radius-checkbox, 40%);
+    cursor: pointer;
+    user-select: none;
+    box-sizing: border-box;
+    transition: box-shadow 0.25s ease, background-color 0.25s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
+  }
+
+  .checkbox input {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    appearance: none;
+    cursor: pointer;
+    opacity: 0;
+    z-index: 10;
+    width: 100%;
+    height: 100%;
+  }
+
+  .checkbox::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-color: currentColor;
+    z-index: 1;
+    border-radius: inherit;
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.8);
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease, box-shadow 0.25s ease;
+    box-shadow: 0 0 0 0px currentColor;
+  }
+
+  .checkbox:not(:has(input:checked)) {
+    box-shadow: inset 0 0 0 2px var(--theme-color-base-500, #333);
+  }
+
+  .checkbox:not(:has(input:checked)):hover {
+    background-color: var(--theme-color-base-500, #222);
+  }
+
+  .checkbox:has(input:focus-visible) {
+    outline: none;
+    box-shadow: inset 0 0 0 2px var(--theme-color-base-500), 0 0 0 3px color-mix(in oklab, currentColor 40%, transparent);
+  }
+
+  .checkbox:has(input:checked) {
+    background-color: var(--theme-color-base-500, #222);
+  }
+
+  .checkbox:has(input:checked)::after {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0px currentColor;
+  }
+
+  .checkbox:has(input:checked):hover::after {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 4px currentColor;
+  }
+
+  .checkbox-icon {
+    position: absolute;
+    z-index: 2;
+    width: 75%;
+    height: 75%;
+    pointer-events: none;
+  }
+
+  .checkbox-icon path,
+  .checkbox-icon line,
+  .checkbox-icon polyline {
+    stroke-width: 2.5;
+    fill: none;
+    stroke: var(--theme-color-primary-content, #ffffff);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 200;
+    stroke-dashoffset: 200;
+    transition: stroke-dashoffset 0.4s cubic-bezier(0.65, 0, 0.45, 1);
+  }
+
+  .checkbox:has(input:checked) .checkbox-icon path,
+  .checkbox:has(input:checked) .checkbox-icon line,
+  .checkbox:has(input:checked) .checkbox-icon polyline {
+    stroke-dashoffset: 0;
+    transition-delay: 0.1s;
+  }
+
+  .checkbox:not(:has(input:checked)) .checkbox-icon path,
+  .checkbox:not(:has(input:checked)) .checkbox-icon line,
+  .checkbox:not(:has(input:checked)) .checkbox-icon polyline {
+    stroke-dashoffset: 200;
+  }
+
+  .checkbox-primary { color: var(--theme-color-primary) !important; }
+  .checkbox-secondary { color: var(--theme-color-secondary) !important; }
+  .checkbox-accent { color: var(--theme-color-accent) !important; }
+  .checkbox-success { color: var(--theme-color-success) !important; }
+  .checkbox-warn { color: var(--theme-color-warn) !important; }
+  .checkbox-danger { color: var(--theme-color-danger) !important; }
+  .checkbox-info { color: var(--theme-color-info) !important; }
+}

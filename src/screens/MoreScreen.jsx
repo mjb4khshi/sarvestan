@@ -1,0 +1,2113 @@
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  FileCheck2,
+  FileText,
+  ChevronLeft,
+  BookOpenCheck,
+  RefreshCw,
+  ExternalLink,
+  Info,
+  Share2,
+  Globe,
+  Download,
+  CheckCircle2,
+  Clock,
+  Table2,
+  CircleDashed,
+  X,
+  Copy,
+  Check,
+  Heart,
+  Sparkles,
+  Image as ImageIcon,
+  CalendarDays,
+  TrendingUp,
+  Loader2,
+  Rocket,
+  AlertCircle,
+  AlertTriangle,
+  Trash2,
+  BellRing,
+  BellOff,
+  RotateCcw,
+  CreditCard,
+  SlidersHorizontal,
+  Bot,
+} from 'lucide-react';
+import UpdateModal from '../components/UpdateModal';
+import ClassAlarmModal from '../components/ClassAlarmModal';
+import CurriculumChartModal from '../components/CurriculumChartModal';
+import DashboardCustomizeModal from '../components/DashboardCustomizeModal';
+import AiAdvisorPromptModal from '../components/AiAdvisorPromptModal';
+import BatmanMask from '../components/BatmanMask';
+import { useBatMode } from '../services/batMode';
+import SarvSwitch from '../components/SarvSwitch';
+import FinanceModal from '../components/FinanceModal';
+import { checkForUpdate, CURRENT_VERSION } from '../services/updater';
+import {
+  clearLiveData,
+  clearSession,
+  resetScheduleAndExamsToBehestan,
+  hasScheduleCustomizations,
+} from '../services/behestan';
+import { clearSsoCookies } from '../services/behestan/ssoLoginNative';
+import { clearSavedCreds } from '../services/loginFlow';
+import { getUniversityOrigin, getSelectedUniversity } from '../services/behestan/session';
+
+import {
+  cancelAllReminders,
+  getDndDuringClass,
+  setDndDuringClass,
+  checkDndPermission,
+  requestDndPermission,
+} from '../services/classAlarms';
+
+function GithubIcon({ className = 'w-4 h-4' }) {
+  return (
+    <svg className={className} fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
+      />
+    </svg>
+  );
+}
+
+function LinkedinIcon({ className = 'w-4 h-4' }) {
+  return (
+    <svg className={className} fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" />
+    </svg>
+  );
+}
+import { isNativeCapacitor } from '../services/androidWidget';
+import { getViewModel } from '../data/viewModel';
+import { useSarvestanData } from '../hooks/useSarvestanData';
+import { useTheme } from '../context/ThemeContext';
+import SessionPanel from '../components/SessionPanel';
+import { toFaDigits, formatLastSync, getLastSyncTimestamp } from '../utils/faDigits';
+import { getGpaStatusBadge } from '../utils/gpaBadge';
+import {
+  renderScheduleImage,
+  renderGpaStoryImage,
+  shareCanvas,
+  canvasToDataUrl,
+  downloadBlob,
+  saveCanvasImage,
+  copyCanvasToClipboard,
+} from '../services/shareImages';
+import { useAppIcon, SarvIconSvg } from '../services/appIcon';
+
+function DarametDonateCard() {
+  return (
+    <a
+      href="https://daramet.com/mjbkhshi"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="sarv-card p-3 flex items-center justify-between gap-3 border border-rose-500/20 bg-gradient-to-l from-rose-500/5 via-base-100 to-amber-500/5 hover:border-rose-500/40 active:scale-[0.99] transition-all group"
+    >
+      <div className="flex items-center gap-2.5 min-w-0">
+        <span className="w-8 h-8 rounded-xl bg-rose-500/15 text-rose-500 grid place-items-center shrink-0 group-hover:scale-105 transition-transform">
+          <Heart className="w-4 h-4 fill-rose-500" />
+        </span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[13px] font-bold text-base-content truncate">حمایت از توسعه سروستان</span>
+            <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-500 shrink-0">
+              دونیت
+            </span>
+          </div>
+          <p className="text-[10.5px] text-neutral truncate mt-0.5">
+            پروژه رایگان و مستقل؛ با یک قهوه دلگرمی ببخشید ☕
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1 text-[11.5px] font-bold text-rose-600 dark:text-rose-400 shrink-0 px-2.5 py-1.5 rounded-lg bg-rose-500/10 group-hover:bg-rose-500/20 transition-colors">
+        <span>دارمت</span>
+        <ExternalLink className="w-3.5 h-3.5" />
+      </div>
+    </a>
+  );
+}
+
+export default function MoreScreen({
+  onNavigate,
+  initialChartOpen = false,
+  initialFinanceOpen = false,
+  onCloseChart,
+  onCloseFinance,
+}) {
+  const vm = getViewModel();
+  const { workflows, sync, syncMeta } = useSarvestanData();
+  const { activeThemeMeta } = useTheme();
+  const lastSyncTime = getLastSyncTimestamp(syncMeta);
+  const lastSyncFormatted = formatLastSync(lastSyncTime);
+  const [financeModalOpen, setFinanceModalOpen] = useState(initialFinanceOpen);
+
+  const closeFinance = () => {
+    setFinanceModalOpen(false);
+    onCloseFinance?.();
+  };
+
+  const closeChart = () => {
+    setChartModalOpen(false);
+    onCloseChart?.();
+  };
+
+  useEffect(() => {
+    return () => {
+      onCloseChart?.();
+      onCloseFinance?.();
+    };
+  }, []);
+  const [iconModalOpen, setIconModalOpen] = useState(false);
+  const [dashboardModalOpen, setDashboardModalOpen] = useState(false);
+  const [iconToast, setIconToast] = useState('');
+  const [clearDataModalOpen, setClearDataModalOpen] = useState(false);
+  const [clearingData, setClearingData] = useState(false);
+  const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [resetToast, setResetToast] = useState('');
+  const [alarmModalOpen, setAlarmModalOpen] = useState(false);
+  const [dndEnabled, setDndEnabled] = useState(() => getDndDuringClass());
+  const [dndToggling, setDndToggling] = useState(false);
+  const { currentIconId, currentIcon, setAppIcon, icons: appIcons } = useAppIcon();
+  const {
+    isBatMode,
+    toggleBatMode,
+    isBatNotifEnabled,
+    setBatNotifEnabled,
+    testBatNotification,
+    openNotificationSettings: openBatNotificationSettings,
+  } = useBatMode();
+  const [batNotifToggling, setBatNotifToggling] = useState(false);
+
+  const handleToggleBatNotif = async (nextState) => {
+    setBatNotifToggling(true);
+    try {
+      const res = await setBatNotifEnabled(nextState);
+      if (nextState) {
+        if (res?.ok) {
+          setResetToast('اعلان شبانه «احتیاج شهر به بتمن» برای هر شب ساعت ۲۳:۰۰ فعال شد.');
+        } else if (res?.blockedInSettings) {
+          setResetToast('دسترسی اعلان‌ها در تنظیمات سیستم مسدود است. لطفاً آن را فعال کنید.');
+          await openBatNotificationSettings();
+        } else {
+          setResetToast(res?.error || 'خطا در فعال‌سازی دسترسی اعلان');
+        }
+      } else {
+        setResetToast('اعلان شبانه بت‌سیگنال غیرفعال شد.');
+      }
+      setTimeout(() => setResetToast(''), 4500);
+    } catch (e) {
+      setResetToast('خطا در تغییر وضعیت اعلان');
+      setTimeout(() => setResetToast(''), 3500);
+    } finally {
+      setBatNotifToggling(false);
+    }
+  };
+
+  const handleTestBatNotif = async () => {
+    try {
+      setResetToast('در حال ارسال اعلان تستی بت‌سیگنال...');
+      const res = await testBatNotification();
+      if (res?.ok) {
+        setResetToast('اعلان «احتیاج شهر به بتمن» با موفقیت ارسال شد.');
+      } else {
+        setResetToast(res?.error || 'خطا در ارسال اعلان آزمایشی');
+      }
+      setTimeout(() => setResetToast(''), 4000);
+    } catch {
+      setResetToast('خطا در ارسال اعلان آزمایشی');
+      setTimeout(() => setResetToast(''), 3500);
+    }
+  };
+
+  useEffect(() => {
+    if (initialFinanceOpen) {
+      setFinanceModalOpen(true);
+    }
+  }, [initialFinanceOpen]);
+
+  // همگام‌سازی وضعیت حالت مزاحم نشوید با تغییر در مودال‌ها یا بازگشت به صفحه
+  useEffect(() => {
+    const handleSyncDnd = () => setDndEnabled(getDndDuringClass());
+    window.addEventListener('focus', handleSyncDnd);
+    return () => window.removeEventListener('focus', handleSyncDnd);
+  }, []);
+
+  const handleToggleDnd = async (nextState) => {
+    setDndEnabled(nextState);
+    setDndToggling(true);
+    if (nextState) {
+      const perm = await checkDndPermission();
+      if (perm && perm.granted === false) {
+        setResetToast('لطفاً در صفحه باز شده، دسترسی «مزاحم نشوید» را برای سروستان فعال کنید.');
+        setTimeout(() => setResetToast(''), 4500);
+        await requestDndPermission();
+      }
+    }
+    try {
+      const res = await setDndDuringClass(nextState);
+      if (nextState) {
+        if (res?.activatedNow && res?.activeCourse) {
+          setResetToast(`کلاس «${res.activeCourse.title || res.activeCourse.name}» در جریان است؛ حالت مزاحم نشوید فوراً فعال شد.`);
+        } else {
+          setResetToast('حالت مزاحم نشوید حین کلاس فعال شد (سایلنت خودکار در ساعات کلاس)');
+        }
+      } else {
+        setResetToast('حالت مزاحم نشوید حین کلاس غیرفعال شد.');
+      }
+      setTimeout(() => setResetToast(''), 4000);
+    } catch (e) {
+      setResetToast('خطا در تغییر وضعیت: ' + String(e?.message || e));
+      setTimeout(() => setResetToast(''), 3500);
+    } finally {
+      setDndToggling(false);
+    }
+  };
+
+  const handleResetToBehestan = () => {
+    try {
+      resetScheduleAndExamsToBehestan();
+      setResetToast('برنامه هفتگی و تاریخ امتحانات به نسخه رسمی بهستان بازگردانده شد.');
+      setTimeout(() => setResetToast(''), 4000);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setResetModalOpen(false);
+    }
+  };
+
+  const handleExecuteClearData = async () => {
+    setClearingData(true);
+    try {
+      try {
+        await cancelAllReminders();
+      } catch {}
+      try {
+        clearLiveData();
+      } catch {}
+      try {
+        clearSession();
+      } catch {}
+      try {
+        clearSavedCreds();
+      } catch {}
+      try {
+        await clearSsoCookies();
+      } catch {}
+      try {
+        if (!isNativeCapacitor()) {
+          await fetch('/__sarvestan/session', { method: 'DELETE' });
+        }
+      } catch {}
+      try {
+        localStorage.clear();
+      } catch {}
+      try {
+        sessionStorage.clear();
+      } catch {}
+      setTimeout(() => {
+        try {
+          window.location.replace(window.location.origin + window.location.pathname);
+        } catch {
+          window.location.reload();
+        }
+      }, 300);
+    } catch (e) {
+      console.error('[clear data error]', e);
+      setClearingData(false);
+      setClearDataModalOpen(false);
+    }
+  };
+  // چارت: فقط از دیتای زنده — بدون mock
+  const CURRICULUM = vm.curriculum;
+  const STUDENT = vm.student || {
+    fullName: '',
+    studentId: '',
+    college: '',
+    major: '',
+  };
+  const gpaStatus = getGpaStatusBadge(vm.summary?.gpa || STUDENT?.gpa || vm.grades?.cumulativeGpa);
+  // درخواست‌ها: فقط از دیتای زنده
+  const REQUESTS_LIVE = (workflows || []).map((w, i) => ({
+    id: w.id || `r${i}`,
+    title: w.title || 'درخواست آموزشی',
+    date: w.date || '',
+    status: w.status || 'در جریان',
+    color: i % 2 === 0 ? 'info' : 'warn',
+  }));
+  const [updateState, setUpdateState] = useState({
+    checking: false,
+    checked: false,
+    hasUpdate: false,
+    latestRelease: null,
+    error: null,
+  });
+  const [updateModalOpen, setUpdateModalOpen] = useState(false);
+
+  const handleCheckUpdate = async (openModalIfUpdate = true) => {
+    if (updateState.checking) return;
+    setUpdateState((s) => ({ ...s, checking: true, error: null }));
+    const res = await checkForUpdate();
+    setUpdateState({
+      checking: false,
+      checked: true,
+      hasUpdate: res.hasUpdate,
+      latestRelease: res.latestRelease,
+      error: res.error,
+    });
+    if (res.hasUpdate && openModalIfUpdate && res.latestRelease) {
+      setUpdateModalOpen(true);
+    }
+  };
+  const [chartModalOpen, setChartModalOpen] = useState(initialChartOpen);
+  const [aboutModalOpen, setAboutModalOpen] = useState(false);
+  const [referralModalOpen, setReferralModalOpen] = useState(false);
+  const [aiPromptModalOpen, setAiPromptModalOpen] = useState(false);
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [copiedInvite, setCopiedInvite] = useState(false);
+  const [shareBusy, setShareBusy] = useState('');
+  const [sharePreview, setSharePreview] = useState(null); // { url, kind, canvas, filename, title }
+  const [shareMsg, setShareMsg] = useState('');
+  const [copiedPreview, setCopiedPreview] = useState(false);
+
+  // بستن بالاترین مودال هنگام فشردن دکمه بازگشت اندروید
+  useEffect(() => {
+    const handleCloseTopModal = (e) => {
+      if (aiPromptModalOpen) {
+        setAiPromptModalOpen(false);
+        e.preventDefault();
+      } else if (financeModalOpen) {
+        closeFinance();
+        e.preventDefault();
+      } else if (chartModalOpen) {
+        closeChart();
+        e.preventDefault();
+      } else if (alarmModalOpen) {
+        setAlarmModalOpen(false);
+        e.preventDefault();
+      } else if (iconModalOpen) {
+        setIconModalOpen(false);
+        e.preventDefault();
+      } else if (referralModalOpen) {
+        setReferralModalOpen(false);
+        e.preventDefault();
+      } else if (sharePreview) {
+        setSharePreview(null);
+        e.preventDefault();
+      } else if (clearDataModalOpen) {
+        setClearDataModalOpen(false);
+        e.preventDefault();
+      } else if (resetModalOpen) {
+        setResetModalOpen(false);
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('sarvCloseTopModal', handleCloseTopModal);
+    return () => window.removeEventListener('sarvCloseTopModal', handleCloseTopModal);
+  }, [
+    aiPromptModalOpen,
+    financeModalOpen,
+    chartModalOpen,
+    alarmModalOpen,
+    iconModalOpen,
+    referralModalOpen,
+    sharePreview,
+    clearDataModalOpen,
+    resetModalOpen,
+  ]);
+
+  const selectedUni = getSelectedUniversity();
+  const isAut = selectedUni === 'aut';
+  const [scheduleShareFormat, setScheduleShareFormat] = useState('matrix');
+  const [scheduleShareRendering, setScheduleShareRendering] = useState(false);
+
+  const handleShareSchedule = async (format = scheduleShareFormat) => {
+    if (shareBusy || scheduleShareRendering) return;
+    setShareBusy('schedule');
+    setScheduleShareRendering(true);
+    setShareMsg('');
+    try {
+      const activeFormat = isAut ? 'timeline' : format;
+      const canvas = await renderScheduleImage({
+        theme: activeThemeMeta,
+        view: activeFormat,
+      });
+      setSharePreview({
+        url: canvasToDataUrl(canvas),
+        kind: 'schedule',
+        canvas,
+        title: 'برنامه هفتگی من | سروستان',
+        filename: `sarvestan-schedule-${activeFormat}.png`,
+      });
+      setShareMsg('پیش‌نمایش آماده شد — گزینهٔ اشتراک‌گذاری یا ذخیره را انتخاب کنید');
+    } catch (e) {
+      console.error('[share schedule]', e);
+      setShareMsg('خطا در ساخت تصویر: ' + String(e?.message || e));
+    } finally {
+      setShareBusy('');
+      setScheduleShareRendering(false);
+    }
+  };
+
+  const handleChangeScheduleShareFormat = async (newFormat) => {
+    if (newFormat === scheduleShareFormat || scheduleShareRendering) return;
+    setScheduleShareFormat(newFormat);
+    await handleShareSchedule(newFormat);
+  };
+
+  const handleShareGpa = async () => {
+    if (shareBusy) return;
+    setShareBusy('gpa');
+    setShareMsg('');
+    try {
+      const canvas = await renderGpaStoryImage({ theme: activeThemeMeta });
+      setSharePreview({
+        url: canvasToDataUrl(canvas),
+        kind: 'gpa',
+        canvas,
+        title: 'کارنامه و معدل من | سروستان',
+        filename: 'sarvestan-gpa.png',
+      });
+      setShareMsg('پیش‌نمایش آماده شد — گزینهٔ اشتراک‌گذاری یا ذخیره را انتخاب کنید');
+    } catch (e) {
+      console.error('[share gpa]', e);
+      setShareMsg('خطا در ساخت تصویر: ' + String(e?.message || e));
+    } finally {
+      setShareBusy('');
+    }
+  };
+
+  const handleDownloadPreview = async () => {
+    if (!sharePreview?.canvas) return;
+    try {
+      await saveCanvasImage(sharePreview.canvas, sharePreview.filename || 'sarvestan.png');
+      setShareMsg('تصویر با موفقیت در گالری ذخیره شد');
+    } catch (e) {
+      console.error('[download preview]', e);
+      setShareMsg('خطا در ذخیره تصویر');
+    }
+  };
+
+  const handleShareNative = async () => {
+    if (!sharePreview?.canvas) return;
+    try {
+      const r = await shareCanvas(sharePreview.canvas, {
+        filename: sharePreview.filename || 'sarvestan.png',
+        title: sharePreview.title || 'سروستان',
+      });
+      if (r === 'shared') setShareMsg('تصویر با موفقیت به اشتراک گذاشته شد');
+      if (r === 'downloaded') setShareMsg('تصویر ذخیره شد — آمادهٔ قرار دادن در استوری');
+    } catch (e) {
+      console.error('[share native]', e);
+      setShareMsg('خطا در اشتراک‌گذاری');
+    }
+  };
+
+  const handleCopyPreview = async () => {
+    if (!sharePreview?.canvas) return;
+    try {
+      await copyCanvasToClipboard(sharePreview.canvas);
+      setCopiedPreview(true);
+      setShareMsg('تصویر در حافظه کپی شد (آمادهٔ الصاق در استوری یا چت)');
+      setTimeout(() => setCopiedPreview(false), 3000);
+    } catch (e) {
+      console.warn('[copy preview]', e);
+      await handleDownloadPreview();
+    }
+  };
+
+
+  const INVITE_TEXT =
+    'سلام! 👋\nدیدم هنوز داری با سامانه بهستان کلنجار میری، گفتم سروستان رو بهت معرفی کنم 🌿\n\nاپلیکیشن هوشمند دانشجویان (نسخه جدید ۱.۲ پاسارگاد):\n⚡ کارکرد کاملاً آفلاین برنامه کلاسی و امتحانات\n📱 ۳ ویجت زنده و هوشمند برای صفحه اصلی گوشی\n✨ تایپوگرافی جذاب آراد نقاط ۲ (Dots 2)\n☀️ تم اصیل ایرانی روشن و دارک\n🎓 پشتیبانی کامل از دانشجویان کهاد (دورشته‌ای)\n🔕 حالت سکوت خودکار گوشی سر کلاس (DND)\n🍱 یادآور هفتگی رزرو غذای سماد\n📊 کارنامه، محاسبه‌گر معدل و تحلیل بدهی شهریه\n🔒 ۱۰۰٪ امن، بدون واسطه و بدون نیاز به سرور یا فیلترشکن\n\n📱 دانلود مستقیم نسخه اندروید و افزونه مرورگر:\nhttps://mjb4khshi.github.io/sarvestan';
+
+  const handleCopyInvite = () => {
+    navigator.clipboard?.writeText(INVITE_TEXT);
+    setCopiedInvite(true);
+    setTimeout(() => setCopiedInvite(false), 2500);
+  };
+
+  const handleShareInvite = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'سروستان | اکوسیستم هوشمند سامانه بهستان',
+          text: INVITE_TEXT,
+          url: 'https://mjb4khshi.github.io/sarvestan',
+        });
+      } catch (e) {
+        if (e.name !== 'AbortError') {
+          handleCopyInvite();
+        }
+      }
+    } else {
+      handleCopyInvite();
+    }
+  };
+
+  // فیلتر کردن دروس چارت — اگر چارت خالی باشد، لیست خالی
+  const filteredCategories =
+    !CURRICULUM || !Array.isArray(CURRICULUM.categories)
+      ? []
+      : activeCategory === 'all'
+        ? CURRICULUM.categories
+        : CURRICULUM.categories.filter((c) => c.id === activeCategory);
+
+  return (
+    <div className="px-4 pt-4 space-y-4 mobile-pad-bottom">
+      {/* ۱. کارت مشخصات دانشجو */}
+      <motion.section
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="sarv-card p-4 flex items-center gap-3.5"
+      >
+        <div className="relative shrink-0 w-13 h-13">
+          {STUDENT.photo ? (
+            <img
+              src={STUDENT.photo}
+              alt=""
+              className="w-full h-full rounded-2xl object-cover shadow-sm border border-base-500/40"
+            />
+          ) : (
+            <div className="w-full h-full rounded-2xl bg-primary text-primary-content font-black text-xl grid place-items-center shadow-sm">
+              {(STUDENT.fullName || '؟').slice(0, 1)}
+            </div>
+          )}
+          <BatmanMask />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[15px] font-bold text-base-content truncate">
+              {STUDENT.fullName || '—'}
+            </p>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {gpaStatus && (
+                <span className={`text-[10px] px-2 py-0.5 rounded-lg ${gpaStatus.chip}`}>
+                  {gpaStatus.label}
+                </span>
+              )}
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-primary-soft text-primary">
+                دانشجوی فعال
+              </span>
+            </div>
+          </div>
+          <p className="text-[11px] text-neutral mt-0.5">
+            شماره دانشجویی:{' '}
+            <span className="font-mono text-base-content font-bold">
+              {STUDENT.studentId || '—'}
+            </span>
+          </p>
+          <p className="text-[10.5px] text-neutral truncate mt-0.5">
+            {[
+              STUDENT.college,
+              STUDENT.major && !String(STUDENT.college || '').includes(STUDENT.major) ? STUDENT.major : null,
+              STUDENT.level,
+            ].filter(Boolean).join(' · ') || '—'}
+          </p>
+        </div>
+      </motion.section>
+
+      {/* اتصال دیتاخوان */}
+      <motion.section
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.03 }}
+      >
+        <SessionPanel />
+      </motion.section>
+
+      {/* ۲. بخش حمایت مالی و دونیت (دارمت) */}
+      <motion.section
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.035 }}
+      >
+        <DarametDonateCard />
+      </motion.section>
+
+      {/* ۲.۵ اشتراک‌گذاری تصویری با تم سرو */}
+      <motion.section
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.04 }}
+        className="space-y-2"
+      >
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-[12.5px] font-bold text-neutral">استوری و اشتراک‌گذاری</h3>
+        </div>
+        <div className="grid grid-cols-2 gap-2.5">
+          <button
+            type="button"
+            onClick={handleShareSchedule}
+            disabled={!!shareBusy}
+            className="sarv-card p-3.5 text-right border border-primary/35 bg-primary-soft/70 hover:bg-primary-soft active:scale-[0.98] transition-all disabled:opacity-60 group relative overflow-hidden flex flex-col justify-between h-full"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="w-10 h-10 rounded-2xl bg-primary text-primary-content grid place-items-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
+                  {shareBusy === 'schedule' ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <CalendarDays className="w-5 h-5" />
+                  )}
+                </span>
+                <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20 shrink-0">
+                  تصویر برنامه
+                </span>
+              </div>
+              <p className="text-[13.5px] font-black text-base-content">برنامه هفتگی</p>
+            </div>
+            <p className="text-[10.5px] text-neutral mt-1 min-h-[30px] line-clamp-2 leading-tight">پوستر تم هفتگی با ساعات و اساتید</p>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleShareGpa}
+            disabled={!!shareBusy}
+            className="sarv-card p-3.5 text-right border border-success/35 bg-success-soft/70 hover:bg-success-soft active:scale-[0.98] transition-all disabled:opacity-60 group relative overflow-hidden flex flex-col justify-between h-full"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="w-10 h-10 rounded-2xl bg-success text-success-content grid place-items-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
+                  {shareBusy === 'gpa' ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <TrendingUp className="w-5 h-5" />
+                  )}
+                </span>
+                <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-success/15 text-success border border-success/20 shrink-0">
+                  کارت معدل
+                </span>
+              </div>
+              <p className="text-[13.5px] font-black text-base-content">معدل و نمرات</p>
+            </div>
+            <p className="text-[10.5px] text-neutral mt-1 min-h-[30px] line-clamp-2 leading-tight">کارت استوری کارنامه و میانگین کل</p>
+          </button>
+        </div>
+        {shareMsg && !sharePreview && (
+          <p className="text-[11px] text-base-content bg-base-500/25 border border-base-500/40 rounded-xl px-3 py-2 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+            {shareMsg}
+          </p>
+        )}
+      </motion.section>
+
+      {/* ۲. دکمه ویژه: معرفی به دیگران (دعوت از دوستان) */}
+      <motion.section
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05 }}
+      >
+        <button
+          type="button"
+          onClick={() => setReferralModalOpen(true)}
+          className="w-full sarv-card p-3.5 flex items-center justify-between gap-3 border border-accent/40 bg-accent-soft text-right active:scale-[0.98] transition-all"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="w-10 h-10 rounded-xl bg-accent text-accent-content grid place-items-center shrink-0 shadow-sm">
+              <Share2 className="w-5 h-5" />
+            </span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <p className="text-[13.5px] font-black text-base-content">معرفی به دیگران</p>
+                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-accent text-accent-content">
+                  پیشنهاد ویژه
+                </span>
+              </div>
+              <p className="text-[11px] text-neutral mt-0.5">
+                سروستان را به هم‌دانشگاهی‌ها معرفی کنید
+              </p>
+            </div>
+          </div>
+          <ChevronLeft className="w-4 h-4 text-accent shrink-0" />
+        </button>
+      </motion.section>
+
+      {/* ۳. منوی خدمات دانشگاهی */}
+      <section className="space-y-1.5">
+        <h3 className="text-[12.5px] font-bold text-neutral px-1">خدمات و وضعیت آموزشی</h3>
+        <div className="sarv-card overflow-hidden divide-y divide-base-500/30">
+          {/* متن برای هوش مصنوعی (مشاوره تحصیلی) */}
+          <button
+            type="button"
+            onClick={() => setAiPromptModalOpen(true)}
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors cursor-pointer group"
+          >
+            <div className="flex items-start gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-primary-soft text-primary border border-primary-soft mt-0.5 group-hover:scale-105 transition-transform">
+                <Bot className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-[13.5px] font-bold text-base-content truncate">متن برای هوش مصنوعی</p>
+                  <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-primary-soft text-primary border border-primary-soft">
+                    مشاور تحصیلی
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-neutral mt-0.5">
+                  تولید پرامپت معدل، سوابق و برنامه برای ChatGPT، Claude و Gemini
+                </p>
+              </div>
+            </div>
+            <ChevronLeft className="w-4 h-4 text-neutral shrink-0 mt-2" />
+          </button>
+
+          {/* امور مالی و شهریه */}
+          <button
+            type="button"
+            onClick={() => (onNavigate ? onNavigate('finance') : setFinanceModalOpen(true))}
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors cursor-pointer"
+          >
+            <div className="flex items-start gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-success-soft text-success border border-success-soft mt-0.5">
+                <CreditCard className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-[13.5px] font-bold text-base-content truncate">امور مالی و شهریه</p>
+                  <span
+                    className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-md ${
+                      vm.finance?.isPaid
+                        ? 'bg-success-soft text-success border border-success-soft'
+                        : 'bg-danger-soft text-danger border border-danger-soft'
+                    }`}
+                  >
+                    {vm.finance?.isPaid
+                      ? 'تسویه کامل'
+                      : vm.finance?.debtToman
+                      ? `${toFaDigits(Number(vm.finance.debtToman).toLocaleString('fa-IR'))} ت`
+                      : 'بدهی جاری'}
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-neutral mt-0.5">
+                  ریز تراز مالی، شهریه متغیر، وضعیت تسویه و رسید رسمی
+                </p>
+              </div>
+            </div>
+            <ChevronLeft className="w-4 h-4 text-neutral shrink-0 mt-2" />
+          </button>
+
+          {/* تنظیم یادآور و آلارم کلاس‌ها */}
+          <button
+            type="button"
+            onClick={() => setAlarmModalOpen(true)}
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors"
+          >
+            <div className="flex items-start gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-primary-soft text-primary border border-primary-soft mt-0.5">
+                <BellRing className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-[13.5px] font-bold text-base-content truncate">تنظیم یادآور و آلارم کلاس‌ها</p>
+                  <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-primary-soft text-primary border border-primary-soft">
+                    نوتیفیکیشن و ساعت
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-neutral mt-0.5">اعلان پیش از شروع، آلارم هفتگی و یادآور غذای سماد</p>
+              </div>
+            </div>
+            <ChevronLeft className="w-4 h-4 text-neutral shrink-0 mt-2" />
+          </button>
+
+          {/* چارت و وضعیت دروس */}
+          <button
+            type="button"
+            onClick={() => (onNavigate ? onNavigate('chart') : setChartModalOpen(true))}
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors cursor-pointer"
+          >
+            <div className="flex items-start gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-accent-soft text-accent border border-accent-soft mt-0.5">
+                <BookOpenCheck className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-[13.5px] font-bold text-base-content truncate">چارت و وضعیت دروس</p>
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-500 border border-amber-500/25">
+                    آزمایشی
+                  </span>
+                  <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-md bg-accent-soft text-accent">
+                    {toFaDigits(CURRICULUM?.passedCredits ?? 0)} از{' '}
+                    {toFaDigits(CURRICULUM?.totalCredits || '')} واحد
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-neutral mt-0.5">پیش‌نیازها، سرفصل و دروس باقیمانده</p>
+              </div>
+            </div>
+            <ChevronLeft className="w-4 h-4 text-neutral shrink-0 mt-2" />
+          </button>
+
+          {/* نامه‌ها و گواهی‌ها */}
+          <button
+            type="button"
+            onClick={() => window.open(getUniversityOrigin() + '/', '_blank')}
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors"
+          >
+            <div className="flex items-start gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-info-soft text-info border border-info-soft mt-0.5">
+                <FileText className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-[13.5px] font-bold text-base-content truncate">نامه‌ها و گواهی‌ها</p>
+                  <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-warn-soft/80 text-warn border border-warn-soft inline-flex items-center gap-1 shrink-0">
+                    <ExternalLink className="w-2.5 h-2.5" />
+                    ارجاع به بهستان
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-neutral mt-0.5">اشتغال به تحصیل، معرفی‌نامه و مدارک رسمی</p>
+              </div>
+            </div>
+            <ExternalLink className="w-4 h-4 text-neutral/70 shrink-0 mt-2" />
+          </button>
+
+          {/* درخواست‌های آموزشی */}
+          <button
+            type="button"
+            onClick={() => window.open(getUniversityOrigin() + '/', '_blank')}
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors"
+          >
+            <div className="flex items-start gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-primary-soft text-primary border border-primary-soft mt-0.5">
+                <FileCheck2 className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-[13.5px] font-bold text-base-content truncate">پیشخوان خدمت و درخواست‌ها</p>
+                  <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-warn-soft/80 text-warn border border-warn-soft inline-flex items-center gap-1 shrink-0">
+                    <ExternalLink className="w-2.5 h-2.5" />
+                    ارجاع به بهستان
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-neutral mt-0.5">فرم‌های ۲۱۱۲۲، حذف تک‌درس و مصوبات آموزشی</p>
+              </div>
+            </div>
+            <ExternalLink className="w-4 h-4 text-neutral/70 shrink-0 mt-2" />
+          </button>
+        </div>
+      </section>
+
+      {/* ۴. لینک‌های سروستان و دسترسی به وب و دسکتاپ */}
+      <section className="space-y-1.5">
+        <h3 className="text-[12.5px] font-bold text-neutral px-1">سروستان در بستر وب و افزونه</h3>
+        <div className="sarv-card overflow-hidden divide-y divide-base-500/30">
+          {/* سایت سروستان */}
+          <button
+            type="button"
+            onClick={() => window.open('https://mjb4khshi.github.io/sarvestan', '_blank')}
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 transition-colors"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl bg-primary-soft text-primary grid place-items-center shrink-0">
+                <Globe className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[13.5px] font-bold text-base-content">وب‌سایت رسمی سروستان</p>
+                <p className="text-[10.5px] text-neutral mt-0.5">mjb4khshi.github.io/sarvestan · معرفی و امکانات</p>
+              </div>
+            </div>
+            <ExternalLink className="w-4 h-4 text-neutral shrink-0" />
+          </button>
+
+          {/* کانال تلگرام سروستان */}
+          <button
+            type="button"
+            onClick={() => window.open('https://t.me/s4rvest4n', '_blank')}
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 transition-colors"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl bg-sky-500/15 text-sky-500 grid place-items-center shrink-0">
+                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z" />
+                </svg>
+              </span>
+              <div className="min-w-0">
+                <p className="text-[13.5px] font-bold text-base-content flex items-center gap-1.5">
+                  <span>کانال تلگرام سروستان</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-md bg-sky-500/15 text-sky-500 font-bold">@s4rvest4n</span>
+                </p>
+                <p className="text-[10.5px] text-neutral mt-0.5">t.me/s4rvest4n · اخبار آپدیت‌ها و اطلاعیه‌ها</p>
+              </div>
+            </div>
+            <ExternalLink className="w-4 h-4 text-neutral shrink-0" />
+          </button>
+
+          {/* دانلود افزونه دسکتاپ */}
+          <button
+            type="button"
+            onClick={() => window.open('https://github.com/mjb4khshi/sarvestan/releases', '_blank')}
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 transition-colors"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl bg-success-soft text-success grid place-items-center shrink-0">
+                <Download className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[13.5px] font-bold text-base-content">دانلود افزونه دسکتاپ سروستان</p>
+                <p className="text-[10.5px] text-neutral mt-0.5">قابل نصب روی کروم، اج و فایرفاکس</p>
+              </div>
+            </div>
+            <ExternalLink className="w-4 h-4 text-neutral shrink-0" />
+          </button>
+
+          {/* درباره ما */}
+          <button
+            type="button"
+            onClick={() => setAboutModalOpen(true)}
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 transition-colors"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl bg-secondary-soft text-secondary grid place-items-center shrink-0">
+                <Info className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[13.5px] font-bold text-base-content">درباره سروستان و تیم توسعه</p>
+                <p className="text-[10.5px] text-neutral mt-0.5">داستان پروژه و سیستم طراحی Sarv UI</p>
+              </div>
+            </div>
+            <ChevronLeft className="w-4 h-4 text-neutral shrink-0" />
+          </button>
+        </div>
+      </section>
+
+      {/* شخصی‌سازی ظاهر و چیدمان */}
+      <section className="space-y-1.5">
+        <h3 className="text-[12.5px] font-bold text-neutral px-1">شخصی‌سازی ظاهر</h3>
+        <div className="sarv-card overflow-hidden divide-y divide-base-500/30">
+          {/* چیدمان و ویجت‌های داشبورد */}
+          <button
+            type="button"
+            onClick={() => setDashboardModalOpen(true)}
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 transition-colors group cursor-pointer"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl bg-primary-soft text-primary grid place-items-center shrink-0 transition-transform group-hover:scale-105">
+                <SlidersHorizontal className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-[13.5px] font-bold text-base-content">چیدمان و ویجت‌های داشبورد</p>
+                  <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-full bg-primary-soft text-primary">
+                    جدید
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-neutral mt-0.5">
+                  تغییر ترتیب، حذف و اضافه کردن کارت‌های صفحه اصلی
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-[11px] font-bold text-primary">تنظیم</span>
+              <ChevronLeft className="w-4 h-4 text-neutral" />
+            </div>
+          </button>
+
+          {/* حالت بتمن (ایستر اگ) */}
+          {isBatMode && (
+            <div className="bg-base-500/15 border-b border-base-content/5 divide-y divide-base-content/5">
+              <div className="p-3.5 flex items-center justify-between gap-3 hover:bg-base-500/25 transition-colors">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="w-9 h-9 rounded-xl bg-amber-400/15 border border-amber-400/35 grid place-items-center shrink-0 p-1.5 shadow-sm">
+                    <svg viewBox="0 0 122.13 69.89" className="w-full h-full">
+                      <path
+                        fill="#f7dd30"
+                        d="M121.06,35c0,18.71-26.86,33.88-60,33.88S1.06,53.66,1.06,35s26.87-33.89,60-33.89,60,15.17,60,33.89Z"
+                      />
+                      <path
+                        fill="#000000"
+                        d="M51.72,24.46c-14.49,5.37-21.86-8-14.49-15.74-11.75,3-30.86,11.49-30.86,25.63,0,12.83,12.49,20.09,21.49,23.22-8.68-10.74,3.25-19.16,13.7-7.41C49.69,35.73,59.28,56.44,61,59.58h0c1.71-3.14,11.31-23.85,19.44-9.42,10.45-11.75,22.38-3.33,13.7,7.41,9-3.13,21.49-10.39,21.49-23.22,0-14.14-19.11-22.63-30.86-25.63,7.37,7.74,0,21.11-14.49,15.74-1.67-2-2.75-6.11-2.75-18.24-1.94,1.26-3.33,5.71-3.45,6a12,12,0,0,0-6.15,0c-.12-.32-1.51-4.77-3.45-6,0,12.13-1.08,16.25-2.75,18.24ZM122.13,35c0,9.76-6.93,18.56-18.12,24.88-11,6.22-26.2,10.06-42.95,10.06S29.13,66.05,18.12,59.83C6.92,53.51,0,44.71,0,35S6.92,16.39,18.12,10.07C29.13,3.85,44.32,0,61.06,0S93,3.85,104,10.07C115.2,16.39,122.13,25.18,122.13,35ZM103,58c10.52-5.94,17-14.09,17-23s-6.51-17.1-17-23c-10.7-6-25.52-9.78-41.91-9.78s-31.2,3.74-41.9,9.78C8.64,17.85,2.13,26,2.13,35S8.64,52,19.16,58c10.7,6.05,25.52,9.79,41.9,9.79S92.27,64,103,58Z"
+                      />
+                    </svg>
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-[13px] font-bold text-base-content">حالت شوالیه تاریکی (بتمن)</p>
+                      <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-600 dark:text-amber-400 border border-amber-400/30">
+                        ایستر اگ فعال
+                      </span>
+                    </div>
+                    <p className="text-[10.5px] text-neutral mt-0.5 truncate">
+                      بک‌گراند خفاشی گاتهام، ماسک چهره و آیکون بتمن
+                    </p>
+                  </div>
+                </div>
+                <SarvSwitch
+                  checked={isBatMode}
+                  onChange={() => toggleBatMode()}
+                  variant="warn"
+                  aria-label="حالت بتمن"
+                />
+              </div>
+
+              {/* تنظیم اعلان شبانه ساعت ۱۱ شب (احتیاج شهر به بتمن) */}
+              <div className="p-3.5 bg-base-500/10">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="w-9 h-9 rounded-xl bg-amber-400/15 text-amber-500 border border-amber-400/30 grid place-items-center shrink-0">
+                      <BellRing className="w-4.5 h-4.5" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-[13px] font-bold text-base-content">اعلان شبانه گاتهام (ساعت ۱۱ شب)</p>
+                        <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-600 dark:text-amber-400 border border-amber-400/30 font-mono">
+                          ۲۳:۰۰
+                        </span>
+                      </div>
+                      <p className="text-[10.5px] text-neutral mt-0.5 truncate">
+                        ارسال اعلان «احتیاج شهر به بتمن» هر شب رأس ساعت ۱۱
+                      </p>
+                    </div>
+                  </div>
+                  <SarvSwitch
+                    checked={isBatNotifEnabled}
+                    onChange={(val) => handleToggleBatNotif(val)}
+                    disabled={batNotifToggling}
+                    variant="warn"
+                    aria-label="اعلان شبانه بتمن"
+                  />
+                </div>
+
+                {isBatNotifEnabled && (
+                  <div className="mt-2.5 pt-2 border-t border-base-content/5 flex items-center justify-between gap-2">
+                    <span className="text-[10.5px] text-neutral flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                      <span>فعال · هر شب رأس ساعت ۲۳:۰۰</span>
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={handleTestBatNotif}
+                        className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-amber-400/15 hover:bg-amber-400/25 text-amber-600 dark:text-amber-400 border border-amber-400/30 transition-colors cursor-pointer"
+                      >
+                        تست اعلان
+                      </button>
+                      <button
+                        type="button"
+                        onClick={openBatNotificationSettings}
+                        className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-base-500/30 hover:bg-base-500/50 text-neutral transition-colors cursor-pointer"
+                      >
+                        تنظیمات دسترسی
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* آیکون اپلیکیشن */}
+          <button
+            type="button"
+            onClick={() => setIconModalOpen(true)}
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 transition-colors group cursor-pointer"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="shrink-0 transition-transform group-hover:scale-105">
+                <SarvIconSvg iconId={currentIconId} size={38} shadow={false} />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-[13.5px] font-bold text-base-content">آیکون اپلیکیشن</p>
+                  <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-full bg-primary-soft text-primary">
+                    {toFaDigits((isBatMode ? appIcons : appIcons.filter((ic) => ic.id !== 'batman')).length)} طرح
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-neutral mt-0.5">
+                  طرح فعال: <span className="font-semibold text-base-content">{currentIcon.name}</span>
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-[11px] font-bold text-primary">تغییر</span>
+              <ChevronLeft className="w-4 h-4 text-neutral" />
+            </div>
+          </button>
+        </div>
+      </section>
+
+      {/* یادآورها و تمرکز (مزاحم نشوید) */}
+      <section className="space-y-1.5">
+        <h3 className="text-[12.5px] font-bold text-neutral px-1">یادآورها و تمرکز کلاسی</h3>
+        <div className="sarv-card overflow-hidden divide-y divide-base-500/25">
+          {/* سوییچ حالت مزاحم نشوید حین کلاس */}
+          <div className="p-3.5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <span
+                className={`w-9 h-9 rounded-xl grid place-items-center shrink-0 transition-colors ${
+                  dndEnabled ? 'bg-primary-soft text-primary' : 'bg-base-500/30 text-neutral'
+                }`}
+              >
+                <BellOff className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-[13px] font-bold text-base-content">
+                    حالت مزاحم نشوید حین کلاس
+                  </p>
+                  <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-full bg-primary-soft text-primary">
+                    سایلنت خودکار
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-neutral mt-0.5 truncate">
+                  بی‌صدا کردن خودکار زنگ و اعلان‌ها در زمان برگزاری کلاس‌ها
+                </p>
+              </div>
+            </div>
+
+            <SarvSwitch
+              checked={dndEnabled}
+              onChange={(val) => handleToggleDnd(val)}
+              disabled={dndToggling}
+              variant="primary"
+              aria-label="سایلنت خودکار حین کلاس"
+            />
+          </div>
+
+          {/* باز کردن مودال تنظیمات اعلان‌ها و آلارم کلاس‌ها */}
+          <button
+            type="button"
+            onClick={() => setAlarmModalOpen(true)}
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 transition-colors cursor-pointer group"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl bg-primary-soft text-primary grid place-items-center shrink-0 transition-transform group-hover:scale-105">
+                <BellRing className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-bold text-base-content">تنظیمات یادآور و آلارم کلاس‌ها</p>
+                <p className="text-[10.5px] text-neutral mt-0.5 truncate">
+                  زمان پیش‌آگاهی، اعلان شروع جلسه، رزرو غذای سماد و ساعت زنگ‌دار
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-[11px] font-bold text-primary">تنظیم</span>
+              <ChevronLeft className="w-4 h-4 text-neutral" />
+            </div>
+          </button>
+        </div>
+      </section>
+
+      {/* ۵. بررسی به‌روزرسانی و وضعیت نسخه */}
+      <section className="space-y-1.5">
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-[12.5px] font-bold text-neutral">نسخه و به‌روزرسانی</h3>
+          <span className="text-[11px] font-semibold text-neutral/70 font-mono">
+            v{CURRENT_VERSION} · پاسارگاد
+          </span>
+        </div>
+        <div className="sarv-card overflow-hidden">
+          <div className="p-3.5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <span
+                className={`w-9 h-9 rounded-xl grid place-items-center shrink-0 ${
+                  updateState.hasUpdate
+                    ? 'bg-primary-soft text-primary ring-2 ring-primary/30'
+                    : updateState.checking
+                    ? 'bg-base-500/40 text-primary'
+                    : updateState.checked
+                    ? 'bg-success-soft text-success'
+                    : 'bg-base-500/40 text-neutral'
+                }`}
+              >
+                {updateState.checking ? (
+                  <Loader2 className="w-4.5 h-4.5 animate-spin" />
+                ) : updateState.hasUpdate ? (
+                  <Rocket className="w-4.5 h-4.5 animate-pulse" />
+                ) : updateState.checked ? (
+                  <CheckCircle2 className="w-4.5 h-4.5" />
+                ) : (
+                  <Download className="w-4.5 h-4.5" />
+                )}
+              </span>
+
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-[13.5px] font-bold text-base-content">
+                    {updateState.hasUpdate
+                      ? `نسخه جدید ${updateState.latestRelease?.tagName} موجود است`
+                      : updateState.checking
+                      ? 'در حال بررسی گیت‌هاب...'
+                      : updateState.checked
+                      ? 'سروستان شما کاملاً به‌روز است'
+                      : 'بررسی به‌روزرسانی سروستان'}
+                  </p>
+                  {updateState.hasUpdate && (
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                        updateState.latestRelease?.isPrerelease
+                          ? 'bg-amber-500/15 text-amber-500 border border-amber-500/20'
+                          : 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/20'
+                      }`}
+                    >
+                      {updateState.latestRelease?.isPrerelease ? 'آزمایشی' : 'پایدار'}
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-[10.5px] text-neutral mt-0.5 truncate">
+                  {updateState.hasUpdate
+                    ? 'امکانات و تغییرات جدید برای دریافت آماده است'
+                    : updateState.checking
+                    ? 'اتصال به مخزن رسمی mjb4khshi/sarvestan...'
+                    : updateState.error
+                    ? `${updateState.error} — کلیک برای تلاش دوباره`
+                    : updateState.checked
+                    ? `نسخه ${CURRENT_VERSION} (پاسارگاد) آخرین نگارش منتشرشده است ✓`
+                    : `نسخه کنونی: ${CURRENT_VERSION} (پاسارگاد) · کلیک برای بررسی`}
+                </p>
+              </div>
+            </div>
+
+            {updateState.hasUpdate ? (
+              <button
+                type="button"
+                onClick={() => setUpdateModalOpen(true)}
+                className="shrink-0 px-3 py-1.5 rounded-xl bg-primary text-primary-content font-bold text-[11.5px] shadow-sm hover:brightness-110 active:scale-95 transition-all flex items-center gap-1.5"
+              >
+                <Rocket className="w-3.5 h-3.5" />
+                <span>به‌روزرسانی</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={updateState.checking}
+                onClick={() => handleCheckUpdate(true)}
+                className="shrink-0 px-3 py-1.5 rounded-xl bg-base-500/40 hover:bg-base-500/60 active:scale-95 text-base-content font-bold text-[11px] transition-all flex items-center gap-1.5 disabled:opacity-60"
+              >
+                {updateState.checking ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                    <span>بررسی...</span>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>{updateState.checked ? 'بررسی مجدد' : 'بررسی نسخه'}</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* مدیریت داده‌ها و بازنشانی */}
+      <section className="space-y-1.5">
+        <h3 className="text-[12.5px] font-bold text-neutral px-1">مدیریت داده‌ها و بازنشانی</h3>
+        <div className="sarv-card overflow-hidden divide-y divide-base-500/25">
+          {/* بازنشانی برنامه به داده‌های بهستان */}
+          <div className="p-3.5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl bg-accent-soft text-accent grid place-items-center shrink-0">
+                <RotateCcw className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-[13px] font-bold text-base-content">
+                    بازنشانی به داده‌های بهستان
+                  </p>
+                  {hasScheduleCustomizations() && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold bg-accent/15 text-accent border border-accent/25 shrink-0 whitespace-nowrap">
+                      ویرایش‌شده
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10.5px] text-neutral mt-0.5 truncate">
+                  بازگردانی تغییرات دستی برنامه هفتگی و امتحانات به اطلاعات رسمی بهستان
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setResetModalOpen(true)}
+              className="shrink-0 px-3 py-1.5 rounded-xl bg-base-500/20 hover:bg-base-500/35 text-base-content font-bold text-[11px] border border-base-500/30 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-accent" />
+              <span>بازنشانی</span>
+            </button>
+          </div>
+
+          {/* پاکسازی کامل داده‌های برنامه */}
+          <div className="p-3.5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl bg-danger-soft text-danger grid place-items-center shrink-0">
+                <Trash2 className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-bold text-base-content">
+                  پاکسازی کامل داده‌های برنامه
+                </p>
+                <p className="text-[10.5px] text-neutral mt-0.5 truncate">
+                  خروج از حساب، حذف نشست‌ها، نمرات و راه‌اندازی اولیه اپلیکیشن
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setClearDataModalOpen(true)}
+              className="shrink-0 px-3 py-1.5 rounded-xl bg-danger-soft text-danger hover:bg-danger/20 border border-danger/30 font-bold text-[11px] active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>پاکسازی</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ۶. آخرین وضعیت درخواست‌ها */}
+      <section className="sarv-card p-4">
+        <h3 className="text-[13px] font-bold text-base-content mb-3">آخرین وضعیت درخواست‌ها</h3>
+        <div className="space-y-2.5">
+          {REQUESTS_LIVE.length === 0 && (
+            <p className="text-[12px] text-neutral text-center py-3">درخواستی ثبت نشده</p>
+          )}
+          {REQUESTS_LIVE.map((req) => (
+            <div key={req.id} className="flex items-center justify-between gap-3 text-[12px]">
+              <div className="min-w-0">
+                <p className="font-semibold text-base-content truncate">{req.title}</p>
+                <p className="text-[10.5px] text-neutral">{req.date}</p>
+              </div>
+              <span
+                className={`text-[10.5px] font-bold px-2 py-0.5 rounded-full border ${
+                  req.color === 'success'
+                    ? 'bg-success-soft text-success border-success-soft'
+                    : req.color === 'info'
+                    ? 'bg-info-soft text-info border-info-soft'
+                    : 'bg-base-500/30 text-neutral border-base-500/40'
+                }`}
+              >
+                {req.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* دکمه خروج — حذف شد (اضافی بود) */}
+
+      <div className="text-center space-y-1.5 pb-3 pt-1">
+        <p className="text-[11px] text-neutral font-medium">
+          طراحی و توسعه توسط <span className="font-mono font-bold text-base-content">@mjb4khshi</span> با چای و حوصله بسیار ☕
+        </p>
+        <p className="text-[10px] text-neutral/60 font-mono">
+          نسخه {toFaDigits('1.2')} پاسارگاد سروستان همراه · Sarv UI
+        </p>
+      </div>
+
+      {/* مودال تمام‌صفحه: امور مالی و شهریه */}
+      <FinanceModal
+        isOpen={financeModalOpen}
+        onClose={closeFinance}
+        onNavigate={onNavigate}
+      />
+
+      {/* مودال تمام‌صفحه و تعاملی: چارت و نقشه راه تحصیلی */}
+      <AnimatePresence>
+        {chartModalOpen && (
+          <CurriculumChartModal
+            isOpen={chartModalOpen}
+            onClose={closeChart}
+            curriculumState={CURRICULUM}
+            student={STUDENT}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* مودال: معرفی به دیگران */}
+      <AnimatePresence>
+        {referralModalOpen && (
+          <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setReferralModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{ y: '100%', opacity: 0.5 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0.5 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+              className="relative z-10 w-full max-w-[430px] rounded-t-3xl sm:rounded-3xl bg-base border border-base-500/50 p-5 shadow-2xl flex flex-col"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-base-500/30">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-accent text-accent-content grid place-items-center shadow-sm">
+                    <Share2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-[15px] font-bold text-base-content">معرفی سروستان به دیگران</h3>
+                    <p className="text-[11px] text-neutral">دعوت دوستان به داشبورد هوشمند بهستان</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReferralModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-base-500/30 text-neutral hover:text-base-content grid place-items-center"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="py-4 space-y-3.5 text-right max-h-[70vh] overflow-y-auto">
+                <p className="text-[12.5px] text-base-content leading-relaxed">
+                  فکر کن یه دوستت هنوز داره با صفحهٔ بهستان کلنجار میره…
+                  <br />
+                  با یه لینک، بهش بگو که برنامه هفتگی، نمرات، معدل و شهریه‌اش می‌تونه
+                  <strong className="text-accent"> سریع‌تر، تمیزتر و بدون استرس</strong> دیده بشه —
+                  بدون اینکه حساب یا سروری لازم باشه.
+                </p>
+
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  {[
+                    { icon: '⚡', label: 'آفلاین و سریع', sub: 'برنامه و تقویم' },
+                    { icon: '📱', label: 'ویجت‌های زنده', sub: 'صفحه اصلی گوشی' },
+                    { icon: '🎨', label: 'آراد Dots 2', sub: 'تم‌های چشم‌نواز' },
+                    { icon: '🎓', label: 'پشتیبانی کهاد', sub: 'دانشجویان دورشته‌ای' },
+                    { icon: '🔕', label: 'سایلنت خودکار', sub: 'حالت DND سر کلاس' },
+                    { icon: '🔒', label: '۱۰۰٪ امن و محلی', sub: 'بدون سرور و واسطه' },
+                  ].map((x) => (
+                    <div
+                      key={x.label}
+                      className="rounded-xl bg-accent-soft border border-accent/20 p-2 flex flex-col items-center justify-center text-center"
+                    >
+                      <span className="text-base block leading-none">{x.icon}</span>
+                      <span className="text-[10.5px] font-bold text-base-content mt-1 block">{x.label}</span>
+                      <span className="text-[9px] text-neutral block mt-0.5">{x.sub}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="sarv-card p-3.5 bg-base-500/15 border border-dashed border-base-500/40 text-[12px] leading-relaxed">
+                  <p className="text-base-content font-bold mb-2 flex items-center justify-between">
+                    <span>متن آماده برای ارسال:</span>
+                    <span className="text-[10px] text-accent font-mono font-bold bg-accent/15 px-2 py-0.5 rounded-full">نسخه ۱.۲ پاسارگاد</span>
+                  </p>
+                  <p className="text-neutral select-all whitespace-pre-wrap font-sans text-[11.5px] leading-relaxed">
+                    {INVITE_TEXT}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleShareInvite}
+                    className="py-3 rounded-2xl font-bold text-[13px] flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 bg-accent text-accent-content hover:brightness-110 cursor-pointer"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    <span>اشتراک‌گذاری</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCopyInvite}
+                    className={`py-3 rounded-2xl font-bold text-[13px] flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer ${
+                      copiedInvite
+                        ? 'bg-success text-success-content'
+                        : 'bg-base-500/30 text-base-content hover:bg-base-500/50'
+                    }`}
+                  >
+                    {copiedInvite ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>کپی شد! ✓</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4" />
+                        <span>کپی متن</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* مودال: درباره سروستان */}
+      <AnimatePresence>
+        {aboutModalOpen && (
+          <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setAboutModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{ y: '100%', opacity: 0.5 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0.5 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+              className="relative z-10 w-full max-w-[430px] rounded-t-3xl sm:rounded-3xl bg-base border border-base-500/50 p-5 shadow-2xl flex flex-col"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-base-500/30">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-primary text-primary-content grid place-items-center shadow-sm">
+                    <Info className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-[15px] font-bold text-base-content">درباره سروستان</h3>
+                    <p className="text-[11px] text-neutral">طراحی و توسعه اختصاصی</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAboutModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-base-500/30 text-neutral hover:text-base-content grid place-items-center"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="py-4 space-y-3.5 text-right max-h-[70vh] overflow-y-auto">
+                <p className="text-[12.5px] text-base-content leading-relaxed">
+                  خسته شدی از اینکه هر بار برای دیدن برنامه، نمره یا بدهی شهریه باید وارد بهستان شی،
+                  صبر کنی تا لود شه، و با اون ظاهر قدیمی کلنجار بری؟
+                  <br />
+                  <strong className="text-accent">سروستان</strong> همون چیزیه که همیشه می‌خواستی:
+                  یه همراه سبک و سریع برای بهستان — بدون دردسر، بدون سرور واسطه، فقط دادهٔ واقعی خودت.
+                </p>
+
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { t: 'برنامه آفلاین و ویجت‌ها', d: 'کارت و ماتریس + ۳ ویجت زنده صفحه اصلی' },
+                    { t: 'پشتیبانی کامل کهاد', d: 'تفکیک دروس دورشته‌ای بدون تداخل' },
+                    { t: 'سکوت کلاسی و یادآور سماد', d: 'سایلنت خودکار DND و نوتیف هفتگی غذا' },
+                    { t: 'کارنامه، نمرات و مالی', d: 'محاسبه‌گر معدل و ریز تراز بدهی بهستان' },
+                  ].map((f) => (
+                    <div
+                      key={f.t}
+                      className="rounded-xl bg-base-500/20 border border-base-500/30 p-2.5"
+                    >
+                      <p className="text-[12px] font-bold text-base-content">{f.t}</p>
+                      <p className="text-[10.5px] text-neutral mt-0.5 leading-snug">{f.d}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="p-3 rounded-2xl bg-success-soft border border-success-soft space-y-1.5">
+                  <p className="font-bold text-success text-[12px]">حریم خصوصی — اول از همه</p>
+                  <p className="text-[11px] text-neutral leading-relaxed">
+                    نه سرور واسطه‌ای در کار است، نه تبلیغ و نه پایگاه داده ابری. برنامه، نمرات و اطلاعات تحصیلی فقط و فقط
+                    <strong className="text-base-content"> روی دستگاه خودت</strong> ذخیره و پردازش می‌شوند و حتی در خروجی‌های استوری، اطلاعات حساس پنهان می‌گردند.
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-primary-soft border border-primary-soft space-y-1.5">
+                  <p className="font-bold text-primary text-[12px]">دیزاین‌سیستم اختصاصی Sarv UI</p>
+                  <p className="text-[11px] text-neutral leading-relaxed">
+                    کل رابط کاربری روی دیزاین‌سیستم اختصاصی
+                    <strong className="text-base-content"> Sarv UI</strong> ساخته شده — با ۱۵ تم رنگی
+                    زنده، ۱۲ آیکون لانچر اختصاصی، فونت ایرانی آراد و انیمیشن‌های بهینه ۶۰ فریم بر ثانیه.
+                  </p>
+                </div>
+
+                {/* کارت شیک درباره توسعه‌دهنده همراه با تصویر */}
+                <div className="p-3.5 rounded-2xl bg-base-500/20 border border-base-500/30 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src="/mjb-avatar.png"
+                      alt="محمدجواد بخشی"
+                      className="w-12 h-12 rounded-2xl object-cover border-2 border-primary/40 shadow-sm shrink-0"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                    <div>
+                      <p className="font-bold text-base-content text-[13px] flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-accent" />
+                        درباره توسعه‌دهنده
+                      </p>
+                      <p className="text-[11px] text-neutral font-medium mt-0.5">
+                        محمدجواد بخشی ایرج • مهندسی صنایع و سیستم‌ها (ورودی ۴۰۴)
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-[11.5px] text-neutral leading-relaxed">
+                    به عنوان دانشجوی خواجه نصیر، کار با رابط کاربری قدیمی و کند بهستان همیشه وقت‌گیر و کلافه‌کننده بود. سروستان را ساختم تا تجربه‌ای سریع، مستقل و مدرن خلق شود که هر دانشجو از دیدن برنامه و نمراتش لذت ببرد.
+                  </p>
+                  <div className="flex items-center gap-2 pt-1 flex-wrap">
+                    <a
+                      href="https://github.com/mjb4khshi"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2.5 py-1 rounded-xl bg-primary text-primary-content text-[11px] font-bold flex items-center gap-1 hover:brightness-110 active:scale-95 transition"
+                    >
+                      <GithubIcon className="w-3 h-3" />
+                      <span>گیت‌هاب</span>
+                    </a>
+                    <a
+                      href="https://www.linkedin.com/in/mjbakhshi/"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2.5 py-1 rounded-xl bg-[#0a66c2] text-white text-[11px] font-bold flex items-center gap-1 hover:brightness-110 active:scale-95 transition shadow-xs"
+                    >
+                      <LinkedinIcon className="w-3 h-3" />
+                      <span>لینکدین</span>
+                    </a>
+                    <a
+                      href="https://mjb4khshi.github.io/sarvestan"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2.5 py-1 rounded-xl bg-base-500/30 text-base-content text-[11px] font-bold flex items-center gap-1 hover:bg-base-500/50 active:scale-95 transition"
+                    >
+                      <span>وب‌سایت</span>
+                    </a>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex justify-between items-center text-[11px] text-neutral border-t border-base-500/30">
+                  <span>
+                    طراحی و توسعه: <strong className="text-base-content font-mono font-bold">@mjb4khshi</strong>
+                  </span>
+                  <span className="font-mono">v1.2.0 · پاسارگاد</span>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* پیش‌نمایش تصویر اشتراک با هویت بصری سروستان و دکمه‌های سه‌گانه */}
+      <AnimatePresence>
+        {sharePreview && (
+          <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setSharePreview(null);
+                setShareMsg('');
+              }}
+              className="absolute inset-0 bg-black/75 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ y: '40%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '30%', opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+              className="relative z-10 w-full max-w-[440px] rounded-t-3xl sm:rounded-3xl bg-base border border-base-500/50 p-4 shadow-2xl max-h-[92vh] flex flex-col"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-base-500/30 shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="relative w-6 h-6 flex items-center justify-center">
+                    <svg
+                      viewBox="0 0 1080 1080"
+                      className="w-full h-full fill-primary drop-shadow-sm"
+                    >
+                      <path d="M540,167.08 C540,167.08 213.25,912.92 540,912.92 C866.75,912.92 540,167.08 540,167.08 Z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-[14px] font-bold text-base-content">
+                      {sharePreview.kind === 'gpa' ? 'پوستر استوری کارنامه و معدل' : 'تصویر باکیفیت برنامه هفتگی'}
+                    </h3>
+                    <p className="text-[10px] text-neutral">طرح رزولوشن بالا ۱۰۸۰p ویژه همرسانی و پس‌زمینه</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSharePreview(null);
+                    setShareMsg('');
+                  }}
+                  className="w-8 h-8 rounded-full bg-base-500/30 hover:bg-base-500/50 text-neutral grid place-items-center active:scale-95 transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* انتخاب فرمت جدول یا تایم‌لاین برای برنامه هفتگی در سایر دانشگاه‌ها */}
+              {sharePreview.kind === 'schedule' && !isAut && (
+                <div className="flex items-center justify-center pb-1 pt-1 shrink-0">
+                  <div className="inline-flex p-1 rounded-xl bg-base-500/25 border border-base-500/40 gap-1">
+                    <button
+                      type="button"
+                      disabled={scheduleShareRendering}
+                      onClick={() => handleChangeScheduleShareFormat('matrix')}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        scheduleShareFormat === 'matrix'
+                          ? 'bg-primary text-primary-content shadow-xs'
+                          : 'text-neutral hover:text-base-content'
+                      }`}
+                    >
+                      <Table2 className="w-3.5 h-3.5" />
+                      جدول ماتریسی
+                    </button>
+                    <button
+                      type="button"
+                      disabled={scheduleShareRendering}
+                      onClick={() => handleChangeScheduleShareFormat('timeline')}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        scheduleShareFormat === 'timeline'
+                          ? 'bg-primary text-primary-content shadow-xs'
+                          : 'text-neutral hover:text-base-content'
+                      }`}
+                    >
+                      <Clock className="w-3.5 h-3.5" />
+                      تایم‌لاین پیوسته
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* کانتینر اسکرول و پیش‌نمایش تصویر */}
+              <div className="flex-1 overflow-y-auto py-2.5 pr-0.5">
+                <div className="relative rounded-2xl overflow-hidden border border-base-500/50 shadow-lg bg-black/40 min-h-[140px] flex items-center justify-center">
+                  {scheduleShareRendering ? (
+                    <div className="p-8 flex flex-col items-center gap-2 text-neutral">
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                      <span className="text-[11px] font-medium">در حال تولید تصویر...</span>
+                    </div>
+                  ) : (
+                    <img
+                      src={sharePreview.url}
+                      alt="پیش‌نمایش استوری سروستان"
+                      className="w-full h-auto object-contain block"
+                    />
+                  )}
+                </div>
+              </div>
+
+              {shareMsg && (
+                <p className="text-[11px] text-primary bg-primary-soft border border-primary/30 rounded-xl px-3 py-1.5 mb-2 text-center font-bold">
+                  {shareMsg}
+                </p>
+              )}
+
+              {/* اکشن بار ۳گانه: اشتراک‌گذاری، دانلود و کپی */}
+              <div className="grid grid-cols-3 gap-2 pt-1 border-t border-base-500/30 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleShareNative}
+                  className="btn btn-primary !py-2.5 text-[12px] font-bold flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                >
+                  <Share2 className="w-4 h-4" />
+                  اشتراک‌گذاری
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDownloadPreview}
+                  className="btn bg-base-500/30 hover:bg-base-500/50 text-base-content border border-base-500/50 !py-2.5 text-[12px] font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                >
+                  <Download className="w-4 h-4" />
+                  دانلود تصویر
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCopyPreview}
+                  className="btn bg-base-500/30 hover:bg-base-500/50 text-base-content border border-base-500/50 !py-2.5 text-[12px] font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                >
+                  {copiedPreview ? (
+                    <>
+                      <Check className="w-4 h-4 text-success" />
+                      کپی شد!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      کپی تصویر
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* مودال تمام‌صفحه: انتخاب آیکون اپلیکیشن */}
+      <AnimatePresence>
+        {iconModalOpen && (
+          <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIconModalOpen(false)}
+              className="absolute inset-0 bg-black/65 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{ y: '100%', opacity: 0.5 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0.5 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+              className="relative z-10 w-full max-w-[440px] rounded-t-3xl sm:rounded-3xl bg-base border border-base-500/50 p-5 shadow-2xl max-h-[88vh] flex flex-col"
+            >
+              {/* هدر مودال */}
+              <div className="flex items-center justify-between pb-3 border-b border-base-500/30 shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="shrink-0">
+                    <SarvIconSvg iconId={currentIconId} size={36} shadow={false} />
+                  </div>
+                  <div>
+                    <h3 className="text-[15px] font-black text-base-content">آیکون اپلیکیشن</h3>
+                    <p className="text-[11px] text-neutral">طرح آیکون برنامه در صفحه اصلی گوشی (لانچر)</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIconModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-base-500/30 text-neutral hover:text-base-content grid place-items-center transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* اعلان وضعیت تغییر */}
+              {iconToast && (
+                <div className="mt-3 px-3 py-2 rounded-xl bg-success-soft text-success text-[12px] font-bold flex items-center justify-between border border-success-soft">
+                  <span>{iconToast}</span>
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                </div>
+              )}
+
+              {/* شبکه کارت‌های آیکون */}
+              <div className="overflow-y-auto py-3 space-y-2 flex-1 pr-1">
+                <div className="grid grid-cols-2 gap-2.5">
+                  {(isBatMode ? appIcons : appIcons.filter((ic) => ic.id !== 'batman')).map((ic) => {
+                    const isSelected = currentIconId === ic.id;
+                    return (
+                      <button
+                        key={ic.id}
+                        type="button"
+                        onClick={async () => {
+                          await setAppIcon(ic.id);
+                          setIconToast(`آیکون برنامه به «${ic.name}» تغییر یافت ✓`);
+                          setTimeout(() => setIconToast(''), 2500);
+                        }}
+                        className={`p-3 rounded-2xl border text-right transition-all flex flex-col justify-between relative group active:scale-[0.97] ${
+                          isSelected
+                            ? 'bg-primary-soft/50 border-primary shadow-sm ring-1 ring-primary/40'
+                            : 'bg-base-500/15 border-base-500/30 hover:bg-base-500/30 hover:border-base-500/50'
+                        }`}
+                      >
+                        {isSelected && (
+                          <div className="absolute top-2.5 left-2.5 w-5 h-5 rounded-full bg-primary text-primary-content grid place-items-center shadow-sm">
+                            <Check className="w-3 h-3" />
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2.5 mb-2">
+                          <SarvIconSvg iconId={ic.id} size={42} />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[12px] font-black text-base-content truncate">
+                                {ic.name}
+                              </span>
+                            </div>
+                            <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-md bg-base-500/30 text-neutral inline-block mt-0.5">
+                              {ic.badge}
+                            </span>
+                          </div>
+                        </div>
+
+                        <p className="text-[10px] text-neutral leading-relaxed line-clamp-2">
+                          {ic.desc}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* فوتر مودال */}
+              <div className="pt-3 border-t border-base-500/30 shrink-0 text-center">
+                <p className="text-[10.5px] text-neutral">
+                  در برخی گوشی‌ها اعمال آیکون در صفحه اصلی ممکن است ۱ تا ۲ ثانیه زمان ببرد.
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* مودال بررسی و دریافت به‌روزرسانی */}
+      <AnimatePresence>
+        {updateModalOpen && updateState.latestRelease && (
+          <UpdateModal
+            key="sarvestan-more-update-modal"
+            release={updateState.latestRelease}
+            onClose={() => setUpdateModalOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* مودال تایید پاکسازی داده‌ها */}
+      <AnimatePresence>
+        {clearDataModalOpen && (
+          <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !clearingData && setClearDataModalOpen(false)}
+              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+              className="relative z-10 w-full max-w-sm rounded-t-3xl sm:rounded-3xl bg-base border border-danger/30 p-5 shadow-2xl flex flex-col space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-danger-soft text-danger grid place-items-center shrink-0 border border-danger/25">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-[15px] font-black text-base-content">
+                    تایید پاکسازی داده‌ها
+                  </h3>
+                  <p className="text-[11.5px] text-neutral mt-1 leading-relaxed">
+                    آیا از پاکسازی تمام اطلاعات ذخیره‌شده (مشخصات، نمرات، کارنامه، شهریه و نشست بهستان) اطمینان دارید؟
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-danger-soft/40 border border-danger/20 text-[11px] text-danger font-medium leading-relaxed">
+                ⚠️ پس از تایید، کلیه داده‌های دستگاه حذف شده و برنامه مانند روز اول آماده ورود مجدد خواهد شد.
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  disabled={clearingData}
+                  onClick={() => setClearDataModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-base-500/20 hover:bg-base-500/35 text-base-content text-[12px] font-bold transition active:scale-95 disabled:opacity-50"
+                >
+                  انصراف
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecuteClearData}
+                  disabled={clearingData}
+                  className="flex-1 py-2.5 rounded-xl bg-danger text-danger-content text-[12px] font-bold hover:brightness-110 transition active:scale-95 flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                >
+                  {clearingData ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                  بله، پاکسازی کامل
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* مودال تایید بازنشانی برنامه به بهستان */}
+        {resetModalOpen && (
+          <div
+            className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
+            onClick={() => setResetModalOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              transition={{ type: 'spring', damping: 26, stiffness: 350 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm sarv-card p-5 space-y-4 border border-accent/30 shadow-2xl overflow-hidden"
+            >
+              <div className="flex items-start gap-3">
+                <span className="w-10 h-10 rounded-2xl bg-accent-soft text-accent grid place-items-center shrink-0 border border-accent/25">
+                  <RotateCcw className="w-5 h-5" />
+                </span>
+                <div className="min-w-0">
+                  <h3 className="text-[15px] font-black text-base-content">
+                    بازنشانی به داده‌های بهستان
+                  </h3>
+                  <p className="text-[11px] text-neutral mt-0.5">
+                    بازیابی نسخه همگام‌شده از سامانه دانشگاه
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-accent-soft/30 border border-accent/20 space-y-1.5 text-[11.5px] text-base-content leading-relaxed">
+                <p className="font-bold flex items-center gap-1.5 text-accent">
+                  <Info className="w-3.5 h-3.5 shrink-0" />
+                  <span>لغو کلیه تغییرات و دروس دستی</span>
+                </p>
+                <p className="opacity-90">
+                  آیا از بازنشانی برنامه هفتگی و زمان امتحانات به اطلاعات رسمی بهستان مطمئن هستید؟ تمام ویرایش‌ها و کلاس‌های اضافه شده لغو خواهند شد.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setResetModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-base-500/20 hover:bg-base-500/35 text-base-content text-[12px] font-bold transition active:scale-95 cursor-pointer"
+                >
+                  انصراف
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetToBehestan}
+                  className="flex-1 py-2.5 rounded-xl bg-accent text-accent-content text-[12px] font-bold hover:brightness-110 transition active:scale-95 flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>تایید بازنشانی</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* اعلان پیام بازنشانی به سبک شناور سرو */}
+        {resetToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+            className="fixed bottom-20 left-4 right-4 z-[90] mx-auto max-w-sm p-3.5 rounded-2xl bg-base/95 backdrop-blur-md border border-success/35 shadow-2xl text-[12px] text-base-content font-bold flex items-center gap-2.5"
+          >
+            <span className="w-7 h-7 rounded-xl bg-success text-success-content grid place-items-center shrink-0 shadow-xs">
+              <CheckCircle2 className="w-4 h-4" />
+            </span>
+            <span className="flex-1">{resetToast}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* مودال تنظیم یادآور و آلارم کلاس‌ها */}
+      <ClassAlarmModal
+        isOpen={alarmModalOpen}
+        onClose={() => {
+          setAlarmModalOpen(false);
+          setDndEnabled(getDndDuringClass());
+        }}
+      />
+      {/* مودال شخصی‌سازی چیدمان داشبورد */}
+      <DashboardCustomizeModal
+        isOpen={dashboardModalOpen}
+        onClose={() => setDashboardModalOpen(false)}
+      />
+      {/* مودال پرامپت و مشاور تحصیلی هوش مصنوعی */}
+      <AiAdvisorPromptModal
+        isOpen={aiPromptModalOpen}
+        onClose={() => setAiPromptModalOpen(false)}
+      />
+    </div>
+  );
+}
