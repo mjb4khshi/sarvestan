@@ -30,10 +30,18 @@ function TelegramIcon({ className = "w-4 h-4" }) {
   );
 }
 
+function LinkedinIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" />
+    </svg>
+  );
+}
+
 const LATEST_APK_URL = 'https://github.com/mjb4khshi/sarvestan/releases/latest/download/sarvestan.apk';
+const RELEASES_URL = 'https://github.com/mjb4khshi/sarvestan/releases/latest';
 
 const COUNCIL_MEMBERS = [
-  { name: 'محمدجواد بخشی ایرج', role: 'دبیر شورا', uni: 'خواجه نصیر' },
   { name: 'سید محمدحسین حائری', role: 'هماهنگ‌کننده و پشتیبانی شورا', uni: 'خواجه نصیر' },
   { name: 'امیرحسن رضایی', role: 'نماینده شورا', uni: 'امیرکبیر' },
   { name: 'محمدحسین شفیعی', role: 'نماینده شورا', uni: 'تهران' },
@@ -164,8 +172,7 @@ export default function LandingPage() {
               <GithubIcon className="w-4 h-4" />
             </a>
             <a
-              href="./sarvestan.apk"
-              download
+              href={LATEST_APK_URL}
               className="px-3.5 py-1.5 rounded-xl bg-primary text-primary-content text-xs font-bold flex items-center gap-1.5 shadow-sm hover:brightness-105 active:scale-95 transition-all"
             >
               <Download className="w-3.5 h-3.5" />
@@ -188,7 +195,7 @@ export default function LandingPage() {
 
           <h1 className="text-3xl sm:text-5xl md:text-6xl font-black text-base-content leading-tight sm:leading-tight tracking-tight">
             سروستان؛ تجربه نو و هوشمند <br className="hidden sm:inline" />
-            <span className="bg-gradient-to-r from-primary via-emerald-400 to-primary bg-clip-text text-transparent">
+            <span className="text-primary">
               آموزش دانشگاهی
             </span>
           </h1>
@@ -200,8 +207,7 @@ export default function LandingPage() {
           {/* دکمه‌های اقدام اصلی */}
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
             <a
-              href="./sarvestan.apk"
-              download
+              href={LATEST_APK_URL}
               className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-primary text-primary-content text-sm font-bold flex items-center justify-center gap-2.5 shadow-lg shadow-primary/25 hover:brightness-105 active:scale-95 transition-all"
             >
               <Download className="w-4 h-4" />
@@ -240,36 +246,25 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* نقشه تهران و دانشگاه‌های تحت پوشش */}
+      {/* دانشگاه‌های تحت پوشش */}
       <section id="universities" className="py-16 sm:py-20 px-4 sm:px-6 relative border-t border-base-500/20">
-        <div className="max-w-5xl mx-auto space-y-12">
-          {/* هدر بخش نقشه و دانشگاه‌ها */}
+        <div className="max-w-5xl mx-auto space-y-8">
+          {/* هدر بخش دانشگاه‌ها */}
           <div className="text-center space-y-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-soft text-primary text-xs font-bold border border-primary/25">
               <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-              <span>پوشش یکپارچه پایتخت • نگارش ۲.۰.۰ تهران</span>
+              <span>پوشش یکپارچه دانشگاهی • نگارش ۲.۰.۰ تهران</span>
             </div>
             <h2 className="text-2xl sm:text-4xl font-black text-base-content tracking-tight">
-              سروستانی به گستره تهران
+              دانشگاه‌های تحت پوشش سروستان
             </h2>
             <p className="text-xs sm:text-sm text-neutral max-w-xl mx-auto leading-relaxed">
-              پلتفرم هوشمند سروستان با هدف تسهیل فرایندهای آموزشی، دسترسی به سامانه‌های بهستان و گلستان دانشگاه‌های پیشرو تهران را فراهم کرده است.
+              پلتفرم هوشمند سروستان با هدف تسهیل فرایندهای آموزشی، دسترسی مستقل به سامانه‌های بهستان و گلستان دانشگاه‌های کشور را فراهم ساخته است.
             </p>
           </div>
 
-          {/* قاب نقشه وکتوری سروستان در پهنه تهران */}
-          <div className="relative rounded-3xl overflow-hidden border border-base-500/30 bg-base-500/10 shadow-2xl p-3 sm:p-6 flex flex-col items-center">
-            <div className="relative max-w-3xl w-full rounded-2xl overflow-hidden border border-base-500/25 bg-base/40 shadow-inner">
-              <img
-                src="./tehran-sarv-map.png"
-                alt="سروستانی به گستره تهران - نقشه دانشگاه‌های تحت پوشش سروستان ۲ تهران"
-                className="w-full h-auto object-contain block transition-transform duration-700 hover:scale-[1.01]"
-              />
-            </div>
-          </div>
-
           {/* کارت‌های دانشگاه‌های تحت پوشش */}
-          <div className="space-y-4 pt-2">
+          <div className="space-y-4">
             <div className="flex items-center justify-between border-b border-base-500/20 pb-3">
               <h3 className="text-sm sm:text-base font-black text-base-content">
                 دانشگاه‌های تحت پوشش
@@ -405,21 +400,85 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-            {COUNCIL_MEMBERS.map((member, idx) => (
-              <div
-                key={idx}
-                className="p-3.5 rounded-2xl bg-base-500/15 border border-base-500/25 flex items-center justify-between gap-3 text-right"
-              >
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-base-content truncate">{member.name}</p>
-                  <p className="text-[10.5px] text-neutral mt-0.5 truncate">{member.role}</p>
+          {/* کارت برجسته دبیر شورا و توسعه‌دهنده */}
+          <div className="p-6 sm:p-7 rounded-3xl bg-base-500/15 border border-base-500/30 hover:border-primary/40 transition-all flex flex-col sm:flex-row items-center sm:items-start gap-5 sm:gap-6 text-center sm:text-right shadow-sm">
+            <img
+              src="./mjb-avatar.png"
+              alt="محمدجواد بخشی ایرج"
+              className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl object-cover border-2 border-primary/50 shadow-md shrink-0"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+            <div className="flex-1 space-y-2.5 min-w-0">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
+                    <h3 className="text-base sm:text-lg font-black text-base-content">
+                      محمدجواد بخشی ایرج
+                    </h3>
+                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-primary text-primary-content">
+                      دبیر شورا و توسعه‌دهنده
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral font-medium mt-1">
+                    دانشگاه صنعتی خواجه نصیرالدین طوسی • مهندسی صنایع
+                  </p>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-base-500/30 text-base-content shrink-0">
-                  {member.uni}
-                </span>
+
+                <div className="flex items-center justify-center sm:justify-end gap-2 shrink-0">
+                  <a
+                    href="https://github.com/mjb4khshi"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1.5 rounded-xl bg-base-500/20 hover:bg-base-500/40 text-base-content text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95"
+                    title="پروفایل گیت‌هاب"
+                  >
+                    <GithubIcon className="w-3.5 h-3.5" />
+                    <span>گیت‌هاب</span>
+                  </a>
+                  <a
+                    href="https://www.linkedin.com/in/mjbakhshi/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1.5 rounded-xl bg-[#0a66c2] hover:brightness-110 text-white text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 shadow-xs"
+                    title="پروفایل لینکدین"
+                  >
+                    <LinkedinIcon className="w-3.5 h-3.5" />
+                    <span>لینکدین</span>
+                  </a>
+                </div>
               </div>
-            ))}
+
+              <p className="text-xs sm:text-[13px] text-neutral leading-relaxed max-w-2xl">
+                بنیان‌گذار و طراح اکوسیستم سروستان و دیزاین‌سیستم Sarv UI؛ با هدف جایگزینی رابط‌های سنتی با تجربه‌ای مستقل، مدرن و شایسته دانشجویان کشور.
+              </p>
+            </div>
+          </div>
+
+          {/* گرید منظم ۶ نماینده دانشگاه‌های همکار در شورا */}
+          <div className="space-y-3 pt-2">
+            <h4 className="text-xs font-bold text-neutral">نمایندگان دانشگاه‌های همکار در شورا:</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {COUNCIL_MEMBERS.map((member, idx) => (
+                <div
+                  key={idx}
+                  className="p-4 rounded-2xl bg-base-500/15 hover:bg-base-500/25 border border-base-500/25 transition-all flex items-center justify-between gap-3 text-right"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-[13px] font-black text-base-content truncate">
+                      {member.name}
+                    </p>
+                    <p className="text-[11px] text-neutral mt-0.5 truncate">
+                      {member.role}
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-xl bg-base-500/30 text-base-content shrink-0 border border-base-500/30">
+                    {member.uni}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -441,8 +500,7 @@ export default function LandingPage() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <a
-              href="./sarvestan.apk"
-              download
+              href={LATEST_APK_URL}
               className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-primary text-primary-content text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/25 hover:brightness-105 active:scale-95 transition-all"
             >
               <Download className="w-4 h-4" />
@@ -450,7 +508,7 @@ export default function LandingPage() {
             </a>
 
             <a
-              href="https://github.com/mjb4khshi/sarvestan/releases/latest"
+              href={RELEASES_URL}
               target="_blank"
               rel="noreferrer"
               className="w-full sm:w-auto px-5 py-4 rounded-2xl bg-base-500/20 hover:bg-base-500/35 border border-base-500/30 text-base-content text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
