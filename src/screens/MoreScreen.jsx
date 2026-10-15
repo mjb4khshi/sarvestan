@@ -35,6 +35,7 @@ import {
   CreditCard,
   SlidersHorizontal,
   Bot,
+  Users,
 } from 'lucide-react';
 import UpdateModal from '../components/UpdateModal';
 import ClassAlarmModal from '../components/ClassAlarmModal';
@@ -1666,6 +1667,48 @@ export default function MoreScreen({
                     >
                       <span>وب‌سایت</span>
                     </a>
+                  </div>
+                </div>
+
+                {/* شورای هماهنگی سروستان */}
+                <div className="p-3.5 rounded-2xl bg-base-500/20 border border-base-500/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold text-base-content text-[13px] flex items-center gap-1.5">
+                      <Users className="w-4 h-4 text-primary" />
+                      <span>شورای هماهنگی سروستان</span>
+                    </p>
+                    <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-primary-soft text-primary border border-primary/25">
+                      ۶ دانشگاه همکار
+                    </span>
+                  </div>
+                  <p className="text-[11.5px] text-neutral leading-relaxed">
+                    شورای هماهنگی سروستان متشکل از جمعی از دانشجویان دانشگاه‌های خواجه نصیر، شهید بهشتی، علم و صنعت، تهران، صنعتی امیرکبیر و تربیت دبیر شهید رجایی است که با هدف ارتقا، همفکری و هماهنگی گسترش زیست‌بوم سروستان در میان دانشگاه‌ها فعالیت می‌کند.
+                  </p>
+
+                  <div className="space-y-1.5 pt-1">
+                    {[
+                      { name: 'محمدجواد بخشی ایرج', role: 'دبیر شورا', uni: 'خواجه نصیر' },
+                      { name: 'سید محمدحسین حائری', role: 'هماهنگ‌کننده و پشتیبانی شورا', uni: 'خواجه نصیر' },
+                      { name: 'امیرحسن رضایی', role: 'نماینده شورا', uni: 'امیرکبیر' },
+                      { name: 'محمدحسین شفیعی', role: 'نماینده شورا', uni: 'تهران' },
+                      { name: 'محمدسجاد زنگنه', role: 'نماینده شورا', uni: 'شهید بهشتی' },
+                      { name: 'مهدی خسروی', role: 'نماینده شورا', uni: 'تربیت دبیر شهید رجایی' },
+                      { name: 'محمدرضا اسفندیار', role: 'نماینده شورا', uni: 'علم و صنعت' },
+                    ].map((m, idx) => (
+                      <div
+                        key={idx}
+                        className="p-2 rounded-xl bg-base-200/50 border border-base-500/25 flex items-center justify-between gap-2 text-[11.5px]"
+                      >
+                        <div className="min-w-0">
+                          <span className="font-bold text-base-content">{m.name}</span>
+                          <span className="text-neutral mx-1.5">•</span>
+                          <span className="text-neutral/80 text-[10.5px]">{m.role}</span>
+                        </div>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-base-500/30 text-base-content shrink-0">
+                          {m.uni}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
 

@@ -55,8 +55,8 @@ export const DEFAULT_WIDGETS = [
   },
   {
     id: 'announcements',
-    title: 'اعلانات رسمی آموزشی',
-    description: 'اطلاعیه‌ها و پیام‌های مهم دانشگاه',
+    title: 'خبرنامه و کانال‌های سروستان',
+    description: 'گاهنامه سرونامه، شعرنامه، مقالات دانشجویی و اطلاعیه‌ها',
     icon: 'Megaphone',
     enabled: true,
   },
@@ -81,12 +81,14 @@ export function getDashboardWidgetsConfig() {
       }
     });
 
-    // پر کردن اطلاعات عنوان و آیکون در صورت عدم ذخیره در کش
+    // پر کردن اطلاعات عنوان و آیکون در صورت عدم ذخیره در کش و به‌روزرسانی عنوان‌های قدیمی
     return merged.map((w) => {
       const meta = DEFAULT_WIDGETS.find((d) => d.id === w.id);
+      const isOutdatedTitle = w.id === 'announcements' && (w.title === 'اعلانات رسمی آموزشی' || !w.title);
       return {
         ...meta,
         ...w,
+        ...(isOutdatedTitle && meta ? { title: meta.title, description: meta.description } : {}),
         enabled: w.enabled !== false,
       };
     });
