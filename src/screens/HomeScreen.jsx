@@ -29,6 +29,7 @@ import { getDashboardWidgetsConfig } from '../services/dashboardWidgets';
 import BatmanMask from '../components/BatmanMask';
 import { motion } from 'framer-motion';
 import FeedModal from '../components/FeedModal';
+import ChannelSubscribeModal from '../components/ChannelSubscribeModal';
 import { fetchFeed, getFeedState, subscribeFeed, markPostAsRead } from '../services/feedService';
 
 import { getGpaStatusBadge } from '../utils/gpaBadge';
@@ -49,6 +50,8 @@ export default function HomeScreen({ onNavigate }) {
   const [widgetsConfig, setWidgetsConfig] = useState(getDashboardWidgetsConfig);
   const [feedState, setFeedState] = useState(getFeedState);
   const [selectedFeedPost, setSelectedFeedPost] = useState(null);
+  const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
+  const [feedFilter, setFeedFilter] = useState('all');
 
   useEffect(() => {
     fetchFeed();
@@ -759,28 +762,83 @@ export default function HomeScreen({ onNavigate }) {
 
       case 'announcements': {
         const livePosts = feedState.posts || [];
+        const channels = feedState.channels || [];
         const hasAnnouncements = livePosts.length > 0 || ANNOUNCEMENTS.length > 0;
+        const displayedPosts = feedFilter === 'all'
+          ? livePosts
+          : livePosts.filter((p) => p.channelId === feedFilter);
 
         return (
-          <section key="announcements" className="space-y-2">
+          <section key="announcements" className="space-y-2.5">
             <div className="flex items-center justify-between px-1">
               <h3 className="text-[13px] font-bold text-base-content flex items-center gap-1.5">
                 <Megaphone className="w-3.5 h-3.5 text-warn" />
                 خبرنامه و اعلانات سروستان
               </h3>
-              {feedState.unreadCount > 0 && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary text-primary-content">
-                  {toFaDigits(feedState.unreadCount)} جدید
-                </span>
-              )}
+              <div className="flex items-center gap-1.5">
+                {feedState.unreadCount > 0 && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary text-primary-content">
+                    {toFaDigits(feedState.unreadCount)} جدید
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsChannelModalOpen(true)}
+                  className="px-2.5 py-1 rounded-xl bg-base-500/20 hover:bg-base-500/35 text-neutral hover:text-base-content text-[11px] font-bold flex items-center gap-1 transition cursor-pointer"
+                  title="مدیریت اشتراک کانال‌ها"
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-primary" />
+                  <span>اشتراک‌ها</span>
+                </button>
+              </div>
             </div>
+
+            {/* تب‌های فیلتر کانال‌ها: همه، سرونامه، شعرنامه */}
+            {channels.length > 0 && (
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 pt-0.5 no-scrollbar">
+                <button
+                  type="button"
+                  onClick={() => setFeedFilter('all')}
+                  className={`px-3 py-1 rounded-xl text-[11.5px] font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                    feedFilter === 'all'
+                      ? 'bg-primary text-primary-content shadow-xs'
+                      : 'bg-base-500/15 text-neutral hover:text-base-content hover:bg-base-500/25'
+                  }`}
+                >
+                  همه ({toFaDigits(livePosts.length)})
+                </button>
+                {channels.map((ch) => {
+                  const count = livePosts.filter((p) => p.channelId === ch.id).length;
+                  const isActive = feedFilter === ch.id;
+                  const isSher = ch.id === 'shernameh';
+
+                  return (
+                    <button
+                      key={ch.id}
+                      type="button"
+                      onClick={() => setFeedFilter(ch.id)}
+                      className={`px-3 py-1 rounded-xl text-[11.5px] font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1 ${
+                        isActive
+                          ? isSher
+                            ? 'bg-secondary text-secondary-content shadow-xs'
+                            : 'bg-primary text-primary-content shadow-xs'
+                          : 'bg-base-500/15 text-neutral hover:text-base-content hover:bg-base-500/25'
+                      }`}
+                    >
+                      <span>{ch.name}</span>
+                      <span className="text-[10px] opacity-75 font-mono">({toFaDigits(count)})</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {!hasAnnouncements && (
               <p className="text-[12px] text-neutral text-center py-3">اعلانی ثبت نشده</p>
             )}
 
             {/* پست‌های زنده خبرنامه از Sarvestan_feed */}
-            {livePosts.map((post) => (
+            {displayedPosts.map((post) => (
               <article
                 key={post.id}
                 onClick={() => {
@@ -799,12 +857,15 @@ export default function HomeScreen({ onNavigate }) {
                   <span className="absolute top-3 left-3 w-2 h-2 rounded-full bg-primary animate-pulse" />
                 )}
                 <div className="flex items-center justify-between gap-2 mb-1">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     {post.badge && (
                       <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-base text-base-content border border-base-500/30">
                         {post.badge}
                       </span>
                     )}
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-base-500/20 text-neutral">
+                      {post.channelId === 'shernameh' ? 'شعرنامه' : 'سرونامه'}
+                    </span>
                     <h4 className="text-[13px] font-bold text-base-content">{post.title}</h4>
                   </div>
                   <span className="text-[10px] text-neutral font-mono shrink-0">{toFaDigits(post.date)}</span>
@@ -816,7 +877,7 @@ export default function HomeScreen({ onNavigate }) {
             ))}
 
             {/* اعلانات و گردش کارهای بهستان */}
-            {ANNOUNCEMENTS.map((a) => (
+            {feedFilter === 'all' && ANNOUNCEMENTS.map((a) => (
               <article
                 key={a.id}
                 className={`sarv-card p-3.5 border-r-4 ${
@@ -863,6 +924,13 @@ export default function HomeScreen({ onNavigate }) {
         post={selectedFeedPost}
         isOpen={!!selectedFeedPost}
         onClose={() => setSelectedFeedPost(null)}
+      />
+
+      <ChannelSubscribeModal
+        isOpen={isChannelModalOpen}
+        onClose={() => setIsChannelModalOpen(false)}
+        channels={feedState.channels}
+        subscribedIds={feedState.subscribedChannelIds}
       />
     </div>
   );

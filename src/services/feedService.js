@@ -8,7 +8,27 @@ const FEED_FALLBACK_URL = 'https://raw.githubusercontent.com/mjb4khshi/Sarvestan
 
 const CACHE_KEY = 'sarvestan_feed_cache';
 const READ_IDS_KEY = 'sarvestan_feed_read_ids';
+const SUBSCRIBED_CHANNELS_KEY = 'sarvestan_feed_subscribed_channels';
 const CACHE_TTL_MS = 30 * 60 * 1000; // ۳۰ دقیقه برای بازخوانی پس‌زمینه
+
+export const DEFAULT_CHANNELS = [
+  {
+    id: 'sarvnameh',
+    name: 'سرونامه',
+    slug: 'sarvnameh',
+    badge: 'فنی و آموزشی',
+    description: 'خبرنامه رسمی، به‌روزرسانی‌های سروستان، نکات بهستان و هشدارهای تقویم آموزشی',
+    color: 'primary',
+  },
+  {
+    id: 'shernameh',
+    name: 'شعرنامه',
+    slug: 'shernameh',
+    badge: 'ادبیات و شعر',
+    description: 'گزیده ابیات کهن و شعر معاصر، دلنوشته‌های شبانه و آرامش در روزهای شلوغ دانشگاه',
+    color: 'secondary',
+  },
+];
 
 let memoryFeed = null;
 const listeners = new Set();
@@ -23,6 +43,31 @@ function getCachedFeed() {
     }
   } catch {}
   return null;
+}
+
+export function getSubscribedChannelIds() {
+  try {
+    const raw = localStorage.getItem(SUBSCRIBED_CHANNELS_KEY);
+    if (raw) return new Set(JSON.parse(raw));
+  } catch {}
+  return new Set(['sarvnameh', 'shernameh']);
+}
+
+export function toggleChannelSubscription(channelId) {
+  if (!channelId) return;
+  const current = getSubscribedChannelIds();
+  if (current.has(channelId)) {
+    if (current.size > 1) {
+      current.delete(channelId);
+    }
+  } else {
+    current.add(channelId);
+  }
+  try {
+    localStorage.setItem(SUBSCRIBED_CHANNELS_KEY, JSON.stringify([...current]));
+  } catch {}
+  notify();
+  return current;
 }
 
 export function getReadPostIds() {
@@ -106,25 +151,33 @@ export async function fetchFeed({ force = false } = {}) {
     console.warn('[FeedService] Failed to load remote feed:', err);
   }
 
-  return cached || { banner: null, posts: [] };
+  return cached || { banner: null, posts: [], channels: DEFAULT_CHANNELS };
 }
 
 /**
- * دریافت خلاصه وضعیت فید برای نمایش در UI
+ * دریافت خلاصه وضعیت فید، کانال‌ها و پست‌های فیلترشده بر اساس اشتراک
  */
 export function getFeedState() {
-  const feed = getCachedFeed() || { banner: null, posts: [] };
+  const feed = getCachedFeed() || { banner: null, posts: [], channels: DEFAULT_CHANNELS };
   const readIds = getReadPostIds();
-  const posts = (feed.posts || []).map((p) => ({
+  const subscribedIds = getSubscribedChannelIds();
+  const channels = feed.channels && feed.channels.length > 0 ? feed.channels : DEFAULT_CHANNELS;
+
+  const allPosts = (feed.posts || []).map((p) => ({
     ...p,
+    channelId: p.channelId || 'sarvnameh',
     isRead: readIds.has(String(p.id)),
   }));
 
+  const posts = allPosts.filter((p) => subscribedIds.has(p.channelId));
   const unreadCount = posts.filter((p) => !p.isRead).length;
 
   return {
     banner: feed.banner,
+    channels,
+    subscribedChannelIds: [...subscribedIds],
     posts,
+    allPosts,
     unreadCount,
     lastUpdated: feed.lastUpdated,
   };

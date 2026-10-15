@@ -1,5 +1,6 @@
 import { X, ExternalLink, Calendar, Megaphone } from 'lucide-react';
 import { toFaDigits } from '../utils/faDigits';
+import MarkdownView from './MarkdownView';
 
 export default function FeedModal({ post, isOpen, onClose }) {
   if (!isOpen || !post) return null;
@@ -57,15 +58,13 @@ export default function FeedModal({ post, isOpen, onClose }) {
           </button>
         </div>
 
-        {/* بدنه خبر */}
+        {/* بدنه خبر با پشتیبانی از مارک‌داون */}
         <div className="p-5 overflow-y-auto space-y-4">
           <h2 className="text-[16px] font-black text-base-content leading-tight">
             {post.title}
           </h2>
 
-          <div className="text-[13px] text-base-content/90 leading-relaxed font-medium whitespace-pre-line space-y-2">
-            {post.content || post.summary}
-          </div>
+          <MarkdownView content={post.content || post.summary} />
         </div>
 
         {/* فوتر اکشن */}
