@@ -136,18 +136,6 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
   const busyRef = useRef(false);
   const [selectedUni, setSelectedUni] = useState(() => {
     const u = getSelectedUniversity();
-    if (u === 'aut') return 'aut';
-    if (u === 'sbu') return 'sbu';
-    if (u === 'ut') return 'ut';
-    try {
-      const p = JSON.parse(localStorage.getItem('sarvestan_live_profile') || 'null');
-      if (p?.studentId && /^40\d{6}$/.test(String(p.studentId))) return 'aut';
-      if (p?.studentId && /^40\d{7}$/.test(String(p.studentId))) return 'sbu';
-      if (p?.studentId && /^(51|81|41|61)\d{7}$/.test(String(p.studentId))) return 'ut';
-      if (p?.faculty && /امیرکبیر|پلی‌تکنیک/i.test(p.faculty)) return 'aut';
-      if (p?.faculty && /ریاضی|بهشتی|کامپیوتر/i.test(p.faculty)) return 'sbu';
-      if (p?.faculty && /تهران|دانشکدگان/i.test(p.faculty)) return 'ut';
-    } catch {}
     return u || 'kntu';
   });
   // روش ورود از خود registry خوانده می‌شود؛ تنها خواجه‌نصیر چند متد دارد و تاگل می‌گیرد
