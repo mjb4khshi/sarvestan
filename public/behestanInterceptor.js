@@ -1071,20 +1071,100 @@
     console.log('[Sarvestan] sessionCache cleared');
   }
 
-  /** تشخیص نشست واقعی بهستان — انعطاف‌پذیر برای SPA */
-  function isBehestanSessionAlive() {
+  function getCookie(name) {
     try {
-      const sid = localStorage.getItem('sid');
-      const un = localStorage.getItem('un');
-      const u = localStorage.getItem('u');
-      const t = localStorage.getItem('t');
-      // کلیدهای ممکن دیگر
-      const sidAlt = localStorage.getItem('SID') || localStorage.getItem('sessionId');
-      const hasTicket = Boolean(t && String(t).length > 10);
-      // حداقل یک شناسه دانشجو + تیکت یا sid
-      if (hasTicket && (sid || un || u || sidAlt)) return true;
-      // SPA ممکن است فقط sid داشته باشد
+      const match = document.cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]*)'));
+      return match ? decodeURIComponent(match[1]) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function findStudentInfoInDOM() {
+    let std = null;
+    let name = null;
+
+    // ۱. بررسی حافظه محلی و سشن
+    try {
+      std = localStorage.getItem('un') || localStorage.getItem('std') || localStorage.getItem('stdno') || localStorage.getItem('studentId') ||
+            sessionStorage.getItem('un') || sessionStorage.getItem('std');
+    } catch {}
+
+    // ۲. بررسی کوکی‌ها
+    if (!std) {
+      std = getCookie('un') || getCookie('std') || getCookie('studentId') || getCookie('stdno');
+    }
+
+    // ۳. بررسی فیلدهای ورودی و هیدین فرم‌ها
+    if (!std) {
+      try {
+        const inp = document.querySelector('input[name="un"], input[name="std"], input[name="AUWo"], #Fld_StdNo');
+        if (inp && inp.value && /^\d{7,10}$/.test(inp.value.trim())) std = inp.value.trim();
+      } catch {}
+    }
+
+    // ۴. بررسی المان‌های ساختار یافته با شناسه مشخص
+    try {
+      const stdEl = document.querySelector('#Fld_StdNo, #lblStdNo, [id*="StdNo"], [id*="StudentNo"]');
+      if (stdEl && stdEl.innerText) {
+        const m = stdEl.innerText.replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).match(/\b\d{7,10}\b/);
+        if (m) std = m[0];
+      }
+      const nameEl = document.querySelector('#Fld_StdName, #lblStdName, #lblUserName, [id*="StdName"], .user-title, .user-name, .header-user');
+      if (nameEl && nameEl.innerText) {
+        const n = nameEl.innerText.replace(/^(دانشجو|کاربر|نام)\s*[:\-]?\s*/, '').trim();
+        if (n && n.length > 2 && !n.includes('ورود')) name = n;
+      }
+    } catch {}
+
+    // ۵. بررسی متن بدنه صفحه در صورت نبودن المان اختصاصی
+    if (!std && document.body) {
+      const text = document.body.innerText.replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+      const m = text.match(/(?:شماره|کد)\s*(?:دانشجوی[یي]|دانشجو)?\s*[:\-]?\s*([0-9]{7,10})/i) ||
+                text.match(/\b(40[0-9]{5,8}|9[5-9][0-9]{5,8})\b/);
+      if (m) std = m[1];
+    }
+
+    return { studentId: std, studentName: name };
+  }
+
+  /** تشخیص جامع و انعطاف‌پذیر نشست فعال بهستان / گلستان برای تمام دانشگاه‌ها */
+  function isBehestanSessionAlive() {
+    if (userLoggedOut || isManualLogoutLocked()) return false;
+    try {
+      // الف: توکن مستقیم در حافظه یا کش
+      const sid = getSid();
+      const ticket = getTicket();
+      if (ticket && String(ticket).length > 10 && sid) return true;
       if (sid && sid.length > 8) return true;
+      if (sessionCache.sid || sessionCache.ticket) return true;
+
+      // ب: مشخصات دانشجو در DOM، فرم‌ها یا کوکی‌ها
+      const info = findStudentInfoInDOM();
+      if (info.studentId && info.studentId !== 'ـ') return true;
+      if (info.studentName && info.studentName.length > 2) return true;
+
+      // ج: کوکی‌های لاگین موفق
+      const cookies = document.cookie || '';
+      if (cookies.includes('sid=') || cookies.includes('Ticket=') || cookies.includes('ASP.NET_SessionId=') || cookies.includes('JSESSIONID=')) {
+        const isLoginPage = window.location.pathname.toLowerCase().includes('login') &&
+                            Boolean(document.querySelector('input[type="password"]'));
+        if (!isLoginPage) return true;
+      }
+
+      // د: کلمات کلیدی پرتال احرازشده
+      const rawText = document.body ? document.body.innerText : '';
+      if (rawText && (
+        rawText.includes('خروج از سامانه') ||
+        rawText.includes('اطلاعات تحصیلی') ||
+        rawText.includes('گزارش های آموزش') ||
+        rawText.includes('پیشخوان خدمت') ||
+        rawText.includes('کارنامه ترمی') ||
+        rawText.includes('تاییدیه ثبت نام')
+      )) {
+        return true;
+      }
+
       return false;
     } catch {
       return false;
@@ -1140,34 +1220,53 @@
   }
 
   function getSid() {
-    // بعد از لاگاوت فقط به localStorage اعتماد کن — نه کش
-    const ls = localStorage.getItem('sid');
-    if (ls) return ls;
+    try {
+      const ls = localStorage.getItem('sid') || localStorage.getItem('SID') || localStorage.getItem('sessionId');
+      if (ls) return ls;
+    } catch {}
+    try {
+      const ss = sessionStorage.getItem('sid') || sessionStorage.getItem('SID');
+      if (ss) return ss;
+    } catch {}
+    const cookieSid = getCookie('sid') || getCookie('SID') || getCookie('sessionId');
+    if (cookieSid) return cookieSid;
+    try {
+      const input = document.querySelector('input[name="sid"], input[name="SID"], input[id="sid"]');
+      if (input && input.value) return input.value;
+    } catch {}
+    if (window.sid || window.SID) return window.sid || window.SID;
+    try {
+      if (window.top && (window.top.sid || window.top.SID)) return window.top.sid || window.top.SID;
+    } catch {}
     if (userLoggedOut || isManualLogoutLocked()) return null;
-    return sessionCache.sid;
+    return sessionCache.sid || null;
   }
 
   function getTicket() {
-    const ls = localStorage.getItem('t');
-    if (ls) return normalizeTicket(ls);
+    try {
+      const ls = localStorage.getItem('t') || localStorage.getItem('Ticket') || localStorage.getItem('ticket');
+      if (ls) return normalizeTicket(ls);
+    } catch {}
+    try {
+      const ss = sessionStorage.getItem('t') || sessionStorage.getItem('Ticket');
+      if (ss) return normalizeTicket(ss);
+    } catch {}
+    const cookieT = getCookie('t') || getCookie('Ticket') || getCookie('ticket');
+    if (cookieT) return normalizeTicket(cookieT);
+    try {
+      const input = document.querySelector('input[name="t"], input[name="Ticket"], input[id="Ticket"]');
+      if (input && input.value) return normalizeTicket(input.value);
+    } catch {}
+    if (window.ticket || window.Ticket) return normalizeTicket(window.ticket || window.Ticket);
     if (userLoggedOut || isManualLogoutLocked()) return null;
-    return normalizeTicket(sessionCache.ticket);
+    return normalizeTicket(sessionCache.ticket) || null;
   }
 
   function getStudentId() {
-    const ls = localStorage.getItem('un') || localStorage.getItem('std') || localStorage.getItem('stdno') || localStorage.getItem('studentId') || sessionStorage.getItem('un') || sessionStorage.getItem('std');
-    if (ls) return ls;
+    const info = findStudentInfoInDOM();
+    if (info.studentId) return info.studentId;
     if (userLoggedOut || isManualLogoutLocked()) return null;
     if (sessionCache.studentId) return sessionCache.studentId;
-    if (!isBehestanSessionAlive()) return null;
-    const rawText = document.body ? document.body.innerText : '';
-    const text = rawText.replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
-    const m = text.match(/(?:شماره|کد)\s*(?:دانشجوی[یي]|دانشجو)?\s*[:\-]?\s*([0-9]{7,10})/i) ||
-              text.match(/\b(40[0-9]{5,8}|9[5-9][0-9]{5,8})\b/);
-    if (m) {
-      sessionCache.studentId = m[1];
-      return m[1];
-    }
     return null;
   }
 
@@ -1244,15 +1343,23 @@
     markLoggedIn();
 
     const now = Date.now();
-    const sid = getSid();
-    const t = getTicket();
+    const sid = getSid() || '1';
+    const t = getTicket() || JSON.stringify({ Ticket: '', IdleTime: 5 });
     const studentId = getStudentId();
     const userId = localStorage.getItem('u') || sessionCache.userId;
 
-    if (!sid || !t || !studentId) {
+    // ارسال مشخصات اولیه دانشجو در صورت کشف
+    const info = findStudentInfoInDOM();
+    if (info.studentId || info.studentName) {
+      if (info.studentId && !sessionCache.studentId) sessionCache.studentId = info.studentId;
+      sendData('session_info', { studentId: info.studentId, studentName: info.studentName });
+      sendData('profile_update', { studentId: info.studentId, fullName: info.studentName, isLoggedIn: true });
+    }
+
+    if (!studentId && !info.studentId && !sessionCache.studentId) {
       if (now - skipLogAt > 5000) {
         skipLogAt = now;
-        console.log('[Sarvestan] proactive sync waiting...', {
+        console.log('[Sarvestan] proactive sync waiting for student ID...', {
           hasSid: !!sid,
           hasTicket: !!t,
           hasStudentId: !!studentId,
@@ -1262,8 +1369,9 @@
       return;
     }
 
+    const effectiveStd = studentId || info.studentId || sessionCache.studentId;
     hasSynced = true;
-    console.log('[Sarvestan] Starting paced proactive sync for student:', studentId);
+    console.log('[Sarvestan] Starting paced proactive sync for student:', effectiveStd);
 
     // ── صف سریالی با تأخیر — مثل UI اصلی بهستان، همزمان نه ──
     const RP_BASE = {
@@ -1283,6 +1391,7 @@
     function postJson(url, body) {
       return fetch(url, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json, text/plain, */*' },
         body: typeof body === 'string' ? body : JSON.stringify(body)
       }).then((r) => r.text());
@@ -1466,9 +1575,13 @@
     runQueue();
   }
 
-  // فقط یک‌بار دیرتر — نه بمباران اولیه
-  setTimeout(triggerProactiveSync, 4000);
+  // تلاش برای همگام‌سازی سریع و مجدد
+  setTimeout(triggerProactiveSync, 1500);
+  setTimeout(triggerProactiveSync, 5000);
   setTimeout(triggerProactiveSync, 12000);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(triggerProactiveSync, 1000));
+  }
 
   // هر ۱۰ دقیقه فقط اگر نشست زنده باشد — نه هر ۳۰ ثانیه
   setInterval(() => {

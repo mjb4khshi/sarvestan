@@ -27,6 +27,7 @@ import {
   UNIVERSITIES,
   getSelectedUniversity,
   setSelectedUniversity,
+  getAssetUrl,
 } from '../services/behestan/session';
 import {
   fetchDirectCaptcha,
@@ -532,7 +533,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
       )}
       <div className="flex flex-col items-center gap-2">
         <img
-          src="/sarv-icon.svg"
+          src={getAssetUrl('sarv-icon.svg')}
           alt="سروستان"
           className="w-16 h-16 rounded-3xl object-contain shadow-lg ring-2 ring-primary/30 bg-base"
         />

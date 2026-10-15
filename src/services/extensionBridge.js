@@ -15,6 +15,7 @@ const STORAGE_KEYS = {
   workflows: 'sarvestan_live_workflows',
   announcements: 'sarvestan_live_announcements',
   curriculumStats: 'sarvestan_live_curriculum_stats',
+  curriculum_stats: 'sarvestan_live_curriculum_stats',
 };
 
 const SUPPORTED_DOMAINS = ['kntu.ac.ir', 'aut.ac.ir', 'sbu.ac.ir', 'ut.ac.ir', 'iust.ac.ir'];
@@ -175,26 +176,36 @@ export function initExtensionBridge() {
   // ۱. پارس پارامترهای اولیه URL در صورت باز شدن توسط contentScript
   try {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('mode') === 'overlay' && params.get('std')) {
+    if (params.get('mode') === 'overlay') {
       const std = params.get('std');
-      if (std && std !== 'ـ') {
-        const curProfile = JSON.parse(localStorage.getItem(STORAGE_KEYS.profile) || '{}');
-        const updated = {
-          ...curProfile,
-          fullName: params.get('name') || curProfile.fullName || 'دانشجو',
-          studentId: std,
-          gpa: params.get('gpa') || curProfile.gpa || 'ـ',
-          totalUnitsPassed: Number(params.get('units')) || curProfile.totalUnitsPassed || 0,
-          standing: params.get('standing') || curProfile.standing || 'ـ',
-          photo: params.get('photo') || curProfile.photo || null,
-          university: params.get('uni') || curProfile.university || resolveActiveUniversity(curProfile),
-          isLoggedIn: params.get('loggedIn') === 'true',
-        };
+      const name = params.get('name');
+      const uni = params.get('uni');
+      const loggedInParam = params.get('loggedIn') === 'true';
+      const hasIdentity = Boolean(std && std !== 'ـ') || Boolean(name && name !== 'دانشجوی میهمان');
+      const isLoggedIn = loggedInParam || hasIdentity;
+
+      const curProfile = JSON.parse(localStorage.getItem(STORAGE_KEYS.profile) || '{}');
+      const updated = {
+        ...curProfile,
+        fullName: (name && name !== 'دانشجوی میهمان') ? name : (curProfile.fullName || 'دانشجو'),
+        studentId: (std && std !== 'ـ') ? std : (curProfile.studentId || 'ـ'),
+        gpa: params.get('gpa') || curProfile.gpa || 'ـ',
+        totalUnitsPassed: Number(params.get('units')) || curProfile.totalUnitsPassed || 0,
+        standing: params.get('standing') || curProfile.standing || 'ـ',
+        photo: params.get('photo') || curProfile.photo || null,
+        university: uni || curProfile.university || resolveActiveUniversity(curProfile),
+        isLoggedIn: isLoggedIn || curProfile.isLoggedIn || false,
+      };
+
+      if (updated.fullName || updated.studentId !== 'ـ' || updated.isLoggedIn) {
         localStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(updated));
+        if (updated.university) {
+          localStorage.setItem('sarvestan_selected_university', updated.university);
+        }
         applyManualSession({
-          studentId: std,
+          studentId: updated.studentId,
           fullName: updated.fullName,
-          university: resolveActiveUniversity(updated),
+          university: updated.university,
           isLoggedIn: updated.isLoggedIn,
         });
         notifyStoreChange();

@@ -54,7 +54,7 @@ import {
 } from '../services/behestan';
 import { clearSsoCookies } from '../services/behestan/ssoLoginNative';
 import { clearSavedCreds } from '../services/loginFlow';
-import { getUniversityOrigin, getSelectedUniversity } from '../services/behestan/session';
+import { getUniversityOrigin, getSelectedUniversity, getAssetUrl } from '../services/behestan/session';
 
 import {
   cancelAllReminders,
@@ -1619,7 +1619,7 @@ export default function MoreScreen({
                 <div className="p-3.5 rounded-2xl bg-base-500/20 border border-base-500/30 space-y-3">
                   <div className="flex items-center gap-3">
                     <img
-                      src="/mjb-avatar.png"
+                      src={getAssetUrl('mjb-avatar.png')}
                       alt="محمدجواد بخشی"
                       className="w-12 h-12 rounded-2xl object-cover border-2 border-primary/40 shadow-sm shrink-0"
                       onError={(e) => {

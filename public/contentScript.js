@@ -156,7 +156,32 @@ function getUniversityContext() {
   };
 }
 
-// ۱. استخراج مشخصات دانشجو از ساختار صفحات و حافظه محلی سامانه بهستان و گلستان
+// تابع کمکی برای جمع‌آوری تمام مستندات فریم‌های در دسترس (همان مبدا)
+function collectAccessibleDocs(win, depth = 0) {
+  if (!win || depth > 4) return [];
+  const docs = [];
+  try {
+    if (win.document) docs.push(win.document);
+  } catch (e) {}
+  try {
+    const len = win.frames ? win.frames.length : 0;
+    for (let i = 0; i < len; i++) {
+      docs.push(...collectAccessibleDocs(win.frames[i], depth + 1));
+    }
+  } catch (e) {}
+  return docs;
+}
+
+function getCookie(name) {
+  try {
+    const match = document.cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]*)'));
+    return match ? decodeURIComponent(match[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
+// ۱. استخراج مشخصات دانشجو از ساختار صفحات، فریم‌ها و حافظه محلی سامانه بهستان و گلستان
 function scanBehestanDOM() {
   const uni = getUniversityContext();
   let studentName = null;
@@ -165,9 +190,10 @@ function scanBehestanDOM() {
   let faculty = uni.faculty;
   let major = 'دانشجو';
   const degree = 'کارشناسی';
+  let foundStudentSignals = false;
 
   try {
-    // الف: استخراج شماره دانشجویی مستقیماً از حافظه محلی سامانه (کلیدهای un, std, stdno, studentId)
+    // الف: استخراج شماره دانشجویی از حافظه محلی یا session
     studentId = localStorage.getItem('un') ||
                 localStorage.getItem('std') ||
                 localStorage.getItem('stdno') ||
@@ -176,57 +202,102 @@ function scanBehestanDOM() {
                 sessionStorage.getItem('std') ||
                 sessionStorage.getItem('stdno') || null;
 
-    const rawText = document.body ? document.body.innerText : (document.documentElement ? document.documentElement.innerText : '');
-    const pageText = rawText.replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
-
-    // ب: بررسی تگ‌های کاربری نبولار / هدر سامانه برای نام
-    const nbUser = document.querySelector('nb-user');
-    if (nbUser) {
-      studentName = nbUser.getAttribute('name') ||
-                    nbUser.querySelector('.user-name')?.innerText?.trim() ||
-                    nbUser.querySelector('.info-container .user-name')?.innerText?.trim();
-
-      // استخراج عکس کاربر از نبولار در صورت وجود
-      const nbUserImg = nbUser.querySelector('.user-picture img');
-      if (nbUserImg && nbUserImg.src && !nbUserImg.src.includes('blank-profile-picture')) {
-        photoUrl = nbUserImg.src;
-      }
-    }
-
-    // ج: جستجوی نام کاربری در المان‌های هدر یا پروفایل
-    if (!studentName && document.body) {
-      const headerUserEl = document.querySelector('.user-title, #lblUser, #userName, span[id*="User"], .header-user, .user-profile-name');
-      if (headerUserEl && headerUserEl.innerText) {
-        studentName = headerUserEl.innerText.replace(/^(کاربر|دانشجو)\s*[:\-]?\s*/, '').trim();
-      }
-    }
-
-    // د: استخراج شماره دانشجویی با الگوی عددی در صورت عدم وجود در localStorage
     if (!studentId || studentId === 'ـ') {
-      const stdMatch = pageText.match(/(?:شماره|کد)\s*(?:دانشجوی[یي]|دانشجو)?\s*[:\-]?\s*([0-9]{7,10})/i) ||
-                       pageText.match(/\b(40[0-9]{5,8}|9[5-9][0-9]{5,8})\b/);
-      if (stdMatch) studentId = stdMatch[1];
+      studentId = getCookie('un') || getCookie('std') || getCookie('studentId') || getCookie('stdno') || null;
     }
 
-    // ه: بررسی علائم فعال بودن سامانه بهستان/گلستان برای دانشجو
+    // ب: پیمایش تمام فریم‌های در دسترس (صفحه جاری + زیرفریم‌ها)
+    const allDocs = collectAccessibleDocs(window.top || window);
+
+    for (const doc of allDocs) {
+      if (!doc) continue;
+
+      // بررسی المان کاربری نبولار
+      const nbUser = doc.querySelector('nb-user');
+      if (nbUser) {
+        const n = nbUser.getAttribute('name') ||
+                  nbUser.querySelector('.user-name')?.innerText?.trim() ||
+                  nbUser.querySelector('.info-container .user-name')?.innerText?.trim();
+        if (n && n.length > 2 && !studentName) studentName = n;
+
+        const nbUserImg = nbUser.querySelector('.user-picture img');
+        if (nbUserImg && nbUserImg.src && !nbUserImg.src.includes('blank-profile-picture') && !photoUrl) {
+          photoUrl = nbUserImg.src;
+        }
+      }
+
+      // المان‌های کاربری گلستان و بهستان
+      if (!studentName) {
+        const headerUserEl = doc.querySelector('.user-title, #lblUser, #userName, span[id*="User"], .header-user, .user-profile-name, #Fld_StdName, #lblStdName, [id*="StdName"], [id*="StudentName"]');
+        if (headerUserEl && headerUserEl.innerText) {
+          const rawName = headerUserEl.innerText.replace(/^(کاربر|دانشجو|نام)\s*[:\-]?\s*/, '').trim();
+          if (rawName && rawName.length > 2 && !rawName.includes('ورود')) {
+            studentName = rawName;
+          }
+        }
+      }
+
+      // استخراج شماره دانشجویی از اینپوت‌ها یا المان‌های اختصاصی
+      if (!studentId || studentId === 'ـ') {
+        const stdInp = doc.querySelector('#Fld_StdNo, #lblStdNo, [id*="StdNo"], [id*="StudentNo"], input[name="std"], input[name="AUWo"], input[name="un"]');
+        if (stdInp) {
+          const val = (stdInp.value || stdInp.innerText || '').replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).trim();
+          const m = val.match(/\b\d{7,10}\b/);
+          if (m) studentId = m[0];
+        }
+      }
+
+      // بررسی متن بدنه فریم برای شماره دانشجویی و سیگنال‌های لاگین
+      try {
+        const rawText = doc.body ? doc.body.innerText : (doc.documentElement ? doc.documentElement.innerText : '');
+        if (rawText) {
+          const pageText = rawText.replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+          if (!studentId || studentId === 'ـ') {
+            const stdMatch = pageText.match(/(?:شماره|کد)\s*(?:دانشجوی[یي]|دانشجو)?\s*[:\-]?\s*([0-9]{7,10})/i) ||
+                             pageText.match(/\b(40[0-9]{5,8}|9[5-9][0-9]{5,8})\b/);
+            if (stdMatch) studentId = stdMatch[1];
+          }
+
+          if (
+            pageText.includes('دانشجو') ||
+            pageText.includes('اطلاعات تحصیلی') ||
+            pageText.includes('پرداخت بدهی') ||
+            pageText.includes('پرگاربرد') ||
+            pageText.includes('کارنامه') ||
+            pageText.includes('خروج از سامانه') ||
+            pageText.includes('پیشخوان خدمت') ||
+            pageText.includes('گزارش های آموزش')
+          ) {
+            foundStudentSignals = true;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // ج: بررسی علائم فعال بودن سامانه بهستان/گلستان
     const isBehestan = SUPPORTED_DOMAINS.some((domain) => (window.location.hostname || '').toLowerCase().includes(domain));
-    const hasStudentKeywords = pageText.includes('دانشجو') ||
-                               pageText.includes('اطلاعات تحصیلی') ||
-                               pageText.includes('پرداخت بدهی') ||
-                               pageText.includes('پرگاربرد') ||
-                               pageText.includes('کارنامه');
+    const hasCookies = Boolean(getCookie('sid') || getCookie('Ticket') || getCookie('ASP.NET_SessionId') || getCookie('JSESSIONID'));
+    const hasValidStd = Boolean(studentId && studentId !== 'ـ');
+    const hasValidName = Boolean(studentName && studentName !== 'دانشجوی میهمان' && studentName !== 'دانشجو');
 
-    const isLoggedIn = isBehestan && (!!studentId || !!studentName || hasStudentKeywords);
+    const isLoggedIn = isBehestan && (hasValidStd || hasValidName || foundStudentSignals || hasCookies);
 
-    // و: خواندن کش قبلی برای مقادیر موجود
+    // د: عکس کاربر با پیشوند دامنه در صورت نسبی بودن
+    if (photoUrl && photoUrl.startsWith('/')) {
+      photoUrl = window.location.origin + photoUrl;
+    }
+
+    // ه: خواندن کش قبلی برای مقادیر موجود
     const cachedProfile = readStorage('sarvestan_live_profile', {});
 
-    const finalStd = (studentId && studentId !== 'ـ')
+    const finalStd = (hasValidStd)
       ? studentId
       : ((cachedProfile.studentId && cachedProfile.studentId !== 'ـ') ? cachedProfile.studentId : 'ـ');
 
+    const finalName = studentName || cachedProfile.fullName || (isLoggedIn ? 'دانشجو' : 'دانشجوی میهمان');
+
     return {
-      studentName: studentName || cachedProfile.fullName || (isLoggedIn ? 'دانشجو' : 'دانشجوی میهمان'),
+      studentName: finalName,
       studentId: finalStd,
       faculty: cachedProfile.faculty || faculty,
       major: cachedProfile.major || major,
@@ -260,9 +331,14 @@ function scanBehestanDOM() {
   }
 }
 
-// ── شنود داده‌های استخراج‌شده توسط behestandInterceptor ──
+// ── شنود داده‌های استخراج‌شده توسط behestanInterceptor ──
 window.addEventListener('message', (event) => {
-  if (event.data && event.data.action === 'SARVESTAN_INTERCEPTED_DATA') {
+  if (!event.data) return;
+  if (event.data.action === 'SARVESTAN_INTERCEPTED_DATA') {
+    const { dataType, payload } = event.data;
+    handleInterceptedData(dataType, payload);
+  }
+  if (event.data.action === 'SARVESTAN_SUBFRAME_DATA') {
     const { dataType, payload } = event.data;
     handleInterceptedData(dataType, payload);
   }
@@ -270,6 +346,17 @@ window.addEventListener('message', (event) => {
 
 function handleInterceptedData(dataType, payload) {
   if (!dataType || !payload) return;
+
+  // اگر در ساب‌فریم هستیم، به پنجره اصلی بفرست تا به آی‌فریم اورلی ارسال شود
+  if (window.self !== window.top) {
+    try {
+      window.top.postMessage({
+        action: 'SARVESTAN_SUBFRAME_DATA',
+        dataType,
+        payload
+      }, '*');
+    } catch (_) {}
+  }
   // بعد از لاگاوت فقط پروفایل/نشست را برنگردان؛ داده گزارش‌ها را هنوز پردازش کن
   // (تا وقتی کاربر خودش گزارش ۷۸ را در بهستان باز کند یا بعد از unlock برنامه بیاید)
   const locked = isManualLogoutLockedSync();
@@ -417,6 +504,24 @@ function syncStorage(session) {
 // ۲. مدیریت لایه و پنجره هوشمند سروستان روی سامانه بهستان
 let sarvestanOverlayIframe = null;
 
+function forwardAllCachedDataToOverlay(session) {
+  forwardToOverlay('INIT_LIVE_BEHESTAN_SESSION', session);
+  const sched = readStorage('sarvestan_live_schedule', null);
+  if (sched) forwardToOverlay('SARVESTAN_DATA_UPDATE', { dataType: 'schedule', payload: sched });
+  const exams = readStorage('sarvestan_live_exams', null);
+  if (exams) forwardToOverlay('SARVESTAN_DATA_UPDATE', { dataType: 'exams', payload: exams });
+  const trans = readStorage('sarvestan_live_transcripts', null);
+  if (trans) forwardToOverlay('SARVESTAN_DATA_UPDATE', { dataType: 'transcripts', payload: trans });
+  const fin = readStorage('sarvestan_live_finance', null);
+  if (fin) forwardToOverlay('SARVESTAN_DATA_UPDATE', { dataType: 'finance', payload: fin });
+  const courses = readStorage('sarvestan_live_courses', null);
+  if (courses) forwardToOverlay('SARVESTAN_DATA_UPDATE', { dataType: 'courses', payload: courses });
+  const wf = readStorage('sarvestan_live_workflows', null);
+  if (wf) forwardToOverlay('SARVESTAN_DATA_UPDATE', { dataType: 'workflows', payload: wf });
+  const stats = readStorage('sarvestan_live_curriculum_stats', null);
+  if (stats) forwardToOverlay('SARVESTAN_DATA_UPDATE', { dataType: 'curriculumStats', payload: stats });
+}
+
 function toggleSarvestanOverlay() {
   const session = scanBehestanDOM();
   syncStorage(session);
@@ -428,6 +533,7 @@ function toggleSarvestanOverlay() {
     gpa: session.gpa || 'ـ',
     units: String(session.totalUnitsPassed || 0),
     standing: session.standing || 'ـ',
+    uni: session.university || 'kntu',
     loggedIn: session.isLoggedIn ? 'true' : 'false'
   });
   if (session.photo) {
@@ -456,17 +562,8 @@ function toggleSarvestanOverlay() {
 
     sarvestanOverlayIframe.onload = () => {
       setTimeout(() => {
-        forwardToOverlay('INIT_LIVE_BEHESTAN_SESSION', session);
-        // همچنین بقیه داده‌های کش شده را بفرست
-        const trans = readStorage('sarvestan_live_transcripts', null);
-        if (trans) forwardToOverlay('SARVESTAN_DATA_UPDATE', { dataType: 'transcripts', payload: trans });
-        const fin = readStorage('sarvestan_live_finance', null);
-        if (fin) forwardToOverlay('SARVESTAN_DATA_UPDATE', { dataType: 'finance', payload: fin });
-        const courses = readStorage('sarvestan_live_courses', null);
-        if (courses) forwardToOverlay('SARVESTAN_DATA_UPDATE', { dataType: 'courses', payload: courses });
-        const wf = readStorage('sarvestan_live_workflows', null);
-        if (wf) forwardToOverlay('SARVESTAN_DATA_UPDATE', { dataType: 'workflows', payload: wf });
-      }, 120);
+        forwardAllCachedDataToOverlay(session);
+      }, 150);
     };
 
     const targetContainer = document.body || document.documentElement;
@@ -477,7 +574,11 @@ function toggleSarvestanOverlay() {
     const isHidden = sarvestanOverlayIframe.style.display === 'none';
     sarvestanOverlayIframe.style.display = isHidden ? 'block' : 'none';
     if (isHidden) {
-      forwardToOverlay('INIT_LIVE_BEHESTAN_SESSION', session);
+      forwardAllCachedDataToOverlay(session);
+      try {
+        window.postMessage({ action: 'SARVESTAN_REFRESH_SCHEDULE' }, '*');
+        window.postMessage({ action: 'SARVESTAN_FORCE_SYNC_CMD' }, '*');
+      } catch (_) {}
     }
   }
 }
