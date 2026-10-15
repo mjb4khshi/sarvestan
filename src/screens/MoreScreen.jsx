@@ -524,7 +524,7 @@ export default function MoreScreen({
 
 
   const INVITE_TEXT =
-    'سلام! 👋\nدیدم هنوز داری با سامانه بهستان کلنجار میری، گفتم سروستان رو بهت معرفی کنم 🌿\n\nاپلیکیشن هوشمند دانشجویان (نسخه جدید ۱.۲ پاسارگاد):\n⚡ کارکرد کاملاً آفلاین برنامه کلاسی و امتحانات\n📱 ۳ ویجت زنده و هوشمند برای صفحه اصلی گوشی\n✨ تایپوگرافی جذاب آراد نقاط ۲ (Dots 2)\n☀️ تم اصیل ایرانی روشن و دارک\n🎓 پشتیبانی کامل از دانشجویان کهاد (دورشته‌ای)\n🔕 حالت سکوت خودکار گوشی سر کلاس (DND)\n🍱 یادآور هفتگی رزرو غذای سماد\n📊 کارنامه، محاسبه‌گر معدل و تحلیل بدهی شهریه\n🔒 ۱۰۰٪ امن، بدون واسطه و بدون نیاز به سرور یا فیلترشکن\n\n📱 دانلود مستقیم نسخه اندروید و افزونه مرورگر:\nhttps://mjb4khshi.github.io/sarvestan';
+    'سلام! 👋\nدیدم هنوز داری با سامانه بهستان کلنجار میری، گفتم سروستان رو بهت معرفی کنم 🌿\n\nاپلیکیشن هوشمند دانشجویان (نسخه جدید ۲ تهران):\n⚡ کارکرد کاملاً آفلاین برنامه کلاسی و امتحانات\n📱 ۳ ویجت زنده و هوشمند برای صفحه اصلی گوشی\n✨ تایپوگرافی جذاب آراد نقاط ۲ (Dots 2)\n☀️ تم اصیل ایرانی روشن و دارک\n🎓 پشتیبانی کامل از دانشجویان کهاد (دورشته‌ای)\n🔕 حالت سکوت خودکار گوشی سر کلاس (DND)\n🍱 یادآور هفتگی رزرو غذای سماد\n📊 کارنامه، محاسبه‌گر معدل و تحلیل بدهی شهریه\n🔒 ۱۰۰٪ امن، بدون واسطه و بدون نیاز به سرور یا فیلترشکن\n\n📱 دانلود مستقیم نسخه اندروید و افزونه مرورگر:\nhttps://mjb4khshi.github.io/sarvestan';
 
   const handleCopyInvite = () => {
     navigator.clipboard?.writeText(INVITE_TEXT);
@@ -1198,7 +1198,7 @@ export default function MoreScreen({
         <div className="flex items-center justify-between px-1">
           <h3 className="text-[12.5px] font-bold text-neutral">نسخه و به‌روزرسانی</h3>
           <span className="text-[11px] font-semibold text-neutral/70 font-mono">
-            v{CURRENT_VERSION} · پاسارگاد
+            v{CURRENT_VERSION} · تهران
           </span>
         </div>
         <div className="sarv-card overflow-hidden">
@@ -1258,8 +1258,8 @@ export default function MoreScreen({
                     : updateState.error
                     ? `${updateState.error} — کلیک برای تلاش دوباره`
                     : updateState.checked
-                    ? `نسخه ${CURRENT_VERSION} (پاسارگاد) آخرین نگارش منتشرشده است ✓`
-                    : `نسخه کنونی: ${CURRENT_VERSION} (پاسارگاد) · کلیک برای بررسی`}
+                    ? `نسخه ${CURRENT_VERSION} (تهران) آخرین نگارش منتشرشده است ✓`
+                    : `نسخه کنونی: ${CURRENT_VERSION} (تهران) · کلیک برای بررسی`}
                 </p>
               </div>
             </div>
@@ -1396,7 +1396,7 @@ export default function MoreScreen({
           طراحی و توسعه توسط <span className="font-mono font-bold text-base-content">@mjb4khshi</span> با چای و حوصله بسیار ☕
         </p>
         <p className="text-[10px] text-neutral/60 font-mono">
-          نسخه {toFaDigits('1.2')} پاسارگاد سروستان همراه · Sarv UI
+          نسخه {toFaDigits('2')} تهران سروستان همراه · Sarv UI
         </p>
       </div>
 
@@ -1489,7 +1489,7 @@ export default function MoreScreen({
                 <div className="sarv-card p-3.5 bg-base-500/15 border border-dashed border-base-500/40 text-[12px] leading-relaxed">
                   <p className="text-base-content font-bold mb-2 flex items-center justify-between">
                     <span>متن آماده برای ارسال:</span>
-                    <span className="text-[10px] text-accent font-mono font-bold bg-accent/15 px-2 py-0.5 rounded-full">نسخه ۱.۲ پاسارگاد</span>
+                    <span className="text-[10px] text-accent font-mono font-bold bg-accent/15 px-2 py-0.5 rounded-full">نسخه ۲ تهران</span>
                   </p>
                   <p className="text-neutral select-all whitespace-pre-wrap font-sans text-[11.5px] leading-relaxed">
                     {INVITE_TEXT}
@@ -1673,7 +1673,7 @@ export default function MoreScreen({
                   <span>
                     طراحی و توسعه: <strong className="text-base-content font-mono font-bold">@mjb4khshi</strong>
                   </span>
-                  <span className="font-mono">v1.2.0 · پاسارگاد</span>
+                  <span className="font-mono">v{CURRENT_VERSION} · تهران</span>
                 </div>
               </div>
             </motion.div>
