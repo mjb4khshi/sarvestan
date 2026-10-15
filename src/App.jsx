@@ -407,14 +407,9 @@ export default function App() {
       );
     }
 
-    // اگر در مرورگر وب هستیم و پارامتر صریح اپ یا سشن اکستنشن نداریم -> لندینگ پیج را نمایش بده
-    const isExplicitAppMode = qs.has('app') || qs.has('dashboard') || qs.has('sso') || qs.has('sso_error');
-    if (!isExtension && !isNative && !isExplicitAppMode) {
-      return (
-        <ThemeProvider>
-          <LandingPage />
-        </ThemeProvider>
-      );
+    // در مرورگر وب همیشه لندینگ پیج اختصاصی نمایش داده می‌شود
+    if (!isExtension && !isNative) {
+      return <LandingPage />;
     }
   } catch {}
 

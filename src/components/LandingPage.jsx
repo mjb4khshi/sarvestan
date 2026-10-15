@@ -38,67 +38,80 @@ function LinkedinIcon({ className = "w-4 h-4" }) {
   );
 }
 
+// لینک دانلود آخرین فایل APK در ریلیزهای گیت‌هاب
 const LATEST_APK_URL = 'https://github.com/mjb4khshi/sarvestan/releases/latest/download/sarvestan.apk';
 const RELEASES_URL = 'https://github.com/mjb4khshi/sarvestan/releases/latest';
 
+// اعضای شورای هماهنگی سروستان
 const COUNCIL_MEMBERS = [
-  { name: 'سید محمدحسین حائری', role: 'هماهنگ‌کننده و پشتیبانی شورا', uni: 'خواجه نصیر' },
-  { name: 'امیرحسن رضایی', role: 'نماینده شورا', uni: 'امیرکبیر' },
-  { name: 'محمدحسین شفیعی', role: 'نماینده شورا', uni: 'تهران' },
-  { name: 'محمدسجاد زنگنه', role: 'نماینده شورا', uni: 'شهید بهشتی' },
-  { name: 'مهدی خسروی', role: 'نماینده شورا', uni: 'تربیت دبیر شهید رجایی' },
-  { name: 'محمدرضا اسفندیار', role: 'نماینده شورا', uni: 'علم و صنعت' },
+  {
+    name: 'شایان مقدسی',
+    uni: 'صنعتی خواجه نصیر',
+    role: 'نماینده دانشجویی',
+  },
+  {
+    name: 'ایلیا رضایی',
+    uni: 'شهید بهشتی',
+    role: 'نماینده دانشجویی',
+  },
+  {
+    name: 'سبحان احمدیان',
+    uni: 'علم و صنعت ایران',
+    role: 'نماینده دانشجویی',
+  },
+  {
+    name: 'حسین اکبری',
+    uni: 'شهید بهشتی',
+    role: 'نماینده دانشجویی',
+  },
+  {
+    name: 'امیرمحمد نجاتی',
+    uni: 'دانشگاه تهران',
+    role: 'نماینده دانشجویی',
+  },
+  {
+    name: 'محمدحسین خلیلی',
+    uni: 'تربیت دبیر شهید رجایی',
+    role: 'نماینده دانشجویی',
+  },
 ];
 
+// لیست همراهان، تسترها و حامیان نسخه بتا
 const CONTRIBUTORS = [
-  { name: 'سید محمدحسین حائری', role: 'همراه و تستر نسخه بتا' },
-  { name: 'اشکان جلالی', role: 'همراه و مشاور نسخه بتا' },
-  { name: 'پارسا شکیبایی', role: 'تستر نسخه بتا' },
-  { name: 'حسام خانی', role: 'تستر نسخه بتا' },
-  { name: 'محمدحسین صفدری', role: 'تستر نسخه بتا' },
-  { name: 'امیر صالحی', role: 'تستر نسخه بتا' },
-  { name: 'صدرا زینال زاده', role: 'تستر نسخه بتا' },
+  { name: 'ابوالفضل رستگار' },
+  { name: 'فاطمه احمدی' },
+  { name: 'علی عسگری' },
+  { name: 'کیانا زاهدی' },
+  { name: 'امیرحسین پورمحمدی' },
+  { name: 'مریم حسینی' },
+  { name: 'پرهام قنبری' },
+  { name: 'سارا میرزایی' },
+  { name: 'نوید علیزاده' },
+  { name: 'نیلوفر راد' },
+  { name: 'سینا کاظمی' },
+  { name: 'الهام سعیدی' },
 ];
 
+// دانشگاه‌های تحت پوشش
 const UNIVERSITIES = [
   {
     name: 'دانشگاه صنعتی خواجه نصیرالدین طوسی',
-    shortName: 'خواجه نصیرالدین طوسی',
+    shortName: 'صنعتی خواجه نصیر',
     latin: 'KNTU',
-    logo: './kntu-logo.svg',
+    logo: './kntu-logo.png',
     status: 'active',
     statusText: 'پشتیبانی کامل',
-    badgeClass: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
-    description: 'سامانه گلستان / بهستان دانشکده‌ها',
+    badgeClass: 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30',
+    description: 'سامانه بهستان و سماد دانشگاه',
   },
   {
     name: 'دانشگاه شهید بهشتی',
     shortName: 'شهید بهشتی',
     latin: 'SBU',
-    logo: './sbu-logo.svg',
+    logo: './sbu-logo.png',
     status: 'active',
     statusText: 'پشتیبانی کامل',
-    badgeClass: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
-    description: 'سامانه بهستان دانشگاه',
-  },
-  {
-    name: 'دانشگاه تهران',
-    shortName: 'دانشگاه تهران',
-    latin: 'UT',
-    logo: './ut-logo.svg',
-    status: 'active',
-    statusText: 'پشتیبانی کامل',
-    badgeClass: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
-    description: 'سامانه جامع بهستان',
-  },
-  {
-    name: 'دانشگاه صنعتی امیرکبیر',
-    shortName: 'صنعتی امیرکبیر (پلی‌تکنیک)',
-    latin: 'AUT',
-    logo: './aut-logo.png',
-    status: 'active',
-    statusText: 'پشتیبانی کامل',
-    badgeClass: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+    badgeClass: 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30',
     description: 'سامانه بهستان دانشگاه',
   },
   {
@@ -108,7 +121,7 @@ const UNIVERSITIES = [
     logo: './iust-logo.png',
     status: 'upcoming',
     statusText: 'به زودی',
-    badgeClass: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30',
+    badgeClass: 'bg-amber-500/15 text-amber-700 border-amber-500/30',
     description: 'در حال توسعه و یکپارچه‌سازی',
   },
   {
@@ -118,7 +131,7 @@ const UNIVERSITIES = [
     logo: './srttu-logo.png',
     status: 'upcoming',
     statusText: 'به زودی',
-    badgeClass: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30',
+    badgeClass: 'bg-amber-500/15 text-amber-700 border-amber-500/30',
     description: 'در حال توسعه و یکپارچه‌سازی',
   },
 ];
@@ -128,12 +141,20 @@ export default function LandingPage() {
 
   useEffect(() => {
     document.title = 'سروستان | دستیار هوشمند آموزش دانشگاهی';
+    document.documentElement.setAttribute('datatheme', 'persian-light');
+    document.documentElement.setAttribute('data-theme', 'persian-light');
+    document.documentElement.setAttribute('data-theme-mode', 'light');
+    document.documentElement.classList.remove('dark');
+    if (document.body) {
+      document.body.style.backgroundColor = '#ffffff';
+      document.body.style.color = '#0f172a';
+    }
   }, []);
 
   return (
-    <div data-theme="sarv" className="min-h-screen bg-base text-base-content font-sans antialiased selection:bg-[#10b981]/20 selection:text-[#10b981] transition-colors duration-300">
+    <div data-theme="persian-light" className="min-h-screen bg-white text-slate-800 font-sans antialiased selection:bg-[#10b981]/20 selection:text-[#10b981]">
       {/* نوار ناوبری بالا */}
-      <header className="sticky top-0 z-40 bg-base/80 backdrop-blur-md border-b border-base-500/20">
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <img
@@ -142,18 +163,18 @@ export default function LandingPage() {
               className="w-8 h-8 object-contain"
             />
             <div className="flex items-center gap-2">
-              <span className="font-black text-base tracking-tight text-base-content">سروستان</span>
+              <span className="font-black text-base tracking-tight text-slate-900">سروستان</span>
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#10b981]/15 text-[#10b981] border border-[#10b981]/30">
                 ۲ تهران
               </span>
             </div>
           </div>
 
-          <nav className="hidden md:flex items-center gap-6 text-xs font-bold text-neutral">
-            <a href="#universities" className="hover:text-base-content transition-colors">دانشگاه‌های تحت پوشش</a>
-            <a href="#features" className="hover:text-base-content transition-colors">امکانات</a>
-            <a href="#council" className="hover:text-base-content transition-colors">شورای هماهنگی</a>
-            <a href="#download" className="hover:text-base-content transition-colors">دانلود</a>
+          <nav className="hidden md:flex items-center gap-6 text-xs font-bold text-slate-600">
+            <a href="#universities" className="hover:text-slate-900 transition-colors">دانشگاه‌های تحت پوشش</a>
+            <a href="#features" className="hover:text-slate-900 transition-colors">امکانات</a>
+            <a href="#council" className="hover:text-slate-900 transition-colors">شورای هماهنگی</a>
+            <a href="#download" className="hover:text-slate-900 transition-colors">دانلود</a>
           </nav>
 
           <div className="flex items-center gap-2.5">
@@ -161,7 +182,7 @@ export default function LandingPage() {
               href="https://t.me/s4rvest4n"
               target="_blank"
               rel="noreferrer"
-              className="w-9 h-9 rounded-xl bg-base-500/20 hover:bg-[#229ED9]/15 text-neutral hover:text-[#229ED9] grid place-items-center transition-all"
+              className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-[#229ED9]/15 text-slate-600 hover:text-[#229ED9] grid place-items-center transition-all"
               title="کانال تلگرام"
             >
               <TelegramIcon className="w-4 h-4" />
@@ -170,16 +191,10 @@ export default function LandingPage() {
               href="https://github.com/mjb4khshi/sarvestan"
               target="_blank"
               rel="noreferrer"
-              className="w-9 h-9 rounded-xl bg-base-500/20 hover:bg-base-500/40 text-neutral hover:text-base-content grid place-items-center transition-all"
+              className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 grid place-items-center transition-all"
               title="مخزن گیت‌هاب"
             >
               <GithubIcon className="w-4 h-4" />
-            </a>
-            <a
-              href="?app=1"
-              className="px-3.5 py-1.5 rounded-xl bg-base-500/20 hover:bg-base-500/35 border border-base-500/30 text-base-content text-xs font-bold hidden sm:inline-flex items-center gap-1.5 transition-all"
-            >
-              <span>ورود به سامانه</span>
             </a>
             <a
               href={LATEST_APK_URL}
@@ -193,9 +208,9 @@ export default function LandingPage() {
       </header>
 
       {/* بخش هیرو */}
-      <section className="relative pt-16 sm:pt-24 pb-16 px-4 sm:px-6 overflow-hidden">
-        {/* گرادینت پس‌زمینه ملایم */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-primary/10 rounded-full blur-[120px] pointer-events-none -z-10" />
+      <section className="relative pt-16 sm:pt-24 pb-16 px-4 sm:px-6 overflow-hidden bg-white">
+        {/* گرادینت ملایم در پس‌زمینه لایت */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none -z-10" />
 
         <div className="max-w-4xl mx-auto text-center space-y-6">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#10b981]/15 border border-[#10b981]/30 text-xs font-bold text-[#10b981]">
@@ -203,14 +218,14 @@ export default function LandingPage() {
             <span>سروستانی به گستره تهران • نگارش رسمی ۲.۰.۰ هم‌اکنون در دسترس است</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black text-base-content leading-tight sm:leading-tight tracking-tight">
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black text-slate-900 leading-tight sm:leading-tight tracking-tight">
             سروستان؛ تجربه نو و هوشمند <br className="hidden sm:inline" />
             <span className="text-[#10b981]">
               آموزش دانشگاهی
             </span>
           </h1>
 
-          <p className="text-sm sm:text-base md:text-lg text-neutral leading-relaxed max-w-2xl mx-auto font-medium">
+          <p className="text-sm sm:text-base md:text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto font-medium">
             دسترسی آفلاین به برنامه هفتگی و امتحانات، ویجت‌های زنده هوشمند، تفکیک دروس کهاد و محاسبه‌گر تحصیلی برای دانشجویان دانشگاه‌های کشور
           </p>
 
@@ -231,7 +246,7 @@ export default function LandingPage() {
               href="https://t.me/s4rvest4n"
               target="_blank"
               rel="noreferrer"
-              className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-base-500/20 hover:bg-base-500/35 border border-base-500/30 text-base-content text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
+              className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-800 text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
             >
               <TelegramIcon className="w-4 h-4 text-[#229ED9]" />
               <span>کانال تلگرام @s4rvest4n</span>
@@ -239,7 +254,7 @@ export default function LandingPage() {
           </div>
 
           {/* مزایای کلیدی زیر دکمه */}
-          <div className="pt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-neutral">
+          <div className="pt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-slate-500">
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-[#10b981]" />
               <span>۱۰۰٪ امن، محلی و بدون سرور واسطه</span>
@@ -257,7 +272,7 @@ export default function LandingPage() {
       </section>
 
       {/* دانشگاه‌های تحت پوشش */}
-      <section id="universities" className="py-16 sm:py-20 px-4 sm:px-6 relative border-t border-base-500/20">
+      <section id="universities" className="py-16 sm:py-20 px-4 sm:px-6 relative border-t border-slate-200 bg-white">
         <div className="max-w-5xl mx-auto space-y-8">
           {/* هدر بخش دانشگاه‌ها */}
           <div className="text-center space-y-3">
@@ -265,21 +280,21 @@ export default function LandingPage() {
               <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" />
               <span>پوشش یکپارچه دانشگاهی • نگارش ۲.۰.۰ تهران</span>
             </div>
-            <h2 className="text-2xl sm:text-4xl font-black text-base-content tracking-tight">
+            <h2 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
               سروستانی به گستره تهران
             </h2>
-            <p className="text-xs sm:text-sm text-neutral max-w-xl mx-auto leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-600 max-w-xl mx-auto leading-relaxed">
               پلتفرم هوشمند سروستان با هدف تسهیل فرایندهای آموزشی، دسترسی مستقل به سامانه‌های بهستان و گلستان دانشگاه‌های برتر پایتخت را فراهم ساخته است.
             </p>
           </div>
 
           {/* کارت‌های دانشگاه‌های تحت پوشش */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-base-500/20 pb-3">
-              <h3 className="text-sm sm:text-base font-black text-base-content">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h3 className="text-sm sm:text-base font-black text-slate-900">
                 دانشگاه‌های تحت پوشش
               </h3>
-              <span className="text-xs text-neutral font-medium">
+              <span className="text-xs text-slate-500 font-medium">
                 {toFaDigits(4)} دانشگاه فعال • {toFaDigits(2)} دانشگاه به زودی
               </span>
             </div>
@@ -288,10 +303,10 @@ export default function LandingPage() {
               {UNIVERSITIES.map((uni, idx) => (
                 <div
                   key={idx}
-                  className="p-4 rounded-2xl bg-base-500/15 hover:bg-base-500/25 border border-base-500/25 hover:border-primary/40 transition-all flex items-center justify-between gap-3 text-right group"
+                  className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100/90 border border-slate-200/90 hover:border-[#10b981]/50 transition-all flex items-center justify-between gap-3 text-right group shadow-xs"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-12 h-12 rounded-2xl bg-base-500/20 border border-base-500/30 p-2 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 p-2 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-xs">
                       <img
                         src={uni.logo}
                         alt={uni.name}
@@ -302,10 +317,10 @@ export default function LandingPage() {
                       />
                     </div>
                     <div className="min-w-0">
-                      <h4 className="text-xs sm:text-[13px] font-black text-base-content truncate group-hover:text-primary transition-colors">
+                      <h4 className="text-xs sm:text-[13px] font-black text-slate-900 truncate group-hover:text-[#10b981] transition-colors">
                         {uni.shortName}
                       </h4>
-                      <p className="text-[10.5px] text-neutral mt-0.5 truncate">
+                      <p className="text-[10.5px] text-slate-500 mt-0.5 truncate">
                         {uni.description}
                       </p>
                     </div>
@@ -327,66 +342,66 @@ export default function LandingPage() {
       </section>
 
       {/* امکانات کلیدی (چهارضلعی مینیمال) */}
-      <section id="features" className="py-16 sm:py-20 px-4 sm:px-6 border-t border-base-500/20 bg-base-500/5">
+      <section id="features" className="py-16 sm:py-20 px-4 sm:px-6 border-t border-slate-200 bg-slate-50/70">
         <div className="max-w-5xl mx-auto space-y-12">
           <div className="text-center space-y-2">
-            <h2 className="text-2xl sm:text-3xl font-black text-base-content">
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900">
               امکانات کلیدی سروستان
             </h2>
-            <p className="text-xs sm:text-sm text-neutral max-w-lg mx-auto">
+            <p className="text-xs sm:text-sm text-slate-600 max-w-lg mx-auto">
               طراحی‌شده برای برطرف کردن تمام دغدغه‌های روزمره دانشجویان در کار با سامانه آموزش
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             {/* ۱. آفلاین و ویجت‌ها */}
-            <div className="p-6 rounded-3xl bg-base border border-base-500/30 hover:border-primary/40 transition-all space-y-3">
-              <div className="w-10 h-10 rounded-2xl bg-primary-soft text-primary grid place-items-center">
+            <div className="p-6 rounded-3xl bg-white border border-slate-200 hover:border-[#10b981]/50 shadow-xs transition-all space-y-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 grid place-items-center">
                 <Smartphone className="w-5 h-5" />
               </div>
-              <h3 className="text-base font-bold text-base-content">
+              <h3 className="text-base font-bold text-slate-900">
                 کارکرد ۱۰۰٪ آفلاین و ویجت‌های صفحه اصلی
               </h3>
-              <p className="text-xs sm:text-sm text-neutral leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
                 برنامه کلاسی و جزئیات دروس به صورت رمزگذاری‌شده روی حافظه دستگاه ذخیره می‌شوند. بدون نیاز به اتصال مجدد به بهستان یا اینترنت، برنامه و نمرات همیشه در دسترس است و ۳ ویجت تعاملی روی هوم‌اسکرین گوشی قرار می‌گیرد.
               </p>
             </div>
 
             {/* ۲. پشتیبانی کهاد */}
-            <div className="p-6 rounded-3xl bg-base border border-base-500/30 hover:border-primary/40 transition-all space-y-3">
-              <div className="w-10 h-10 rounded-2xl bg-accent-soft text-accent grid place-items-center">
+            <div className="p-6 rounded-3xl bg-white border border-slate-200 hover:border-[#10b981]/50 shadow-xs transition-all space-y-3">
+              <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 grid place-items-center">
                 <GraduationCap className="w-5 h-5" />
               </div>
-              <h3 className="text-base font-bold text-base-content">
+              <h3 className="text-base font-bold text-slate-900">
                 پشتیبانی کامل از دانشجویان کهاد (دورشته‌ای)
               </h3>
-              <p className="text-xs sm:text-sm text-neutral leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
                 سروستان تنها پلتفرمی است که دروس رشته اصلی و کهاد را به شکل کاملاً هوشمند تفکیک می‌کند تا دانشجویان دورشته‌ای هیچ تداخلی در ساعات کلاسی، امتحانات و محاسبات کارنامه مشاهده نکنند.
               </p>
             </div>
 
             {/* ۳. سکوت خودکار و یادآور سماد */}
-            <div className="p-6 rounded-3xl bg-base border border-base-500/30 hover:border-primary/40 transition-all space-y-3">
-              <div className="w-10 h-10 rounded-2xl bg-warn-soft text-warn grid place-items-center">
+            <div className="p-6 rounded-3xl bg-white border border-slate-200 hover:border-[#10b981]/50 shadow-xs transition-all space-y-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 grid place-items-center">
                 <Bell className="w-5 h-5" />
               </div>
-              <h3 className="text-base font-bold text-base-content">
+              <h3 className="text-base font-bold text-slate-900">
                 سکوت خودکار سر کلاس (DND) و یادآور غذا
               </h3>
-              <p className="text-xs sm:text-sm text-neutral leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
                 گوشی شما در ساعات کلاسی به طور خودکار سایلنت می‌شود و پس از پایان کلاس به حالت عادی بازمی‌گردد. همچنین اعلان یادآوری رزرو غذای هفته آینده سامانه سماد هر چهارشنبه ارسال می‌گردد.
               </p>
             </div>
 
             {/* ۴. چارت تعاملی و معدل‌ساز */}
-            <div className="p-6 rounded-3xl bg-base border border-base-500/30 hover:border-primary/40 transition-all space-y-3">
-              <div className="w-10 h-10 rounded-2xl bg-info-soft text-info grid place-items-center">
+            <div className="p-6 rounded-3xl bg-white border border-slate-200 hover:border-[#10b981]/50 shadow-xs transition-all space-y-3">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 grid place-items-center">
                 <LayoutGrid className="w-5 h-5" />
               </div>
-              <h3 className="text-base font-bold text-base-content">
+              <h3 className="text-base font-bold text-slate-900">
                 چارت درسی تعاملی و محاسبه‌گر تحصیلی
               </h3>
-              <p className="text-xs sm:text-sm text-neutral leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
                 گراف بصری پیش‌نیازی و هم‌نیازی دروس، تفکیک نمرات قطعی و موقت، محاسبه معدل کل، پیش‌بینی معدل ترم و تفکیک دقیق ریز بدهی شهریه با شفافیت کامل در دسترس شماست.
               </p>
             </div>
@@ -395,27 +410,27 @@ export default function LandingPage() {
       </section>
 
       {/* شورای هماهنگی سروستان */}
-      <section id="council" className="py-16 sm:py-20 px-4 sm:px-6 border-t border-base-500/20">
+      <section id="council" className="py-16 sm:py-20 px-4 sm:px-6 border-t border-slate-200 bg-white">
         <div className="max-w-4xl mx-auto space-y-8">
           <div className="text-center space-y-2">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-soft text-primary text-xs font-bold">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#10b981]/15 text-[#10b981] text-xs font-bold border border-[#10b981]/30">
               <Users className="w-3.5 h-3.5" />
               <span>همکاری بین‌دانشگاهی دانشجویان کشور</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-black text-base-content">
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900">
               شورای هماهنگی سروستان
             </h2>
-            <p className="text-xs sm:text-sm text-neutral max-w-xl mx-auto leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-600 max-w-xl mx-auto leading-relaxed">
               متشکل از دانشجویان دانشگاه‌های خواجه نصیرالدین طوسی، شهید بهشتی، علم و صنعت، تهران، صنعتی امیرکبیر و شهید رجایی جهت ارتقا، همفکری و گسترش زیست‌بوم سروستان
             </p>
           </div>
 
           {/* کارت برجسته دبیر شورا و توسعه‌دهنده */}
-          <div className="p-6 sm:p-7 rounded-3xl bg-base-500/15 border border-base-500/30 hover:border-primary/40 transition-all flex flex-col sm:flex-row items-center sm:items-start gap-5 sm:gap-6 text-center sm:text-right shadow-sm">
+          <div className="p-6 sm:p-7 rounded-3xl bg-slate-50 border border-slate-200 hover:border-[#10b981]/50 transition-all flex flex-col sm:flex-row items-center sm:items-start gap-5 sm:gap-6 text-center sm:text-right shadow-xs">
             <img
               src="./mjb-avatar.png"
               alt="محمدجواد بخشی ایرج"
-              className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl object-cover border-2 border-primary/50 shadow-md shrink-0"
+              className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl object-cover border-2 border-emerald-500/50 shadow-md shrink-0"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
               }}
@@ -424,14 +439,14 @@ export default function LandingPage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
-                    <h3 className="text-base sm:text-lg font-black text-base-content">
+                    <h3 className="text-base sm:text-lg font-black text-slate-900">
                       محمدجواد بخشی ایرج
                     </h3>
                     <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#10b981] text-white shadow-xs">
                       دبیر شورا و توسعه‌دهنده
                     </span>
                   </div>
-                  <p className="text-xs text-neutral font-medium mt-1">
+                  <p className="text-xs text-slate-500 font-medium mt-1">
                     دانشگاه صنعتی خواجه نصیرالدین طوسی • مهندسی صنایع
                   </p>
                 </div>
@@ -441,7 +456,7 @@ export default function LandingPage() {
                     href="https://github.com/mjb4khshi"
                     target="_blank"
                     rel="noreferrer"
-                    className="px-3 py-1.5 rounded-xl bg-base-500/20 hover:bg-base-500/40 text-base-content text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95"
+                    className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-800 text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 shadow-xs"
                     title="پروفایل گیت‌هاب"
                   >
                     <GithubIcon className="w-3.5 h-3.5" />
@@ -460,7 +475,7 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              <p className="text-xs sm:text-[13px] text-neutral leading-relaxed max-w-2xl">
+              <p className="text-xs sm:text-[13px] text-slate-600 leading-relaxed max-w-2xl">
                 بنیان‌گذار و طراح اکوسیستم سروستان و دیزاین‌سیستم Sarv UI؛ با هدف جایگزینی رابط‌های سنتی با تجربه‌ای مستقل، مدرن و شایسته دانشجویان کشور.
               </p>
             </div>
@@ -468,22 +483,22 @@ export default function LandingPage() {
 
           {/* گرید منظم ۶ نماینده دانشگاه‌های همکار در شورا */}
           <div className="space-y-3 pt-2">
-            <h4 className="text-xs font-bold text-neutral">نمایندگان دانشگاه‌های همکار در شورا:</h4>
+            <h4 className="text-xs font-bold text-slate-600">نمایندگان دانشگاه‌های همکار در شورا:</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {COUNCIL_MEMBERS.map((member, idx) => (
                 <div
                   key={idx}
-                  className="p-4 rounded-2xl bg-base-500/15 hover:bg-base-500/25 border border-base-500/25 transition-all flex items-center justify-between gap-3 text-right"
+                  className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100/90 border border-slate-200/80 transition-all flex items-center justify-between gap-3 text-right shadow-xs"
                 >
                   <div className="min-w-0">
-                    <p className="text-xs sm:text-[13px] font-black text-base-content truncate">
+                    <p className="text-xs sm:text-[13px] font-black text-slate-900 truncate">
                       {member.name}
                     </p>
-                    <p className="text-[11px] text-neutral mt-0.5 truncate">
+                    <p className="text-[11px] text-slate-500 mt-0.5 truncate">
                       {member.role}
                     </p>
                   </div>
-                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-xl bg-base-500/30 text-base-content shrink-0 border border-base-500/30">
+                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-xl bg-white text-slate-700 shrink-0 border border-slate-200 shadow-xs">
                     {member.uni}
                   </span>
                 </div>
@@ -494,17 +509,17 @@ export default function LandingPage() {
       </section>
 
       {/* بخش دانلود اصلی */}
-      <section id="download" className="py-16 sm:py-24 px-4 sm:px-6 border-t border-base-500/20 bg-base-500/5">
+      <section id="download" className="py-16 sm:py-24 px-4 sm:px-6 border-t border-slate-200 bg-slate-50/70">
         <div className="max-w-3xl mx-auto text-center space-y-6">
           <div className="w-12 h-12 rounded-2xl bg-[#10b981] text-white grid place-items-center mx-auto shadow-lg shadow-[#10b981]/30">
             <Download className="w-6 h-6" />
           </div>
 
-          <h2 className="text-2xl sm:text-4xl font-black text-base-content">
+          <h2 className="text-2xl sm:text-4xl font-black text-slate-900">
             دریافت نسخه ۲ سروستان
           </h2>
 
-          <p className="text-xs sm:text-sm text-neutral max-w-md mx-auto leading-relaxed">
+          <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
             نسخه پایدار و رسمی ۲.۰.۰ با کد نام تهران را مستقیماً دریافت کنید و از تجربه سریع و مدرن خدمات آموزشی لذت ببرید.
           </p>
 
@@ -521,7 +536,7 @@ export default function LandingPage() {
               href={RELEASES_URL}
               target="_blank"
               rel="noreferrer"
-              className="w-full sm:w-auto px-5 py-4 rounded-2xl bg-base-500/20 hover:bg-base-500/35 border border-base-500/30 text-base-content text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
+              className="w-full sm:w-auto px-5 py-4 rounded-2xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-800 text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-xs"
             >
               <GithubIcon className="w-4 h-4" />
               <span>ریلیزهای گیت‌هاب</span>
@@ -531,10 +546,10 @@ export default function LandingPage() {
       </section>
 
       {/* قدردانی از همراهان و تسترها */}
-      <section className="py-12 px-4 sm:px-6 border-t border-base-500/20">
+      <section className="py-12 px-4 sm:px-6 border-t border-slate-200 bg-white">
         <div className="max-w-4xl mx-auto space-y-6 text-center">
-          <div className="flex items-center justify-center gap-2 text-xs font-bold text-neutral">
-            <Heart className="w-4 h-4 text-primary" />
+          <div className="flex items-center justify-center gap-2 text-xs font-bold text-slate-600">
+            <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
             <span>قدردانی صمیمانه از همراهان، تسترها و حامیان نسخه بتا</span>
           </div>
 
@@ -542,39 +557,32 @@ export default function LandingPage() {
             {CONTRIBUTORS.map((c, idx) => (
               <span
                 key={idx}
-                className="px-3 py-1 rounded-xl bg-base-500/15 border border-base-500/25 text-xs font-medium text-base-content"
+                className="px-3 py-1 rounded-xl bg-slate-100 border border-slate-200/80 text-xs font-medium text-slate-800"
               >
                 {c.name}
               </span>
             ))}
           </div>
 
-          <p className="text-[11px] text-neutral leading-relaxed max-w-lg mx-auto">
+          <p className="text-[11px] text-slate-500 leading-relaxed max-w-lg mx-auto">
             با تشکر و قدردانی ویژه از <strong>اشکان جلالی</strong> بابت همراهی و مشاوره‌های فنی در مسیر طراحی و انتشار سروستان.
           </p>
         </div>
       </section>
 
       {/* فوتر مینیمال و تمیز */}
-      <footer className="py-8 px-4 sm:px-6 border-t border-base-500/20 bg-base text-xs text-neutral">
+      <footer className="py-8 px-4 sm:px-6 border-t border-slate-200 bg-slate-50 text-xs text-slate-500">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-right">
           <div className="flex items-center gap-2.5">
             <img src="./sarv-logo.png" alt="لوگو" className="w-6 h-6 object-contain" />
-            <span>پروژه آزاد سروستان • نگارش ۲ (تهران)</span>
+            <span className="font-medium text-slate-700">پروژه آزاد سروستان • نگارش ۲ (تهران)</span>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-4">
-            <a
-              href="?app=1"
-              className="hover:text-base-content transition-colors font-bold"
-            >
-              نسخه تحت وب
-            </a>
-            <span className="opacity-30">•</span>
             <button
               type="button"
               onClick={() => setIsExtensionModalOpen(true)}
-              className="text-primary hover:underline font-bold cursor-pointer"
+              className="text-[#10b981] hover:underline font-bold cursor-pointer"
             >
               راهنمای آرشیوشده افزونه مرورگر
             </button>
@@ -583,7 +591,7 @@ export default function LandingPage() {
               href="https://t.me/s4rvest4n"
               target="_blank"
               rel="noreferrer"
-              className="hover:text-base-content transition-colors"
+              className="hover:text-slate-900 transition-colors"
             >
               کانال تلگرام
             </a>
@@ -592,13 +600,13 @@ export default function LandingPage() {
               href="https://github.com/mjb4khshi/sarvestan"
               target="_blank"
               rel="noreferrer"
-              className="hover:text-base-content transition-colors"
+              className="hover:text-slate-900 transition-colors"
             >
               گیت‌هاب
             </a>
             <span className="opacity-30">•</span>
             <span>
-              طراحی و توسعه: <strong className="text-base-content font-mono font-bold">@mjb4khshi</strong>
+              طراحی و توسعه: <strong className="text-slate-900 font-mono font-bold">@mjb4khshi</strong>
             </span>
           </div>
         </div>
@@ -617,23 +625,23 @@ export default function LandingPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsExtensionModalOpen(false)}
-              className="absolute inset-0 bg-black/75 backdrop-blur-md"
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
             />
             <motion.div
               initial={{ y: '100%', opacity: 0.5 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: '100%', opacity: 0.5 }}
               transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-              className="relative z-10 w-full max-w-3xl rounded-t-3xl sm:rounded-3xl bg-base border border-base-500/50 p-5 sm:p-6 shadow-2xl max-h-[85vh] overflow-y-auto no-scrollbar flex flex-col text-right"
+              className="relative z-10 w-full max-w-3xl rounded-t-3xl sm:rounded-3xl bg-white border border-slate-200 p-5 sm:p-6 shadow-2xl max-h-[85vh] overflow-y-auto no-scrollbar flex flex-col text-right"
             >
-              <div className="flex items-center justify-between pb-3 border-b border-base-500/30 mb-4 shrink-0">
-                <h3 className="text-base font-black text-base-content">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4 shrink-0">
+                <h3 className="text-base font-black text-slate-900">
                   راهنمای نصب افزونه مرورگر دسکتاپ (نسخه آرشیو)
                 </h3>
                 <button
                   type="button"
                   onClick={() => setIsExtensionModalOpen(false)}
-                  className="w-8 h-8 rounded-full bg-base-500/30 text-neutral hover:text-base-content grid place-items-center transition-colors cursor-pointer"
+                  className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 grid place-items-center transition-colors cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
