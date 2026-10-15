@@ -1184,7 +1184,8 @@
             MaxHlp: 200
           };
           try {
-            const resp = await fetch('https://behestan.kntu.ac.ir/frm/BAS0237_CMP_ViewReport/BAS0237_CMP_ViewReport.svc/', {
+            const apiOrigin = window.location.origin || 'https://behestan.kntu.ac.ir';
+            const resp = await fetch(`${apiOrigin}/frm/BAS0237_CMP_ViewReport/BAS0237_CMP_ViewReport.svc/`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(reqBody)
@@ -1289,9 +1290,10 @@
             act: '08',
             MaxHlp: 200
           };
+          const apiOrigin = window.location.origin || 'https://behestan.kntu.ac.ir';
           try {
             const txt = await postJson(
-              'https://behestan.kntu.ac.ir/frm/BAS0237_CMP_ViewReport/BAS0237_CMP_ViewReport.svc/',
+              `${apiOrigin}/frm/BAS0237_CMP_ViewReport/BAS0237_CMP_ViewReport.svc/`,
               reqBody
             );
             processResponseData('BAS0237_CMP_ViewReport', txt, JSON.stringify(reqBody));
@@ -1303,7 +1305,7 @@
         // ۱) جامع دانشجو — مثل فرم ۱۱۱۴۷
         await delay(300);
         const txt1 = await postJson(
-          'https://behestan.kntu.ac.ir/frm/F1825_PROCESS_STDTOTALINFOTrmStat_BEH/F1825_PROCESS_STDTOTALINFOTrmStat_BEH.svc/',
+          `${apiOrigin}/frm/F1825_PROCESS_STDTOTALINFOTrmStat_BEH/F1825_PROCESS_STDTOTALINFOTrmStat_BEH.svc/`,
           {
             r: { AUWo: studentId },
             act: '20',
@@ -1316,7 +1318,7 @@
         // ۲) عکس پرسنلی
         await delay(500);
         const txt2 = await postJson(
-          'https://behestan.kntu.ac.ir/frm/F1809_PROCESS_STD_Personally_BH/F1809_PROCESS_STD_Personally_BH.svc/',
+          `${apiOrigin}/frm/F1809_PROCESS_STD_Personally_BH/F1809_PROCESS_STD_Personally_BH.svc/`,
           {
             r: { AUWs: studentId },
             act: '08',
@@ -1330,7 +1332,7 @@
         if (userId) {
           await delay(400);
           const txt3 = await postJson(
-            'https://behestan.kntu.ac.ir/frm/F6524_PROCESS_DASHBOARD_BEH/F6524_PROCESS_DASHBOARD_BEH.svc/',
+            `${apiOrigin}/frm/F6524_PROCESS_DASHBOARD_BEH/F6524_PROCESS_DASHBOARD_BEH.svc/`,
             {
               r: { AVsa: userId, AVsl: '1', AVsm: '0', AW4r: '5', AW4s: '', AvD9: '', AxI9: '{}' },
               act: '24',
@@ -1351,7 +1353,7 @@
           MaxHlp: 200
         };
         const txt4 = await postJson(
-          'https://behestan.kntu.ac.ir/frm/F1814_PROCESS_STDAllCrs/F1814_PROCESS_STDAllCrs.svc/',
+          `${apiOrigin}/frm/F1814_PROCESS_STDAllCrs/F1814_PROCESS_STDAllCrs.svc/`,
           f1814a
         );
         let ahug = studentId;
@@ -1373,7 +1375,7 @@
           MaxHlp: 200
         };
         const txt5 = await postJson(
-          'https://behestan.kntu.ac.ir/frm/F1814_PROCESS_STDAllCrs/F1814_PROCESS_STDAllCrs.svc/',
+          `${apiOrigin}/frm/F1814_PROCESS_STDAllCrs/F1814_PROCESS_STDAllCrs.svc/`,
           f1814b
         );
         processResponseData('F1814_PROCESS_STDAllCrs', txt5);
@@ -1420,7 +1422,7 @@
           };
           try {
             const txt = await postJson(
-              'https://behestan.kntu.ac.ir/frm/BAS0237_CMP_ViewReport/BAS0237_CMP_ViewReport.svc/',
+              `${apiOrigin}/frm/BAS0237_CMP_ViewReport/BAS0237_CMP_ViewReport.svc/`,
               reqBody
             );
             processResponseData('BAS0237_CMP_ViewReport', txt, JSON.stringify(reqBody));

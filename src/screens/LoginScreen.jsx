@@ -558,11 +558,11 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
           <div className="grid grid-cols-2 gap-2 pt-0.5">
             <button
               type="button"
-              onClick={() => openBehestanPage()}
+              onClick={() => openBehestanPage(selectedUni)}
               className="w-full py-2 px-2.5 rounded-xl bg-primary text-primary-content text-[11px] font-bold flex items-center justify-center gap-1.5 hover:opacity-90 active:scale-95 transition-all shadow-xs cursor-pointer"
             >
               <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-              <span>ورود به بهستان</span>
+              <span>ورود به سامانه دانشگاه</span>
             </button>
             <button
               type="button"

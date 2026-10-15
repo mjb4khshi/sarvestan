@@ -101,17 +101,62 @@ function readStorage(key, fallback) {
   }
 }
 
-// ۱. استخراج مشخصات دانشجو از ساختار صفحات و حافظه محلی سامانه بهستان
+const SUPPORTED_DOMAINS = ['kntu.ac.ir', 'aut.ac.ir', 'sbu.ac.ir', 'ut.ac.ir', 'iust.ac.ir'];
+
+function getUniversityContext() {
+  const hn = (window.location.hostname || '').toLowerCase();
+  if (hn.includes('aut.ac.ir')) {
+    return {
+      id: 'aut',
+      name: 'دانشگاه صنعتی امیرکبیر (پلی‌تکنیک تهران)',
+      faculty: 'دانشگاه صنعتی امیرکبیر',
+      systemName: 'سامانه بهستان امیرکبیر',
+    };
+  }
+  if (hn.includes('sbu.ac.ir')) {
+    return {
+      id: 'sbu',
+      name: 'دانشگاه شهید بهشتی',
+      faculty: 'دانشگاه شهید بهشتی',
+      systemName: 'سامانه آموزشی بهستان',
+    };
+  }
+  if (hn.includes('ut.ac.ir')) {
+    return {
+      id: 'ut',
+      name: 'دانشگاه تهران',
+      faculty: 'دانشگاه تهران',
+      systemName: 'سامانه گلستان / بهستان ۲',
+    };
+  }
+  if (hn.includes('iust.ac.ir')) {
+    return {
+      id: 'iust',
+      name: 'دانشگاه علم و صنعت ایران',
+      faculty: 'دانشگاه علم و صنعت ایران',
+      systemName: 'سامانه گلستان',
+    };
+  }
+  return {
+    id: 'kntu',
+    name: 'دانشگاه صنعتی خواجه نصیرالدین طوسی',
+    faculty: 'دانشگاه صنعتی خواجه نصیرالدین طوسی',
+    systemName: 'سامانه بهستان',
+  };
+}
+
+// ۱. استخراج مشخصات دانشجو از ساختار صفحات و حافظه محلی سامانه بهستان و گلستان
 function scanBehestanDOM() {
+  const uni = getUniversityContext();
   let studentName = null;
   let studentId = null;
   let photoUrl = null;
-  let faculty = 'دانشگاه صنعتی خواجه نصیرالدین طوسی';
+  let faculty = uni.faculty;
   let major = 'دانشجو';
   const degree = 'کارشناسی';
 
   try {
-    // الف: استخراج شماره دانشجویی مستقیماً از حافظه محلی سامانه بهستان (کلیدهای un, std, stdno, studentId)
+    // الف: استخراج شماره دانشجویی مستقیماً از حافظه محلی سامانه (کلیدهای un, std, stdno, studentId)
     studentId = localStorage.getItem('un') ||
                 localStorage.getItem('std') ||
                 localStorage.getItem('stdno') ||
@@ -123,7 +168,7 @@ function scanBehestanDOM() {
     const rawText = document.body ? document.body.innerText : (document.documentElement ? document.documentElement.innerText : '');
     const pageText = rawText.replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
 
-    // ب: بررسی تگ‌های کاربری نبولار / هدر بهستان برای نام
+    // ب: بررسی تگ‌های کاربری نبولار / هدر سامانه برای نام
     const nbUser = document.querySelector('nb-user');
     if (nbUser) {
       studentName = nbUser.getAttribute('name') ||
@@ -152,8 +197,8 @@ function scanBehestanDOM() {
       if (stdMatch) studentId = stdMatch[1];
     }
 
-    // ه: بررسی علائم فعال بودن سامانه بهستان برای دانشجو
-    const isBehestan = window.location.hostname.includes('kntu.ac.ir');
+    // ه: بررسی علائم فعال بودن سامانه بهستان/گلستان برای دانشجو
+    const isBehestan = SUPPORTED_DOMAINS.some((domain) => (window.location.hostname || '').toLowerCase().includes(domain));
     const hasStudentKeywords = pageText.includes('دانشجو') ||
                                pageText.includes('اطلاعات تحصیلی') ||
                                pageText.includes('پرداخت بدهی') ||
@@ -180,6 +225,8 @@ function scanBehestanDOM() {
       gpa: cachedProfile.gpa || 'ـ',
       standing: cachedProfile.standing || 'ـ',
       photo: photoUrl || cachedProfile.photo || null,
+      university: uni.id,
+      universityName: uni.name,
       isLoggedIn: isLoggedIn
     };
   } catch (err) {
@@ -195,6 +242,8 @@ function scanBehestanDOM() {
       gpa: 'ـ',
       standing: 'ـ',
       photo: null,
+      university: uni.id,
+      universityName: uni.name,
       isLoggedIn: false
     };
   }
@@ -315,6 +364,7 @@ function forwardToOverlay(action, payload) {
 function syncStorage(session) {
   if (session && session.isLoggedIn) {
     const existing = readStorage('sarvestan_live_profile', {});
+    const uni = getUniversityContext();
     const finalStd = (session.studentId && session.studentId !== 'ـ')
       ? session.studentId
       : ((existing.studentId && existing.studentId !== 'ـ') ? existing.studentId : 'ـ');
@@ -330,11 +380,14 @@ function syncStorage(session) {
       gpa: session.gpa !== 'ـ' ? session.gpa : (existing.gpa || 'ـ'),
       standing: session.standing !== 'ـ' ? session.standing : (existing.standing || 'ـ'),
       photo: session.photo || existing.photo || null,
+      university: session.university || existing.university || uni.id,
+      universityName: session.universityName || existing.universityName || uni.name,
       isLoggedIn: true,
       lastLogin: new Date().toLocaleDateString('fa-IR')
     };
 
     saveStorage('sarvestan_live_profile', merged);
+    saveStorage('sarvestan_selected_university', merged.university);
     saveStorage('sarvestan_auth_status', {
       loggedIn: true,
       lastCheck: new Date().toISOString()
@@ -578,9 +631,8 @@ function openBehestanForm(fid) {
     t: t
   });
 
-  console.log('[Sarvestan] nav to form', fid, 'sid?', !!sid);
-
-  return fetch('https://behestan.kntu.ac.ir/frm/sys/sys.svc/', {
+  const origin = window.location.origin;
+  return fetch(`${origin}/frm/sys/sys.svc/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body

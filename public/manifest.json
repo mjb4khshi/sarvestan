@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "سروستان | Sarvestan - افزونه هوشمند سامانه بهستان",
-  "version": "1.2.0",
-  "description": "داشبورد مدرن، زیبا و سریع سامانه بهستان دانشگاه صنعتی خواجه نصیرالدین طوسی با دیزاین‌سیستم سرو",
+  "name": "سروستان | Sarvestan - افزونه هوشمند سامانه‌های دانشگاهی",
+  "version": "1.2.1",
+  "description": "داشبورد مدرن، هوشمند و سریع سامانه‌های بهستان و گلستان دانشگاه‌ها (خواجه نصیر، امیرکبیر، بهشتی، تهران، علم و صنعت) با دیزاین‌سیستم سرو",
   "author": "MJ",
   "icons": {
     "16": "icons/icon16.png",
@@ -11,7 +11,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "سروستان - داشبورد مدرن سامانه بهستان",
+    "default_title": "سروستان - داشبورد مدرن سامانه بهستان و گلستان",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
@@ -26,13 +26,31 @@
   ],
   "host_permissions": [
     "*://*.kntu.ac.ir/*",
-    "*://behestan.kntu.ac.ir/*"
+    "*://behestan.kntu.ac.ir/*",
+    "*://*.aut.ac.ir/*",
+    "*://portal.aut.ac.ir/*",
+    "*://*.sbu.ac.ir/*",
+    "*://ems.sbu.ac.ir/*",
+    "*://*.ut.ac.ir/*",
+    "*://ems2.ut.ac.ir/*",
+    "*://ems1.ut.ac.ir/*",
+    "*://*.iust.ac.ir/*",
+    "*://golestan.iust.ac.ir/*"
   ],
   "content_scripts": [
     {
       "matches": [
+        "*://*.kntu.ac.ir/*",
         "*://behestan.kntu.ac.ir/*",
-        "*://*.kntu.ac.ir/*"
+        "*://*.aut.ac.ir/*",
+        "*://portal.aut.ac.ir/*",
+        "*://*.sbu.ac.ir/*",
+        "*://ems.sbu.ac.ir/*",
+        "*://*.ut.ac.ir/*",
+        "*://ems2.ut.ac.ir/*",
+        "*://ems1.ut.ac.ir/*",
+        "*://*.iust.ac.ir/*",
+        "*://golestan.iust.ac.ir/*"
       ],
       "js": [
         "behestanInterceptor.js"
@@ -43,8 +61,17 @@
     },
     {
       "matches": [
+        "*://*.kntu.ac.ir/*",
         "*://behestan.kntu.ac.ir/*",
-        "*://*.kntu.ac.ir/*"
+        "*://*.aut.ac.ir/*",
+        "*://portal.aut.ac.ir/*",
+        "*://*.sbu.ac.ir/*",
+        "*://ems.sbu.ac.ir/*",
+        "*://*.ut.ac.ir/*",
+        "*://ems2.ut.ac.ir/*",
+        "*://ems1.ut.ac.ir/*",
+        "*://*.iust.ac.ir/*",
+        "*://golestan.iust.ac.ir/*"
       ],
       "js": [
         "contentScript.js"
@@ -72,7 +99,16 @@
       ],
       "matches": [
         "*://*.kntu.ac.ir/*",
-        "*://behestan.kntu.ac.ir/*"
+        "*://behestan.kntu.ac.ir/*",
+        "*://*.aut.ac.ir/*",
+        "*://portal.aut.ac.ir/*",
+        "*://*.sbu.ac.ir/*",
+        "*://ems.sbu.ac.ir/*",
+        "*://*.ut.ac.ir/*",
+        "*://ems2.ut.ac.ir/*",
+        "*://ems1.ut.ac.ir/*",
+        "*://*.iust.ac.ir/*",
+        "*://golestan.iust.ac.ir/*"
       ]
     }
   ]

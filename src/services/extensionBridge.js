@@ -1,9 +1,9 @@
 /**
  * Extension Bridge for Sarvestan 2.0 (Chrome Extension / Overlay)
- * Handles communication between Behestan content script / tabs and the React App
+ * Handles communication between Behestan/Golestan content script, background, and the React App
  */
 import { notifyStoreChange } from './behestan/store';
-import { applyManualSession } from './behestan/session';
+import { applyManualSession, getSelectedUniversity, getUniversityOrigin } from './behestan/session';
 
 const STORAGE_KEYS = {
   profile: 'sarvestan_live_profile',
@@ -17,15 +17,34 @@ const STORAGE_KEYS = {
   curriculumStats: 'sarvestan_live_curriculum_stats',
 };
 
+const SUPPORTED_DOMAINS = ['kntu.ac.ir', 'aut.ac.ir', 'sbu.ac.ir', 'ut.ac.ir', 'iust.ac.ir'];
+const UNIVERSITY_PATTERNS = [
+  '*://*.kntu.ac.ir/*',
+  '*://*.aut.ac.ir/*',
+  '*://*.sbu.ac.ir/*',
+  '*://*.ut.ac.ir/*',
+  '*://*.iust.ac.ir/*',
+];
+
+function resolveActiveUniversity(p) {
+  return (
+    p?.university ||
+    localStorage.getItem('sarvestan_selected_university') ||
+    getSelectedUniversity() ||
+    'kntu'
+  );
+}
+
 /**
- * بررسی اینکه آیا اپ داخل آی‌فریم بهستان در حال اجراست یا خیر
+ * بررسی اینکه آیا اپ داخل آی‌فریم بهستان/گلستان در حال اجراست یا خیر
  */
 export function isBehestanOverlay() {
   if (typeof window === 'undefined') return false;
+  const hn = (window.location.hostname || '').toLowerCase();
   return (
     window.self !== window.top ||
     window.location.search.includes('mode=overlay') ||
-    window.location.hostname.includes('kntu.ac.ir')
+    SUPPORTED_DOMAINS.some((d) => hn.includes(d))
   );
 }
 
@@ -41,13 +60,13 @@ export function closeBehestanOverlay() {
 }
 
 /**
- * هدایت به تب سامانه بهستان یا باز کردن آن در تب جدید
+ * هدایت به تب سامانه بهستان/گلستان دانشگاه انتخاب شده یا باز کردن آن در تب جدید
  */
-export function openBehestanPage() {
-  const url = 'https://behestan.kntu.ac.ir/';
+export function openBehestanPage(uniId = getSelectedUniversity()) {
+  const url = getUniversityOrigin(uniId);
   if (typeof chrome !== 'undefined' && chrome.tabs?.create) {
     try {
-      chrome.tabs.query({ url: ['*://behestan.kntu.ac.ir/*', '*://*.kntu.ac.ir/*'] }, (tabs) => {
+      chrome.tabs.query({ url: UNIVERSITY_PATTERNS }, (tabs) => {
         if (tabs && tabs.length > 0 && tabs[0].id) {
           chrome.tabs.update(tabs[0].id, { active: true });
         } else {
@@ -61,7 +80,7 @@ export function openBehestanPage() {
 }
 
 /**
- * استعلام و همگام‌سازی اطلاعات از تب‌های باز بهستان
+ * استعلام و همگام‌سازی اطلاعات از تب‌های باز بهستان و گلستان
  */
 export async function checkExtensionSync() {
   if (typeof chrome === 'undefined' || !chrome.tabs?.query) {
@@ -71,7 +90,7 @@ export async function checkExtensionSync() {
   }
 
   return new Promise((resolve) => {
-    chrome.tabs.query({ url: ['*://behestan.kntu.ac.ir/*', '*://*.kntu.ac.ir/*'] }, async (tabs) => {
+    chrome.tabs.query({ url: UNIVERSITY_PATTERNS }, async (tabs) => {
       if (!tabs || tabs.length === 0) {
         // اگر تبی نبود، حداقل کش موجود chrome.storage.local را بخوان
         syncFromChromeStorage().then((res) => resolve({ ok: res, error: 'NO_TABS_FOUND' }));
@@ -85,6 +104,9 @@ export async function checkExtensionSync() {
           chrome.tabs.sendMessage(tab.id, { action: 'GET_BEHESTAN_DATA' }, (response) => {
             if (response && response.isLoggedIn) {
               found = true;
+              if (response.university) {
+                localStorage.setItem('sarvestan_selected_university', response.university);
+              }
             }
             // تحریک فراخوانی سنک فعال گزارش‌ها در تب بهستان
             try {
@@ -110,10 +132,12 @@ async function syncFromChromeStorage() {
         resolve(false);
         return;
       }
+
       let changed = false;
       let hasValidProfile = false;
-      Object.keys(all).forEach((key) => {
-        if (key.startsWith('sarvestan_')) {
+
+      Object.entries(STORAGE_KEYS).forEach(([_, key]) => {
+        if (all[key] !== undefined) {
           const val = typeof all[key] === 'string' ? all[key] : JSON.stringify(all[key]);
           localStorage.setItem(key, val);
           changed = true;
@@ -128,7 +152,7 @@ async function syncFromChromeStorage() {
           applyManualSession({
             studentId: p.studentId,
             fullName: p.fullName || p.studentName,
-            university: 'kntu',
+            university: resolveActiveUniversity(p),
             isLoggedIn: true,
           });
         }
@@ -163,13 +187,14 @@ export function initExtensionBridge() {
           totalUnitsPassed: Number(params.get('units')) || curProfile.totalUnitsPassed || 0,
           standing: params.get('standing') || curProfile.standing || 'ـ',
           photo: params.get('photo') || curProfile.photo || null,
+          university: params.get('uni') || curProfile.university || resolveActiveUniversity(curProfile),
           isLoggedIn: params.get('loggedIn') === 'true',
         };
         localStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(updated));
         applyManualSession({
           studentId: std,
           fullName: updated.fullName,
-          university: 'kntu',
+          university: resolveActiveUniversity(updated),
           isLoggedIn: updated.isLoggedIn,
         });
         notifyStoreChange();
@@ -191,7 +216,7 @@ export function initExtensionBridge() {
           applyManualSession({
             studentId: merged.studentId,
             fullName: merged.fullName || merged.studentName,
-            university: 'kntu',
+            university: resolveActiveUniversity(merged),
             isLoggedIn: true,
           });
           notifyStoreChange();
@@ -227,7 +252,7 @@ export function initExtensionBridge() {
               applyManualSession({
                 studentId: p.studentId,
                 fullName: p.fullName || p.studentName,
-                university: 'kntu',
+                university: resolveActiveUniversity(p),
                 isLoggedIn: true,
               });
             }
