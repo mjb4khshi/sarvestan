@@ -264,11 +264,11 @@
   .bg-accent-soft { background-color: color-mix(in oklab, var(--theme-color-accent) 14%, transparent) !important; }
   .border-accent-soft { border-color: color-mix(in oklab, var(--theme-color-accent) 32%, transparent) !important; }
 
-  .text-warn { color: var(--theme-color-warn) !important; }
-  .bg-warn { background-color: var(--theme-color-warn) !important; }
-  .border-warn { border-color: var(--theme-color-warn) !important; }
-  .bg-warn-soft { background-color: color-mix(in oklab, var(--theme-color-warn) 14%, transparent) !important; }
-  .border-warn-soft { border-color: color-mix(in oklab, var(--theme-color-warn) 32%, transparent) !important; }
+  .text-warn, .text-warning { color: var(--theme-color-warn) !important; }
+  .bg-warn, .bg-warning { background-color: var(--theme-color-warn) !important; }
+  .border-warn, .border-warning { border-color: var(--theme-color-warn) !important; }
+  .bg-warn-soft, .bg-warning-soft { background-color: color-mix(in oklab, var(--theme-color-warn) 14%, transparent) !important; }
+  .border-warn-soft, .border-warning-soft { border-color: color-mix(in oklab, var(--theme-color-warn) 32%, transparent) !important; }
 
   .text-info { color: var(--theme-color-info) !important; }
   .bg-info { background-color: var(--theme-color-info) !important; }

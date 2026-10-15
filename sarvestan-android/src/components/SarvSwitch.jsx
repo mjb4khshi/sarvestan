@@ -22,9 +22,14 @@ export default function SarvSwitch({
   const travelX = isSm ? 18 : 22;
 
   const bgVariants = {
-    primary: checked ? 'bg-primary' : 'bg-base-500/45',
-    warning: checked ? 'bg-warning' : 'bg-base-500/45',
-    success: checked ? 'bg-success' : 'bg-base-500/45',
+    primary: checked ? 'bg-primary' : 'bg-base-500/40',
+    secondary: checked ? 'bg-secondary' : 'bg-base-500/40',
+    accent: checked ? 'bg-accent' : 'bg-base-500/40',
+    warn: checked ? 'bg-warn' : 'bg-base-500/40',
+    warning: checked ? 'bg-warn' : 'bg-base-500/40',
+    success: checked ? 'bg-success' : 'bg-base-500/40',
+    info: checked ? 'bg-info' : 'bg-base-500/40',
+    danger: checked ? 'bg-danger' : 'bg-base-500/40',
   };
 
   const bgClass = bgVariants[variant] || bgVariants.primary;

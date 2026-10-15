@@ -15,14 +15,14 @@ export default function ChannelSubscribeModal({ isOpen, onClose, channels = [], 
       case 'announcements':
         return {
           icon: <Megaphone className="w-4.5 h-4.5" />,
-          variant: 'warning',
+          variant: 'warn',
           activeBg: 'bg-warn-soft/50 border-warn/40',
           iconBg: 'bg-warn text-warn-content',
         };
       case 'shernameh':
         return {
           icon: <Feather className="w-4.5 h-4.5" />,
-          variant: 'primary',
+          variant: 'secondary',
           activeBg: 'bg-secondary-soft/50 border-secondary/40',
           iconBg: 'bg-secondary text-secondary-content',
         };
