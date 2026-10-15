@@ -753,7 +753,11 @@ export default function HomeScreen({ onNavigate }) {
                 {channels.map((ch) => {
                   const count = livePosts.filter((p) => p.channelId === ch.id).length;
                   const isActive = feedFilter === ch.id;
-                  const isSher = ch.id === 'shernameh';
+                  const pillColor = ch.id === 'shernameh'
+                    ? 'bg-secondary text-secondary-content'
+                    : ch.id === 'announcements'
+                    ? 'bg-warn text-warn-content'
+                    : 'bg-primary text-primary-content';
 
                   return (
                     <button
@@ -762,9 +766,7 @@ export default function HomeScreen({ onNavigate }) {
                       onClick={() => setFeedFilter(ch.id)}
                       className={`px-3 py-1 rounded-xl text-[11.5px] font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1 ${
                         isActive
-                          ? isSher
-                            ? 'bg-secondary text-secondary-content shadow-xs'
-                            : 'bg-primary text-primary-content shadow-xs'
+                          ? `${pillColor} shadow-xs`
                           : 'bg-base-500/15 text-neutral hover:text-base-content hover:bg-base-500/25'
                       }`}
                     >
@@ -793,6 +795,8 @@ export default function HomeScreen({ onNavigate }) {
                     ? 'border-r-accent bg-accent-soft'
                     : post.color === 'secondary'
                     ? 'border-r-secondary bg-secondary-soft'
+                    : post.color === 'warn'
+                    ? 'border-r-warn bg-warn-soft'
                     : 'border-r-primary bg-primary-soft'
                 }`}
               >
@@ -807,7 +811,7 @@ export default function HomeScreen({ onNavigate }) {
                       </span>
                     )}
                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-base-500/20 text-neutral">
-                      {post.channelId === 'shernameh' ? 'شعرنامه' : 'سرونامه'}
+                      {post.channelId === 'shernameh' ? 'شعرنامه' : post.channelId === 'announcements' ? 'اطلاعیه‌ها' : 'سرونامه'}
                     </span>
                     <h4 className="text-[13px] font-bold text-base-content">{post.title}</h4>
                   </div>
@@ -820,7 +824,7 @@ export default function HomeScreen({ onNavigate }) {
             ))}
 
             {/* اعلانات و گردش کارهای بهستان */}
-            {feedFilter === 'all' && ANNOUNCEMENTS.map((a) => (
+            {(feedFilter === 'all' || feedFilter === 'announcements') && ANNOUNCEMENTS.map((a) => (
               <article
                 key={a.id}
                 className={`sarv-card p-3.5 border-r-4 ${

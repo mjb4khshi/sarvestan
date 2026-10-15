@@ -5,6 +5,7 @@
 
 const FEED_PRIMARY_URL = 'https://cdn.jsdelivr.net/gh/mjb4khshi/Sarvestan_feed@main/feed.json';
 const FEED_FALLBACK_URL = 'https://raw.githubusercontent.com/mjb4khshi/Sarvestan_feed/main/feed.json';
+const FEED_BASE_CDN = 'https://cdn.jsdelivr.net/gh/mjb4khshi/Sarvestan_feed@main/';
 
 const CACHE_KEY = 'sarvestan_feed_cache';
 const READ_IDS_KEY = 'sarvestan_feed_read_ids';
@@ -13,20 +14,31 @@ const CACHE_TTL_MS = 30 * 60 * 1000; // ۳۰ دقیقه برای بازخوان�
 
 export const DEFAULT_CHANNELS = [
   {
+    id: 'announcements',
+    name: 'اطلاعیه‌ها',
+    slug: 'announcements',
+    badge: 'رسمی و آموزشی',
+    description: 'اطلاعیه‌های رسمی، تقویم آموزشی، امور دانشجویی، هشدارهای حذف و اضافه و سیستم',
+    color: 'warn',
+    defaultSubscribed: true,
+  },
+  {
     id: 'sarvnameh',
     name: 'سرونامه',
     slug: 'sarvnameh',
-    badge: 'فنی و آموزشی',
-    description: 'خبرنامه رسمی، به‌روزرسانی‌های سروستان، نکات بهستان و هشدارهای تقویم آموزشی',
+    badge: 'مجله آزاد',
+    description: 'گاهنامه آزاد دانشجویی، تجربیات زیسته، مقالات، یادداشت‌های آزاد، ستون دانشجویان و تحلیل‌ها',
     color: 'primary',
+    defaultSubscribed: true,
   },
   {
     id: 'shernameh',
     name: 'شعرنامه',
     slug: 'shernameh',
     badge: 'ادبیات و شعر',
-    description: 'گزیده ابیات کهن و شعر معاصر، دلنوشته‌های شبانه و آرامش در روزهای شلوغ دانشگاه',
+    description: 'گزیده اشعار کهن و معاصر، ابیات ناب، دلنوشته‌های شبانه و آرامش ادبی در روزهای شلوغ دانشگاه',
     color: 'secondary',
+    defaultSubscribed: true,
   },
 ];
 
@@ -48,9 +60,14 @@ function getCachedFeed() {
 export function getSubscribedChannelIds() {
   try {
     const raw = localStorage.getItem(SUBSCRIBED_CHANNELS_KEY);
-    if (raw) return new Set(JSON.parse(raw));
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return new Set(parsed);
+      }
+    }
   } catch {}
-  return new Set(['sarvnameh', 'shernameh']);
+  return new Set(['announcements', 'sarvnameh', 'shernameh']);
 }
 
 export function toggleChannelSubscription(channelId) {
@@ -114,7 +131,61 @@ function notify() {
 }
 
 /**
- * دریافت فید زنده با کش هوشمند و قابلیت بازخوانی مجدد
+ * پارس کردن فرانت‌متر و بدنه فایل یا متن مارک‌داون
+ */
+export function parseMarkdownPost(rawText, fallbackMeta = {}) {
+  if (!rawText || typeof rawText !== 'string') return fallbackMeta;
+  const lines = rawText.split(/\r?\n/);
+  const meta = { ...fallbackMeta };
+  let bodyStartIndex = 0;
+
+  if (lines[0] && lines[0].trim() === '---') {
+    let closingIndex = -1;
+    for (let i = 1; i < lines.length; i++) {
+      if (lines[i].trim() === '---') {
+        closingIndex = i;
+        break;
+      }
+      const line = lines[i];
+      const colonIdx = line.indexOf(':');
+      if (colonIdx > 0) {
+        const key = line.slice(0, colonIdx).trim();
+        let val = line.slice(colonIdx + 1).trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.slice(1, -1);
+        }
+        meta[key] = val;
+      }
+    }
+    if (closingIndex !== -1) {
+      bodyStartIndex = closingIndex + 1;
+    }
+  }
+
+  const body = lines.slice(bodyStartIndex).join('\n').trim();
+
+  if (!meta.title) {
+    const headingMatch = body.match(/^#+\s*(.+)$/m);
+    if (headingMatch) {
+      meta.title = headingMatch[1].trim();
+    }
+  }
+
+  if (!meta.summary) {
+    const firstParagraph = body
+      .split(/\n\s*\n/)
+      .map((p) => p.replace(/^[#>\-\*\d\.\s]+/gm, '').trim())
+      .filter(Boolean)[0];
+    meta.summary = firstParagraph ? firstParagraph.slice(0, 160) : '';
+  }
+
+  meta.content = body;
+  meta.channelId = meta.channelId || meta.channel || 'sarvnameh';
+  return meta;
+}
+
+/**
+ * دریافت فید زنده با کش هوشمند و واکشی فایل‌های مارک‌داون
  */
 export async function fetchFeed({ force = false } = {}) {
   const cached = getCachedFeed();
@@ -139,6 +210,33 @@ export async function fetchFeed({ force = false } = {}) {
     }
 
     if (data && Array.isArray(data.posts)) {
+      // پشتیبانی از پست‌هایی که به جای محتوای درون‌خطی به فایل .md ارجاع داده‌اند
+      const resolvedPosts = await Promise.all(
+        data.posts.map(async (p) => {
+          if (typeof p === 'string' && p.endsWith('.md')) {
+            try {
+              const res = await fetch(FEED_BASE_CDN + p);
+              if (res.ok) {
+                const text = await res.text();
+                return parseMarkdownPost(text, { id: p });
+              }
+            } catch (_) {}
+            return { id: p, title: p, content: '' };
+          }
+          if (p && p.file && !p.content) {
+            try {
+              const res = await fetch(FEED_BASE_CDN + p.file);
+              if (res.ok) {
+                const text = await res.text();
+                return parseMarkdownPost(text, p);
+              }
+            } catch (_) {}
+          }
+          return p;
+        })
+      );
+
+      data.posts = resolvedPosts;
       data._cachedAt = now;
       memoryFeed = data;
       try {

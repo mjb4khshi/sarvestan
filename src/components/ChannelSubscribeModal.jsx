@@ -1,4 +1,4 @@
-import { X, Check, Bell, BookOpen, Feather } from 'lucide-react';
+import { X, Check, Bell, BookOpen, Feather, Megaphone } from 'lucide-react';
 import { toggleChannelSubscription } from '../services/feedService';
 
 export default function ChannelSubscribeModal({ isOpen, onClose, channels = [], subscribedIds = [] }) {
@@ -8,6 +8,30 @@ export default function ChannelSubscribeModal({ isOpen, onClose, channels = [], 
 
   const handleToggle = (channelId) => {
     toggleChannelSubscription(channelId);
+  };
+
+  const getChannelMeta = (id) => {
+    switch (id) {
+      case 'announcements':
+        return {
+          icon: <Megaphone className="w-4 h-4" />,
+          cardActive: 'border-warn/40 bg-warn-soft/60',
+          btnActive: 'bg-warn text-warn-content',
+        };
+      case 'shernameh':
+        return {
+          icon: <Feather className="w-4 h-4" />,
+          cardActive: 'border-secondary/40 bg-secondary-soft/60',
+          btnActive: 'bg-secondary text-secondary-content',
+        };
+      case 'sarvnameh':
+      default:
+        return {
+          icon: <BookOpen className="w-4 h-4" />,
+          cardActive: 'border-primary/40 bg-primary-soft/60',
+          btnActive: 'bg-primary text-primary-content',
+        };
+    }
   };
 
   return (
@@ -32,7 +56,7 @@ export default function ChannelSubscribeModal({ isOpen, onClose, channels = [], 
                 کانال‌ها و اشتراک خبرنامه
               </h3>
               <p className="text-[10.5px] text-neutral">
-                انتخاب کانال‌های فعال در داشبورد
+                انتخاب بخش‌های فعال در داشبورد
               </p>
             </div>
           </div>
@@ -54,7 +78,7 @@ export default function ChannelSubscribeModal({ isOpen, onClose, channels = [], 
           <div className="space-y-2">
             {channels.map((ch) => {
               const isSubscribed = subscribedSet.has(ch.id);
-              const isSher = ch.id === 'shernameh';
+              const meta = getChannelMeta(ch.id);
 
               return (
                 <div
@@ -62,24 +86,20 @@ export default function ChannelSubscribeModal({ isOpen, onClose, channels = [], 
                   onClick={() => handleToggle(ch.id)}
                   className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                     isSubscribed
-                      ? isSher
-                        ? 'border-secondary/40 bg-secondary-soft/60'
-                        : 'border-primary/40 bg-primary-soft/60'
+                      ? meta.cardActive
                       : 'border-base-500/30 bg-base-500/10 opacity-70'
                   }`}
                 >
                   <div className="flex items-start gap-3 min-w-0">
                     <span
                       className={`w-9 h-9 rounded-xl grid place-items-center shrink-0 mt-0.5 ${
-                        isSher
-                          ? 'bg-secondary text-secondary-content'
-                          : 'bg-primary text-primary-content'
+                        isSubscribed ? meta.btnActive : 'bg-base-500/30 text-neutral'
                       }`}
                     >
-                      {isSher ? <Feather className="w-4 h-4" /> : <BookOpen className="w-4 h-4" />}
+                      {meta.icon}
                     </span>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <h4 className="text-[13px] font-bold text-base-content">{ch.name}</h4>
                         {ch.badge && (
                           <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-base text-base-content border border-base-500/30">
@@ -96,11 +116,7 @@ export default function ChannelSubscribeModal({ isOpen, onClose, channels = [], 
                   <button
                     type="button"
                     className={`w-7 h-7 rounded-xl grid place-items-center shrink-0 transition-all ${
-                      isSubscribed
-                        ? isSher
-                          ? 'bg-secondary text-secondary-content shadow-xs'
-                          : 'bg-primary text-primary-content shadow-xs'
-                        : 'bg-base-500/30 text-neutral'
+                      isSubscribed ? `${meta.btnActive} shadow-xs` : 'bg-base-500/30 text-neutral'
                     }`}
                   >
                     {isSubscribed ? <Check className="w-4 h-4 stroke-[3]" /> : null}
