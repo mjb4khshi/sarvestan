@@ -234,7 +234,6 @@ function buildViewModel() {
 
   const rawSchedule = getCurrentTermSchedule(currentTerm) || [];
   const allCourses = rawSchedule.map((sc) => {
-    if (sc.units && Number(sc.units) > 0) return sc;
     const scCode = cleanCourseCode(sc.code);
     const scName = cleanCourseName(sc.name || sc.course || sc.title || '');
     const matched = (snap.courses || []).find((c) => {
@@ -242,10 +241,31 @@ function buildViewModel() {
       const cName = cleanCourseName(c.name || c.title || '');
       return (scCode && cCode && scCode === cCode) || (scName && cName && scName === cName);
     });
-    if (matched && matched.units) {
-      return { ...sc, units: Number(matched.units) };
-    }
-    return sc;
+    const matchedExam = (snap.exams || []).find((e) => {
+      const eCode = cleanCourseCode(e.code);
+      const eName = cleanCourseName(e.name || e.title || '');
+      return (scCode && eCode && scCode === eCode) || (scName && eName && scName === eName);
+    });
+
+    const prof =
+      (sc.professor && sc.professor !== 'ـ' && sc.professor !== '؟')
+        ? sc.professor
+        : (matched?.professor && matched.professor !== 'ـ' && matched.professor !== '؟')
+        ? matched.professor
+        : (matchedExam?.professor && matchedExam.professor !== 'ـ' && matchedExam.professor !== '؟')
+        ? matchedExam.professor
+        : 'ـ';
+
+    const units =
+      (sc.units && Number(sc.units) > 0)
+        ? Number(sc.units)
+        : (matched?.units ? Number(matched.units) : 0);
+
+    return {
+      ...sc,
+      professor: prof,
+      units,
+    };
   });
   const todayCourses = day ? getTodayClasses(day) : [];
 
@@ -305,14 +325,13 @@ function buildViewModel() {
   if (hasThu) days.push('پنجشنبه');
   if (hasFri) days.push('جمعه');
   const rangeHours = (raw) => {
-    const m = String(raw || '').match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
-    if (!m) return 1.5;
-    return Math.max(
-      0.5,
-      parseInt(m[3], 10) +
-      parseInt(m[4], 10) / 60 -
-      (parseInt(m[1], 10) + parseInt(m[2], 10) / 60)
-    );
+    if (!raw) return 1.5;
+    const { startHour, endHour } = parseClassTime(raw);
+    if (startHour != null && endHour != null) {
+      const diff = Math.round((endHour - startHour) * 10) / 10;
+      if (diff > 0.2) return diff;
+    }
+    return 1.5;
   };
 
   const getCourseHoursForDay = (c, targetDay) => {

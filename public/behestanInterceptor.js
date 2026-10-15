@@ -157,16 +157,21 @@
 
   function parseTimeRange(raw) {
     if (!raw) return '';
-    // "10:30-09:00" or "10:30-09:00" → "۰۹:۰۰ - ۱۰:۳۰"
-    const m = String(raw).match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
-    if (!m) return String(raw).trim();
-    let start = m[2];
-    let end = m[1];
-    const pad = (t) => {
-      const [h, mi] = t.split(':');
-      return h.padStart(2, '0') + ':' + mi;
+    const norm = String(raw)
+      .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+      .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+    const matches = [...norm.matchAll(/(\d{1,2}):(\d{2})/g)];
+    if (matches.length < 2) return faDigits(String(raw).trim());
+    const t1 = parseInt(matches[0][1], 10) * 60 + parseInt(matches[0][2], 10);
+    const t2 = parseInt(matches[1][1], 10) * 60 + parseInt(matches[1][2], 10);
+    const startM = Math.min(t1, t2);
+    const endM = Math.max(t1, t2);
+    const pad = (mins) => {
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
     };
-    return faDigits(pad(start)) + ' - ' + faDigits(pad(end));
+    return faDigits(`${pad(startM)} - ${pad(endM)}`);
   }
 
   function mapTermFromTitle(title) {
@@ -231,8 +236,13 @@
       const nameM = title.match(/نام درس\s*:\s*(.+?)(?:\s*شماره درس|$)/);
       const codeM = title.match(/شماره درس\s*:\s*(\d+)/);
       const groupM = title.match(/گروه\s*:\s*(\d+)/);
-      const timeM = title.match(/ساعت\s*:\s*([0-9:]+\s*-\s*[0-9:]+)/);
-      const capM = title.match(/تعداد ثبت نامي\s*:\s*(\d+)/);
+
+      const normAll = (title + ' ' + (textHint || ''))
+        .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+        .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+      const timeM = normAll.match(/ساعت\s*[:\-]?\s*([0-9]{1,2}:[0-9]{2}\s*[-–]\s*[0-9]{1,2}:[0-9]{2})/);
+      const capM = normAll.match(/تعداد ثبت نامي\s*[:\-]?\s*(\d+)/);
+
       const courseName = normalizeCourseName(
         (nameM ? nameM[1] : cleanHtml(String(textHint || '').split('گروه')[0]))
           .replace(/\s+/g, ' ')
@@ -246,18 +256,33 @@
       const capacity = capM ? capM[1] : '';
       const units = unitByCode[code] || 0;
 
-      const profM = (title + ' ' + (textHint || '')).match(/(?:نام\s*استاد|استاد|مدرس)\s*:\s*([^<\n\r]+?)(?=\s*(?:محل|امتحان|ساعت|تعداد|شماره|$))/i);
-      const parsedProf = profM ? normalizeCourseName(profM[1].trim()) : '';
+      let parsedProf = '';
+      const profM = (title + ' ' + (textHint || '')).match(
+        /(?:نام\s*(?:استاد|مدرس)|استاد|مدرس)\s*[:\-]?\s*([^<\n\r]+?)(?=\s*(?:محل|امتحان|ساعت|تعداد|شماره|گروه|واحد|$))/i
+      );
+      if (profM) {
+        parsedProf = normalizeCourseName(profM[1].trim());
+      }
+      if (!parsedProf && textHint) {
+        const drM = textHint.match(/(?:دکتر|مهندس|استادیار|دانشیار)\s+([^\d<\n\r:]{3,30})/i);
+        if (drM) {
+          parsedProf = normalizeCourseName(drM[0].trim());
+        }
+      }
       const resolvedProf = parsedProf || professorByCode[code] || professorByName[courseName] || 'ـ';
 
-      const hallM = textHint ? textHint.match(/محل\s*:\s*(.+?)(?=\s*امتحان|$)/) : null;
-      const examM = textHint ? textHint.match(/امتحان\s*:\s*([0-9]{4}\/[0-9]{2}\/[0-9]{2})/) : null;
+      const hallM = textHint ? textHint.match(/محل\s*[:\-]?\s*(.+?)(?=\s*امتحان|$)/) : null;
+      const examM = textHint ? textHint.match(/امتحان\s*[:\-]?\s*([0-9]{4}\/[0-9]{2}\/[0-9]{2})/) : null;
       let examTime = '';
       if (examM && textHint) {
         const afterExam = textHint.slice(textHint.indexOf('امتحان'));
-        const et = afterExam.match(/ساعت\s*:\s*([0-9]{1,2}:[0-9]{2}\s*-\s*[0-9]{1,2}:[0-9]{2})/);
+        const et = afterExam.match(/ساعت\s*[:\-]?\s*([0-9]{1,2}:[0-9]{2}\s*[-–]\s*[0-9]{1,2}:[0-9]{2})/);
         if (et) examTime = et[1].trim();
       }
+
+      const hall = (hallM ? hallM[1].replace(/\s+/g, ' ').trim() : '') || 'ـ';
+      const slotTime = parseTimeRange(classTime) || 'ـ';
+      const slot = day ? { day, time: slotTime, hall } : null;
 
       const key = code + '|' + group + '|' + courseName;
       if (!courseMap.has(key)) {
@@ -270,8 +295,9 @@
           type: 'ـ',
           professor: resolvedProf,
           days: day ? [day] : [],
-          time: parseTimeRange(classTime) || 'ـ',
-          hall: (hallM ? hallM[1].replace(/\s+/g, ' ').trim() : '') || 'ـ',
+          daySlots: slot ? [slot] : [],
+          time: slotTime,
+          hall,
           examDate: examM ? examM[1] : 'ـ',
           examTime: examTime ? parseTimeRange(examTime) : 'ـ',
           capacity: capacity || 'ـ',
@@ -283,18 +309,19 @@
         const cur = courseMap.get(key);
         if (resolvedProf !== 'ـ' && (!cur.professor || cur.professor === 'ـ')) cur.professor = resolvedProf;
         if (day && !cur.days.includes(day)) cur.days.push(day);
+        if (!cur.daySlots) cur.daySlots = [];
+        if (slot && !cur.daySlots.some(s => s.day === day && s.time === slotTime)) {
+          cur.daySlots.push(slot);
+        }
         if (units > 0) cur.units = units;
         if (classTime && !cur.timeSlotsRaw.includes(classTime)) {
           cur.timeSlotsRaw.push(classTime);
           if (!cur.classTimeRaw) {
             cur.classTimeRaw = classTime;
-            cur.time = parseTimeRange(classTime);
+            cur.time = slotTime;
           }
         }
-        if (hallM) {
-          const hall = hallM[1].replace(/\s+/g, ' ').trim();
-          if (hall && (cur.hall === 'ـ' || !cur.hall)) cur.hall = hall;
-        }
+        if (hall && (cur.hall === 'ـ' || !cur.hall)) cur.hall = hall;
         if (examM && (!cur.examDate || cur.examDate === 'ـ')) cur.examDate = examM[1];
       }
     }
@@ -1380,13 +1407,13 @@
         );
         processResponseData('F1814_PROCESS_STDAllCrs', txt5);
 
-        // ۵) گزارش‌های ViewReport — فقط یکی‌یکی با فاصله ۱٫۵ ثانیه (مثل کلیک کاربر)
-        // اولویت: ۷۸ ترم‌های پایانی، سپس ۸۸، سپس ۴۲۸
+        // ۵) گزارش‌های ViewReport — اولویت با گزارش‌های دارای اسامی قطعی اساتید (۷۷، ۴۲۸، ۸۸) سپس برنامه هفتگی ۷۸
         const viewJobs = [
-          { f: '78', term: '4042' },
-          { f: '78', term: '4041' },
-          { f: '78', term: '4051' },
+          { f: '77', term: '4051' },
+          { f: '428', term: '4051' },
           { f: '88', term: '4051' },
+          { f: '78', term: '4051' },
+          { f: '78', term: '4042' },
           { f: '428', term: '4042' }
         ];
         let seq = 800000010;

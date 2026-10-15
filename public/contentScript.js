@@ -32,17 +32,24 @@ function normalizeCourseName(name) {
     .trim();
 }
 
-// واحد و نام استاندارد دروس F1825 روی برنامه هفتگی
+// واحد، نام استاندارد و استاد دروس F1825/۷۷/۴۲۸ روی برنامه هفتگی
 function enrichScheduleFromCourses(courses) {
   if (!Array.isArray(courses) || !courses.length) return;
   const byCode = {};
+  const byName = {};
   for (const c of courses) {
-    if (c && c.code) {
-      byCode[String(c.code)] = {
+    if (c) {
+      const prof = c.professor && c.professor !== 'ـ' && c.professor !== '؟'
+        ? normalizeCourseName(c.professor)
+        : null;
+      const data = {
         units: c.units > 0 ? c.units : 0,
         name: c.name ? normalizeCourseName(c.name) : null,
+        professor: prof,
         type: c.type || null
       };
+      if (c.code) byCode[String(c.code)] = data;
+      if (c.name) byName[normalizeCourseName(c.name)] = data;
     }
   }
   const schedule = readStorage('sarvestan_live_schedule', {}) || {};
@@ -51,8 +58,9 @@ function enrichScheduleFromCourses(courses) {
     const list = schedule[termId];
     if (!Array.isArray(list)) continue;
     for (const course of list) {
-      if (!course || !course.code) continue;
-      const hit = byCode[String(course.code)];
+      if (!course) continue;
+      const hit = (course.code && byCode[String(course.code)]) ||
+                  (course.name && byName[normalizeCourseName(course.name)]);
       if (!hit) continue;
       if (hit.units > 0 && course.units !== hit.units) {
         course.units = hit.units;
@@ -65,8 +73,11 @@ function enrichScheduleFromCourses(courses) {
           changed = true;
         }
       }
+      if (hit.professor && (!course.professor || course.professor === 'ـ' || course.professor === '؟')) {
+        course.professor = hit.professor;
+        changed = true;
+      }
       if (hit.type && (!course.type || course.type === 'ـ' || course.type === 'تخصصی')) {
-        // فقط اگر type قبلاً پیش‌فرض بود یا خالی بود
         if (course.type !== hit.type) {
           course.type = hit.type;
           changed = true;
@@ -77,7 +88,7 @@ function enrichScheduleFromCourses(courses) {
   if (changed) {
     saveStorage('sarvestan_live_schedule', schedule);
     forwardToOverlay('SARVESTAN_DATA_UPDATE', { dataType: 'schedule', payload: schedule });
-    console.log('[Sarvestan] schedule enriched from courses');
+    console.log('[Sarvestan] schedule enriched with professors and units');
   }
 }
 
@@ -321,7 +332,15 @@ function handleInterceptedData(dataType, payload) {
         const next = { ...prevExams, [examTerm]: exams };
         saveStorage('sarvestan_live_exams', next);
         forwardToOverlay('SARVESTAN_DATA_UPDATE', { dataType: 'exams', payload: next });
+        // امتحانات حاوی اسامی قطعی اساتید دروس هستند؛ برنامه هفتگی را غنی‌سازی کن
+        enrichScheduleFromCourses(exams);
         console.log('[Sarvestan] exams saved term=' + examTerm + ' count=' + exams.length);
+      }
+      break;
+    }
+    case 'reg77': {
+      if (payload && payload.courses) {
+        enrichScheduleFromCourses(payload.courses);
       }
       break;
     }
