@@ -33,6 +33,7 @@ import BatBackground from './components/BatBackground';
 import { checkForUpdate, hasDismissedUpdate, dismissUpdate } from './services/updater';
 import { isBatNotifEnabled, scheduleBatNightNotification, initBatWebTimer } from './services/batMode';
 import { initExtensionBridge, isBehestanOverlay } from './services/extensionBridge';
+import LandingPage from './components/LandingPage';
 
 const TITLES = {
   schedule: 'برنامه هفتگی',
@@ -360,6 +361,12 @@ function Shell() {
 }
 
 export default function App() {
+  const isExtension = typeof window !== 'undefined' && window.location.protocol === 'chrome-extension:';
+  const isNative = typeof window !== 'undefined' && (
+    window.Capacitor?.isNativePlatform?.() ||
+    window.location.protocol === 'capacitor:'
+  );
+
   try {
     const qs = new URLSearchParams(window.location.search);
     // صفحهٔ شبیه‌ساز استوری و پوستر با ?story=1
@@ -397,6 +404,16 @@ export default function App() {
             />
           </ThemeProvider>
         </ErrorBoundary>
+      );
+    }
+
+    // اگر در مرورگر وب هستیم و پارامتر صریح اپ یا سشن اکستنشن نداریم -> لندینگ پیج را نمایش بده
+    const isExplicitAppMode = qs.has('app') || qs.has('dashboard') || qs.has('sso') || qs.has('sso_error');
+    if (!isExtension && !isNative && !isExplicitAppMode) {
+      return (
+        <ThemeProvider>
+          <LandingPage />
+        </ThemeProvider>
       );
     }
   } catch {}

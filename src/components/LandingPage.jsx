@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Download,
@@ -126,6 +126,10 @@ const UNIVERSITIES = [
 export default function LandingPage() {
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
 
+  useEffect(() => {
+    document.title = 'سروستان | دستیار هوشمند آموزش دانشگاهی';
+  }, []);
+
   return (
     <div data-theme="sarv" className="min-h-screen bg-base text-base-content font-sans antialiased selection:bg-[#10b981]/20 selection:text-[#10b981] transition-colors duration-300">
       {/* نوار ناوبری بالا */}
@@ -170,6 +174,12 @@ export default function LandingPage() {
               title="مخزن گیت‌هاب"
             >
               <GithubIcon className="w-4 h-4" />
+            </a>
+            <a
+              href="?app=1"
+              className="px-3.5 py-1.5 rounded-xl bg-base-500/20 hover:bg-base-500/35 border border-base-500/30 text-base-content text-xs font-bold hidden sm:inline-flex items-center gap-1.5 transition-all"
+            >
+              <span>ورود به سامانه</span>
             </a>
             <a
               href={LATEST_APK_URL}
@@ -554,6 +564,13 @@ export default function LandingPage() {
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-4">
+            <a
+              href="?app=1"
+              className="hover:text-base-content transition-colors font-bold"
+            >
+              نسخه تحت وب
+            </a>
+            <span className="opacity-30">•</span>
             <button
               type="button"
               onClick={() => setIsExtensionModalOpen(true)}
