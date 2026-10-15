@@ -1,27 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Download,
-  ExternalLink,
-  ShieldCheck,
-  Sparkles,
-  Zap,
-  Calendar,
   GraduationCap,
   Smartphone,
-  BookOpen,
   Heart,
   X,
   Bell,
-  Clock,
   LayoutGrid,
-  TrendingUp,
-  VolumeX,
   CheckCircle2,
-  ChevronLeft,
   Users,
 } from 'lucide-react';
-import { useTheme, SARV_THEMES } from '../context/ThemeContext';
 import { toFaDigits } from '../utils/faDigits';
 import ExtensionArchiveGuide from './ExtensionArchiveGuide';
 
@@ -63,16 +52,71 @@ const CONTRIBUTORS = [
   { name: 'صدرا زینال زاده', role: 'تستر نسخه بتا' },
 ];
 
+const UNIVERSITIES = [
+  {
+    name: 'دانشگاه صنعتی خواجه نصیرالدین طوسی',
+    shortName: 'خواجه نصیرالدین طوسی',
+    latin: 'KNTU',
+    logo: './kntu-logo.svg',
+    status: 'active',
+    statusText: 'پشتیبانی کامل',
+    badgeClass: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+    description: 'سامانه گلستان / بهستان دانشکده‌ها',
+  },
+  {
+    name: 'دانشگاه شهید بهشتی',
+    shortName: 'شهید بهشتی',
+    latin: 'SBU',
+    logo: './sbu-logo.svg',
+    status: 'active',
+    statusText: 'پشتیبانی کامل',
+    badgeClass: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+    description: 'سامانه بهستان دانشگاه',
+  },
+  {
+    name: 'دانشگاه تهران',
+    shortName: 'دانشگاه تهران',
+    latin: 'UT',
+    logo: './ut-logo.svg',
+    status: 'active',
+    statusText: 'پشتیبانی کامل',
+    badgeClass: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+    description: 'سامانه جامع بهستان',
+  },
+  {
+    name: 'دانشگاه صنعتی امیرکبیر',
+    shortName: 'صنعتی امیرکبیر (پلی‌تکنیک)',
+    latin: 'AUT',
+    logo: './aut-logo.png',
+    status: 'active',
+    statusText: 'پشتیبانی کامل',
+    badgeClass: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+    description: 'سامانه بهستان دانشگاه',
+  },
+  {
+    name: 'دانشگاه علم و صنعت ایران',
+    shortName: 'علم و صنعت ایران',
+    latin: 'IUST',
+    logo: './iust-logo.png',
+    status: 'upcoming',
+    statusText: 'به زودی',
+    badgeClass: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30',
+    description: 'در حال توسعه و یکپارچه‌سازی',
+  },
+  {
+    name: 'دانشگاه تربیت دبیر شهید رجایی',
+    shortName: 'تربیت دبیر شهید رجایی',
+    latin: 'SRTTU',
+    logo: './srttu-logo.png',
+    status: 'upcoming',
+    statusText: 'به زودی',
+    badgeClass: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30',
+    description: 'در حال توسعه و یکپارچه‌سازی',
+  },
+];
+
 export default function LandingPage() {
-  const { currentTheme, setTheme } = useTheme();
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
-  const [previewThemeId, setPreviewThemeId] = useState(currentTheme || 'sarv');
-
-  useEffect(() => {
-    if (currentTheme) setPreviewThemeId(currentTheme);
-  }, [currentTheme]);
-
-  const previewTheme = SARV_THEMES.find((t) => t.id === previewThemeId) || SARV_THEMES[0];
 
   return (
     <div className="min-h-screen bg-base text-base-content font-sans antialiased selection:bg-primary/20 selection:text-primary transition-colors duration-300">
@@ -94,8 +138,8 @@ export default function LandingPage() {
           </div>
 
           <nav className="hidden md:flex items-center gap-6 text-xs font-bold text-neutral">
+            <a href="#universities" className="hover:text-base-content transition-colors">دانشگاه‌های تحت پوشش</a>
             <a href="#features" className="hover:text-base-content transition-colors">امکانات</a>
-            <a href="#mockup" className="hover:text-base-content transition-colors">پیش‌نمایش</a>
             <a href="#council" className="hover:text-base-content transition-colors">شورای هماهنگی</a>
             <a href="#download" className="hover:text-base-content transition-colors">دانلود</a>
           </nav>
@@ -196,135 +240,82 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* موکاپ زنده و تعاملی گوشی هوشمند */}
-      <section id="mockup" className="py-12 px-4 sm:px-6 relative">
-        <div className="max-w-4xl mx-auto flex flex-col items-center">
-          {/* انتخابگر پوسته موکاپ */}
-          <div className="mb-6 p-2 rounded-2xl bg-base-500/20 border border-base-500/30 flex items-center gap-1.5 flex-wrap justify-center">
-            <span className="text-xs text-neutral px-2 font-bold">انتخاب پوسته زنده:</span>
-            {[
-              { id: 'sarv', name: 'سَرو امضا', color: '#10b981' },
-              { id: 'laboo', name: 'لبویی سفید', color: '#931139' },
-              { id: 'persian-dark', name: 'پرشین دارک', color: '#0066a4' },
-              { id: 'persian-light', name: 'پرشین لایت', color: '#0284c7' },
-            ].map((th) => (
-              <button
-                key={th.id}
-                type="button"
-                onClick={() => {
-                  setPreviewThemeId(th.id);
-                  setTheme(th.id);
-                }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  previewThemeId === th.id
-                    ? 'bg-primary text-primary-content shadow-sm'
-                    : 'bg-base-500/20 text-neutral hover:text-base-content'
-                }`}
-              >
-                <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: th.color }} />
-                <span>{th.name}</span>
-              </button>
-            ))}
+      {/* نقشه تهران و دانشگاه‌های تحت پوشش */}
+      <section id="universities" className="py-16 sm:py-20 px-4 sm:px-6 relative border-t border-base-500/20">
+        <div className="max-w-5xl mx-auto space-y-12">
+          {/* هدر بخش نقشه و دانشگاه‌ها */}
+          <div className="text-center space-y-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-soft text-primary text-xs font-bold border border-primary/25">
+              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+              <span>پوشش یکپارچه پایتخت • نگارش ۲.۰.۰ تهران</span>
+            </div>
+            <h2 className="text-2xl sm:text-4xl font-black text-base-content tracking-tight">
+              سروستانی به گستره تهران
+            </h2>
+            <p className="text-xs sm:text-sm text-neutral max-w-xl mx-auto leading-relaxed">
+              پلتفرم هوشمند سروستان با هدف تسهیل فرایندهای آموزشی، دسترسی به سامانه‌های بهستان و گلستان دانشگاه‌های پیشرو تهران را فراهم کرده است.
+            </p>
           </div>
 
-          {/* فریم موبایل با انیمیشن ظریف */}
-          <div className="relative w-full max-w-[340px] sm:max-w-[380px] rounded-[44px] p-3 sm:p-4 bg-gradient-to-b from-neutral/40 via-base-500/30 to-neutral/40 shadow-2xl border-4 border-base-500/50">
-            {/* ناچ بالای گوشی */}
-            <div className="w-28 h-5 rounded-full bg-black/80 mx-auto mb-3 flex items-center justify-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-neutral/40" />
-              <span className="w-3 h-3 rounded-full bg-neutral/60" />
+          {/* قاب نقشه وکتوری سروستان در پهنه تهران */}
+          <div className="relative rounded-3xl overflow-hidden border border-base-500/30 bg-base-500/10 shadow-2xl p-3 sm:p-6 flex flex-col items-center">
+            <div className="relative max-w-3xl w-full rounded-2xl overflow-hidden border border-base-500/25 bg-base/40 shadow-inner">
+              <img
+                src="./tehran-sarv-map.png"
+                alt="سروستانی به گستره تهران - نقشه دانشگاه‌های تحت پوشش سروستان ۲ تهران"
+                className="w-full h-auto object-contain block transition-transform duration-700 hover:scale-[1.01]"
+              />
+            </div>
+          </div>
+
+          {/* کارت‌های دانشگاه‌های تحت پوشش */}
+          <div className="space-y-4 pt-2">
+            <div className="flex items-center justify-between border-b border-base-500/20 pb-3">
+              <h3 className="text-sm sm:text-base font-black text-base-content">
+                دانشگاه‌های تحت پوشش
+              </h3>
+              <span className="text-xs text-neutral font-medium">
+                {toFaDigits(4)} دانشگاه فعال • {toFaDigits(2)} دانشگاه به زودی
+              </span>
             </div>
 
-            {/* صفحه نمایش موکاپ */}
-            <div
-              className="rounded-[32px] overflow-hidden p-4 space-y-3.5 transition-colors duration-500 text-right shadow-inner min-h-[560px]"
-              style={{
-                backgroundColor: previewTheme.base,
-                color: previewTheme.mode === 'light' ? '#0f172a' : '#f8fafc',
-              }}
-            >
-              {/* هدر صفحه اپلیکیشن */}
-              <div className="flex items-center justify-between pt-1 pb-2 border-b border-base-500/20">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-9 h-9 rounded-2xl bg-primary-soft text-primary grid place-items-center shrink-0">
-                    <img src="./sarv-logo.png" alt="لوگو" className="w-5 h-5 object-contain" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {UNIVERSITIES.map((uni, idx) => (
+                <div
+                  key={idx}
+                  className="p-4 rounded-2xl bg-base-500/15 hover:bg-base-500/25 border border-base-500/25 hover:border-primary/40 transition-all flex items-center justify-between gap-3 text-right group"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-12 h-12 rounded-2xl bg-base-500/20 border border-base-500/30 p-2 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <img
+                        src={uni.logo}
+                        alt={uni.name}
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-xs sm:text-[13px] font-black text-base-content truncate group-hover:text-primary transition-colors">
+                        {uni.shortName}
+                      </h4>
+                      <p className="text-[10.5px] text-neutral mt-0.5 truncate">
+                        {uni.description}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-[12px] font-black truncate">دانشگاه خواجه نصیر</p>
-                    <p className="text-[10px] text-neutral font-medium">مهندسی صنایع • ورودی ۴۰۴</p>
-                  </div>
-                </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary text-primary-content font-mono">
-                  ترم ۴۰۴۱
-                </span>
-              </div>
 
-              {/* کارت کلاس بعدی */}
-              <div className="p-3.5 rounded-2xl bg-base-500/20 border border-base-500/30 space-y-2">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="font-bold flex items-center gap-1.5 text-primary">
-                    <Clock className="w-3.5 h-3.5" />
-                    کلاس در جریان
-                  </span>
-                  <span className="font-mono text-neutral font-bold">{toFaDigits('13:30 - 15:00')}</span>
-                </div>
-                <div>
-                  <h4 className="text-[13px] font-black">تحقیق در عملیات ۱ (OR)</h4>
-                  <p className="text-[11px] text-neutral mt-0.5">استاد: دکتر عباسی • کلاس ۲۰۴ دانشکده</p>
-                </div>
-                {/* نوار پیشرفت کلاس */}
-                <div className="space-y-1 pt-1">
-                  <div className="w-full bg-base-500/30 h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-primary h-full w-[65%] rounded-full" />
-                  </div>
-                  <div className="flex justify-between text-[9.5px] text-neutral font-mono">
-                    <span>{toFaDigits('55')} دقیقه سپری‌شده</span>
-                    <span>{toFaDigits('35')} دقیقه باقیمانده</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* دسترسی سریع ۴گانه */}
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  { title: 'برنامه', icon: Calendar, color: 'text-primary' },
-                  { title: 'کارنامه', icon: GraduationCap, color: 'text-accent' },
-                  { title: 'امور مالی', icon: TrendingUp, color: 'text-warn' },
-                  { title: 'چارت', icon: LayoutGrid, color: 'text-info' },
-                ].map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="p-2.5 rounded-xl bg-base-500/15 border border-base-500/25 flex flex-col items-center gap-1 text-center"
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10.5px] font-bold border shrink-0 ${uni.badgeClass}`}
                   >
-                    <item.icon className={`w-4 h-4 ${item.color}`} />
-                    <span className="text-[10.5px] font-bold text-base-content">{item.title}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* کارت خلاصه نمرات و معدل */}
-              <div className="p-3.5 rounded-2xl bg-base-500/20 border border-base-500/30 flex items-center justify-between">
-                <div>
-                  <span className="text-[10.5px] text-neutral font-bold">وضعیت تحصیلی دانشجو</span>
-                  <p className="text-[12.5px] font-black mt-0.5 text-base-content">
-                    {toFaDigits('18')} واحد اخذشده • معدل کل {toFaDigits('18.85')}
-                  </p>
+                    {uni.status === 'active' && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    )}
+                    <span>{uni.statusText}</span>
+                  </span>
                 </div>
-                <span className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-success-soft text-success border border-success/30 font-mono">
-                  رتبه الف
-                </span>
-              </div>
-
-              {/* کارت یادآور سایلنت خودکار */}
-              <div className="p-3 rounded-2xl bg-primary-soft/40 border border-primary/30 flex items-center justify-between text-[11px]">
-                <div className="flex items-center gap-2">
-                  <VolumeX className="w-4 h-4 text-primary" />
-                  <span className="font-bold text-base-content">سکوت خودکار کلاس (DND)</span>
-                </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary text-primary-content">
-                  فعال
-                </span>
-              </div>
+              ))}
             </div>
           </div>
         </div>
