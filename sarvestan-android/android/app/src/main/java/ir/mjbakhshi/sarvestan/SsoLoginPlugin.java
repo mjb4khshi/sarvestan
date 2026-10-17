@@ -27,6 +27,14 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+
 /**
  * ورود بومی و مستقیم SSO دانشگاه صنعتی خواجه نصیرالدین طوسی (sso.kntu.ac.ir)
  * اجرای مستقل پروتکل احراز هویت در لایهٔ Java بدون نیاز به باز شدن WebView
@@ -38,6 +46,36 @@ public class SsoLoginPlugin extends Plugin {
     private static final Map<String, String> sSavedUtSsoCookies = new LinkedHashMap<>();
     private static final Map<String, String> sSavedKntuSsoCookies = new LinkedHashMap<>();
 
+    private static SSLSocketFactory sTrustAllSocketFactory;
+    private static final HostnameVerifier sTrustAllHostnameVerifier = new HostnameVerifier() {
+        @Override
+        public boolean verify(String hostname, SSLSession session) {
+            return true;
+        }
+    };
+
+    private static synchronized SSLSocketFactory getTrustAllSocketFactory() {
+        if (sTrustAllSocketFactory == null) {
+            try {
+                TrustManager[] trustAllCerts = new TrustManager[]{
+                    new X509TrustManager() {
+                        public X509Certificate[] getAcceptedIssuers() {
+                            return new X509Certificate[0];
+                        }
+                        public void checkClientTrusted(X509Certificate[] certs, String authType) {}
+                        public void checkServerTrusted(X509Certificate[] certs, String authType) {}
+                    }
+                };
+                SSLContext sc = SSLContext.getInstance("TLS");
+                sc.init(null, trustAllCerts, new SecureRandom());
+                sTrustAllSocketFactory = sc.getSocketFactory();
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to create trust-all SSLSocketFactory", e);
+            }
+        }
+        return sTrustAllSocketFactory;
+    }
+
     private static class HttpResult {
         int status;
         String location;
@@ -47,6 +85,14 @@ public class SsoLoginPlugin extends Plugin {
     private HttpResult executeHttp(String urlStr, String method, String body, String contentType, String referer, Map<String, String> cookies) throws Exception {
         URL url = new URL(urlStr);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        if (conn instanceof HttpsURLConnection) {
+            HttpsURLConnection httpsConn = (HttpsURLConnection) conn;
+            SSLSocketFactory sf = getTrustAllSocketFactory();
+            if (sf != null) {
+                httpsConn.setSSLSocketFactory(sf);
+            }
+            httpsConn.setHostnameVerifier(sTrustAllHostnameVerifier);
+        }
         conn.setRequestMethod(method);
         conn.setInstanceFollowRedirects(false);
         conn.setConnectTimeout(20000);
@@ -883,7 +929,11 @@ public class SsoLoginPlugin extends Plugin {
                 call.resolve(res);
             } catch (Exception ex) {
                 Log.e(TAG, "UT login error", ex);
-                call.reject("خطای ورود دانشگاه تهران: " + ex.getMessage());
+                String msg = ex.getMessage();
+                if (msg != null && (msg.contains("Trust anchor") || msg.contains("CertPathValidatorException") || msg.contains("SSLHandshakeException"))) {
+                    msg = "خطای گواهی امنیتی سرور دانشگاه (SSL) — فیلترشکن را خاموش کرده و تاریخ و ساعت گوشی را بررسی کنید.";
+                }
+                call.reject("خطای ورود دانشگاه تهران: " + (msg != null ? msg : "خطای ناشناخته"));
             }
         }).start();
     }

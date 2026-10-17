@@ -169,7 +169,9 @@ public class SsoWebViewPlugin extends Plugin {
 
                     @Override
                     public void onReceivedSslError(WebView view, android.webkit.SslErrorHandler handler, android.net.http.SslError error) {
-                        super.onReceivedSslError(view, handler, error);
+                        if (handler != null) {
+                            handler.proceed();
+                        }
                     }
 
                     @Override

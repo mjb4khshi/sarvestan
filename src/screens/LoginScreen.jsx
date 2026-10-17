@@ -96,6 +96,9 @@ function authErrorMessage(j) {
 
 function networkErrorMessage(e) {
   const msg = String(e?.message || e);
+  if (/CertPathValidatorException|Trust anchor|SSLHandshakeException|certificate|گواهی امنیتی/i.test(msg)) {
+    return 'خطای گواهی امنیتی سرور دانشگاه (SSL) — تاریخ و ساعت گوشی را تنظیم کنید، فیلترشکن را خاموش کنید یا از روش وب‌ویو وارد شوید.';
+  }
   if (/timeout|timed\s*out|network|failed to fetch|ارتباط|vpn|فیلترشکن|curl|refused/i.test(msg)) {
     return 'خطای ارتباط با سرور دانشگاه — در صورت روشن بودن فیلترشکن (VPN) آن را خاموش کرده و اینترنت خود را بررسی کنید.';
   }
