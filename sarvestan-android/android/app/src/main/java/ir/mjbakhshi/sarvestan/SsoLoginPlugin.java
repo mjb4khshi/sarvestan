@@ -47,14 +47,14 @@ public class SsoLoginPlugin extends Plugin {
     private static final Map<String, String> sSavedKntuSsoCookies = new LinkedHashMap<>();
 
     private static SSLSocketFactory sTrustAllSocketFactory;
-    private static final HostnameVerifier sTrustAllHostnameVerifier = new HostnameVerifier() {
+    public static final HostnameVerifier sTrustAllHostnameVerifier = new HostnameVerifier() {
         @Override
         public boolean verify(String hostname, SSLSession session) {
             return true;
         }
     };
 
-    private static synchronized SSLSocketFactory getTrustAllSocketFactory() {
+    public static synchronized SSLSocketFactory getTrustAllSocketFactory() {
         if (sTrustAllSocketFactory == null) {
             try {
                 TrustManager[] trustAllCerts = new TrustManager[]{
@@ -74,6 +74,24 @@ public class SsoLoginPlugin extends Plugin {
             }
         }
         return sTrustAllSocketFactory;
+    }
+
+    public static synchronized void installGlobalTrustAllSsl() {
+        try {
+            SSLSocketFactory sf = getTrustAllSocketFactory();
+            if (sf != null) {
+                HttpsURLConnection.setDefaultSSLSocketFactory(sf);
+            }
+            HttpsURLConnection.setDefaultHostnameVerifier(sTrustAllHostnameVerifier);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to install global trust-all SSL", e);
+        }
+    }
+
+    @Override
+    public void load() {
+        super.load();
+        installGlobalTrustAllSsl();
     }
 
     private static class HttpResult {
@@ -913,8 +931,19 @@ public class SsoLoginPlugin extends Plugin {
 
                 StringBuilder cookieSb = new StringBuilder();
                 for (Map.Entry<String, String> e : cookies.entrySet()) {
+                    String k = e.getKey();
+                    if (k.startsWith(".AspNetCore") || k.startsWith("idsrv") || k.startsWith("SignInMessage")
+                            || k.startsWith("__RequestVerification") || k.startsWith("KC_") || k.startsWith("KEYCLOAK_")
+                            || k.equals("AUTH_SESSION_ID") || k.equals("KC_RESTART") || k.equals("JSESSIONID")
+                            || k.equals("OAuth_Token_Request_State")) {
+                        continue;
+                    }
                     if (cookieSb.length() > 0) cookieSb.append("; ");
-                    cookieSb.append(e.getKey()).append("=").append(e.getValue());
+                    cookieSb.append(k).append("=").append(e.getValue());
+                }
+                if (!cookieSb.toString().contains("ASP.NET_SessionId=") && sid != null && !sid.isEmpty()) {
+                    if (cookieSb.length() > 0) cookieSb.append("; ");
+                    cookieSb.append("ASP.NET_SessionId=").append(sid);
                 }
 
                 JSObject res = new JSObject();

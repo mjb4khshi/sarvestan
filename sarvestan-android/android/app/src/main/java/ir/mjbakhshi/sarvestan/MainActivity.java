@@ -18,8 +18,13 @@ public class MainActivity extends BridgeActivity {
         return target;
     }
 
+    static {
+        SsoLoginPlugin.installGlobalTrustAllSsl();
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        SsoLoginPlugin.installGlobalTrustAllSsl();
         registerPlugin(SsoLoginPlugin.class);
         registerPlugin(SsoWebViewPlugin.class);
         registerPlugin(SarvestanClassAlarmPlugin.class);

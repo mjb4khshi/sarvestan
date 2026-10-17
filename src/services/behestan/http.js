@@ -41,6 +41,7 @@ export function shouldUseLocalProxy() {
       h.endsWith('kntu.ac.ir') ||
       h.endsWith('sbu.ac.ir') ||
       h.endsWith('aut.ac.ir') ||
+      h.endsWith('ut.ac.ir') ||
       h.includes('behestan') ||
       h.includes('sso.kntu') ||
       h.includes('ems.sbu') ||

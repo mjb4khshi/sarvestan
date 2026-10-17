@@ -364,9 +364,9 @@ export async function fetchViewReport(formCode, term) {
     console.warn('[client] nav for ViewReport warning:', formCode, e?.message || e);
   }
 
-  // SBU و AUT: توالی مرورگر بین nav و ViewReport — فیلتر (c:110001) و مرتب‌سازی (c:110067)
+  // SBU و AUT و UT: توالی مرورگر بین nav و ViewReport — فیلتر (c:110001) و مرتب‌سازی (c:110067)
   const currentUni = getSelectedUniversity();
-  if (currentUni === 'sbu' || currentUni === 'aut') {
+  if (currentUni === 'sbu' || currentUni === 'aut' || currentUni === 'ut') {
     const filterRp = (c) => ({
       ft: '1',
       f: String(formCode),
