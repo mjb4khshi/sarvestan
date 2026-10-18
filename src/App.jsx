@@ -5,6 +5,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import DataBootstrap from './components/DataBootstrap';
 import TopBar from './components/TopBar';
 import BottomNav from './components/BottomNav';
+import SideNav from './components/SideNav';
 import HomeScreen from './screens/HomeScreen';
 import ScheduleScreen from './screens/ScheduleScreen';
 import GradesScreen from './screens/GradesScreen';
@@ -289,7 +290,10 @@ function Shell() {
 
   return (
     <div className="min-h-full bg-base text-base-content selection:bg-primary/30 selection:text-primary">
-      <div className="mobile-shell min-h-screen relative flex flex-col justify-between">
+      {/* دسکتاپ: ناوبری کناری + ستون محتوا — همان زبان طراحی، چینش داشبوردی */}
+      <div className="lg:flex lg:justify-center lg:items-stretch lg:gap-4 lg:px-4">
+        <SideNav active={tab} onChange={changeTabWithDirection} />
+        <div className="mobile-shell min-h-screen relative flex flex-col justify-between">
         <TopBar
           title={TITLES[tab] || null}
           onBack={showBack ? () => changeTabWithDirection('home') : undefined}
@@ -357,6 +361,7 @@ function Shell() {
         </AnimatePresence>
 
         <BottomNav active={tab} onChange={changeTabWithDirection} />
+        </div>
       </div>
     </div>
   );

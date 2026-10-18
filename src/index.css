@@ -215,10 +215,7 @@
     .mobile-shell { width: min(100%, 560px); }
   }
   @media (min-width: 1024px) {
-    .mobile-shell { width: min(100%, 680px); }
-  }
-  @media (min-width: 1536px) {
-    .mobile-shell { width: min(100%, 768px); }
+    .mobile-shell { width: min(100%, 1080px); }
   }
 
   .mobile-pad-bottom {

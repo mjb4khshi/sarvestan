@@ -74,7 +74,7 @@ function NavTabItem({ id, label, Icon, active, activeColor, onChange }) {
 export default function BottomNav({ active, onChange }) {
   return (
     <nav
-      className="fixed bottom-0 inset-x-0 z-50 pointer-events-none pb-[env(safe-area-inset-bottom,0px)]"
+      className="fixed bottom-0 inset-x-0 z-50 pointer-events-none pb-[env(safe-area-inset-bottom,0px)] lg:hidden"
       aria-label="ناوبری اصلی برنامه"
     >
       {/* گرادینت بسیار نرم و محو همرنگ پس‌زمینه برای حذف آلودگی بصری زیر نوبار با حفظ حس شناور بودن */}
