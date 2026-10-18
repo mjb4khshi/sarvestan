@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -32,8 +32,7 @@ export default function TopBar({ title, onBack }) {
   const batmanIntervalRef = useRef(null);
   const batmanTriggeredRef = useRef(false);
 
-  const startBatmanHold = (e) => {
-    batmanTriggeredRef.current = false;
+  const startBatmanHold = (e) => {    batmanTriggeredRef.current = false;
     const startTime = Date.now();
     const duration = 5000;
 
@@ -70,6 +69,18 @@ export default function TopBar({ title, onBack }) {
     setBatmanHoldProgress(0);
   };
 
+  // دسکتاپ: سایدبار (SideNav) با رویداد سراسری همین شیت‌ها را باز می‌کند — یک نمونه واحد از شیت‌ها
+  useEffect(() => {
+    const openTheme = () => setThemeSheetOpen(true);
+    const openNotify = () => setNotifySheetOpen(true);
+    window.addEventListener('sarvestan-sidebar-theme', openTheme);
+    window.addEventListener('sarvestan-sidebar-notify', openNotify);
+    return () => {
+      window.removeEventListener('sarvestan-sidebar-theme', openTheme);
+      window.removeEventListener('sarvestan-sidebar-notify', openNotify);
+    };
+  }, []);
+
   const localNotes = getLocalNotes();
   const allNotifications = [
     ...localNotes.map((n) => ({
@@ -95,7 +106,7 @@ export default function TopBar({ title, onBack }) {
   return (
     <>
       <header
-        className="sticky top-0 z-40 w-full backdrop-blur-md bg-base/92 border-b border-base-500/40 transition-colors will-change-transform"
+        className="sticky top-0 z-40 w-full backdrop-blur-md bg-base/92 border-b border-base-500/40 transition-colors will-change-transform lg:hidden"
         style={{
           paddingTop: 'env(safe-area-inset-top, 0px)',
           transform: 'translateZ(0)',

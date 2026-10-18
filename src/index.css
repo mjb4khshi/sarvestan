@@ -214,8 +214,14 @@
   @media (min-width: 768px) {
     .mobile-shell { width: min(100%, 560px); }
   }
+  /* دسکتاپ با سایدبار: شل به‌صورت آیتم فِلکس فضای باقی را می‌گیرد — بدون سرریز و فشرده‌شدگی */
   @media (min-width: 1024px) {
-    .mobile-shell { width: min(100%, 1080px); }
+    .mobile-shell {
+      width: auto;
+      flex: 1 1 auto;
+      min-width: 0;
+      max-width: 1080px;
+    }
   }
 
   .mobile-pad-bottom {
