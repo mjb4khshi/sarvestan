@@ -45,7 +45,7 @@ export default function ExtensionConnectGate() {
     setChecking(true);
     setMessage(null);
     try {
-      const res = await checkExtensionSync();
+      const res = await checkExtensionSync({ bypassThrottle: true });
       if (res?.ok) {
         setMessage({ type: 'success', text: 'نشست فعال شناسایی شد — داده‌ها در حال بارگیری هستند…' });
       } else if (Number(res?.staleTabs) > 0 || Number(res?.responders) === 0) {

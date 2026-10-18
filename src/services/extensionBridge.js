@@ -83,14 +83,34 @@ export function openBehestanPage(uniId = getSelectedUniversity()) {
 
 /**
  * استعلام و همگام‌سازی اطلاعات از تب‌های باز بهستان و گلستان
+ *
+ * له‌رومهٔ تمیز (throttle): وقتی داده‌ای نمی‌آید، loops رندر می‌توانند این تابع
+ * را هر ۴۰۰ms صدا بزنند و هر بار صف کامل FORCE_SYNC روی تب سامانه شروع شود
+ * → بار سنگین فزاینده روی مرورگر. حداقل ۱۰ ثانیه بین دو سنک واقعی فاصله می‌گذاریم.
  */
-export async function checkExtensionSync() {
+const SYNC_THROTTLE_MS = 10000;
+let lastSyncCheckAt = 0;
+let lastSyncCheckResult = null;
+
+export async function checkExtensionSync({ bypassThrottle = false } = {}) {
   if (typeof chrome === 'undefined' || !chrome.tabs?.query) {
     // در محیط وب معمولی، داده‌های لوکال‌استوریج را بررسی کن
     const prof = localStorage.getItem(STORAGE_KEYS.profile);
     return { ok: !!prof, source: 'localStorage' };
   }
 
+  const now = Date.now();
+  if (!bypassThrottle && lastSyncCheckResult && now - lastSyncCheckAt < SYNC_THROTTLE_MS) {
+    return lastSyncCheckResult;
+  }
+
+  const result = await runCheckExtensionSync();
+  lastSyncCheckAt = Date.now();
+  lastSyncCheckResult = result;
+  return result;
+}
+
+async function runCheckExtensionSync() {
   return new Promise((resolve) => {
     chrome.tabs.query({ url: UNIVERSITY_PATTERNS }, async (tabs) => {
       if (!tabs || tabs.length === 0) {

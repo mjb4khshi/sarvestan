@@ -1651,6 +1651,13 @@
       console.log('[Sarvestan] FORCE_SYNC skipped — no live Behestan session');
       return false;
     }
+    // له‌رومه: اگر صف کامل کمتر از ۱۰ ثانیه پیش اجرا شده، دوباره شروع نکن
+    // (داشبورد می‌تواند چند بار پشت هم FORCE_SYNC بفرستد — بدون این گارد
+    // صف‌های هم‌پوشان روی تب سامانه بار سنگین فزاینده می‌سازند)
+    if (Date.now() - lastQueueRunAt < 10000) {
+      console.log('[Sarvestan] FORCE_SYNC throttled — queue ran recently');
+      return false;
+    }
     hasSynced = false;
     console.log('[Sarvestan] FORCE_SYNC requested');
     triggerProactiveSync();

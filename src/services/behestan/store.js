@@ -68,21 +68,46 @@ export function sanitizeFinance(fin) {
   return fin;
 }
 
-let cache = {
-  profile: read(KEYS.PROFILE, null),
-  schedule: read(KEYS.SCHEDULE, {}),
-  exams: read(KEYS.EXAMS, {}),
-  transcripts: read(KEYS.TRANSCRIPTS, []),
-  finance: sanitizeFinance(read(KEYS.FINANCE, null)),
-  courses: read(KEYS.COURSES, []),
-  workflows: read(KEYS.WORKFLOWS, []),
-  announcements: read(KEYS.ANNOUNCEMENTS, []),
-  curriculumStats: read(KEYS.CURRICULUM, null),
-  curriculumReport: read(KEYS.CURRICULUM_REPORT, null),
-  syncMeta: read(KEYS.SYNC_META, { lastSyncAt: null, sources: [], status: 'idle' }),
-  localNotes: read(KEYS.LOCAL_NOTES, []),
-  reg77: read(KEYS.REG77, null),
-};
+/**
+ * شکل استاندارد exams/schedule در استور = MAP { [termId]: [...] }.
+ * داده‌های باقی‌مانده از نسخه‌های قدیمی افزونه ممکن است آرایهٔ ساده باشند؛
+ * اگر رها می‌شوند در رندر کرش می‌کنند (‌.find is not a function) — نرمال کن.
+ */
+function asTermMap(raw) {
+  if (raw && !Array.isArray(raw) && typeof raw === 'object') return raw;
+  if (Array.isArray(raw)) {
+    const map = {};
+    for (const item of raw) {
+      const tid = String(item?.termId || '4051');
+      if (!Array.isArray(map[tid])) map[tid] = [];
+      map[tid].push(item);
+    }
+    return map;
+  }
+  return {};
+}
+
+function buildCacheFromStorage() {
+  const schedule = asTermMap(read(KEYS.SCHEDULE, {}));
+  const exams = asTermMap(read(KEYS.EXAMS, {}));
+  return {
+    profile: read(KEYS.PROFILE, null),
+    schedule,
+    exams,
+    transcripts: read(KEYS.TRANSCRIPTS, []),
+    finance: sanitizeFinance(read(KEYS.FINANCE, null)),
+    courses: read(KEYS.COURSES, []),
+    workflows: read(KEYS.WORKFLOWS, []),
+    announcements: read(KEYS.ANNOUNCEMENTS, []),
+    curriculumStats: read(KEYS.CURRICULUM, null),
+    curriculumReport: read(KEYS.CURRICULUM_REPORT, null),
+    syncMeta: read(KEYS.SYNC_META, { lastSyncAt: null, sources: [], status: 'idle' }),
+    localNotes: read(KEYS.LOCAL_NOTES, []),
+    reg77: read(KEYS.REG77, null),
+  };
+}
+
+let cache = buildCacheFromStorage();
 
 const listeners = new Set();
 
@@ -115,21 +140,7 @@ function notify() {
 }
 
 export function reloadStoreFromStorage() {
-  cache = {
-    profile: read(KEYS.PROFILE, null),
-    schedule: read(KEYS.SCHEDULE, {}),
-    exams: read(KEYS.EXAMS, {}),
-    transcripts: read(KEYS.TRANSCRIPTS, []),
-    finance: sanitizeFinance(read(KEYS.FINANCE, null)),
-    courses: read(KEYS.COURSES, []),
-    workflows: read(KEYS.WORKFLOWS, []),
-    announcements: read(KEYS.ANNOUNCEMENTS, []),
-    curriculumStats: read(KEYS.CURRICULUM, null),
-    curriculumReport: read(KEYS.CURRICULUM_REPORT, null),
-    syncMeta: read(KEYS.SYNC_META, { lastSyncAt: null, sources: [], status: 'idle' }),
-    localNotes: read(KEYS.LOCAL_NOTES, []),
-    reg77: read(KEYS.REG77, null),
-  };
+  cache = buildCacheFromStorage();
   notify();
 }
 

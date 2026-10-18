@@ -6,7 +6,24 @@
 console.log('[Sarvestan Extension] Content script loaded on Behestan.');
 
 // ── تزریق مستقیم اینترسپتور به MAIN world در صورت نیاز ──
+// ── وضعیت اعتبار بافت افزونه ──
+// بعد از Reload/Update افزونه، بافتِ سابق Invalid می‌شود؛ نباید
+// هر ۱.۲ ثانیه خطای تزریق/ذخیره اسپم شود — یک بار تشخیص، بعد سکوت
+let sarvestanCtxInvalid = false;
+function handleCtxError(e) {
+  const msg = String((e && e.message) || e || '');
+  if (msg.includes('Extension context invalidated')) {
+    if (!sarvestanCtxInvalid) {
+      sarvestanCtxInvalid = true;
+      console.warn('[Sarvestan Extension] بافت افزونه منقضی شد (افزونه به‌روز شد) — یک بار صفحهٔ سامانه را رفرش کن (F5).');
+    }
+    return true;
+  }
+  return false;
+}
+
 function injectMainWorldInterceptor() {
+  if (sarvestanCtxInvalid) return;
   if (document.getElementById('sarvestan-interceptor-script')) return;
   // اگر قبلاً در MAIN world فعال شده، فقط برای re-inject مجدد اگر نیاز بود
   try {
@@ -16,7 +33,9 @@ function injectMainWorldInterceptor() {
     script.onload = () => script.remove();
     (document.head || document.documentElement).appendChild(script);
   } catch (err) {
-    console.warn('[Sarvestan Extension] Script injection error:', err);
+    if (!handleCtxError(err)) {
+      console.warn('[Sarvestan Extension] Script injection error:', err);
+    }
   }
 }
 injectMainWorldInterceptor();
@@ -92,14 +111,23 @@ function enrichScheduleFromCourses(courses) {
   }
 }
 
+// آخرین محتوای ذخیره‌شده برای هر کلید — جلوگیری از نوشتن تکراری بی‌فرق
+// (هر نوشتن تکراری → chrome.storage.onChanged → ریرندر کامل داشبورد)
+const lastSavedBytes = {};
+
 function saveStorage(key, data) {
   try {
-    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+    const json = JSON.stringify(data);
+    if (lastSavedBytes[key] === json) return; // تغییری نکرده — هیچ اقدامی
+    lastSavedBytes[key] = json;
+    if (typeof chrome !== 'undefined' && chrome.storage?.local && !sarvestanCtxInvalid) {
       chrome.storage.local.set({ [key]: data });
     }
-    localStorage.setItem(key, JSON.stringify(data));
+    localStorage.setItem(key, json);
   } catch (e) {
-    console.warn('[Sarvestan] saveStorage error:', e);
+    if (!handleCtxError(e)) {
+      console.warn('[Sarvestan] saveStorage error:', e);
+    }
   }
 }
 
@@ -499,16 +527,13 @@ function syncStorage(session) {
       photo: session.photo || existing.photo || null,
       university: session.university || existing.university || uni.id,
       universityName: session.universityName || existing.universityName || uni.name,
-      isLoggedIn: true,
-      lastLogin: new Date().toLocaleDateString('fa-IR')
+      isLoggedIn: true
     };
 
     saveStorage('sarvestan_live_profile', merged);
     saveStorage('sarvestan_selected_university', merged.university);
-    saveStorage('sarvestan_auth_status', {
-      loggedIn: true,
-      lastCheck: new Date().toISOString()
-    });
+    // بدون مهر زمانی متغیر — تا هر ۱.۲ ثانیه نوشتنِ بی‌فرق و ریرندر رخ ندهد
+    saveStorage('sarvestan_auth_status', { loggedIn: true });
   }
 }
 
@@ -900,6 +925,7 @@ function ensureLogoutLockWatcher() {
 ensureLogoutLockWatcher();
 
 function ensureSarvestanActive() {
+  if (sarvestanCtxInvalid) return; // بافت منقضی — قبلاً هشدار داده‌ایم
   try {
     injectMainWorldInterceptor();
     injectFloatingDock();
@@ -909,7 +935,9 @@ function ensureSarvestanActive() {
       syncStorage(session);
     }
   } catch (err) {
-    console.warn('[Sarvestan] ensure error:', err);
+    if (!handleCtxError(err)) {
+      console.warn('[Sarvestan] ensure error:', err);
+    }
   }
 }
 

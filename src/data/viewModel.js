@@ -241,7 +241,11 @@ function buildViewModel() {
       const cName = cleanCourseName(c.name || c.title || '');
       return (scCode && cCode && scCode === cCode) || (scName && cName && scName === cName);
     });
-    const matchedExam = (snap.exams || []).find((e) => {
+    // exams ترکیب {termId:[...]} استاندارد است (نسخه‌های قدیمی آرایه ذخیره می‌کردند)
+    const flatExams = Array.isArray(snap.exams)
+      ? snap.exams
+      : Object.values(snap.exams || {}).filter(Array.isArray).flat();
+    const matchedExam = flatExams.find((e) => {
       const eCode = cleanCourseCode(e.code);
       const eName = cleanCourseName(e.name || e.title || '');
       return (scCode && eCode && scCode === eCode) || (scName && eName && scName === eName);
