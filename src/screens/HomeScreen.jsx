@@ -111,7 +111,7 @@ export default function HomeScreen({ onNavigate }) {
     switch (widgetId) {
       case 'profile':
         return (
-          <div key="profile" className="space-y-3.5 lg:col-span-5">
+          <div key="profile" className="space-y-3.5 lg:col-span-5 min-w-0">
             {/* هیرو کارت هویت دانشجو */}
             <section className="sarv-card p-4 sm:p-5 border border-base-500 relative overflow-hidden">
               {PROFILE_CARD_LAYOUT === 'row' ? (
@@ -409,7 +409,7 @@ export default function HomeScreen({ onNavigate }) {
           <section
             key="nextClass"
             onClick={() => onNavigate('schedule')}
-            className="sarv-card p-3.5 flex items-center justify-between gap-3 cursor-pointer hover:border-primary active:scale-[0.98] transition-all border-r-4 border-r-primary bg-primary-soft lg:col-span-7"
+            className="sarv-card p-3.5 flex items-center justify-between gap-3 cursor-pointer hover:border-primary active:scale-[0.98] transition-all border-r-4 border-r-primary bg-primary-soft lg:col-span-7 min-w-0"
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-10 h-10 rounded-2xl bg-primary text-primary-content grid place-items-center shrink-0 shadow-sm">
@@ -456,7 +456,7 @@ export default function HomeScreen({ onNavigate }) {
 
       case 'quickShortcuts':
         return (
-          <section key="quickShortcuts" className="grid grid-cols-4 gap-2 lg:col-span-12">
+          <section key="quickShortcuts" className="grid grid-cols-4 gap-2 lg:col-span-12 min-w-0">
             {[
               {
                 label: 'برنامه هفتگی',
@@ -504,7 +504,7 @@ export default function HomeScreen({ onNavigate }) {
 
       case 'todayClasses':
         return (
-          <section key="todayClasses" className="space-y-2.5 lg:col-span-12">
+          <section key="todayClasses" className="space-y-2.5 lg:col-span-12 min-w-0">
             <div className="flex items-center justify-between px-1">
               <h3 className="text-[14px] font-bold text-base-content flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-primary" />
@@ -637,7 +637,7 @@ export default function HomeScreen({ onNavigate }) {
 
       case 'weeklyLoad':
         return (
-          <section key="weeklyLoad" className="sarv-card p-4 lg:col-span-5">
+          <section key="weeklyLoad" className="sarv-card p-4 lg:col-span-5 min-w-0">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <span className="w-7 h-7 rounded-xl bg-primary-soft text-primary grid place-items-center">
@@ -716,14 +716,14 @@ export default function HomeScreen({ onNavigate }) {
 
       case 'calendar':
         return (
-          <div key="calendar">
+          <div key="calendar" className="lg:col-span-7 min-w-0">
             <DashboardCalendar onNavigate={onNavigate} />
           </div>
         );
 
       case 'studyHeatmap':
         return (
-          <div key="studyHeatmap">
+          <div key="studyHeatmap" className="lg:col-span-12 min-w-0">
             <StudyHeatmap onNavigate={onNavigate} />
           </div>
         );
@@ -737,7 +737,7 @@ export default function HomeScreen({ onNavigate }) {
           : livePosts.filter((p) => p.channelId === feedFilter);
 
         return (
-          <section key="announcements" className="space-y-2.5 lg:col-span-7">
+          <section key="announcements" className="space-y-2.5 lg:col-span-7 min-w-0">
             <div className="flex items-center justify-between px-1">
               <h3 className="text-[13px] font-bold text-base-content flex items-center gap-1.5">
                 <Megaphone className="w-3.5 h-3.5 text-warn" />
