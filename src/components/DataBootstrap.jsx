@@ -11,6 +11,7 @@ import { setSelectedUniversity } from '../services/behestan/session';
 import { getViewModel } from '../data/viewModel';
 import { updateAndroidWidget, isNativeCapacitor } from '../services/androidWidget';
 import { isBehestanOverlay } from '../services/extensionBridge';
+import { isExtensionRuntime } from '../services/extensionRuntime';
 
 /**
  * اگر نشست هست ولی دیتا نیست → همگام‌سازی بزن
@@ -22,7 +23,7 @@ export default function DataBootstrap() {
   const triesRef = useRef(0);
 
   useEffect(() => {
-    if (!isNativeCapacitor()) {
+    if (!isNativeCapacitor() && !isExtensionRuntime()) {
       try {
         if (
           sessionStorage.getItem('sarvestan_manual_logout') === '1' ||
@@ -88,6 +89,14 @@ export default function DataBootstrap() {
             window.parent.postMessage({ action: 'SARVESTAN_REFRESH_SCHEDULE' }, '*');
           } catch (_) {}
           syncingRef.current = false;
+        } else if (isExtensionRuntime()) {
+          // افزونه: هیچ fetch مستقیم — فقط پیام به تب‌های باز سامانه دانشگاه و خواندن chrome.storage
+          const { checkExtensionSync } = await import('../services/extensionBridge');
+          const res = await checkExtensionSync();
+          syncingRef.current = false;
+          if (!res?.ok) {
+            triesRef.current = (triesRef.current || 0) + 1;
+          }
         } else {
           if (isSyncing()) resetSyncState();
           await sync(true);

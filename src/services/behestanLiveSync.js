@@ -9,6 +9,10 @@
  * ۵. سوییچ خودکار به نمای اصلی بهستان برای درگاه‌های شاپرک و پرداخت شهریه
  */
 
+import { isExtensionRuntime } from './extensionRuntime';
+import { openBehestanPage } from './extensionBridge';
+import { getSelectedUniversity, getUniversityOrigin } from './behestan/session';
+
 const STORAGE_KEY_PROFILE = 'sarvestan_live_profile';
 const STORAGE_KEY_SCHEDULE = 'sarvestan_live_schedule';
 const STORAGE_KEY_GRADES = 'sarvestan_live_transcripts'; // هماهنگ با behestanData
@@ -419,9 +423,16 @@ class BehestanSyncEngine {
     }
   }
 
-  // هدایت مستقیم به صفحه لاگین بهستان
+  // هدایت مستقیم به صفحه لاگین سامانه دانشگاه انتخاب‌شده
+  // در افزونه: از پل افزونه استفاده می‌کنیم (تب موجود فوکوس / تب جدید با origin دانشگاه)
   openBehestanLogin() {
-    const loginUrl = 'https://behestan.kntu.ac.ir/';
+    try {
+      if (isExtensionRuntime()) {
+        openBehestanPage(getSelectedUniversity());
+        return;
+      }
+    } catch {}
+    const loginUrl = getUniversityOrigin(getSelectedUniversity()) + '/';
     if (typeof chrome !== 'undefined' && chrome.tabs) {
       chrome.tabs.create({ url: loginUrl });
     } else {

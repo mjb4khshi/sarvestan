@@ -33,6 +33,8 @@ import BatBackground from './components/BatBackground';
 import { checkForUpdate, hasDismissedUpdate, dismissUpdate } from './services/updater';
 import { isBatNotifEnabled, scheduleBatNightNotification, initBatWebTimer } from './services/batMode';
 import { initExtensionBridge, isBehestanOverlay } from './services/extensionBridge';
+import { isExtensionRuntime } from './services/extensionRuntime';
+import ExtensionConnectGate from './components/ExtensionConnectGate';
 import LandingPage from './components/LandingPage';
 
 const TITLES = {
@@ -419,7 +421,8 @@ export default function App() {
         <div className="relative">
           <BatBackground />
           <AutoUpdateGate />
-          <LoginGate />
+          {/* افزونه: هیچ فرم لاگینی نیست — فقط گیت اتصال بی‌رمز از طریق سامانه دانشگاه */}
+          {isExtensionRuntime() ? <ExtensionConnectGate /> : <LoginGate />}
           <SsoCallbackBridge />
           <DataBootstrap />
           <Shell />

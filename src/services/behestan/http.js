@@ -35,6 +35,10 @@ export function shouldUseLocalProxy() {
   try {
     const C = globalThis.Capacitor;
     if (C?.isNativePlatform?.()) return false;
+    // در صفحه افزونه (chrome-extension://) هیچ مسیر نسبی /behestan-api وجود ندارد؛
+    // host_permissions اجازه fetch مستقیم به سامانه دانشگاه را می‌دهد
+    const proto = window.location.protocol;
+    if (proto === 'chrome-extension:' || proto === 'moz-extension:') return false;
     const h = location.hostname;
     // داخل بهستان/SSO/شهید بهشتی/امیرکبیر: مستقیم
     if (

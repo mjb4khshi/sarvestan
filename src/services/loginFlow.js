@@ -2,6 +2,8 @@
  * وضعیت سراسری جریان ورود
  * از useSyncExternalStore استفاده می‌شود تا رندر پایدار بماند
  */
+import { isExtensionRuntime } from './extensionRuntime';
+
 const CREDS_KEY = 'sarvestan_saved_creds';
 
 export function loadSavedCreds() {
@@ -69,6 +71,9 @@ export function subscribeLogin(cb) {
 
 /** نمایش مودال — وقتی وارد نیستیم */
 export function openLoginModal() {
+  // در افزونه هیچ فرم لاگینی وجود ندارد —
+  // کاربر در سامانه دانشگاه خودش لاگین می‌کند و داشبورد نشست را خودکار می‌خواند
+  if (isExtensionRuntime()) return;
   if (typeof window !== 'undefined') {
     try {
       const isOverlay = window.self !== window.top || new URLSearchParams(window.location.search).get('mode') === 'overlay';

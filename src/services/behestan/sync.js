@@ -22,6 +22,7 @@ import {
   setSelectedUniversity,
   getSelectedUniversity,
 } from './session';
+import { isExtensionRuntime } from '../extensionRuntime';
 
 let running = false;
 let lastRunAt = 0;
@@ -70,6 +71,19 @@ export async function runFullSync({ force = false } = {}) {
   if (running) return { ok: false, reason: 'already-running' };
   if (!force && Date.now() - lastRunAt < COOLDOWN_MS) {
     return { ok: false, reason: 'cooldown' };
+  }
+
+  // در محیط افزونه داشبورد خودش هیچ fetchی نمی‌زند —
+  // درخواست سنک با پیام به تب‌های باز سامانه دانشگاه می‌رود و اینترسپتور (همان origin) آن را اجرا می‌کند
+  if (isExtensionRuntime()) {
+    try {
+      const { checkExtensionSync } = await import('../extensionBridge');
+      const res = await checkExtensionSync();
+      return { ok: Boolean(res?.ok), reason: res?.ok ? 'extension-tabs' : (res?.error || 'no-tabs') };
+    } catch (e) {
+      console.warn('[sync] extension bridge sync failed:', e?.message || e);
+      return { ok: false, reason: 'extension-bridge-error', error: e };
+    }
   }
 
   // روی وب، آخرین نشست ثبت شده در سرور را قبل از سنک بارگذاری کن
