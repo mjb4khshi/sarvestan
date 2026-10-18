@@ -131,8 +131,38 @@ function saveStorage(key, data) {
   }
 }
 
-function readStorage(key, fallback) {
-  try {
+// ── چسبندگی شناسنامه — یک بار مقدار معنادار بگیر، کافیه ──
+// سنک‌های بعدی (از گزارش‌های مختلف با شکل‌های ناقص مختلف) نباید نام/مقطع/دانشکده
+// و اینا را مدام جایگزین کنند. جای خالی فقط با «مقدار معنادار» پر می‌شود.
+const IDENTITY_PLACEHOLDERS = ['دانشجو', 'دانشجوی میهمان', 'ـ', 'غیرفعال'];
+function isMeaningfulIdentity(field, v) {
+  if (v === null || v === undefined) return false;
+  const s = String(v).trim();
+  if (!s || s === 'ـ' || IDENTITY_PLACEHOLDERS.includes(s)) return false;
+  if (field === 'studentId') return /^[0-9]{7,10}$/.test(s);
+  if (field === 'fullName') return s.length >= 3;
+  if (field === 'totalUnitsPassed') return Number(s) > 0;
+  if (field === 'gpa') return Number(s.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))) > 0;
+  return true;
+}
+const IDENTITY_FIELDS = ['fullName', 'studentName', 'studentId', 'faculty', 'major', 'degree', 'standing', 'term', 'photo', 'gpa', 'totalUnitsPassed'];
+function mergeStickyProfile(prev, incoming, markLoggedIn = false) {
+  const out = { ...(prev || {}) };
+  for (const f of IDENTITY_FIELDS) {
+    if (!incoming || !Object.prototype.hasOwnProperty.call(incoming, f)) continue;
+    const cur = out[f];
+    const next = incoming[f];
+    if (isMeaningfulIdentity(f, cur)) {
+      out[f] = cur; // قفل شد — سنک بعدی تغییرش نمی‌دهد
+    } else if (isMeaningfulIdentity(f, next) || cur === undefined || cur === null) {
+      out[f] = next;
+    }
+  }
+  if (markLoggedIn || out.isLoggedIn) out.isLoggedIn = true;
+  return out;
+}
+
+function readStorage(key, fallback) {  try {
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : fallback;
   } catch {
@@ -395,7 +425,7 @@ function handleInterceptedData(dataType, payload) {
   switch (dataType) {
     case 'profile_update': {
       const currentProfile = readStorage('sarvestan_live_profile', scanBehestanDOM());
-      const updated = { ...currentProfile, ...payload, isLoggedIn: true };
+      const updated = mergeStickyProfile(currentProfile, payload, true);
       saveStorage('sarvestan_live_profile', updated);
       forwardToOverlay('INIT_LIVE_BEHESTAN_SESSION', updated);
       forwardToOverlay('SARVESTAN_DATA_UPDATE', { dataType: 'profile_update', payload: updated });

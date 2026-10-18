@@ -43,6 +43,36 @@ function resolveActiveUniversity(p) {
   );
 }
 
+// ── چسبندگی شناسنامه — یک بار مقدار معنادار بگیر، کافیه ──
+// سنک‌های بعدی نباید نام/مقطع/دانشکده و اینا را مدام جایگزین کنند
+const IDENTITY_PLACEHOLDERS = ['دانشجو', 'دانشجوی میهمان', 'ـ', 'غیرفعال'];
+function isMeaningfulIdentity(field, v) {
+  if (v === null || v === undefined) return false;
+  const s = String(v).trim();
+  if (!s || s === 'ـ' || IDENTITY_PLACEHOLDERS.includes(s)) return false;
+  if (field === 'studentId') return /^[0-9]{7,10}$/.test(s);
+  if (field === 'fullName') return s.length >= 3;
+  if (field === 'totalUnitsPassed') return Number(s) > 0;
+  if (field === 'gpa') return Number(s.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))) > 0;
+  return true;
+}
+const IDENTITY_FIELDS = ['fullName', 'studentName', 'studentId', 'faculty', 'major', 'degree', 'standing', 'term', 'photo', 'gpa', 'totalUnitsPassed'];
+function mergeStickyProfile(prev, incoming, markLoggedIn = false) {
+  const out = { ...(prev || {}) };
+  for (const f of IDENTITY_FIELDS) {
+    if (!incoming || !Object.prototype.hasOwnProperty.call(incoming, f)) continue;
+    const cur = out[f];
+    const next = incoming[f];
+    if (isMeaningfulIdentity(f, cur)) {
+      out[f] = cur; // قفل شد — سنک بعدی تغییرش نمی‌دهد
+    } else if (isMeaningfulIdentity(f, next) || cur === undefined || cur === null) {
+      out[f] = next;
+    }
+  }
+  if (markLoggedIn || out.isLoggedIn) out.isLoggedIn = true;
+  return out;
+}
+
 /**
  * بررسی اینکه آیا اپ داخل آی‌فریم بهستان/گلستان در حال اجراست یا خیر
  */
@@ -301,21 +331,7 @@ export function initExtensionBridge() {
       if (payload) {
         try {
           const prev = JSON.parse(localStorage.getItem(STORAGE_KEYS.profile) || '{}');
-          const merged = {
-            ...prev,
-            ...payload,
-            fullName: (payload.fullName && payload.fullName !== 'دانشجو' && payload.fullName !== 'دانشجوی میهمان')
-              ? payload.fullName
-              : (payload.studentName && payload.studentName !== 'دانشجو' && payload.studentName !== 'دانشجوی میهمان')
-              ? payload.studentName
-              : (prev.fullName || 'دانشجو'),
-            studentId: (payload.studentId && payload.studentId !== 'ـ') ? payload.studentId : (prev.studentId || 'ـ'),
-            gpa: (payload.gpa && payload.gpa !== 'ـ') ? payload.gpa : (prev.gpa || 'ـ'),
-            totalUnitsPassed: (payload.totalUnitsPassed && Number(payload.totalUnitsPassed) > 0) ? payload.totalUnitsPassed : (prev.totalUnitsPassed || 0),
-            standing: (payload.standing && payload.standing !== 'ـ') ? payload.standing : (prev.standing || 'ـ'),
-            photo: payload.photo || prev.photo || null,
-            isLoggedIn: true,
-          };
+          const merged = mergeStickyProfile(prev, payload, true);
           localStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(merged));
           applyManualSession({
             studentId: merged.studentId,
@@ -336,8 +352,7 @@ export function initExtensionBridge() {
           if (dataType === 'profile_update' || dataType === 'profile') {
             const prevRaw = localStorage.getItem(STORAGE_KEYS.profile) || '{}';
             const prev = JSON.parse(prevRaw);
-            const merged = { ...prev, ...payload };
-            if (payload.fullName || payload.studentId) merged.isLoggedIn = true;
+            const merged = mergeStickyProfile(prev, payload, Boolean(payload.fullName || payload.studentId));
             const mergedJson = JSON.stringify(merged);
             if (mergedJson === prevRaw) return; // بی‌تغییر — بدون ریرندر
             localStorage.setItem(STORAGE_KEYS.profile, mergedJson);
