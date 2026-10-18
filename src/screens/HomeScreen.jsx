@@ -653,89 +653,59 @@ export default function HomeScreen({ onNavigate }) {
             </div>
 
             {(() => {
-              const peakHour = Math.max(...WEEK.map((d) => (typeof d.hours === 'number' ? d.hours : (d.count || 0))), 0);
-              const scaleMax = peakHour > 0 ? peakHour : 4;
-
+              const maxHours = Math.max(...WEEK.map((d) => (typeof d.hours === 'number' ? d.hours : (d.count || 0))), 1);
               return (
-                <div className="flex items-end justify-between gap-2 pt-1 pb-0.5">
+                <div className="flex items-end justify-between gap-2 h-28 pt-2">
                   {WEEK.map((d, idx) => {
                     const hours = typeof d.hours === 'number' ? d.hours : (d.count || 0);
                     const isToday = idx === todayIdx;
                     const barBgTokens = ['bg-info', 'bg-primary', 'bg-secondary', 'bg-accent', 'bg-success'];
-                    const barBg = barBgTokens[idx % barBgTokens.length];
-
-                    // درصد پرشدگی ستون متناسب با بیشینه ساعت دانشجو (حداقل ۲۰٪ در صورت داشتن کلاس تا نوار کاملاً کشیده و شکیل باشد)
                     const heightPct = hours > 0
-                      ? Math.max(20, Math.min(100, Math.round((hours / scaleMax) * 92)))
-                      : 0;
+                      ? Math.max(14, Math.min(96, Math.round((hours / Math.max(maxHours, 4.5)) * 96)))
+                      : 6;
 
-                    const displayHours = hours > 0
-                      ? (Number.isInteger(hours) ? hours : hours.toFixed(1))
-                      : '—';
+                    const displayHours = Number.isInteger(hours) ? hours : hours.toFixed(1);
 
                     return (
-                      <div
-                        key={d.day}
-                        className="flex-1 flex flex-col items-center gap-1.5"
-                        title={`${d.day}: ${hours > 0 ? `${toFaDigits(displayHours)} ساعت کلاس` : 'بدون کلاس'}`}
-                      >
-                        {/* مقدار ساعت بالای ستون */}
-                        <div className="h-4 flex items-center justify-center">
+                      <div key={d.day} className="flex-1 flex flex-col items-center h-full" title={`${toFaDigits(displayHours)} ساعت کلاس`}>
+                        <div className="h-5 flex items-center justify-center">
                           <motion.span
                             initial={{ opacity: 0, y: 3 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{
                               duration: 0.35,
-                              delay: 0.18 + idx * 0.05,
+                              delay: 0.22 + idx * 0.06,
                               ease: 'easeOut',
                             }}
-                            className={`text-[10px] font-mono font-bold leading-none ${
-                              isToday ? 'text-primary font-black' : hours > 0 ? 'text-neutral' : 'text-neutral/40'
-                            }`}
+                            className={`text-[10.5px] font-bold ${isToday ? 'text-primary font-black' : 'text-neutral'}`}
                           >
                             {toFaDigits(displayHours)}
                           </motion.span>
                         </div>
 
-                        {/* شیار ستونی نوار با ارتفاع صریح ۹۶ پیکسل برای محاسبه قطعی درصد و جلوگیری از فشرده‌شدن در فلکس */}
-                        <div
-                          className={`w-full max-w-[28px] sm:max-w-[32px] h-24 rounded-2xl p-1 flex flex-col justify-end items-center transition-all ${
-                            isToday
-                              ? 'bg-primary/10 ring-2 ring-primary/40'
-                              : 'bg-base-500/15 hover:bg-base-500/25'
-                          }`}
-                        >
+                        <div className="flex-1 w-full flex items-end justify-center py-1">
                           <motion.div
-                            initial={{ height: 0, opacity: 0.3 }}
-                            animate={{
-                              height: hours > 0 ? `${heightPct}%` : '4px',
-                              opacity: isToday ? 1 : hours > 0 ? 0.9 : 0.25,
-                            }}
+                            initial={{ height: 0, opacity: 0.25 }}
+                            animate={{ height: `${heightPct}%`, opacity: isToday ? 1 : 0.85 }}
                             transition={{
-                              duration: 0.65,
+                              duration: 0.6,
                               delay: 0.1 + idx * 0.06,
                               ease: [0.16, 1, 0.3, 1],
                             }}
-                            className={`w-full rounded-xl transition-all ${
-                              hours > 0
-                                ? `${barBg} shadow-xs`
-                                : 'bg-neutral/40'
+                            className={`w-full max-w-[28px] rounded-t-xl rounded-b-md ${barBgTokens[idx % barBgTokens.length]} ${
+                              isToday ? 'ring-2 ring-primary ring-offset-2 ring-offset-base scale-105' : 'hover:opacity-100'
                             }`}
                           />
                         </div>
 
-                        {/* نام روز هفته */}
-                        <div className="h-5 flex flex-col items-center justify-center">
+                        <div className="h-5 flex items-center justify-center">
                           <span
-                            className={`text-[10.5px] leading-none ${
+                            className={`text-[10.5px] ${
                               isToday ? 'text-primary font-black' : 'text-neutral font-medium'
                             }`}
                           >
                             {d.day}
                           </span>
-                          {isToday && (
-                            <span className="w-1 h-1 rounded-full bg-primary mt-0.5 animate-pulse" />
-                          )}
                         </div>
                       </div>
                     );
