@@ -183,15 +183,14 @@ export default function HomeScreen({ onNavigate }) {
                           </div>
                         </div>
                       )}
-                      <p className="text-[11.5px] text-neutral font-medium mt-0.5 truncate">
-                        {STUDENT.studentId ? (
-                          <>
-                            <span className="font-mono text-base-content font-bold">{toFaDigits(STUDENT.studentId)}</span>
-                            {STUDENT.major ? ' · ' : ''}
-                          </>
-                        ) : null}
-                        {STUDENT.major ? <span>{STUDENT.major}</span> : null}
-                      </p>
+                      {STUDENT.studentId ? (
+                        <p className="text-[11.5px] font-medium mt-0.5 truncate">
+                          <span className="font-mono text-base-content font-bold">{toFaDigits(STUDENT.studentId)}</span>
+                        </p>
+                      ) : null}
+                      {STUDENT.major ? (
+                        <p className="text-[11.5px] text-neutral font-medium mt-0.5 truncate">{STUDENT.major}</p>
+                      ) : null}
                       {STUDENT.college ? (
                         <p className="text-[10.5px] text-neutral/80 mt-0.5 truncate">{STUDENT.college}</p>
                       ) : null}
@@ -286,15 +285,14 @@ export default function HomeScreen({ onNavigate }) {
                       </div>
                     </div>
                   )}
-                  <p className="text-[12px] text-neutral font-medium mt-0.5">
-                    {STUDENT.studentId ? (
-                      <>
-                        <span className="font-mono text-base-content font-bold">{STUDENT.studentId}</span>
-                        {STUDENT.major ? ' · ' : ''}
-                      </>
-                    ) : null}
-                    {STUDENT.major ? <span>{STUDENT.major}</span> : null}
-                  </p>
+                  {STUDENT.studentId ? (
+                    <p className="text-[12px] font-medium mt-0.5">
+                      <span className="font-mono text-base-content font-bold">{STUDENT.studentId}</span>
+                    </p>
+                  ) : null}
+                  {STUDENT.major ? (
+                    <p className="text-[12px] text-neutral font-medium mt-0.5">{STUDENT.major}</p>
+                  ) : null}
                   {STUDENT.college ? (
                     <p className="text-[11px] text-neutral mt-0.5">{STUDENT.college}</p>
                   ) : null}

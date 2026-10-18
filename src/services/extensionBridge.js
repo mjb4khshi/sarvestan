@@ -54,6 +54,8 @@ function isMeaningfulIdentity(field, v) {
   if (field === 'fullName') return s.length >= 3;
   if (field === 'totalUnitsPassed') return Number(s) > 0;
   if (field === 'gpa') return Number(s.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))) > 0;
+  // متن‌های عددیِ خالص (مثل L1=16 که تعداد واحد است) مشخصات نیستند
+  if (/^[0-9۰-۹]+(?:[.,][0-9۰-۹]+)?$/.test(s)) return false;
   return true;
 }
 const IDENTITY_FIELDS = ['fullName', 'studentName', 'studentId', 'faculty', 'major', 'degree', 'standing', 'term', 'photo', 'gpa', 'totalUnitsPassed'];
@@ -286,10 +288,10 @@ async function syncFromChromeStorage() {
 export function initExtensionBridge() {
   if (typeof window === 'undefined') return;
 
-  // ۰. آزادسازیِ یک‌بارهٔ شناسنامهٔ قفل‌شدهٔ پیشین — مقادیر منبع‌غلت (اسم دانشگاه به‌عنوان دانشکده،
-  // مقطع هاردکد، وضعیت/معدل/واحد ناقص) را خالی می‌کنیم تا از منبع درست (B4/B6/B5 گزارش ۸۸) دوباره بگیرند
+  // ۰. آزادسازیِ یک‌بارهٔ شناسنامهٔ قفل‌شدهٔ پیشین (v2 — بعد از حذف major عددی «16») — مقادیر منبع‌غلت
+  // (اسم دانشگاه به‌عنوان دانشکده، مقطع هاردکد، وضعیت/معدل/واحد ناقص) خالی می‌شوند تا از منبع درست بگیرند
   try {
-    if (!localStorage.getItem('sarvestan_identity_reset_v1')) {
+    if (!localStorage.getItem('sarvestan_identity_reset_v2')) {
       const rawP = localStorage.getItem(STORAGE_KEYS.profile);
       const p = rawP ? JSON.parse(rawP) : null;
       if (p) {
@@ -300,7 +302,7 @@ export function initExtensionBridge() {
         p.totalUnitsPassed = 0;
         localStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(p));
       }
-      localStorage.setItem('sarvestan_identity_reset_v1', '1');
+      localStorage.setItem('sarvestan_identity_reset_v2', '1');
     }
   } catch {}
 

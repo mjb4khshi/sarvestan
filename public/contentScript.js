@@ -143,6 +143,8 @@ function isMeaningfulIdentity(field, v) {
   if (field === 'fullName') return s.length >= 3;
   if (field === 'totalUnitsPassed') return Number(s) > 0;
   if (field === 'gpa') return Number(s.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))) > 0;
+  // متن‌های عددیِ خالص (مثل L1=16 که تعداد واحد است) مشخصات نیستند
+  if (/^[0-9۰-۹]+(?:[.,][0-9۰-۹]+)?$/.test(s)) return false;
   return true;
 }
 const IDENTITY_FIELDS = ['fullName', 'studentName', 'studentId', 'faculty', 'major', 'degree', 'standing', 'term', 'photo', 'gpa', 'totalUnitsPassed'];
