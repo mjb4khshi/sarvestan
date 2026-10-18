@@ -543,7 +543,12 @@ function buildViewModel() {
     : (major ? (major.startsWith('دانشکده') ? major : `دانشکده ${major.replace(/—.*$/, '').trim()}`) : '');
 
   let level = profile.level || (isDevStudent ? devProf.level : '') || '';
+  // مقطع واقعی از گزارش ۸۸ (B6) به‌صورت degree ثبت می‌شود — الأولى از حدسِ رقم شمارهٔ دانشجویی
+  if (!level && profile.degree && profile.degree !== 'ـ') {
+    level = profile.degree;
+  }
   if (!level && resolvedStudentId) {
+    // حدسِ آخرِ محصول: فقط وقتی هیچ قرینهٔ واقعی نداریم
     const rawSid = String(resolvedStudentId).replace(/\D/g, '');
     if (rawSid.length >= 7) {
       const degDigit = rawSid.length === 8 ? rawSid[3] : rawSid[2];

@@ -69,6 +69,10 @@ function mergeStickyProfile(prev, incoming, markLoggedIn = false) {
       out[f] = next;
     }
   }
+  // level = degree (مقطع) — نمای رابط فیلد level را می‌خواند
+  if (!isMeaningfulIdentity('degree', out.level) && isMeaningfulIdentity('degree', out.degree)) {
+    out.level = out.degree;
+  }
   if (markLoggedIn || out.isLoggedIn) out.isLoggedIn = true;
   return out;
 }
@@ -281,6 +285,25 @@ async function syncFromChromeStorage() {
  */
 export function initExtensionBridge() {
   if (typeof window === 'undefined') return;
+
+  // ۰. آزادسازیِ یک‌بارهٔ شناسنامهٔ قفل‌شدهٔ پیشین — مقادیر منبع‌غلت (اسم دانشگاه به‌عنوان دانشکده،
+  // مقطع هاردکد، وضعیت/معدل/واحد ناقص) را خالی می‌کنیم تا از منبع درست (B4/B6/B5 گزارش ۸۸) دوباره بگیرند
+  try {
+    if (!localStorage.getItem('sarvestan_identity_reset_v1')) {
+      const rawP = localStorage.getItem(STORAGE_KEYS.profile);
+      const p = rawP ? JSON.parse(rawP) : null;
+      if (p) {
+        for (const f of ['faculty', 'major', 'degree', 'level', 'standing', 'term']) {
+          if (Object.prototype.hasOwnProperty.call(p, f)) p[f] = '';
+        }
+        p.gpa = null;
+        p.totalUnitsPassed = 0;
+        localStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(p));
+      }
+      localStorage.setItem('sarvestan_identity_reset_v1', '1');
+    }
+  } catch {}
+
 
   // ۱. پارس پارامترهای اولیه URL در صورت باز شدن توسط contentScript
   try {

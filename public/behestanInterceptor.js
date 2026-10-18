@@ -666,10 +666,14 @@
         if (!formCode && bms.includes('نتيجه ثبت')) formCode = '77';
         if (!formCode && (bms.includes('امتحان') || bms.includes('428'))) formCode = '428';
 
-        // استخراج مشخصات دانشجو از ساختار متادیتا (B1/B2) یا متن هدر گزارش‌های بهستان
+        // استخراج مشخصات دانشجو — دقیقاً با معنای کانونیکال اندروید (parseReport88Meta):
+        // B1=شناسه AUW (نه شماره دانشجو!)، B2=نام، B3=کد دانشکده، B4=دانشکده،
+        // B5=ترم، B6=مقطع، L1 یا B4=رشته؛ شماره دانشجو فقط از متن رسمی هدر
         const b1Match = String(outpar.BMt || '').match(/\bB1=["']([^"']+)["']/i);
         const b2Match = String(outpar.BMt || '').match(/\bB2=["']([^"']+)["']/i);
         const b4Match = String(outpar.BMt || '').match(/\bB4=["']([^"']+)["']/i);
+        const b6Match = String(outpar.BMt || '').match(/\bB6=["']([^"']+)["']/i);
+        const b5Match = String(outpar.BMt || '').match(/\bB5=["']([^"']+)["']/i);
         const l1Match = String(outpar.BMt || '').match(/\bL1=["']([^"']+)["']/i);
 
         const allReportText = (bms + ' ' + String(outpar.BMt || '')).replace(/[۰-۹]/g, d => '0123456789'['۰۱۲۳۴۵۶۷۸۹'.indexOf(d)]);
@@ -677,18 +681,22 @@
                             allReportText.match(/\b(40[0-9]{5,8}|9[5-9][0-9]{5,8})\b/);
         const bmsNameMatch = (bms + ' ' + String(outpar.BMt || '')).match(/(?:نام\s*و\s*نام\s*خانوادگی|نام\s*دانشجو)\s*[:\-]?\s*([^\d\n\r:—\-]{3,35})(?=\s*(?:شماره|دانشکده|رشته|دوره|مقطع|$))/i);
 
-        const sId = (b1Match && b1Match[1]) || (bmsStdMatch ? bmsStdMatch[1] : null);
+        const sId = (bmsStdMatch ? bmsStdMatch[1] : null); // B1 را به‌عنوان شمارهٔ دانشجو استفاده نمی‌کنیم — شناسهٔ AUW است
         const sName = (b2Match && cleanHtml(decodeHtmlEntities(b2Match[1]))) || (bmsNameMatch ? bmsNameMatch[1].trim() : null);
         const sFaculty = (b4Match && cleanHtml(decodeHtmlEntities(b4Match[1]))) || null;
         const sMajor = (l1Match && cleanHtml(decodeHtmlEntities(l1Match[1]))) || sFaculty;
+        const sDegree = (b6Match && cleanHtml(decodeHtmlEntities(b6Match[1]))) || null;
+        const sTermTitle = (b5Match && cleanHtml(decodeHtmlEntities(b5Match[1]))) || null;
 
-        if (sId || sName) {
+        if (sId || sName || sDegree || sFaculty) {
           if (sId && !sessionCache.studentId) sessionCache.studentId = sId;
           sendData('profile_update', {
             ...(sId ? { studentId: sId } : {}),
             ...(sName ? { fullName: sName } : {}),
             ...(sFaculty ? { faculty: sFaculty } : {}),
             ...(sMajor ? { major: sMajor } : {}),
+            ...(sDegree ? { degree: sDegree } : {}),
+            ...(sTermTitle ? { term: sTermTitle } : {}),
             isLoggedIn: true
           });
         }

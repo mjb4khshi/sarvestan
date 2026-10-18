@@ -158,6 +158,10 @@ function mergeStickyProfile(prev, incoming, markLoggedIn = false) {
       out[f] = next;
     }
   }
+  // level = degree (مقطع) — نمای رابط فیلد level را می‌خواند
+  if (!isMeaningfulIdentity('degree', out.level) && isMeaningfulIdentity('degree', out.degree)) {
+    out.level = out.degree;
+  }
   if (markLoggedIn || out.isLoggedIn) out.isLoggedIn = true;
   return out;
 }
@@ -245,9 +249,9 @@ function scanBehestanDOM() {
   let studentName = null;
   let studentId = null;
   let photoUrl = null;
-  let faculty = uni.faculty;
+  let faculty = ''; // واقعی از گزارش ۸۸ (B4) می‌آید — اسم دانشگاه را به‌عنوان دانشکده جعل نکن
   let major = 'دانشجو';
-  const degree = 'کارشناسی';
+  const degree = ''; // واقعی از گزارش ۸۸ (B6) می‌آید
   let foundStudentSignals = false;
 
   try {
