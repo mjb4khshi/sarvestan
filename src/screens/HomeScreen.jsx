@@ -409,14 +409,14 @@ export default function HomeScreen({ onNavigate }) {
           <section
             key="nextClass"
             onClick={() => onNavigate('schedule')}
-            className="sarv-card p-3.5 flex items-center justify-between gap-3 cursor-pointer hover:border-primary active:scale-[0.98] transition-all border-r-4 border-r-primary bg-primary-soft lg:col-span-7 min-w-0"
+            className="sarv-card p-3.5 lg:p-4 flex items-center justify-between gap-3 cursor-pointer hover:border-primary active:scale-[0.98] transition-all border-r-4 border-r-primary bg-primary-soft lg:col-span-7 min-w-0 lg:flex-col lg:items-stretch lg:justify-start lg:gap-2"
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-10 h-10 rounded-2xl bg-primary text-primary-content grid place-items-center shrink-0 shadow-sm">
                 <Clock className="w-5 h-5" />
               </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1 lg:w-full">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[11px] font-black text-primary">
                     {NEXT?.status === 'now'
                       ? 'کلاس در جریان'
@@ -439,7 +439,7 @@ export default function HomeScreen({ onNavigate }) {
                     )}
                   </span>
                 </div>
-                <h4 className="text-[14px] font-bold text-base-content truncate mt-0.5">
+                <h4 className="text-[14px] font-bold text-base-content truncate mt-0.5 lg:text-[15.5px] lg:mt-1">
                   {vm.nextClass
                     ? `${vm.nextClass.title}${vm.nextClass.room && vm.nextClass.room !== 'ـ' ? ` · ${toFaDigits(vm.nextClass.room)}` : ''}`
                     : TODAY_CLASSES.length > 0
@@ -448,7 +448,37 @@ export default function HomeScreen({ onNavigate }) {
                 </h4>
               </div>
             </div>
-            <div className="w-7 h-7 rounded-xl bg-base-500/50 text-neutral grid place-items-center shrink-0">
+
+            {/* دسکتاپ: ردیف جزئیات (استاد/کد/واحد/کلاس) — فضای عمودی کارت پنل‌مانند پر می‌شود */}
+            {vm.nextClass && (
+              <div className="hidden lg:flex items-center justify-between gap-3">
+                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                  {vm.nextClass.professor && vm.nextClass.professor !== 'ـ' && (
+                    <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-lg bg-base-500/40 text-base-content truncate max-w-[180px]">
+                      استاد: {vm.nextClass.professor}
+                    </span>
+                  )}
+                  {vm.nextClass.code && (
+                    <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-lg bg-base-500/40 text-base-content font-mono">
+                      کد {vm.nextClass.code}
+                    </span>
+                  )}
+                  {vm.nextClass.units && (
+                    <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-lg bg-base-500/40 text-base-content">
+                      {toFaDigits(String(vm.nextClass.units))} واحد
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[10.5px] text-neutral font-medium">مشاهده در برنامه</span>
+                  <div className="w-7 h-7 rounded-xl bg-primary text-primary-content grid place-items-center shadow-sm">
+                    <ChevronLeft className="w-4 h-4" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="w-7 h-7 rounded-xl bg-base-500/50 text-neutral grid place-items-center shrink-0 lg:hidden">
               <ChevronLeft className="w-4 h-4" />
             </div>
           </section>
