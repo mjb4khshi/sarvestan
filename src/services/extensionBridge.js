@@ -79,6 +79,26 @@ function mergeStickyProfile(prev, incoming, markLoggedIn = false) {
   return out;
 }
 
+// ضدعفونی شناسنامهٔ ذخیره‌شده — زباله‌های عددی (مثل major:'16' از ستون واحد گرید) و
+// جای‌نگه‌نماها را از فیلدهای متنی هویتی می‌گیرد
+function sanitizeIdentityObject(p) {
+  if (!p || typeof p !== 'object') return p;
+  const out = { ...p };
+  const badText = (v) => {
+    const s = String(v ?? '').trim();
+    return !s || s === 'ـ' || IDENTITY_PLACEHOLDERS.includes(s) ||
+      /^[0-9۰-۹]+(?:[.,][0-9۰-۹]+)?$/.test(s);
+  };
+  for (const f of ['faculty', 'major', 'degree', 'standing', 'term']) {
+    if (Object.prototype.hasOwnProperty.call(out, f) && badText(out[f])) out[f] = '';
+  }
+  // level همگام با degree (مقطع واقعی از گزارش ۸۸)
+  if (badText(out.level) && !badText(out.degree)) out.level = out.degree;
+  if (!badText(out.degree) && !badText(out.level)) out.level = out.degree;
+  else if (badText(out.degree)) out.level = '';
+  return out;
+}
+
 /**
  * بررسی اینکه آیا اپ داخل آی‌فریم بهستان/گلستان در حال اجراست یا خیر
  */
@@ -243,7 +263,11 @@ async function syncFromChromeStorage() {
         // schedule/exams با موتور merge استور اعمال می‌شوند (پایین‌تر) — نه بازنویسی خام
         if (key === STORAGE_KEYS.schedule || key === STORAGE_KEYS.exams) return;
         if (all[key] !== undefined) {
-          const val = typeof all[key] === 'string' ? all[key] : JSON.stringify(all[key]);
+          let val = typeof all[key] === 'string' ? all[key] : JSON.stringify(all[key]);
+          if (key === STORAGE_KEYS.profile) {
+            // ضدعفونی پروفایل — زبالهٔ عددی (major:'16' و...) از استور نمی‌تواند به داشبورد برگردد
+            val = JSON.stringify(sanitizeIdentityObject(safeParse(val)));
+          }
           if (localStorage.getItem(key) === val) return; // بی‌تغییر
           localStorage.setItem(key, val);
           changed = true;

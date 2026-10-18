@@ -117,6 +117,9 @@ const lastSavedBytes = {};
 
 function saveStorage(key, data) {
   try {
+    if (key === 'sarvestan_live_profile') {
+      data = sanitizeIdentityObject(data); // زبالهٔ عددی/جای‌نگه‌نما هرگز ذخیره نمی‌شود
+    }
     const json = JSON.stringify(data);
     if (lastSavedBytes[key] === json) return; // تغییری نکرده — هیچ اقدامی
     lastSavedBytes[key] = json;
@@ -168,7 +171,28 @@ function mergeStickyProfile(prev, incoming, markLoggedIn = false) {
   return out;
 }
 
-function readStorage(key, fallback) {  try {
+// ضدعفونی شناسنامهٔ ذخیره‌شده — زباله‌های عددی (مثل major:'16' از ستون واحد گرید) و
+// جای‌نگه‌نماها را از فیلدهای متنی هویتی می‌گیرد تا هیچ مسیر نوشتنی توان نگه‌داشتنشان را نداشته باشد
+function sanitizeIdentityObject(p) {
+  if (!p || typeof p !== 'object') return p;
+  const out = { ...p };
+  const badText = (v) => {
+    const s = String(v ?? '').trim();
+    return !s || s === 'ـ' || IDENTITY_PLACEHOLDERS.includes(s) ||
+      /^[0-9۰-۹]+(?:[.,][0-9۰-۹]+)?$/.test(s);
+  };
+  for (const f of ['faculty', 'major', 'degree', 'standing', 'term']) {
+    if (Object.prototype.hasOwnProperty.call(out, f) && badText(out[f])) out[f] = '';
+  }
+  // level همگام با degree (مقطع واقعی از گزارش ۸۸)
+  if (badText(out.level) && !badText(out.degree)) out.level = out.degree;
+  if (!badText(out.degree) && !badText(out.level)) out.level = out.degree;
+  else if (badText(out.degree)) out.level = '';
+  return out;
+}
+
+function readStorage(key, fallback) {
+  try {
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : fallback;
   } catch {
@@ -982,5 +1006,16 @@ if (document.readyState === 'loading') {
 } else {
   ensureSarvestanActive();
 }
+
+// پاس ضدعفونی بوت — زبالهٔ شناسنامهٔ موجود در استور (مثل major:'16') را یک بار بیرون می‌کشد
+try {
+  const bootProfile = readStorage('sarvestan_live_profile', null);
+  if (bootProfile) {
+    const cleaned = sanitizeIdentityObject(bootProfile);
+    if (JSON.stringify(cleaned) !== JSON.stringify(bootProfile)) {
+      saveStorage('sarvestan_live_profile', cleaned);
+    }
+  }
+} catch (_) {}
 
 setInterval(ensureSarvestanActive, 1200);

@@ -210,6 +210,17 @@
     min-height: 100dvh;
   }
 
+  /* بهینه‌سازی دسکتاپ — همان کلیت لی‌اوت، فقط عرض هوشمندتر (بدون تغییر استایل) */
+  @media (min-width: 768px) {
+    .mobile-shell { width: min(100%, 560px); }
+  }
+  @media (min-width: 1024px) {
+    .mobile-shell { width: min(100%, 680px); }
+  }
+  @media (min-width: 1536px) {
+    .mobile-shell { width: min(100%, 768px); }
+  }
+
   .mobile-pad-bottom {
     padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
   }
