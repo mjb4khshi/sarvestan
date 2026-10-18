@@ -213,12 +213,27 @@ function emptyViewModel() {
   };
 }
 
+// کش ویومدل: کلید = هویت اسنپ‌شات استور + باکت ۱۵ ثانیه‌ای.
+// هر جابجایی منو یک رندر جدید می‌سازد اما اسنپ‌شات تغییر نکرده است؛
+// بدون این کش، هر رندر یک محاسبهٔ کامل سنگین (تطبیق دروس×امتحانات×کارنامه) — کندی محسوس
+const VM_BUCKET_MS = 15000;
+let vmCache = null; // { snap, bucket, value }
+
 export function getViewModel() {
   try {
-    return buildViewModel();
+    const snap = getSnapshot();
+    const bucket = Math.floor(Date.now() / VM_BUCKET_MS);
+    if (vmCache && vmCache.snap === snap && vmCache.bucket === bucket) {
+      return vmCache.value;
+    }
+    const value = buildViewModel();
+    vmCache = { snap, bucket, value };
+    return value;
   } catch (e) {
     console.warn('[viewModel]', e);
-    return emptyViewModel();
+    const value = emptyViewModel();
+    vmCache = null; // خطا — دفعهٔ بعد دوباره تلاش کن
+    return value;
   }
 }
 

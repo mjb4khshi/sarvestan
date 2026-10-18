@@ -38,8 +38,23 @@ export function useSarvestanData() {
   }, [data?.syncMeta?.status]);
 
   useEffect(() => {
-    const id = setInterval(() => setSessionTick((t) => t + 1), 3000);
-    return () => clearInterval(id);
+    // تیک به‌روزرسانی وضعیت‌های زمانی («کلاس درحال برگزاری» و…)
+    // هر ۳ ثانیه کل درخت را ریرندر می‌ کرد — عامل اصلی کِندگی؛ ۱۵ ثانیه + skip وقتی تب پنهان است
+    let id = null;
+    const start = () => {
+      if (id) clearInterval(id);
+      id = setInterval(() => {
+        if (!document.hidden) setSessionTick((t) => t + 1);
+      }, 15000);
+    };
+    const onVis = () => start();
+    setSessionTick((t) => t + 1);
+    start();
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, []);
 
   const session = useMemo(() => {
