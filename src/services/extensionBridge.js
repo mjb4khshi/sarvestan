@@ -284,10 +284,13 @@ export function initExtensionBridge() {
         const key = STORAGE_KEYS[dataType] || `sarvestan_live_${dataType}`;
         try {
           if (dataType === 'profile_update' || dataType === 'profile') {
-            const prev = JSON.parse(localStorage.getItem(STORAGE_KEYS.profile) || '{}');
+            const prevRaw = localStorage.getItem(STORAGE_KEYS.profile) || '{}';
+            const prev = JSON.parse(prevRaw);
             const merged = { ...prev, ...payload };
             if (payload.fullName || payload.studentId) merged.isLoggedIn = true;
-            localStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(merged));
+            const mergedJson = JSON.stringify(merged);
+            if (mergedJson === prevRaw) return; // بی‌تغییر — بدون ریرندر
+            localStorage.setItem(STORAGE_KEYS.profile, mergedJson);
             applyManualSession({
               studentId: merged.studentId,
               fullName: merged.fullName || merged.studentName,
@@ -295,7 +298,9 @@ export function initExtensionBridge() {
               isLoggedIn: true,
             });
           } else {
-            localStorage.setItem(key, JSON.stringify(payload));
+            const json = JSON.stringify(payload);
+            if (localStorage.getItem(key) === json) return; // بی‌تغییر — بدون ریرندر
+            localStorage.setItem(key, json);
           }
           notifyStoreChange();
         } catch {}
@@ -304,6 +309,8 @@ export function initExtensionBridge() {
   });
 
   // ۳. شنود تغییرات زنده chrome.storage.onChanged برای تب‌های مستقل افزونه
+  // مهم: هر رخداد → اگر مقدار واقعاً عوض نشده، نادیده گرفته می‌شود؛
+  // وگرنه هر نوشتن تکراریِ چند تب = ریرندر کامل داشبورد = کندی شدید
   if (typeof chrome !== 'undefined' && chrome.storage?.onChanged) {
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'local') return;
@@ -311,6 +318,7 @@ export function initExtensionBridge() {
       for (const [key, change] of Object.entries(changes)) {
         if (key.startsWith('sarvestan_') && change.newValue !== undefined) {
           const val = typeof change.newValue === 'string' ? change.newValue : JSON.stringify(change.newValue);
+          if (localStorage.getItem(key) === val) continue; // بی‌تغییر — هیچ اقدامی
           localStorage.setItem(key, val);
           changed = true;
           if (key === STORAGE_KEYS.profile) {
@@ -334,4 +342,98 @@ export function initExtensionBridge() {
 
   // ۴. خواندن اولیه از chrome.storage.local
   syncFromChromeStorage();
+}
+
+/**
+ * انبارداتا تشخیصی: چه چیزی واقعاً در chrome.storage هست؟
+ * برای جداسازی «دریافت از سامانه» از «نمایش در داشبورد»
+ */
+function parseJsonSafe(v) {
+  try {
+    return typeof v === 'string' ? JSON.parse(v) : v;
+  } catch {
+    return null;
+  }
+}
+
+export async function getStorageInventory() {
+  const src = (typeof chrome !== 'undefined' && chrome.storage?.local)
+    ? await new Promise((resolve) => chrome.storage.local.get(null, (all) => resolve(all)))
+    : (typeof localStorage !== 'undefined' ? { ...localStorage } : null);
+  if (!src) return [];
+
+  const rows = [];
+  const prof = parseJsonSafe(src.sarvestan_live_profile);
+  const profOk = Boolean(prof && (prof.isLoggedIn || (prof.studentId && prof.studentId !== 'ـ')));
+  rows.push({
+    id: 'profile',
+    label: 'پروفایل',
+    ok: profOk,
+    detail: profOk ? `${prof.fullName || '—'} · ${prof.studentId || '—'}` : 'خالی',
+  });
+
+  const termMapOk = (raw) => {
+    const m = parseJsonSafe(raw);
+    if (!m || typeof m !== 'object') return { ok: false, count: 0, terms: 0 };
+    const entries = Object.entries(m).filter(([, v]) => Array.isArray(v) && v.length);
+    return {
+      ok: entries.length > 0,
+      count: entries.reduce((a, [, v]) => a + v.length, 0),
+      terms: entries.length,
+    };
+  };
+
+  const sched = termMapOk(src.sarvestan_live_schedule);
+  rows.push({
+    id: 'schedule',
+    label: 'برنامه هفتگی',
+    ok: sched.ok,
+    detail: sched.ok ? `${sched.count} درس · ${sched.terms} ترم` : 'خالی',
+  });
+
+  const exams = termMapOk(src.sarvestan_live_exams);
+  rows.push({
+    id: 'exams',
+    label: 'برنامه امتحانات',
+    ok: exams.ok,
+    detail: exams.ok ? `${exams.count} امتحان · ${exams.terms} ترم` : 'خالی',
+  });
+
+  const trans = Array.isArray(parseJsonSafe(src.sarvestan_live_transcripts)) ? parseJsonSafe(src.sarvestan_live_transcripts) : [];
+  rows.push({
+    id: 'transcripts',
+    label: 'کارنامه',
+    ok: trans.length > 0,
+    detail: trans.length ? `${trans.length} ترم` : 'خالی',
+  });
+
+  const courses = Array.isArray(parseJsonSafe(src.sarvestan_live_courses)) ? parseJsonSafe(src.sarvestan_live_courses) : [];
+  rows.push({
+    id: 'courses',
+    label: 'دوس (کارت‌ها)',
+    ok: courses.length > 0,
+    detail: courses.length ? `${courses.length} درس` : 'خالی',
+  });
+
+  const fin = parseJsonSafe(src.sarvestan_live_finance);
+  rows.push({
+    id: 'finance',
+    label: 'مالی',
+    ok: Boolean(fin && typeof fin === 'object'),
+    detail: fin && typeof fin === 'object' ? (fin.totalDebtToman != null ? `${Number(fin.totalDebtToman).toLocaleString('fa-IR')} تومان` : 'دارد') : 'خالی',
+  });
+
+  const extraRows = [
+    ['sarvestan_live_workflows', 'گردش‌کارها', (v) => (Array.isArray(v) ? `${v.length} مورد` : null)],
+    ['sarvestan_live_curriculum_stats', 'چارت درسی', () => 'دارد'],
+    ['sarvestan_live_announcements', 'اطلاعیه‌ها', (v) => (Array.isArray(v) ? `${v.length} مورد` : null)],
+    ['sarvestan_live_reg77', 'گزارش ۷۷', () => 'دارد'],
+  ];
+  for (const [key, label, detailFn] of extraRows) {
+    const v = parseJsonSafe(src[key]);
+    const ok = Boolean(v && (!Array.isArray(v) || v.length));
+    rows.push({ id: key, label, ok, detail: ok ? detailFn(v) : 'خالی' });
+  }
+
+  return rows;
 }

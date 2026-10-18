@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Link2, RefreshCw, LogIn, LogOut, User, Clock, Sparkles } from 'lucide-react';
+import { Link2, RefreshCw, LogIn, LogOut, User, Clock, Sparkles, Database, CheckCircle2, XCircle } from 'lucide-react';
 import { useSarvestanData } from '../hooks/useSarvestanData';
 import { resetSyncState } from '../services/behestan/sync';
 import { openLoginModal, isLoginModalOpen } from '../services/loginFlow';
 import { getSelectedUniversity, setSelectedUniversity } from '../services/behestan/session';
 import { toFaDigits, formatLastSync, getLastSyncTimestamp } from '../utils/faDigits';
+import { isExtensionRuntime } from '../services/extensionRuntime';
+import { getStorageInventory, checkExtensionSync } from '../services/extensionBridge';
 
 /**
  * اتصال بهستان — وضعیت، همگام‌سازی دستی و خروج از حساب
@@ -142,6 +144,71 @@ export default function SessionPanel() {
           </button>
         )}
       </div>
+
+      {isExtensionRuntime() && <ExtensionDataInventory />}
     </section>
+  );
+}
+
+/**
+ * انبارداتا تشخیصی افزونه: چه داده‌ای واقعاً در chrome.storage هست؟
+ * جداسازی «دریافت از سامانه» از «نمایش در داشبورد» برای دیباگ
+ */
+function ExtensionDataInventory() {
+  const [rows, setRows] = useState([]);
+  const [busy, setBusy] = useState(false);
+
+  const refresh = async ({ force = false } = {}) => {
+    setBusy(true);
+    try {
+      if (force) await checkExtensionSync({ bypassThrottle: true });
+      const inv = await getStorageInventory();
+      setRows(inv || []);
+    } catch {} finally {
+      setBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  return (
+    <div className="rounded-xl border border-base-500/30 bg-base-500/15 p-3 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] font-bold text-neutral flex items-center gap-1.5">
+          <Database className="w-3.5 h-3.5" />
+          انبار دادهٔ افزونه (chrome.storage)
+        </span>
+        <button
+          type="button"
+          onClick={() => refresh({ force: true })}
+          disabled={busy}
+          className="text-[10px] font-bold text-primary hover:opacity-80 active:scale-95 transition-all inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+        >
+          <RefreshCw className={`w-3 h-3 ${busy ? 'animate-spin' : ''}`} />
+          بررسی مجدد
+        </button>
+      </div>
+      <div className="grid grid-cols-1 gap-1">
+        {rows.map((r) => (
+          <div key={r.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-base-500/10 border border-base-500/20">
+            {r.ok ? (
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-success" />
+            ) : (
+              <XCircle className="w-3.5 h-3.5 shrink-0 text-base-content/40" />
+            )}
+            <span className="text-[11px] font-bold text-base-content min-w-[92px]">{r.label}</span>
+            <span className="text-[10px] text-neutral truncate flex-1">{r.detail}</span>
+          </div>
+        ))}
+        {!rows.length && (
+          <p className="text-[10.5px] text-neutral">در حال خواندن انبار…</p>
+        )}
+      </div>
+      <p className="text-[9.5px] text-neutral leading-relaxed px-1">
+        اگر برنامه/کارنامه «خالی» بود ولی در سامانه می‌بینی، یک بار سامانه را رفرش کن تا اینترسپتور گزارش‌ها را بگیرد.
+      </p>
+    </div>
   );
 }
