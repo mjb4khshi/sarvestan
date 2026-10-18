@@ -8,6 +8,13 @@
 import { getCurrentTermSchedule, hasLiveData } from './behestan/store';
 import { detectCurrentTermId } from './behestan/parsers';
 import { parseClassTime, getScheduleMatrix, jalaliToDate } from '../data/viewModel';
+import {
+  supportsExtensionReminders,
+  ensureNotificationPermission,
+  scheduleExtensionReminders,
+  cancelExtensionReminders,
+  showExtensionNotification,
+} from './extensionNotify';
 
 const SETTINGS_KEY = 'sarvestan_class_reminders_settings';
 const SCHEDULED_IDS_KEY = 'sarvestan_class_reminders_ids';
@@ -354,8 +361,11 @@ export async function scheduleClassReminders({
   dndDuringClass = null,
   includeSamad = null,
 } = {}) {
+  // در افزونه مسیر پس‌زمینهٔ chrome.alarms + chrome.notifications فعال است (پس‌خوانده در شاخهٔ بعدی)
   const p = plugins().ClassAlarms;
-  if (!p?.scheduleReminders) {
+  if (supportsExtensionReminders()) {
+    // بستر افزونه — ادامه می‌دهیم
+  } else if (!p?.scheduleReminders) {
     return { ok: false, error: 'پلاگین ClassAlarms در این دستگاه در دسترس نیست', code: 'no-plugin' };
   }
 
@@ -383,6 +393,42 @@ export async function scheduleClassReminders({
       scheduled: 0,
       message: 'هیچ کلاس یا یادآوری پیش‌رویی برای تنظیم یافت نشد.',
     };
+  }
+
+  // ── بستر افزونه: chrome.alarms + chrome.notifications (بدون اندروید) ──
+  if (supportsExtensionReminders()) {
+    const permOk = await ensureNotificationPermission();
+    if (!permOk) {
+      return { ok: false, error: 'مجوز اعلان داده نشد', code: 'no-permission' };
+    }
+    try {
+      const oldIdsRaw = localStorage.getItem(SCHEDULED_IDS_KEY);
+      if (oldIdsRaw) {
+        try {
+          const oldIds = JSON.parse(oldIdsRaw);
+          if (Array.isArray(oldIds) && oldIds.length) {
+            await cancelExtensionReminders(oldIds);
+          }
+        } catch {}
+      }
+      const res = await scheduleExtensionReminders(items);
+      if (!res?.ok) {
+        return { ok: false, error: res?.error || 'زمان‌بندی افزونه ناموفق بود' };
+      }
+      localStorage.setItem(SCHEDULED_IDS_KEY, JSON.stringify(res.ids || items.map((x) => x.id)));
+      const scheduledCount = res.scheduled ?? res.ids?.length ?? items.length;
+      return {
+        ok: true,
+        scheduled: scheduledCount,
+        count: items.length,
+        skipped: items.length - (scheduledCount || 0),
+        message: scheduledCount < items.length
+          ? `${scheduledCount} یادآور نزدیک (سقف افزونه) تنظیم شد`
+          : null,
+      };
+    } catch (e) {
+      return { ok: false, error: String(e?.message || e) };
+    }
   }
 
   try {
@@ -434,7 +480,9 @@ export async function cancelAllReminders() {
         oldIds.forEach((id) => cancelIds.add(id));
       }
     }
-    if (p?.cancelReminders) {
+    if (supportsExtensionReminders()) {
+      await cancelExtensionReminders(null); // در افزونه همهٔ زنگ‌های سروستان پاک می‌شوند
+    } else if (p?.cancelReminders) {
       await p.cancelReminders({ ids: Array.from(cancelIds) });
     }
     localStorage.removeItem(SCHEDULED_IDS_KEY);
@@ -572,13 +620,31 @@ export async function checkNotificationPermission() {
  * بررسی و درخواست مجوز نوتیفیکیشن
  */
 export async function requestNotificationPermission() {
-  const p = plugins().ClassAlarms;
-  if (!p?.requestNotificationPermission) return { granted: true };
-  try {
-    return await p.requestNotificationPermission();
-  } catch (e) {
-    return { granted: false, error: String(e?.message || e) };
+  // افزونه — مجوز واقعی از مرورگر (قبلاً بی‌سوال granted برمی‌گرداند و اعلان‌ها ساکت می‌میرند!)
+  if (supportsExtensionReminders()) {
+    return { granted: await ensureNotificationPermission() };
   }
+  const p = plugins().ClassAlarms;
+  if (p?.requestNotificationPermission) {
+    try {
+      return await p.requestNotificationPermission();
+    } catch (e) {
+      return { granted: false, error: String(e?.message || e) };
+    }
+  }
+  // وب — مجوز واقعی
+  if (typeof Notification !== 'undefined') {
+    try {
+      if (Notification.permission !== 'granted') {
+        const res = await Notification.requestPermission();
+        return { granted: res === 'granted' };
+      }
+      return { granted: true };
+    } catch (e) {
+      return { granted: false, error: String(e?.message || e) };
+    }
+  }
+  return { granted: true };
 }
 
 /**
@@ -623,6 +689,17 @@ export async function requestExactPermission() {
 export async function testClassNotification() {
   const p = plugins().ClassAlarms;
   if (!p?.testNotification) {
+    // افزونه — اعلان سیستم واقعی (chrome.notifications)
+    if (supportsExtensionReminders()) {
+      const permOk = await ensureNotificationPermission();
+      if (!permOk) return { ok: false, error: 'مجوز اعلان داده نشد' };
+      const res = await showExtensionNotification(
+        '🔔 آزمایش یادآور سروستان',
+        'اعلان‌ها و صدای زنگ یادآوری کلاس‌ها به‌درستی کار می‌کنند.'
+      );
+      if (res.ok) return res;
+      // اگر شکست خورد، به DOM Notification برمی‌گردیم
+    }
     if (typeof Notification !== 'undefined') {
       try {
         if (Notification.permission !== 'granted') {
@@ -952,6 +1029,25 @@ export function saveSamadReminderSettings(settings) {
  */
 export async function updateSamadReminder({ enabled, hour = 14, minute = 0 } = {}) {
   saveSamadReminderSettings({ enabled, hour, minute });
+
+  // بستر افزونه
+  if (supportsExtensionReminders()) {
+    if (!enabled) {
+      await cancelExtensionReminders([String(SAMAD_REMINDER_ID)]);
+      return { ok: true, enabled: false };
+    }
+    const permOk = await ensureNotificationPermission();
+    if (!permOk) return { ok: false, error: 'مجوز اعلان داده نشد' };
+    const item = buildSamadReminderItem(hour, minute);
+    const res = await scheduleExtensionReminders([item]);
+    return {
+      ok: Boolean(res?.ok),
+      enabled: Boolean(res?.ok),
+      triggerAtMs: item.triggerAtMs,
+      error: res?.error,
+    };
+  }
+
   const p = plugins().ClassAlarms;
   if (!p?.scheduleReminders) {
     return { ok: true, saved: true };
