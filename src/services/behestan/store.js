@@ -73,7 +73,8 @@ export function sanitizeFinance(fin) {
  * داده‌های باقی‌مانده از نسخه‌های قدیمی افزونه ممکن است آرایهٔ ساده باشند؛
  * اگر رها می‌شوند در رندر کرش می‌کنند (‌.find is not a function) — نرمال کن.
  */
-function asTermMap(raw) {
+/** شکل استاندارد MAP ترم‌محور + نرمال‌سازی آرایه‌های قدیمی — پل افزونه هم استفاده می‌کند */
+export function asTermMap(raw) {
   if (raw && !Array.isArray(raw) && typeof raw === 'object') return raw;
   if (Array.isArray(raw)) {
     const map = {};
@@ -87,8 +88,7 @@ function asTermMap(raw) {
   return {};
 }
 
-function buildCacheFromStorage() {
-  const schedule = asTermMap(read(KEYS.SCHEDULE, {}));
+function buildCacheFromStorage() {  const schedule = asTermMap(read(KEYS.SCHEDULE, {}));
   const exams = asTermMap(read(KEYS.EXAMS, {}));
   return {
     profile: read(KEYS.PROFILE, null),

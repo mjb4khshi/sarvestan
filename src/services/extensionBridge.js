@@ -2,7 +2,13 @@
  * Extension Bridge for Sarvestan 2.0 (Chrome Extension / Overlay)
  * Handles communication between Behestan/Golestan content script, background, and the React App
  */
-import { notifyStoreChange } from './behestan/store';
+import {
+  notifyStoreChange,
+  getSnapshot,
+  setScheduleForTerm,
+  setExamsForTerm,
+  asTermMap,
+} from './behestan/store';
 import { applyManualSession, getSelectedUniversity, getUniversityOrigin } from './behestan/session';
 
 const STORAGE_KEYS = {
@@ -154,6 +160,37 @@ async function runCheckExtensionSync() {
   });
 }
 
+/**
+ * ورود دادهٔ ترم‌محور (schedule/exams) از بستر افزونه با همان منطق اندروید:
+ * به‌جای بازنویسی خام، از موتور استور عبور می‌کند تا ویرایش‌های دستی کاربر
+ * (درس حذف‌شده، استاد/واحد ویرایش‌شده، درس اضافه‌شدهٔ دستی) روی سنک زنده حفظ شود.
+ * خروجی: آیا تغییری اعمال شد؟
+ */
+function applyTermWise(kind, incoming) {
+  if (!incoming) return false;
+  const map = asTermMap(typeof incoming === 'string' ? safeParse(incoming) : incoming);
+  let changedAny = false;
+  const snap = getSnapshot();
+  const currentMap = kind === 'schedule' ? (snap?.schedule || {}) : (snap?.exams || {});
+  for (const [termId, list] of Object.entries(map)) {
+    if (!Array.isArray(list)) continue;
+    const cur = Array.isArray(currentMap[termId]) ? currentMap[termId] : [];
+    if (JSON.stringify(cur) === JSON.stringify(list)) continue; // بی‌تغییر
+    if (kind === 'schedule') setScheduleForTerm(String(termId), list);
+    else setExamsForTerm(String(termId), list);
+    changedAny = true;
+  }
+  return changedAny;
+}
+
+function safeParse(v) {
+  try {
+    return JSON.parse(v);
+  } catch {
+    return null;
+  }
+}
+
 async function syncFromChromeStorage() {
   if (typeof chrome === 'undefined' || !chrome.storage?.local) return false;
   return new Promise((resolve) => {
@@ -167,12 +204,25 @@ async function syncFromChromeStorage() {
       let hasValidProfile = false;
 
       Object.entries(STORAGE_KEYS).forEach(([_, key]) => {
+        // schedule/exams با موتور merge استور اعمال می‌شوند (پایین‌تر) — نه بازنویسی خام
+        if (key === STORAGE_KEYS.schedule || key === STORAGE_KEYS.exams) return;
         if (all[key] !== undefined) {
           const val = typeof all[key] === 'string' ? all[key] : JSON.stringify(all[key]);
+          if (localStorage.getItem(key) === val) return; // بی‌تغییر
           localStorage.setItem(key, val);
           changed = true;
         }
       });
+
+      // برنامه و امتحانات: از مسیر استاندارد استور (حفظ ادیت‌ها مثل اندروید)
+      const scheduleVal = all[STORAGE_KEYS.schedule];
+      if (scheduleVal !== undefined) {
+        if (applyTermWise('schedule', scheduleVal)) changed = true;
+      }
+      const examsVal = all[STORAGE_KEYS.exams];
+      if (examsVal !== undefined) {
+        if (applyTermWise('exams', examsVal)) changed = true;
+      }
 
       const prof = all[STORAGE_KEYS.profile];
       if (prof) {
@@ -297,6 +347,20 @@ export function initExtensionBridge() {
               university: resolveActiveUniversity(merged),
               isLoggedIn: true,
             });
+          } else if (dataType === 'schedule' || dataType === 'schedule_enrich') {
+            // از موتور merge استور — حفظ ادیت‌ها مثل اندروید
+            // شکل ۱: { termId, courses } — شکل ۲: MAP { termId: [...] }
+            const termShape = payload?.termId ? { [payload.termId]: payload.courses || [] } : null;
+            const mapShape = (!termShape && payload && typeof payload === 'object' && !Array.isArray(payload.courses))
+              ? payload
+              : null;
+            if (termShape || mapShape) applyTermWise('schedule', termShape || mapShape);
+          } else if (dataType === 'exams') {
+            const termShape = payload?.termId ? { [payload.termId]: payload.exams || [] } : null;
+            const mapShape = (!termShape && payload && typeof payload === 'object' && !Array.isArray(payload.exams))
+              ? payload
+              : null;
+            if (termShape || mapShape) applyTermWise('exams', termShape || mapShape);
           } else {
             const json = JSON.stringify(payload);
             if (localStorage.getItem(key) === json) return; // بی‌تغییر — بدون ریرندر
@@ -311,12 +375,21 @@ export function initExtensionBridge() {
   // ۳. شنود تغییرات زنده chrome.storage.onChanged برای تب‌های مستقل افزونه
   // مهم: هر رخداد → اگر مقدار واقعاً عوض نشده، نادیده گرفته می‌شود؛
   // وگرنه هر نوشتن تکراریِ چند تب = ریرندر کامل داشبورد = کندی شدید
+  // schedule/exams از موتور merge استور عبور می‌کنند — حفظ ادیت‌ها مثل اندروید
   if (typeof chrome !== 'undefined' && chrome.storage?.onChanged) {
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'local') return;
       let changed = false;
       for (const [key, change] of Object.entries(changes)) {
         if (key.startsWith('sarvestan_') && change.newValue !== undefined) {
+          if (key === STORAGE_KEYS.schedule) {
+            if (applyTermWise('schedule', change.newValue)) changed = true;
+            continue;
+          }
+          if (key === STORAGE_KEYS.exams) {
+            if (applyTermWise('exams', change.newValue)) changed = true;
+            continue;
+          }
           const val = typeof change.newValue === 'string' ? change.newValue : JSON.stringify(change.newValue);
           if (localStorage.getItem(key) === val) continue; // بی‌تغییر — هیچ اقدامی
           localStorage.setItem(key, val);
