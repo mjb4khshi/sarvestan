@@ -100,15 +100,23 @@ export async function checkExtensionSync() {
       }
 
       let found = false;
+      let responders = 0;
+      let staleTabs = 0;
       for (const tab of tabs) {
         if (!tab.id) continue;
         await new Promise((resTab) => {
           chrome.tabs.sendMessage(tab.id, { action: 'GET_BEHESTAN_DATA' }, (response) => {
-            if (response && response.isLoggedIn) {
+            if (chrome.runtime.lastError || !response) {
+              // محتوای این تب از نسخه قبلی/نامساز افزونه است — یک بار رفرش سامانه لازم است
+              staleTabs++;
+            } else if (response.isLoggedIn) {
+              responders++;
               found = true;
               if (response.university) {
                 localStorage.setItem('sarvestan_selected_university', response.university);
               }
+            } else {
+              responders++;
             }
             // تحریک فراخوانی سنک فعال گزارش‌ها در تب بهستان
             try {
@@ -121,7 +129,7 @@ export async function checkExtensionSync() {
 
       // خواندن مجدد تمامی داده‌ها از chrome.storage.local
       const synced = await syncFromChromeStorage();
-      resolve({ ok: found || synced });
+      resolve({ ok: found || synced, tabs: tabs.length, responders, staleTabs });
     });
   });
 }

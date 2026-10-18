@@ -1097,6 +1097,8 @@
   let hasSynced = false;
   let skipLogAt = 0;
   let userLoggedOut = false; // پس از لاگاوت صریح یا پایان نشست بهستان
+  let queueRunning = false; // جلوگیری از اجرای هم‌زمان دو صف سنک
+  let lastQueueRunAt = 0;   // آخرین بار که صف کامل فعال سنک اجرا شد
 
   // کش نشست از ترافیک واقعی (فقط تا زمانی که نشست واقعی باشد)
   const sessionCache = {
@@ -1372,6 +1374,7 @@
   function triggerProactiveSync() {
     if (userLoggedOut || isManualLogoutLocked()) return;
     if (hasSynced) return;
+    if (queueRunning) return;
 
     if (!isBehestanSessionAlive()) {
       // فقط اگر قفل لاگاوت دستی است کش را بسوزان؛ وگرنه کش ترافیک را نگه دار
@@ -1591,7 +1594,11 @@
       }
     }
 
-    runQueue();
+    queueRunning = true;
+    lastQueueRunAt = Date.now();
+    runQueue().catch(() => {}).finally(() => {
+      queueRunning = false;
+    });
   }
 
   // تلاش برای همگام‌سازی سریع و مجدد
@@ -1602,7 +1609,10 @@
     document.addEventListener('DOMContentLoaded', () => setTimeout(triggerProactiveSync, 1000));
   }
 
-  // هر ۱۰ دقیقه فقط اگر نشست زنده باشد — نه هر ۳۰ ثانیه
+  // خودهال‌سازی (self-heal): هر ۶۰ ثانیه—if نشست زنده و صف بیکار است و آخرین سنک
+  // کامل بیش از ۵ دقیقه پیش بوده، یک سنک کامل آرام دیگر اجرا کن.
+  // این باعث می‌شود اگر سنک اولیه قبل از آماده‌شدن کامل نشست ناقص مانده باشد،
+  // به‌محض بازگشت به تب سامانه، داده‌ها خودکار کامل شوند.
   setInterval(() => {
     if (userLoggedOut) return;
     if (!isBehestanSessionAlive()) {
@@ -1612,9 +1622,24 @@
       }
       return;
     }
-    // فقط اگر قبلاً همگام شده و نشست هنوز هست، دوباره (آرام) اجرا نکن
-    // FORCE_SYNC دستی کافی است؛ تایمر فقط بررسی سلامت نشست
-  }, 600000);
+    if (queueRunning) return;
+    if (Date.now() - lastQueueRunAt < 300000) return;
+    console.log('[Sarvestan] self-heal — re-running paced sync (interval)');
+    hasSynced = false;
+    triggerProactiveSync();
+  }, 60000);
+
+  // اگر کاربر به تب سامانه برمی‌گردد، بررسی کن آیا سنک تازه لازم است
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    if (userLoggedOut || isManualLogoutLocked()) return;
+    if (!isBehestanSessionAlive()) return;
+    if (queueRunning) return;
+    if (Date.now() - lastQueueRunAt < 60000) return;
+    console.log('[Sarvestan] tab visible — re-running paced sync');
+    hasSynced = false;
+    triggerProactiveSync();
+  });
 
   // API اجباری برای داشبورد (ریست + سنک دوباره) — فقط اگر نشست زنده باشد
   window.__SARVESTAN_FORCE_SYNC__ = function() {

@@ -48,10 +48,17 @@ export default function ExtensionConnectGate() {
       const res = await checkExtensionSync();
       if (res?.ok) {
         setMessage({ type: 'success', text: 'نشست فعال شناسایی شد — داده‌ها در حال بارگیری هستند…' });
+      } else if (Number(res?.staleTabs) > 0 || Number(res?.responders) === 0) {
+        setMessage({
+          type: 'warn',
+          text: 'تب سامانه باز است ولی اسکریپت افزونه در آن فعال نشده — یک بار صفحهٔ سامانه دانشگاه را رفرش (F5) کن و دوباره بررسی کن.',
+        });
+      } else if (Number(res?.tabs) > 0) {
+        setMessage({ type: 'warn', text: 'در تب سامانه وارد نشده‌ای — از دکمهٔ «ورود به سامانه» لاگین کن و بعد «بررسی اتصال» را بزن.' });
       } else {
         setMessage({
           type: 'warn',
-          text: 'نشست فعالی پیدا نشد. در تب سامانه دانشگاه وارد شوید و دوباره بررسی کنید.',
+          text: 'هیچ تب سامانه‌ای باز نیست. ابتدا وارد سامانه دانشگاه شو؛ سپس این صفحه به‌طور خودکار داده را می‌خواند.',
         });
       }
     } catch (e) {
