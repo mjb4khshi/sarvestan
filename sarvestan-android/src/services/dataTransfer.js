@@ -18,6 +18,18 @@ const STORAGE_KEYS = [
   'sarvestan_selected_university',
   'sarvestan_auth_status',
   'sarvestan_theme',
+  'sarvestan_local_notes',
+  'sarvestan_schedule_customized',
+  'sarvestan_schedule_deleted_courses',
+  'sarvestan_schedule_deleted_exams',
+  'sarvestan_raw_behestan_schedule',
+  'sarvestan_raw_behestan_exams',
+  'sarvestan_bat_mode',
+  'sarv_schedule_subview',
+  'sarv_matrix_transposed',
+  'sarv_study_sound_v1',
+  'sarv_study_wakelock_v1',
+  'sarvestan_dnd_during_class',
 ];
 
 const PROTOCOL_HEADER = 'SRV1';
@@ -243,7 +255,7 @@ export async function applyBundleToStorage(bundle) {
   let itemsApplied = 0;
 
   for (const [key, value] of Object.entries(data)) {
-    if (!STORAGE_KEYS.includes(key) && !key.startsWith('sarvestan_')) continue;
+    if (!STORAGE_KEYS.includes(key) && !key.startsWith('sarvestan_') && !key.startsWith('sarv_')) continue;
     try {
       const valStr = typeof value === 'string' ? value : JSON.stringify(value);
       localStorage.setItem(key, valStr);

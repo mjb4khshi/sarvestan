@@ -4,6 +4,7 @@ import { useSarvestanData } from '../hooks/useSarvestanData';
 import { resetSyncState } from '../services/behestan/sync';
 import { openLoginModal, isLoginModalOpen } from '../services/loginFlow';
 import { getSelectedUniversity, setSelectedUniversity } from '../services/behestan/session';
+import { canSync } from '../services/behestan/client';
 import { toFaDigits, formatLastSync, getLastSyncTimestamp } from '../utils/faDigits';
 import { isExtensionRuntime } from '../services/extensionRuntime';
 import { getStorageInventory, checkExtensionSync } from '../services/extensionBridge';
@@ -30,14 +31,15 @@ export default function SessionPanel() {
   const lastSyncTime = getLastSyncTimestamp(syncMeta);
   const lastSyncFormatted = formatLastSync(lastSyncTime);
 
+  const hasActiveSession = canSync();
   const statusLabel = live
-    ? 'متصل — دادهٔ زنده'
+    ? (hasActiveSession ? 'متصل — دادهٔ زنده' : 'داده آفلاین (آماده سنک)')
     : isSessionAlive
       ? 'نشست ثبت شده؛ دیتا نیامده'
       : 'بدون اتصال';
 
   const statusTone = live
-    ? 'bg-success-soft text-success border-success-soft'
+    ? (hasActiveSession ? 'bg-success-soft text-success border-success-soft' : 'bg-primary-soft text-primary border-primary-soft')
     : isSessionAlive
       ? 'bg-warn-soft text-warn border-warn-soft'
       : 'bg-base-500/40 text-neutral border-base-500/60';
@@ -94,7 +96,7 @@ export default function SessionPanel() {
         </div>
       )}
 
-      {(!live || /نشست|50216|پایان رسیده/i.test(String(syncMeta?.error || ''))) && (
+      {(!live || !hasActiveSession || /نشست|50216|پایان رسیده/i.test(String(syncMeta?.error || ''))) && (
         <button
           type="button"
           onClick={() => {
@@ -123,12 +125,23 @@ export default function SessionPanel() {
               resetSyncState();
               return;
             }
-            await sync(true);
+            if (!canSync() && !isExtensionRuntime()) {
+              const curUni = session?.university || getSelectedUniversity();
+              if (curUni) setSelectedUniversity(curUni);
+              openLoginModal();
+              return;
+            }
+            const res = await sync(true);
+            if (res?.reason === 'no-session' || res?.reason === 'no-tabs') {
+              const curUni = session?.university || getSelectedUniversity();
+              if (curUni) setSelectedUniversity(curUni);
+              openLoginModal();
+            }
           }}
           className="btn btn-soft-primary flex-1 min-w-[110px] text-[12px]"
         >
           <RefreshCw className={`w-3.5 h-3.5 ml-1 ${syncing ? 'animate-spin' : ''}`} />
-          {syncing ? 'در حال همگام‌سازی…' : 'همگام‌سازی'}
+          {syncing ? 'در حال ورود و همگام‌سازی…' : 'ورود و همگام‌سازی'}
         </button>
 
         {isSessionAlive && (
