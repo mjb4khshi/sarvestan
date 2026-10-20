@@ -43,6 +43,7 @@ function LinkedinIcon({ className = "w-4 h-4" }) {
 
 // لینک دانلود آخرین فایل APK در ریلیزهای گیت‌هاب
 const LATEST_APK_URL = 'https://github.com/mjb4khshi/sarvestan/releases/latest/download/sarvestan.apk';
+const LATEST_EXTENSION_URL = 'https://github.com/mjb4khshi/sarvestan/releases/latest/download/sarvestan-extension.zip';
 const RELEASES_URL = 'https://github.com/mjb4khshi/sarvestan/releases/latest';
 
 // اعضای شورای هماهنگی سروستان
@@ -590,7 +591,7 @@ export default function LandingPage() {
 
               <div className="space-y-2 pt-2">
                 <a
-                  href="./sarvestan-extension.zip"
+                  href={LATEST_EXTENSION_URL}
                   download
                   className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition active:scale-95"
                 >

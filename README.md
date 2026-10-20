@@ -11,7 +11,7 @@
 
 [![Website Showcase](https://img.shields.io/badge/Website-Showcase%20%26%20Landing-10b981?style=for-the-badge&logo=googlechrome&logoColor=white)](https://mjb4khshi.github.io/sarvestan/)
 [![Download Android APK](https://img.shields.io/badge/Download-Android%20APK%20(v2.1)-0284c7?style=for-the-badge&logo=android&logoColor=white)](https://github.com/mjb4khshi/sarvestan/releases/latest/download/sarvestan.apk)
-[![Download Chrome Extension](https://img.shields.io/badge/Download-Chrome%20Extension%20(ZIP)-6366f1?style=for-the-badge&logo=googlechrome&logoColor=white)](https://mjb4khshi.github.io/sarvestan/sarvestan-extension.zip)
+[![Download Chrome Extension](https://img.shields.io/badge/Download-Chrome%20Extension%20(ZIP)-6366f1?style=for-the-badge&logo=googlechrome&logoColor=white)](https://github.com/mjb4khshi/sarvestan/releases/latest/download/sarvestan-extension.zip)
 [![Web App PWA](https://img.shields.io/badge/Web%20App-PWA%20Online-0f172a?style=for-the-badge&logo=pwa&logoColor=white)](https://mjb4khshi.github.io/sarvestan/?web=1)
 [![GitHub Releases](https://img.shields.io/badge/Releases-v2.1.0%20Tehran-22c55e?style=for-the-badge&logo=github&logoColor=white)](https://github.com/mjb4khshi/sarvestan/releases/latest)
 
@@ -96,7 +96,7 @@
 3. با انتخاب دانشگاه خود وارد شوید و از تجربه آفلاین و ابزارک‌های صفحه اصلی استفاده فرمایید.
 
 ### ۲. نصب افزونه مرورگر دسکتاپ (رومیزی)
-1. بسته فشرده افزونه را از **[دانلود مستقیم افزونه](https://mjb4khshi.github.io/sarvestan/sarvestan-extension.zip)** دریافت کنید.
+1. بسته فشرده افزونه را از **[دانلود مستقیم افزونه](https://github.com/mjb4khshi/sarvestan/releases/latest/download/sarvestan-extension.zip)** دریافت کنید.
 2. فایل فشرده `sarvestan-extension.zip` را در یک پوشه ثابت روی رایانه خود Extract نمایید.
 3. در مرورگر خود (Chrome یا Edge) وارد صفحه مدیریت افزونه‌ها شوید (`chrome://extensions` یا `edge://extensions`).
 4. گزینه حالت توسعه‌دهنده (**Developer mode**) را در بالای صفحه فعال کنید.

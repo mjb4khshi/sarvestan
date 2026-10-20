@@ -43,7 +43,7 @@ export default function ExtensionArchiveGuide() {
                 <span>پکیج‌های ریلیز گیت‌هاب</span>
               </a>
               <a
-                href="./sarvestan-extension.zip"
+                href="https://github.com/mjb4khshi/sarvestan/releases/latest/download/sarvestan-extension.zip"
                 download
                 className="px-3 py-1.5 rounded-xl bg-primary text-primary-content text-xs font-bold hover:bg-primary/90 flex items-center gap-1.5 shadow-sm transition-all"
               >

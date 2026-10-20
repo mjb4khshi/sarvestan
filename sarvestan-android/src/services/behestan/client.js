@@ -155,7 +155,7 @@ export async function fetchRegistration88(term = null) {
   if (meta) {
     mergeProfile({
       auwId: meta.auwId || undefined,
-      // شناسهٔ AUW همان شمارهٔ دانشجویی بهستان است (مثل 40123456) — جایگزین کد ملی (نام کاربری SSO)
+      // شناسهٔ AUW همان شمارهٔ دانشجویی بهستان است — جایگزین کد ملی (نام کاربری SSO)
       studentId: meta.auwId || undefined,
       fullName: meta.fullName || undefined,
       faculty: meta.faculty || undefined,
