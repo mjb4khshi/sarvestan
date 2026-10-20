@@ -195,33 +195,38 @@ function DataTransferCard({ onOpenExport, onOpenScanner }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      {/* ردیف اول: انتقال دوطرفه با QR و دوربین (کنار هم، بدون گرادینت) */}
+      <div className="grid grid-cols-2 gap-2">
         <button
           type="button"
           onClick={onOpenExport}
-          className="p-3 rounded-2xl bg-gradient-to-r from-primary to-emerald-600 hover:from-primary/90 hover:to-emerald-700 text-primary-content text-xs font-bold flex items-center justify-between shadow-md shadow-primary/20 transition-all cursor-pointer"
+          className="p-3 rounded-2xl bg-primary hover:bg-primary/90 text-primary-content text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98] cursor-pointer"
         >
-          <div className="flex items-center gap-2">
-            <QrCode className="w-4 h-4" />
-            <span>انتقال با QR متحرک</span>
-          </div>
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/20">آیفون/وب</span>
+          <QrCode className="w-4 h-4 shrink-0" />
+          <span>انتقال با QR</span>
         </button>
 
         <button
           type="button"
-          onClick={handleFastJsonDownload}
-          className="p-3 rounded-2xl bg-base-500/20 hover:bg-base-500/35 border border-base-500/30 text-base-content text-xs font-bold flex items-center justify-between transition-all cursor-pointer"
+          onClick={onOpenScanner}
+          className="p-3 rounded-2xl bg-primary-soft hover:bg-primary-soft/80 border border-primary/30 text-primary text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
         >
-          <div className="flex items-center gap-2">
-            <Download className="w-4 h-4 text-primary" />
-            <span>دانلود فایل پشتیبان</span>
-          </div>
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-base-500/30 text-neutral font-mono">.json</span>
+          <Camera className="w-4 h-4 shrink-0" />
+          <span>اسکن با دوربین</span>
         </button>
       </div>
 
-      <div className="flex items-center gap-2 pt-1">
+      {/* ردیف دوم: فایل پشتیبان JSON */}
+      <div className="grid grid-cols-2 gap-2 pt-0.5">
+        <button
+          type="button"
+          onClick={handleFastJsonDownload}
+          className="py-2.5 px-3 rounded-xl bg-base-500/15 hover:bg-base-500/25 border border-base-500/30 text-neutral hover:text-base-content text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+        >
+          <Download className="w-3.5 h-3.5 text-primary shrink-0" />
+          <span>دانلود فایل (JSON)</span>
+        </button>
+
         <input
           ref={fileInputRef}
           type="file"
@@ -233,20 +238,10 @@ function DataTransferCard({ onOpenExport, onOpenScanner }) {
           type="button"
           disabled={importing}
           onClick={() => fileInputRef.current?.click()}
-          className="flex-1 py-2 px-3 rounded-xl bg-base-500/15 hover:bg-base-500/25 border border-base-500/30 text-neutral hover:text-base-content text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+          className="py-2.5 px-3 rounded-xl bg-base-500/15 hover:bg-base-500/25 border border-base-500/30 text-neutral hover:text-base-content text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
         >
-          <Upload className="w-3.5 h-3.5 text-primary" />
-          <span>{importing ? 'در حال بازیابی...' : 'بازیابی از فایل JSON'}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={onOpenScanner}
-          className="py-2 px-3 rounded-xl bg-base-500/15 hover:bg-base-500/25 border border-base-500/30 text-neutral hover:text-base-content text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-          title="اسکن با دوربین"
-        >
-          <Camera className="w-3.5 h-3.5 text-primary" />
-          <span>اسکن دوربین</span>
+          <Upload className="w-3.5 h-3.5 text-primary shrink-0" />
+          <span>{importing ? 'در حال بازیابی...' : 'بازیابی فایل (JSON)'}</span>
         </button>
       </div>
     </div>
