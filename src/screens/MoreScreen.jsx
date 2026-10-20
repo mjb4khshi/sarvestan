@@ -1,3 +1,5 @@
+import { getAnimationLevel, setAnimationLevel, ANIMATION_LEVELS } from '../services/animationSettings';
+import { checkBatteryOptimization, requestIgnoreBatteryOptimization } from '../services/classAlarms';
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,6 +23,7 @@ import {
   Check,
   Heart,
   Sparkles,
+  Zap,
   Image as ImageIcon,
   CalendarDays,
   TrendingUp,
@@ -1113,7 +1116,67 @@ export default function MoreScreen({
       <section className="space-y-1.5">
         <h3 className="text-[12.5px] font-bold text-neutral px-1">شخصی‌سازی ظاهر</h3>
         <div className="sarv-card overflow-hidden divide-y divide-base-500/30">
-          {/* چیدمان و ویجت‌های داشبورد */}
+                    {/* تنظیم سطح انیمیشن و صرفه‌جویی باتری */}
+          <div className="p-3.5 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className={`w-9 h-9 rounded-xl grid place-items-center shrink-0 transition-colors ${
+                  animLevel === 0 ? 'bg-success-soft text-success' : animLevel === 1 ? 'bg-primary-soft text-primary' : 'bg-secondary-soft text-secondary'
+                }`}>
+                  <Zap className="w-4.5 h-4.5" />
+                </span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-[13.5px] font-bold text-base-content">میزان انیمیشن و مصرف باتری</p>
+                    <span className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded-full ${activeAnimMeta.badgeColor}`}>
+                      {activeAnimMeta.badge}
+                    </span>
+                  </div>
+                  <p className="text-[10.5px] text-neutral mt-0.5">
+                    {activeAnimMeta.subtitle}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* اسلایدر ۳ حالته */}
+            <div className="pt-1 px-1 space-y-2">
+              <input
+                type="range"
+                min="0"
+                max="2"
+                step="1"
+                value={animLevel}
+                onChange={(e) => handleAnimChange(Number(e.target.value))}
+                className="w-full accent-primary cursor-pointer h-2 bg-base-500/25 rounded-lg appearance-none"
+              />
+              <div className="flex justify-between items-center text-[11px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => handleAnimChange(0)}
+                  className={`transition-colors cursor-pointer ${animLevel === 0 ? 'text-success font-black' : 'text-neutral hover:text-base-content'}`}
+                >
+                  صرفه‌جویی باتری
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAnimChange(1)}
+                  className={`transition-colors cursor-pointer ${animLevel === 1 ? 'text-primary font-black' : 'text-neutral hover:text-base-content'}`}
+                >
+                  متوازن
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAnimChange(2)}
+                  className={`transition-colors cursor-pointer ${animLevel === 2 ? 'text-secondary font-black' : 'text-neutral hover:text-base-content'}`}
+                >
+                  انیمیشن کامل
+                </button>
+              </div>
+            </div>
+          </div>
+
+{/* چیدمان و ویجت‌های داشبورد */}
           <button
             type="button"
             onClick={() => setDashboardModalOpen(true)}
@@ -1302,7 +1365,52 @@ export default function MoreScreen({
             />
           </div>
 
-          {/* باز کردن مودال تنظیمات اعلان‌ها و آلارم کلاس‌ها */}
+                    {/* وضعیت بهینه‌سازی باتری (رفع تاخیر اعلان‌ها در خواب صفحه) */}
+          {isNativeAlarms() && (
+            <div className="p-3.5 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className={`w-9 h-9 rounded-xl grid place-items-center shrink-0 ${
+                  batteryOptimized ? 'bg-warn-soft text-warn' : 'bg-success-soft text-success'
+                }`}>
+                  <Zap className="w-4.5 h-4.5" />
+                </span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="text-[13px] font-bold text-base-content">
+                      دریافت بلادرنگ اعلان‌ها در خواب صفحه
+                    </p>
+                    <span className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded-full ${
+                      batteryOptimized ? 'bg-warn-soft text-warn' : 'bg-success-soft text-success'
+                    }`}>
+                      {batteryOptimized ? 'بهینه‌سازی باتری فعال است' : 'بدون محدودیت'}
+                    </span>
+                  </div>
+                  <p className="text-[10.5px] text-neutral mt-0.5 truncate">
+                    {batteryOptimized
+                      ? 'برای پیشگیری از تاخیر اعلان‌ها در پس‌زمینه، حالت بدون محدودیت را فعال کنید'
+                      : 'برنامه معاف از بهینه‌سازی باتری است و اعلان‌ها آنی ارسال می‌شوند'}
+                  </p>
+                </div>
+              </div>
+
+              {batteryOptimized ? (
+                <button
+                  type="button"
+                  onClick={handleRequestBatteryExemption}
+                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-warn text-white shadow-xs hover:bg-warn/90 active:scale-95 transition cursor-pointer shrink-0"
+                >
+                  تنظیم خودکار
+                </button>
+              ) : (
+                <span className="text-[11px] font-bold text-success flex items-center gap-1 shrink-0">
+                  <Check className="w-3.5 h-3.5" />
+                  فعال
+                </span>
+              )}
+            </div>
+          )}
+
+{/* باز کردن مودال تنظیمات اعلان‌ها و آلارم کلاس‌ها */}
           <button
             type="button"
             onClick={() => setAlarmModalOpen(true)}

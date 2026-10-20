@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
+import android.os.PowerManager;
 import android.provider.AlarmClock;
 
 import com.getcapacitor.JSArray;
@@ -124,6 +125,7 @@ public class SarvestanClassAlarmPlugin extends Plugin {
 
     private PendingIntent reminderPi(Context ctx, int id, String title, String body, String url, String dndMode) {
         Intent i = new Intent(ctx, ClassReminderReceiver.class);
+        i.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         i.putExtra(ClassReminderReceiver.EXTRA_TITLE, title);
         i.putExtra(ClassReminderReceiver.EXTRA_BODY, body);
         i.putExtra(ClassReminderReceiver.EXTRA_NOTIF_ID, id);
@@ -468,6 +470,44 @@ public class SarvestanClassAlarmPlugin extends Plugin {
         } catch (Exception e) {
             call.reject("خطا در باز کردن تنظیمات: " + e.getMessage());
         }
+    }
+
+    /** بررسی معافیت از بهینه‌سازی باتری برای دریافت بلادرنگ اعلان‌ها */
+    @PluginMethod
+    public void checkBatteryOptimization(PluginCall call) {
+        Context ctx = getContext();
+        boolean ignoring = true;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PowerManager pm = (PowerManager) ctx.getSystemService(Context.POWER_SERVICE);
+            ignoring = pm != null && pm.isIgnoringBatteryOptimizations(ctx.getPackageName());
+        }
+        JSObject ret = new JSObject();
+        ret.put("ignoring", ignoring);
+        call.resolve(ret);
+    }
+
+    /** هدایت یا نمایش دیالوگ سیستمی لغو بهینه‌سازی باتری (Unrestricted) */
+    @PluginMethod
+    public void requestIgnoreBatteryOptimization(PluginCall call) {
+        Context ctx = getContext();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                Intent intent = new Intent();
+                intent.setAction(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                intent.setData(Uri.parse("package:" + ctx.getPackageName()));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                ctx.startActivity(intent);
+            } catch (Exception e) {
+                try {
+                    Intent intent = new Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    ctx.startActivity(intent);
+                } catch (Exception ignored) {}
+            }
+        }
+        JSObject ret = new JSObject();
+        ret.put("ok", true);
+        call.resolve(ret);
     }
 
     /** بررسی مجوز حالت مزاحم نشوید (Do Not Disturb / Zen Mode) */

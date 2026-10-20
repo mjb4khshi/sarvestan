@@ -618,6 +618,32 @@ export async function requestExactPermission() {
 }
 
 /**
+ * بررسی معافیت از بهینه‌سازی باتری (جهت تضمین دریافت آنی اعلان‌ها)
+ */
+export async function checkBatteryOptimization() {
+  const p = plugins().ClassAlarms;
+  if (!p?.checkBatteryOptimization) return { ignoring: true };
+  try {
+    return await p.checkBatteryOptimization();
+  } catch {
+    return { ignoring: true };
+  }
+}
+
+/**
+ * درخواست از کاربر برای قرار دادن برنامه در حالت بدون محدودیت باتری (Unrestricted)
+ */
+export async function requestIgnoreBatteryOptimization() {
+  const p = plugins().ClassAlarms;
+  if (!p?.requestIgnoreBatteryOptimization) return { ok: false };
+  try {
+    return await p.requestIgnoreBatteryOptimization();
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
+
+/**
  * ارسال یک اعلان تستی زنده به گوشی برای راستی‌آزمایی صدا و مجوزها
  */
 export async function testClassNotification() {

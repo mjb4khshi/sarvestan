@@ -210,6 +210,20 @@
     min-height: 100dvh;
   }
 
+  /* بهینه‌سازی دسکتاپ — همان کلیت لی‌اوت، فقط عرض هوشمندتر (بدون تغییر استایل) */
+  @media (min-width: 768px) {
+    .mobile-shell { width: min(100%, 560px); }
+  }
+  /* دسکتاپ با سایدبار: شل به‌صورت آیتم فِلکس فضای باقی را می‌گیرد — بدون سرریز و فشرده‌شدگی */
+  @media (min-width: 1024px) {
+    .mobile-shell {
+      width: auto;
+      flex: 1 1 auto;
+      min-width: 0;
+      max-width: 1080px;
+    }
+  }
+
   .mobile-pad-bottom {
     padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
   }
@@ -411,4 +425,19 @@
   .checkbox-warn { color: var(--theme-color-warn) !important; }
   .checkbox-danger { color: var(--theme-color-danger) !important; }
   .checkbox-info { color: var(--theme-color-info) !important; }
+}
+
+
+/* کنترل سطح انیمیشن و صرفه‌جویی باتری (۰: حداقل انیمیشن، ۱: متوازن، ۲: کامل) */
+html[data-anim-level="0"] *,
+html[data-anim-level="0"] *::before,
+html[data-anim-level="0"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+html[data-anim-level="1"] {
+  --anim-transition-duration: 150ms;
 }

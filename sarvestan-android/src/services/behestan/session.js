@@ -99,8 +99,31 @@ export function updateTicket(newTicket) {
   }
 }
 
+export function getAssetUrl(path) {
+  if (!path) return '';
+  if (path.startsWith('data:') || path.startsWith('http:') || path.startsWith('https:')) return path;
+  const clean = path.replace(/^\.?\//, '');
+  if (typeof chrome !== 'undefined' && chrome.runtime?.getURL) {
+    try {
+      return chrome.runtime.getURL(clean);
+    } catch {}
+  }
+  return './' + clean;
+}
+
+export function getUniversityLogo(uniId) {
+  const uni = UNIVERSITIES.find((u) => u.id === uniId) || UNIVERSITIES[0];
+  return getAssetUrl(uni.logo);
+}
+
 export function getStudentId() {
-  return loadManual()?.studentId || null;
+  const manual = loadManual()?.studentId;
+  if (manual && manual !== 'ـ') return manual;
+  try {
+    const prof = JSON.parse(localStorage.getItem('sarvestan_live_profile') || 'null');
+    if (prof?.studentId && prof.studentId !== 'ـ') return prof.studentId;
+  } catch {}
+  return null;
 }
 
 export function getUserId() {
@@ -120,18 +143,29 @@ export function invalidateSession() {
 export function isSessionAlive() {
   const m = loadManual();
   if (m?.expired) return false;
+  if (m?.isLoggedIn) return true;
   const sid = getSid();
   const t = getTicket();
-  return Boolean(sid && t && String(t).length > 10);
+  if (Boolean(sid && t && String(t).length > 10)) return true;
+  try {
+    const auth = JSON.parse(localStorage.getItem('sarvestan_auth_status') || 'null');
+    if (auth?.loggedIn) return true;
+    const prof = JSON.parse(localStorage.getItem('sarvestan_live_profile') || 'null');
+    if (prof?.isLoggedIn || (prof?.studentId && prof.studentId !== 'ـ')) return true;
+  } catch {}
+  return false;
 }
 
 export function getSessionSnapshot() {
+  const m = loadManual() || {};
+  let prof = null;
+  try { prof = JSON.parse(localStorage.getItem('sarvestan_live_profile') || 'null'); } catch {}
   return {
     sid: getSid(),
     ticket: getTicket(),
-    studentId: getStudentId(),
+    studentId: getStudentId() || prof?.studentId || null,
     userId: getUserId(),
-    cookies: loadManual()?.cookies || null,
+    cookies: m?.cookies || null,
     university: getSelectedUniversity(),
     alive: isSessionAlive(),
   };
@@ -144,7 +178,7 @@ export const UNIVERSITIES = [
     shortName: 'خواجه نصیر',
     origin: 'https://behestan.kntu.ac.ir',
     authMethod: 'sso',
-    logo: '/kntu-logo.svg',
+    logo: getAssetUrl('kntu-logo.svg'),
     systemName: 'سامانه بهستان',
   },
   {
@@ -153,7 +187,7 @@ export const UNIVERSITIES = [
     shortName: 'امیرکبیر',
     origin: 'https://portal.aut.ac.ir',
     authMethod: 'sso',
-    logo: '/aut-logo.png',
+    logo: getAssetUrl('aut-logo.png'),
     systemName: 'سامانه بهستان امیرکبیر',
   },
   {
@@ -162,7 +196,7 @@ export const UNIVERSITIES = [
     shortName: 'شهید بهشتی',
     origin: 'https://ems.sbu.ac.ir',
     authMethod: 'direct_captcha',
-    logo: '/sbu-logo.svg',
+    logo: getAssetUrl('sbu-logo.svg'),
     systemName: 'سامانه آموزشی بهستان',
   },
   {
@@ -171,7 +205,7 @@ export const UNIVERSITIES = [
     shortName: 'دانشگاه تهران',
     origin: 'https://ems2.ut.ac.ir',
     authMethod: 'sso',
-    logo: '/ut-logo.svg',
+    logo: getAssetUrl('ut-logo.svg'),
     systemName: 'سامانه گلستان / بهستان ۲',
   },
   {
@@ -180,7 +214,7 @@ export const UNIVERSITIES = [
     shortName: 'علم و صنعت',
     origin: 'https://golestan.iust.ac.ir',
     authMethod: 'direct_captcha',
-    logo: '/iust-logo.png',
+    logo: getAssetUrl('iust-logo.png'),
     systemName: 'سامانه گلستان (به‌زودی)',
     disabled: true,
   },

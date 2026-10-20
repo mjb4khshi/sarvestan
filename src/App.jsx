@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, MotionConfig } from 'framer-motion';
+import { getAnimationLevel } from './services/animationSettings';
 import { ThemeProvider } from './context/ThemeContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import DataBootstrap from './components/DataBootstrap';
@@ -97,6 +98,16 @@ function SsoCallbackBridge() {
 }
 
 function Shell() {
+  const [animLevel, setAnimLevel] = useState(getAnimationLevel);
+
+  useEffect(() => {
+    const handleAnimChange = (e) => {
+      setAnimLevel(e.detail?.level ?? getAnimationLevel());
+    };
+    window.addEventListener('sarvestanAnimationLevelChanged', handleAnimChange);
+    return () => window.removeEventListener('sarvestanAnimationLevelChanged', handleAnimChange);
+  }, []);
+
   const [tab, setTab] = useState('home');
   const [scheduleDefaultView, setScheduleDefaultView] = useState('cards');
   const [chartModalOpen, setChartModalOpen] = useState(false);
@@ -291,6 +302,7 @@ function Shell() {
   };
 
   return (
+    <MotionConfig reducedMotion={animLevel === 0 ? 'always' : 'never'}>
     <div className="min-h-full bg-base text-base-content selection:bg-primary/30 selection:text-primary">
       {/* دسکتاپ: ناوبری کناری + ستون محتوا — همان زبان طراحی، چینش داشبوردی */}
       <div className="lg:flex lg:justify-center lg:items-stretch lg:gap-4 lg:px-4">
@@ -312,7 +324,7 @@ function Shell() {
             <motion.main
               key={tab}
               custom={slideDir}
-              variants={pageVariants}
+              variants={animLevel === 0 ? { enter: () => ({ opacity: 1, x: 0 }), center: { opacity: 1, x: 0, transition: { duration: 0 } }, exit: () => ({ opacity: 1, x: 0, transition: { duration: 0 } }) } : pageVariants}
               initial="enter"
               animate="center"
               exit="exit"
@@ -366,6 +378,7 @@ function Shell() {
         </div>
       </div>
     </div>
+      </MotionConfig>
   );
 }
 

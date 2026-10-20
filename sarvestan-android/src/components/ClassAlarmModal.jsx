@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
   BellRing,
+  Zap,
   BellOff,
   AlarmClock,
   Clock,
@@ -33,6 +34,8 @@ import {
   checkNotificationPermission,
   checkExactPermission,
   requestExactPermission,
+  checkBatteryOptimization,
+  requestIgnoreBatteryOptimization,
   getReminderSettings,
   saveReminderSettings,
   collectWeeklySlots,
@@ -66,6 +69,7 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
   const [samadTime, setSamadTime] = useState('14:00');
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [notifGranted, setNotifGranted] = useState(true);
+  const [batteryOptimized, setBatteryOptimized] = useState(false);
   const [busyAction, setBusyAction] = useState(null); // 'reminders' | 'clock' | 'test' | 'cancel' | 'samad' | 'samad-test' | 'perm' | 'dnd' | null
   const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error' | 'info', text: string, showSettings?: boolean }
   const [coursesList, setCoursesList] = useState([]);
@@ -90,6 +94,8 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
         try {
           const res = await checkNotificationPermission();
           setNotifGranted(res?.granted !== false);
+          const bRes = await checkBatteryOptimization();
+          setBatteryOptimized(bRes?.ignoring === false);
         } catch {}
       };
       checkPerm();
@@ -107,6 +113,14 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
 
   const showMsg = (text, type = 'success', showSettings = false) => {
     setFeedback({ text, type, showSettings });
+  };
+
+  const handleRequestBatteryExemption = async () => {
+    try {
+      await requestIgnoreBatteryOptimization();
+      const bRes = await checkBatteryOptimization();
+      setBatteryOptimized(bRes?.ignoring === false);
+    } catch {}
   };
 
   const handleRequestPermission = async () => {
@@ -498,6 +512,34 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
                     </button>
                   </div>
                 </motion.div>
+              )}
+
+              {/* اخطار بهینه‌سازی باتری (رفع تاخیر در خواب صفحه) */}
+              {batteryOptimized && notifGranted && (
+                <div className="p-3.5 rounded-2xl bg-warn-soft text-warn border border-warn/30 space-y-2.5 shadow-xs">
+                  <div className="flex items-start gap-2.5">
+                    <span className="w-8 h-8 rounded-xl bg-warn/15 text-warn grid place-items-center shrink-0 mt-0.5">
+                      <Zap className="w-4 h-4 text-warn" />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-[13px] font-black text-warn leading-tight">
+                        بهینه‌سازی باتری فعال است (احتمال تاخیر در خواب صفحه)
+                      </h4>
+                      <p className="text-[11.5px] text-warn/90 leading-relaxed mt-1">
+                        برای دریافت سر وقت و بدون تاخیر اعلان‌ها وقتی صفحه گوشی خاموش است، سروستان را در حالت بدون محدودیت (Unrestricted) قرار دهید.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleRequestBatteryExemption}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-warn text-white text-[11.5px] font-bold shadow-xs hover:bg-warn/90 active:scale-95 transition"
+                  >
+                    <Zap className="w-3.5 h-3.5" />
+                    تنظیم فعالیت بدون محدودیت در پس‌زمینه
+                  </button>
+                </div>
               )}
 
               {/* بخش ۱: نوتیفیکیشن هوشمند سروستان */}
