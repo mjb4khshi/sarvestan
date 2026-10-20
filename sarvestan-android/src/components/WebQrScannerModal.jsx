@@ -27,17 +27,6 @@ export default function WebQrScannerModal({ isOpen, onClose, onSuccess }) {
   const fileInputRef = useRef(null);
   const reassemblerRef = useRef(null);
   const isDoneRef = useRef(false);
-  const barcodeDetectorRef = useRef(null);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
-      try {
-        barcodeDetectorRef.current = new window.BarcodeDetector({ formats: ['qr_code'] });
-      } catch (e) {
-        barcodeDetectorRef.current = null;
-      }
-    }
-  }, []);
 
   useEffect(() => {
     if (!isOpen) {
@@ -73,6 +62,9 @@ export default function WebQrScannerModal({ isOpen, onClose, onSuccess }) {
     reassemblerRef.current = new QrStreamReassembler({
       onProgress: (p) => {
         setProgress(p);
+        try {
+          if (navigator.vibrate) navigator.vibrate(20);
+        } catch {}
       },
       onComplete: async (bundle) => {
         setIsDone(true);
@@ -129,34 +121,12 @@ export default function WebQrScannerModal({ isOpen, onClose, onSuccess }) {
 
   const tickScan = () => {
     if (isDoneRef.current) return;
-    if (!videoRef.current || videoRef.current.readyState < 2) {
+    const video = videoRef.current;
+    if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
       animFrameRef.current = requestAnimationFrame(tickScan);
       return;
     }
 
-    const video = videoRef.current;
-
-    // Fast path: Hardware BarcodeDetector
-    if (barcodeDetectorRef.current) {
-      barcodeDetectorRef.current
-        .detect(video)
-        .then((barcodes) => {
-          if (barcodes && barcodes.length > 0) {
-            for (const b of barcodes) {
-              if (b.rawValue) reassemblerRef.current?.feedFrame(b.rawValue);
-            }
-          }
-        })
-        .catch(() => {})
-        .finally(() => {
-          if (!isDoneRef.current) {
-            animFrameRef.current = requestAnimationFrame(tickScan);
-          }
-        });
-      return;
-    }
-
-    // High accuracy fallback: jsQR without downscaling blur
     if (!canvasRef.current) {
       canvasRef.current = document.createElement('canvas');
     }
@@ -164,27 +134,24 @@ export default function WebQrScannerModal({ isOpen, onClose, onSuccess }) {
     const vw = video.videoWidth;
     const vh = video.videoHeight;
 
-    if (vw && vh) {
-      if (canvas.width !== vw || canvas.height !== vh) {
-        canvas.width = vw;
-        canvas.height = vh;
-      }
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(video, 0, 0, vw, vh);
+    if (canvas.width !== vw || canvas.height !== vh) {
+      canvas.width = vw;
+      canvas.height = vh;
+    }
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(video, 0, 0, vw, vh);
 
-      try {
-        const imageData = ctx.getImageData(0, 0, vw, vh);
-        const code = jsQR(imageData.data, vw, vh, {
-          inversionAttempts: 'dontInvert',
-        });
+    try {
+      const imageData = ctx.getImageData(0, 0, vw, vh);
+      const code = jsQR(imageData.data, vw, vh, {
+        inversionAttempts: 'dontInvert',
+      });
 
-        if (code && code.data) {
-          reassemblerRef.current?.feedFrame(code.data);
-        }
-      } catch (e) {
-        console.warn('[WebQrScanner] jsQR frame error:', e);
+      if (code && code.data) {
+        reassemblerRef.current?.feedFrame(code.data);
       }
+    } catch (e) {
+      console.warn('[WebQrScanner] jsQR frame error:', e);
     }
 
     if (!isDoneRef.current) {

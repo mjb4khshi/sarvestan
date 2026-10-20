@@ -72,7 +72,7 @@ export default function AnimatedQrExportModal({ isOpen, onClose }) {
         dark: '#0f172a',
         light: '#ffffff',
       },
-      errorCorrectionLevel: 'L',
+      errorCorrectionLevel: 'M',
     }).catch((err) => console.warn('[QRCode canvas err]', err));
   }, [chunks, currentIndex]);
 
