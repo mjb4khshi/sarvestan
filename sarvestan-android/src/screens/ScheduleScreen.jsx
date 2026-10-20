@@ -225,12 +225,12 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
       const itemCode = item.code ? norm(item.code) : null;
       const itemName = norm(item.name || item.title || '');
 
-      // ۱. تطابق با شناسه
+      // ۱. تطابق با شناسه اختصاصی
       if (targetId && itemId && targetId === itemId) return true;
-      // ۲. تطابق با کد درس
-      if (targetCode && itemCode && targetCode === itemCode) return true;
-      // ۳. تطابق با نام درس
+      // ۲. تطابق با نام درس (اولویت بالاتر از کد برای تفکیک قطعی حل تمرین و درس اصلی)
       if (targetName && itemName && targetName === itemName) return true;
+      // ۳. تطابق با کد درس فقط در صورتی که نام خاصی تعیین نشده باشد
+      if (targetCode && itemCode && targetCode === itemCode && !targetName) return true;
 
       return false;
     });

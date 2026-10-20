@@ -92,6 +92,7 @@ import {
 import OdometerNumber from '../components/OdometerNumber';
 import ExamEditModal from '../components/ExamEditModal';
 import SarvDatePickerModal from '../components/SarvDatePickerModal';
+import NativeCourseSelector from '../components/NativeCourseSelector';
 import {
   subscribeStore,
   addExamToStore,
@@ -186,188 +187,6 @@ const PRIORITY_CONFIG = {
     icon: Tag,
   },
 };
-
-/**
- * سلکتور کاملاً نیتیو دروس — استفاده از createPortal جهت جلوگیری از ماسک شدن در کادر پومودورو
- */
-function NativeCourseSelector({
-  value,
-  onChange,
-  courses,
-  modalTitle = 'انتخاب درس',
-  subLabel = null,
-}) {
-  const [open, setOpen] = useState(false);
-  const selectedCourseObj = courses.find((c) => c.name === value);
-  const tone = selectedCourseObj ? (selectedCourseObj.color || getToneForCourse(selectedCourseObj, courses)) : 'primary';
-  const colorMeta = toneColors[tone] || toneColors.primary;
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="w-full p-3 rounded-2xl bg-base-500/20 hover:bg-base-500/30 border border-base-500/40 text-right flex items-center justify-between gap-2.5 transition-all active:scale-[0.99] cursor-pointer group"
-      >
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span
-            className={`w-7 h-7 rounded-xl grid place-items-center shrink-0 text-xs font-bold ${
-              value === 'عمومی'
-                ? 'bg-base-500/35 text-neutral'
-                : `${colorMeta.bg} ${colorMeta.text}`
-            }`}
-          >
-            {value === 'عمومی' ? (
-              <Sparkles className="w-3.5 h-3.5" />
-            ) : (
-              <span className={`w-2.5 h-2.5 rounded-full ${colorMeta.dot}`} />
-            )}
-          </span>
-          <div className="min-w-0">
-            <p className="text-[13px] font-bold text-base-content truncate leading-snug">
-              {value === 'عمومی' ? 'مطالعه عمومی و آزاد' : value}
-            </p>
-            {subLabel && <p className="text-[10px] text-neutral truncate">{subLabel}</p>}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1.5 shrink-0">
-          {selectedCourseObj?.units && (
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-base-500/35 text-neutral font-mono">
-              {toFaDigits(selectedCourseObj.units)} واحد
-            </span>
-          )}
-          <ChevronDown
-            className={`w-4 h-4 text-neutral transition-transform duration-200 ${
-              open ? 'rotate-180 text-primary' : ''
-            }`}
-          />
-        </div>
-      </button>
-
-      {/* باتم‌شیت نیتیو انتخاب درس — در document.body رندر می‌شود تا هرگز ماسک نشود */}
-      {typeof document !== 'undefined' &&
-        createPortal(
-          <AnimatePresence>
-            {open && (
-              <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4">
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  onClick={() => setOpen(false)}
-                  className="absolute inset-0 bg-black/70 backdrop-blur-xs"
-                />
-
-                <motion.div
-                  initial={{ y: '100%', opacity: 0.5 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  exit={{ y: '100%', opacity: 0.5 }}
-                  transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-                  className="relative z-10 w-full max-w-[430px] rounded-t-3xl sm:rounded-3xl bg-base border border-base-500/50 pt-3 pb-8 px-4 sm:p-5 shadow-2xl max-h-[82vh] flex flex-col"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {/* هندل بالایی باتم شیت */}
-                  <div className="w-10 h-1 rounded-full bg-base-500/50 mx-auto mb-3 shrink-0" />
-
-                  <div className="flex items-center justify-between pb-3 border-b border-base-500/30 shrink-0">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-xl bg-primary-soft text-primary grid place-items-center shrink-0">
-                        <BookOpen className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="text-[14px] font-black text-base-content truncate leading-normal">
-                          {modalTitle}
-                        </h3>
-                        <p className="text-[10.5px] text-neutral truncate">
-                          دروس اخذشده در سامانه بهستان ({toFaDigits(courses.length)} عنوان)
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setOpen(false)}
-                      className="w-8 h-8 rounded-full bg-base-500/30 text-neutral hover:text-base-content grid place-items-center active:scale-95 transition shrink-0 cursor-pointer"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <div className="overflow-y-auto py-2.5 space-y-1.5 flex-1 pr-0.5">
-                    {/* گزینه عمومی */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onChange('عمومی');
-                        setOpen(false);
-                      }}
-                      className={`w-full p-3 rounded-2xl border text-right flex items-center justify-between transition-all active:scale-[0.98] cursor-pointer ${
-                        value === 'عمومی'
-                          ? 'bg-primary-soft border-primary text-primary font-bold shadow-xs'
-                          : 'bg-base-500/15 border-base-500/30 text-base-content hover:bg-base-500/25'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="w-8 h-8 rounded-xl bg-base-500/30 text-neutral grid place-items-center shrink-0">
-                          <Sparkles className="w-4 h-4" />
-                        </span>
-                        <div className="min-w-0">
-                          <p className="text-[13px] font-bold truncate">مطالعه عمومی و آزاد</p>
-                          <p className="text-[10.5px] text-neutral">زبان، آزمون‌ها، مهارت و سرفصل‌های آزاد</p>
-                        </div>
-                      </div>
-                      {value === 'عمومی' && <Check className="w-4 h-4 text-primary shrink-0" />}
-                    </button>
-
-                    {/* لیست دروس بهستان */}
-                    {courses.map((c) => {
-                      const cTone = c.color || getToneForCourse(c, courses);
-                      const cMeta = toneColors[cTone] || toneColors.primary;
-                      const isSelected = value === c.name;
-                      return (
-                        <button
-                          key={c.id || c.code || c.name}
-                          type="button"
-                          onClick={() => {
-                            onChange(c.name);
-                            setOpen(false);
-                          }}
-                          className={`w-full p-3 rounded-2xl border text-right flex items-center justify-between transition-all active:scale-[0.98] cursor-pointer ${
-                            isSelected
-                              ? `${cMeta.bg} ${cMeta.border} font-bold shadow-xs`
-                              : 'bg-base-500/15 border-base-500/30 text-base-content hover:bg-base-500/25'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span
-                              className={`w-8 h-8 rounded-xl ${cMeta.bg} ${cMeta.text} grid place-items-center shrink-0 text-xs font-bold`}
-                            >
-                              <span className={`w-3 h-3 rounded-full ${cMeta.dot}`} />
-                            </span>
-                            <div className="min-w-0">
-                              <p className={`text-[13px] font-bold truncate ${isSelected ? cMeta.text : ''}`}>
-                                {c.name}
-                              </p>
-                              <p className="text-[10.5px] text-neutral truncate">
-                                {c.professor ? `استاد: ${c.professor}` : 'ثبت‌شده در برنامه هفتگی'}
-                                {c.units ? ` · ${toFaDigits(c.units)} واحد` : ''}
-                              </p>
-                            </div>
-                          </div>
-                          {isSelected && <Check className={`w-4 h-4 ${cMeta.text} shrink-0`} />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </motion.div>
-              </div>
-            )}
-          </AnimatePresence>,
-          document.body
-        )}
-    </>
-  );
-}
 
 export default function StudyScreen({ onNavigate }) {
   const { activeThemeMeta } = useTheme();
@@ -1508,6 +1327,7 @@ export default function StudyScreen({ onNavigate }) {
                 onChange={setSelectedCourse}
                 courses={coursesList}
                 modalTitle="انتخاب درس پومودورو"
+                allowGeneral={true}
               />
             </div>
 
@@ -3118,6 +2938,7 @@ export default function StudyScreen({ onNavigate }) {
                         onChange={setNewTaskCourse}
                         courses={coursesList}
                         modalTitle={editingTaskId ? 'تغییر درس تسک' : 'انتخاب درس برای تسک جدید'}
+                        allowGeneral={true}
                       />
                     </div>
 
@@ -3233,6 +3054,7 @@ export default function StudyScreen({ onNavigate }) {
                         onChange={setManualCourse}
                         courses={coursesList}
                         modalTitle={editingSessionId ? 'تغییر درس مطالعه' : 'انتخاب درس برای ثبت مطالعه'}
+                        allowGeneral={true}
                       />
                     </div>
 

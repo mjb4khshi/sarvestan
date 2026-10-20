@@ -879,14 +879,21 @@ export function deleteScheduleCourse(termId, courseIdentifier) {
     if (!c) return false;
     let match = false;
     if (courseIdentifier && typeof courseIdentifier === 'object') {
-      if (courseIdentifier.id && c.id && c.id === courseIdentifier.id) match = true;
-      if (courseIdentifier.code && c.code && String(c.code) === String(courseIdentifier.code)) {
-        if (!courseIdentifier.name || c.name === courseIdentifier.name) match = true;
+      if (courseIdentifier.id && c.id && c.id === courseIdentifier.id) {
+        match = true;
+      } else if (
+        (courseIdentifier.name || courseIdentifier.title) &&
+        (c.name || c.title) === (courseIdentifier.name || courseIdentifier.title)
+      ) {
+        match = true;
+      }
+    } else if (courseIdentifier) {
+      if (c.id && c.id === courseIdentifier) {
+        match = true;
+      } else if ((c.name || c.title) === courseIdentifier) {
+        match = true;
       }
     }
-    if (c.id && c.id === courseIdentifier) match = true;
-    if (c.code && String(c.code) === String(courseIdentifier)) match = true;
-    if (i === courseIdentifier) match = true;
 
     if (match) {
       deletedEntries.push({ id: c.id, code: c.code, name: c.name || c.title });
@@ -907,13 +914,16 @@ export function deleteScheduleCourse(termId, courseIdentifier) {
     cache.courses = cache.courses.filter((c) => {
       if (courseIdentifier && typeof courseIdentifier === 'object') {
         if (courseIdentifier.id && c.id && c.id === courseIdentifier.id) return false;
-        if (courseIdentifier.code && c.code && String(c.code) === String(courseIdentifier.code)) {
-          if (!courseIdentifier.name || c.name === courseIdentifier.name) return false;
+        if (
+          (courseIdentifier.name || courseIdentifier.title) &&
+          (c.name || c.title) === (courseIdentifier.name || courseIdentifier.title)
+        ) {
+          return false;
         }
+      } else if (courseIdentifier) {
+        if (c.id && c.id === courseIdentifier) return false;
+        if ((c.name || c.title) === courseIdentifier) return false;
       }
-      if (c.id && c.id === courseIdentifier) return false;
-      if (c.code && String(c.code) === String(courseIdentifier)) return false;
-      if (deletedEntries.some((d) => (d.id && c.id && d.id === c.id) || (d.code && c.code && String(d.code) === String(c.code)))) return false;
       return true;
     });
     persist(KEYS.COURSES, cache.courses);

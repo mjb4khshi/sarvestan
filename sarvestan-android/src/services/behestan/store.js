@@ -68,21 +68,46 @@ export function sanitizeFinance(fin) {
   return fin;
 }
 
-let cache = {
-  profile: read(KEYS.PROFILE, null),
-  schedule: read(KEYS.SCHEDULE, {}),
-  exams: read(KEYS.EXAMS, {}),
-  transcripts: read(KEYS.TRANSCRIPTS, []),
-  finance: sanitizeFinance(read(KEYS.FINANCE, null)),
-  courses: read(KEYS.COURSES, []),
-  workflows: read(KEYS.WORKFLOWS, []),
-  announcements: read(KEYS.ANNOUNCEMENTS, []),
-  curriculumStats: read(KEYS.CURRICULUM, null),
-  curriculumReport: read(KEYS.CURRICULUM_REPORT, null),
-  syncMeta: read(KEYS.SYNC_META, { lastSyncAt: null, sources: [], status: 'idle' }),
-  localNotes: read(KEYS.LOCAL_NOTES, []),
-  reg77: read(KEYS.REG77, null),
-};
+/**
+ * شکل استاندارد exams/schedule در استور = MAP { [termId]: [...] }.
+ * داده‌های باقی‌مانده از نسخه‌های قدیمی افزونه ممکن است آرایهٔ ساده باشند؛
+ * اگر رها می‌شوند در رندر کرش می‌کنند (‌.find is not a function) — نرمال کن.
+ */
+/** شکل استاندارد MAP ترم‌محور + نرمال‌سازی آرایه‌های قدیمی — پل افزونه هم استفاده می‌کند */
+export function asTermMap(raw) {
+  if (raw && !Array.isArray(raw) && typeof raw === 'object') return raw;
+  if (Array.isArray(raw)) {
+    const map = {};
+    for (const item of raw) {
+      const tid = String(item?.termId || '4051');
+      if (!Array.isArray(map[tid])) map[tid] = [];
+      map[tid].push(item);
+    }
+    return map;
+  }
+  return {};
+}
+
+function buildCacheFromStorage() {  const schedule = asTermMap(read(KEYS.SCHEDULE, {}));
+  const exams = asTermMap(read(KEYS.EXAMS, {}));
+  return {
+    profile: read(KEYS.PROFILE, null),
+    schedule,
+    exams,
+    transcripts: read(KEYS.TRANSCRIPTS, []),
+    finance: sanitizeFinance(read(KEYS.FINANCE, null)),
+    courses: read(KEYS.COURSES, []),
+    workflows: read(KEYS.WORKFLOWS, []),
+    announcements: read(KEYS.ANNOUNCEMENTS, []),
+    curriculumStats: read(KEYS.CURRICULUM, null),
+    curriculumReport: read(KEYS.CURRICULUM_REPORT, null),
+    syncMeta: read(KEYS.SYNC_META, { lastSyncAt: null, sources: [], status: 'idle' }),
+    localNotes: read(KEYS.LOCAL_NOTES, []),
+    reg77: read(KEYS.REG77, null),
+  };
+}
+
+let cache = buildCacheFromStorage();
 
 const listeners = new Set();
 
@@ -114,8 +139,21 @@ function notify() {
   });
 }
 
-export function notifyStoreChange() {
+export function reloadStoreFromStorage() {
+  cache = buildCacheFromStorage();
   notify();
+}
+
+export function notifyStoreChange() {
+  reloadStoreFromStorage();
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key && e.key.startsWith('sarvestan_')) {
+      reloadStoreFromStorage();
+    }
+  });
 }
 
 
@@ -841,14 +879,21 @@ export function deleteScheduleCourse(termId, courseIdentifier) {
     if (!c) return false;
     let match = false;
     if (courseIdentifier && typeof courseIdentifier === 'object') {
-      if (courseIdentifier.id && c.id && c.id === courseIdentifier.id) match = true;
-      if (courseIdentifier.code && c.code && String(c.code) === String(courseIdentifier.code)) {
-        if (!courseIdentifier.name || c.name === courseIdentifier.name) match = true;
+      if (courseIdentifier.id && c.id && c.id === courseIdentifier.id) {
+        match = true;
+      } else if (
+        (courseIdentifier.name || courseIdentifier.title) &&
+        (c.name || c.title) === (courseIdentifier.name || courseIdentifier.title)
+      ) {
+        match = true;
+      }
+    } else if (courseIdentifier) {
+      if (c.id && c.id === courseIdentifier) {
+        match = true;
+      } else if ((c.name || c.title) === courseIdentifier) {
+        match = true;
       }
     }
-    if (c.id && c.id === courseIdentifier) match = true;
-    if (c.code && String(c.code) === String(courseIdentifier)) match = true;
-    if (i === courseIdentifier) match = true;
 
     if (match) {
       deletedEntries.push({ id: c.id, code: c.code, name: c.name || c.title });
@@ -869,13 +914,16 @@ export function deleteScheduleCourse(termId, courseIdentifier) {
     cache.courses = cache.courses.filter((c) => {
       if (courseIdentifier && typeof courseIdentifier === 'object') {
         if (courseIdentifier.id && c.id && c.id === courseIdentifier.id) return false;
-        if (courseIdentifier.code && c.code && String(c.code) === String(courseIdentifier.code)) {
-          if (!courseIdentifier.name || c.name === courseIdentifier.name) return false;
+        if (
+          (courseIdentifier.name || courseIdentifier.title) &&
+          (c.name || c.title) === (courseIdentifier.name || courseIdentifier.title)
+        ) {
+          return false;
         }
+      } else if (courseIdentifier) {
+        if (c.id && c.id === courseIdentifier) return false;
+        if ((c.name || c.title) === courseIdentifier) return false;
       }
-      if (c.id && c.id === courseIdentifier) return false;
-      if (c.code && String(c.code) === String(courseIdentifier)) return false;
-      if (deletedEntries.some((d) => (d.id && c.id && d.id === c.id) || (d.code && c.code && String(d.code) === String(c.code)))) return false;
       return true;
     });
     persist(KEYS.COURSES, cache.courses);

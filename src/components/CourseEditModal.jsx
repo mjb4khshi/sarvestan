@@ -17,11 +17,14 @@ import {
   UserX,
   Minus,
   Globe,
+  ChevronDown,
 } from 'lucide-react';
 import { toFaDigits } from '../utils/faDigits';
 import { getSelectedUniversity } from '../services/behestan/session';
+import { getToneForCourse } from '../data/viewModel';
 import SarvTimePickerModal from './SarvTimePickerModal';
 import OdometerNumber from './OdometerNumber';
+import NativeCourseSelector from './NativeCourseSelector';
 
 const DAYS_OF_WEEK = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'];
 
@@ -56,6 +59,8 @@ export default function CourseEditModal({
   const isUt = getSelectedUniversity() === 'ut';
 
   const [classType, setClassType] = useState('lecture'); // 'lecture' | 'ta'
+  const [classTypeDropdownOpen, setClassTypeDropdownOpen] = useState(false);
+  const [parentCourseName, setParentCourseName] = useState('');
   const [notes, setNotes] = useState('');
   const [name, setName] = useState('');
   const [professor, setProfessor] = useState('');
@@ -82,6 +87,8 @@ export default function CourseEditModal({
   useEffect(() => {
     if (isOpen) {
       setDeleteConfirmModalOpen(false);
+      setClassTypeDropdownOpen(false);
+      setParentCourseName('');
       setErrorMsg('');
       if (course) {
         const detectedType =
@@ -150,20 +157,23 @@ export default function CourseEditModal({
     }
   }, [isOpen, course, defaultDay]);
 
-  const handleSelectParentCourse = (parentCourseName) => {
-    if (!parentCourseName) return;
-    const parent = existingCourses.find(
-      (c) => (c.name || c.title) === parentCourseName
-    );
-    const cleanBaseName = parentCourseName.replace(/^حل\s*تمرین\s*/, '');
+  const handleSelectParentCourse = (selectedName, selectedCourse) => {
+    if (!selectedName) return;
+    setParentCourseName(selectedName);
+    const parent =
+      selectedCourse ||
+      existingCourses.find((c) => (c.name || c.title) === selectedName);
+    const cleanBaseName = selectedName.replace(/^حل\s*تمرین\s*/, '');
     setName(`حل تمرین ${cleanBaseName}`);
     if (parent) {
-      if (parent.color) setColor(parent.color);
+      const parentTone =
+        parent.color || getToneForCourse(parent, existingCourses) || 'secondary';
+      setColor(parentTone);
       if (parent.code) setCode(parent.code);
       setUnits(0);
       setIncludeInGpa(false);
       if (parent.professor && !professor) {
-        setProfessor(`دستیار آموزشی / TA`);
+        setProfessor('دستیار آموزشی / TA');
       }
     }
   };
@@ -281,7 +291,7 @@ export default function CourseEditModal({
 
   const handleConfirmActualDelete = () => {
     if (course) {
-      onDelete(course.id || course.code || course);
+      onDelete(course);
     }
     setDeleteConfirmModalOpen(false);
     onClose();
@@ -361,63 +371,96 @@ export default function CourseEditModal({
                   </div>
                 )}
 
-                {/* انتخاب نوع کلاس: استاد یا حل تمرین / TA */}
-                <div>
-                  <label className="text-[11.5px] font-bold text-neutral block mb-1.5">
-                    نوع کلاس (دسته‌بندی):
+                {/* انتخاب نوع کلاس: سلکتور مدرن با منوی اختصاصی بدون تب */}
+                <div className="relative">
+                  <label className="text-[11.5px] font-bold text-neutral block mb-1">
+                    نوع کلاس:
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="relative">
                     <button
                       type="button"
-                      onClick={() => setClassType('lecture')}
-                      className={`py-2 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
-                        classType === 'lecture'
-                          ? 'bg-primary text-primary-content font-black shadow-xs border-primary'
-                          : 'bg-base-500/15 text-neutral border-base-500/30 hover:bg-base-500/25'
-                      }`}
+                      onClick={() => setClassTypeDropdownOpen((v) => !v)}
+                      className="w-full p-2.5 rounded-xl bg-base-500/15 hover:bg-base-500/25 border border-base-500/30 text-right flex items-center justify-between transition-all active:scale-[0.99] cursor-pointer"
                     >
-                      کلاس استاد
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`w-2.5 h-2.5 rounded-full ${
+                            classType === 'ta' ? 'bg-secondary' : 'bg-primary'
+                          }`}
+                        />
+                        <span className="text-xs font-bold text-base-content">
+                          {classType === 'ta'
+                            ? 'حل تمرین و دستیار آموزشی (TA)'
+                            : 'کلاس اصلی استاد'}
+                        </span>
+                      </div>
+                      <ChevronDown
+                        className={`w-4 h-4 text-neutral transition-transform ${
+                          classTypeDropdownOpen ? 'rotate-180' : ''
+                        }`}
+                      />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setClassType('ta')}
-                      className={`py-2 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
-                        classType === 'ta'
-                          ? 'bg-secondary text-secondary-content font-black shadow-xs border-secondary'
-                          : 'bg-base-500/15 text-neutral border-base-500/30 hover:bg-base-500/25'
-                      }`}
-                    >
-                      حل تمرین و TA
-                    </button>
+
+                    {classTypeDropdownOpen && (
+                      <div className="absolute top-full mt-1.5 right-0 left-0 z-30 p-1.5 rounded-2xl bg-base border border-base-500/40 shadow-xl space-y-1">
+                        {[
+                          {
+                            id: 'lecture',
+                            label: 'کلاس اصلی استاد',
+                            desc: 'کلاس‌های رسمی طبق چارت و برنامه آموزشی',
+                            dot: 'bg-primary',
+                          },
+                          {
+                            id: 'ta',
+                            label: 'حل تمرین و دستیار آموزشی (TA)',
+                            desc: 'کلاس‌های رفع اشکال و تمرین دانشجویی',
+                            dot: 'bg-secondary',
+                          },
+                        ].map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => {
+                              setClassType(opt.id);
+                              setClassTypeDropdownOpen(false);
+                            }}
+                            className={`w-full p-2.5 rounded-xl text-right flex items-center justify-between transition-all cursor-pointer ${
+                              classType === opt.id
+                                ? 'bg-primary-soft text-primary font-bold'
+                                : 'hover:bg-base-500/20 text-base-content'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className={`w-2.5 h-2.5 rounded-full ${opt.dot}`} />
+                              <div>
+                                <p className="text-xs font-bold">{opt.label}</p>
+                                <p className="text-[10px] text-neutral">{opt.desc}</p>
+                              </div>
+                            </div>
+                            {classType === opt.id && (
+                              <Check className="w-4 h-4 text-primary shrink-0" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* در حالت حل تمرین: انتخاب از دروس موجود برای تکمیل خودکار */}
+                {/* در حالت حل تمرین: انتخاب نیتیو درس مبنا */}
                 {classType === 'ta' && Array.isArray(existingCourses) && existingCourses.length > 0 && (
-                  <div className="p-3 rounded-2xl bg-secondary/10 border border-secondary/25 space-y-1.5">
-                    <label className="text-[11.5px] font-bold text-secondary block">
-                      انتخاب درس مربوطه برای حل تمرین:
+                  <div className="space-y-1">
+                    <label className="text-[11.5px] font-bold text-neutral block">
+                      انتخاب درس مبنا برای حل تمرین:
                     </label>
-                    <select
-                      onChange={(e) => handleSelectParentCourse(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl bg-base border border-secondary/30 text-base-content text-[12.5px] font-bold focus:border-secondary outline-none transition cursor-pointer"
-                      defaultValue=""
-                    >
-                      <option value="" disabled>
-                        -- انتخاب درس اصلی --
-                      </option>
-                      {existingCourses.map((c, idx) => {
-                        const cName = c.name || c.title;
-                        return (
-                          <option key={`${c.code || cName}_${idx}`} value={cName}>
-                            {cName} {c.code ? `(${c.code})` : ''}
-                          </option>
-                        );
-                      })}
-                    </select>
-                    <p className="text-[10px] text-neutral">
-                      با انتخاب درس، نام حل تمرین، رنگ تم و کد درس به صورت خودکار تنظیم می‌شوند.
-                    </p>
+                    <NativeCourseSelector
+                      value={parentCourseName}
+                      onChange={handleSelectParentCourse}
+                      courses={existingCourses}
+                      modalTitle="انتخاب درس اصلی برای حل تمرین"
+                      subLabel="نام، رنگ و کد درس خودکار هماهنگ می‌شود"
+                      placeholder="انتخاب درس برای حل تمرین..."
+                    />
                   </div>
                 )}
 

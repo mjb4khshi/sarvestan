@@ -11,10 +11,13 @@ import {
   Check,
   AlertTriangle,
   Hash,
+  ChevronDown,
 } from 'lucide-react';
 import { toFaDigits } from '../utils/faDigits';
+import { getToneForCourse } from '../data/viewModel';
 import SarvDatePickerModal from './SarvDatePickerModal';
 import SarvTimePickerModal from './SarvTimePickerModal';
+import NativeCourseSelector from './NativeCourseSelector';
 
 function parseExamTime(timeStr) {
   if (!timeStr) return { start: '08:30', end: '10:30' };
@@ -36,6 +39,7 @@ export default function ExamEditModal({
   const isEditing = Boolean(exam && (exam.id || exam.course || exam.name || exam.code));
 
   const [category, setCategory] = useState('final');
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [color, setColor] = useState('primary');
   const [courseName, setCourseName] = useState('');
   const [code, setCode] = useState('');
@@ -57,6 +61,7 @@ export default function ExamEditModal({
   useEffect(() => {
     if (isOpen) {
       setConfirmDelete(false);
+      setCategoryDropdownOpen(false);
       setErrorMsg('');
       if (exam) {
         setCategory(exam.category || exam.examType || 'final');
@@ -84,15 +89,18 @@ export default function ExamEditModal({
     }
   }, [isOpen, exam]);
 
-  const handleSelectCourse = (selectedCourseName) => {
+  const handleSelectCourse = (selectedCourseName, selectedCourseObj) => {
     if (!selectedCourseName) return;
     setCourseName(selectedCourseName);
-    const found = courses.find((c) => (c.name || c.title || c.course) === selectedCourseName);
+    const found =
+      selectedCourseObj ||
+      courses.find((c) => (c.name || c.title || c.course) === selectedCourseName);
     if (found) {
       setCode(found.code || '');
       setProfessor(found.professor || found.instructor || '');
       setUnits(found.units != null ? found.units : (found.unit != null ? found.unit : 3));
-      if (found.color) setColor(found.color);
+      const tone = found.color || getToneForCourse(found, courses) || 'primary';
+      setColor(tone);
     }
   };
 
@@ -196,57 +204,108 @@ export default function ExamEditModal({
                   </div>
                 )}
 
-                {/* دسته‌بندی آزمون */}
-                <div>
-                  <label className="text-[11.5px] font-bold text-neutral block mb-1.5">
-                    نوع آزمون (دسته‌بندی):
+                {/* نوع آزمون: سلکتور مدرن با منوی اختصاصی بدون تب */}
+                <div className="relative">
+                  <label className="text-[11.5px] font-bold text-neutral block mb-1">
+                    نوع آزمون:
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { id: 'final', label: 'پایان‌ترم' },
-                      { id: 'midterm', label: 'میان‌ترم' },
-                      { id: 'quiz', label: 'کوییز' },
-                    ].map((cat) => {
-                      const isSelected = category === cat.id;
-                      return (
-                        <button
-                          key={cat.id}
-                          type="button"
-                          onClick={() => setCategory(cat.id)}
-                          className={`py-2 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
-                            isSelected
-                              ? 'bg-primary text-primary-content font-black shadow-xs border-primary'
-                              : 'bg-base-500/15 text-neutral border-base-500/30 hover:bg-base-500/25'
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setCategoryDropdownOpen((v) => !v)}
+                      className="w-full p-2.5 rounded-xl bg-base-500/15 hover:bg-base-500/25 border border-base-500/30 text-right flex items-center justify-between transition-all active:scale-[0.99] cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`w-2.5 h-2.5 rounded-full ${
+                            category === 'quiz'
+                              ? 'bg-accent'
+                              : category === 'midterm'
+                              ? 'bg-warn'
+                              : 'bg-primary'
                           }`}
-                        >
-                          {cat.label}
-                        </button>
-                      );
-                    })}
+                        />
+                        <span className="text-xs font-bold text-base-content">
+                          {category === 'quiz'
+                            ? 'کوییز کلاسی'
+                            : category === 'midterm'
+                            ? 'آزمون میان‌ترم'
+                            : 'آزمون پایان‌ترم'}
+                        </span>
+                      </div>
+                      <ChevronDown
+                        className={`w-4 h-4 text-neutral transition-transform ${
+                          categoryDropdownOpen ? 'rotate-180' : ''
+                        }`}
+                      />
+                    </button>
+
+                    {categoryDropdownOpen && (
+                      <div className="absolute top-full mt-1.5 right-0 left-0 z-30 p-1.5 rounded-2xl bg-base border border-base-500/40 shadow-xl space-y-1">
+                        {[
+                          {
+                            id: 'final',
+                            label: 'آزمون پایان‌ترم',
+                            desc: 'امتحان نهایی پایان نیم‌سال تحصیلی',
+                            dot: 'bg-primary',
+                          },
+                          {
+                            id: 'midterm',
+                            label: 'آزمون میان‌ترم',
+                            desc: 'امتحانات دوره‌ای و میان‌دوره نیم‌سال',
+                            dot: 'bg-warn',
+                          },
+                          {
+                            id: 'quiz',
+                            label: 'کوییز کلاسی',
+                            desc: 'آزمونک‌های کلاسی و تمرینی استاد',
+                            dot: 'bg-accent',
+                          },
+                        ].map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => {
+                              setCategory(opt.id);
+                              setCategoryDropdownOpen(false);
+                            }}
+                            className={`w-full p-2.5 rounded-xl text-right flex items-center justify-between transition-all cursor-pointer ${
+                              category === opt.id
+                                ? 'bg-primary-soft text-primary font-bold'
+                                : 'hover:bg-base-500/20 text-base-content'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className={`w-2.5 h-2.5 rounded-full ${opt.dot}`} />
+                              <div>
+                                <p className="text-xs font-bold">{opt.label}</p>
+                                <p className="text-[10px] text-neutral">{opt.desc}</p>
+                              </div>
+                            </div>
+                            {category === opt.id && (
+                              <Check className="w-4 h-4 text-primary shrink-0" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* انتخاب سریع از بین دروس ترم جاری */}
+                {/* انتخاب سریع از بین دروس ترم با سلکتور نیتیو */}
                 {Array.isArray(courses) && courses.length > 0 && (
-                  <div>
-                    <label className="text-[11.5px] font-bold text-neutral block mb-1">
+                  <div className="space-y-1">
+                    <label className="text-[11.5px] font-bold text-neutral block">
                       انتخاب از دروس ترم جاری:
                     </label>
-                    <select
-                      value={courses.some((c) => (c.name || c.title || c.course) === courseName) ? courseName : ''}
-                      onChange={(e) => handleSelectCourse(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-base-500/15 border border-base-500/30 text-base-content text-[12.5px] font-bold focus:border-primary focus:bg-base outline-none transition cursor-pointer"
-                    >
-                      <option value="">-- انتخاب از لیست دروس ثبت‌نامی --</option>
-                      {courses.map((c, i) => {
-                        const cName = c.name || c.title || c.course;
-                        return (
-                          <option key={`${c.code || cName}_${i}`} value={cName}>
-                            {cName} {c.code ? `(${c.code})` : ''}
-                          </option>
-                        );
-                      })}
-                    </select>
+                    <NativeCourseSelector
+                      value={courseName}
+                      onChange={handleSelectCourse}
+                      courses={courses}
+                      modalTitle="انتخاب درس برای نوبت امتحان"
+                      subLabel="اطلاعات و رنگ درس خودکار منتقل می‌شود"
+                      placeholder="انتخاب از لیست دروس..."
+                    />
                   </div>
                 )}
 

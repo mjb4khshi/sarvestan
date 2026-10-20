@@ -558,6 +558,8 @@ export default defineConfig({
     strictPort: true,
     watch: {
       ignored: [
+        '**/android/**',
+        '**/dist/**',
         '**/.behestan*',
         '**/.iust-debug/**',
         '**/*.txt',
