@@ -15,8 +15,11 @@
   "dependencies": {
     "@capacitor/android": "^7.6.9",
     "@capacitor/core": "^7.6.9",
+    "canvas-confetti": "^1.9.4",
     "framer-motion": "^12.4.7",
+    "jsqr": "^1.4.0",
     "lucide-react": "^1.16.0",
+    "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "sarv-ui": "file:../sarv-ui-0.3.1.tgz"

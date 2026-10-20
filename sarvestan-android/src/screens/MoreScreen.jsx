@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -42,6 +42,13 @@ import ClassAlarmModal from '../components/ClassAlarmModal';
 import CurriculumChartModal from '../components/CurriculumChartModal';
 import DashboardCustomizeModal from '../components/DashboardCustomizeModal';
 import AiAdvisorPromptModal from '../components/AiAdvisorPromptModal';
+import AnimatedQrExportModal from '../components/AnimatedQrExportModal';
+import WebQrScannerModal from '../components/WebQrScannerModal';
+import {
+  exportSnapshotBundle,
+  downloadJsonBundle,
+  applyBundleToStorage,
+} from '../services/dataTransfer';
 import BatmanMask from '../components/BatmanMask';
 import { useBatMode } from '../services/batMode';
 import SarvSwitch from '../components/SarvSwitch';
@@ -368,6 +375,8 @@ export default function MoreScreen({
   };
   const [chartModalOpen, setChartModalOpen] = useState(initialChartOpen);
   const [aboutModalOpen, setAboutModalOpen] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [scannerModalOpen, setScannerModalOpen] = useState(false);
   const [referralModalOpen, setReferralModalOpen] = useState(false);
   const [aiPromptModalOpen, setAiPromptModalOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState('all');
@@ -380,7 +389,13 @@ export default function MoreScreen({
   // بستن بالاترین مودال هنگام فشردن دکمه بازگشت اندروید
   useEffect(() => {
     const handleCloseTopModal = (e) => {
-      if (aiPromptModalOpen) {
+      if (exportModalOpen) {
+        setExportModalOpen(false);
+        e.preventDefault();
+      } else if (scannerModalOpen) {
+        setScannerModalOpen(false);
+        e.preventDefault();
+      } else if (aiPromptModalOpen) {
         setAiPromptModalOpen(false);
         e.preventDefault();
       } else if (financeModalOpen) {
@@ -620,6 +635,18 @@ export default function MoreScreen({
         transition={{ delay: 0.03 }}
       >
         <SessionPanel />
+      </motion.section>
+
+      {/* انتقال و پشتیبان‌گیری داده‌ها (آیفون / وب / اندروید) */}
+      <motion.section
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.033 }}
+      >
+        <DataTransferCard
+          onOpenExport={() => setExportModalOpen(true)}
+          onOpenScanner={() => setScannerModalOpen(true)}
+        />
       </motion.section>
 
       {/* ۲. بخش حمایت مالی و دونیت (دارمت) */}

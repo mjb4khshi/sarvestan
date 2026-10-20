@@ -9,6 +9,8 @@ import {
   LayoutGrid,
   CheckCircle2,
   Users,
+  Globe,
+  QrCode,
 } from 'lucide-react';
 import { toFaDigits } from '../utils/faDigits';
 import ExtensionArchiveGuide from './ExtensionArchiveGuide';
@@ -200,6 +202,13 @@ export default function LandingPage() {
               <GithubIcon className="w-4 h-4" />
             </a>
             <a
+              href="./?web=1"
+              className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm hover:brightness-105 active:scale-95 transition-all"
+            >
+              <Globe className="w-3.5 h-3.5 text-emerald-400" />
+              <span>نسخه وب و آیفون</span>
+            </a>
+            <a
               href={LATEST_APK_URL}
               className="px-3.5 py-1.5 rounded-xl bg-[#10b981] hover:bg-[#059669] text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-[#10b981]/25 hover:brightness-105 active:scale-95 transition-all"
             >
@@ -234,6 +243,13 @@ export default function LandingPage() {
 
           {/* دکمه‌های اقدام اصلی */}
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <a
+              href="./?web=1"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold flex items-center justify-center gap-2.5 shadow-lg shadow-slate-900/15 hover:brightness-105 active:scale-95 transition-all"
+            >
+              <Globe className="w-4 h-4 text-emerald-400" />
+              <span>ورود به نسخه وب و آیفون</span>
+            </a>
             <a
               href={LATEST_APK_URL}
               className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-[#10b981] hover:bg-[#059669] text-white text-sm font-bold flex items-center justify-center gap-2.5 shadow-lg shadow-[#10b981]/30 hover:brightness-105 active:scale-95 transition-all"
@@ -527,6 +543,13 @@ export default function LandingPage() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <a
+              href="./?web=1"
+              className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm hover:brightness-105 active:scale-95 transition-all"
+            >
+              <Globe className="w-3.5 h-3.5 text-emerald-400" />
+              <span>نسخه وب و آیفون</span>
+            </a>
             <a
               href={LATEST_APK_URL}
               className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-[#10b981] hover:bg-[#059669] text-white text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#10b981]/30 hover:brightness-105 active:scale-95 transition-all"

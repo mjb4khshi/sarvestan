@@ -36,6 +36,8 @@ import { isBatNotifEnabled, scheduleBatNightNotification, initBatWebTimer } from
 import { initExtensionBridge, isBehestanOverlay } from './services/extensionBridge';
 import { isExtensionRuntime } from './services/extensionRuntime';
 import ExtensionConnectGate from './components/ExtensionConnectGate';
+import WebConnectGate from './components/WebConnectGate';
+import AnimatedQrExportModal from './components/AnimatedQrExportModal';
 import LandingPage from './components/LandingPage';
 
 const TITLES = {
@@ -368,6 +370,13 @@ function Shell() {
 }
 
 export default function App() {
+  const [globalExportOpen, setGlobalExportOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = () => setGlobalExportOpen(true);
+    window.addEventListener('sarvestan-open-export-modal', handler);
+    return () => window.removeEventListener('sarvestan-open-export-modal', handler);
+  }, []);
   const isExtension = typeof window !== 'undefined' && window.location.protocol === 'chrome-extension:';
   const isNative = typeof window !== 'undefined' && (
     window.Capacitor?.isNativePlatform?.() ||
@@ -416,7 +425,10 @@ export default function App() {
 
     // در مرورگر وب همیشه لندینگ پیج اختصاصی نمایش داده می‌شود
     if (!isExtension && !isNative) {
-      return <LandingPage />;
+      const hasData = hasLiveData() || isSessionAlive();
+      if (!hasData && !qs.has('app') && !qs.has('web')) {
+        return <LandingPage />;
+      }
     }
   } catch {}
 
@@ -427,10 +439,20 @@ export default function App() {
           <BatBackground />
           <AutoUpdateGate />
           {/* افزونه: هیچ فرم لاگینی نیست — فقط گیت اتصال بی‌رمز از طریق سامانه دانشگاه */}
-          {isExtensionRuntime() ? <ExtensionConnectGate /> : <LoginGate />}
+          {isExtensionRuntime() ? (
+            <ExtensionConnectGate />
+          ) : !isNative ? (
+            <WebConnectGate />
+          ) : (
+            <LoginGate />
+          )}
           <SsoCallbackBridge />
           <DataBootstrap />
           <Shell />
+          <AnimatedQrExportModal
+            isOpen={globalExportOpen}
+            onClose={() => setGlobalExportOpen(false)}
+          />
         </div>
       </ThemeProvider>
     </ErrorBoundary>

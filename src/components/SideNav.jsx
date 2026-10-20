@@ -1,5 +1,5 @@
 import { motion, LayoutGroup } from 'framer-motion';
-import { CalendarDays, Award, Timer, LayoutGrid, LayoutDashboard, Palette, Bell, X } from 'lucide-react';
+import { CalendarDays, Award, Timer, LayoutGrid, LayoutDashboard, Palette, Bell, X, QrCode } from 'lucide-react';
 import { useSarvestanData } from '../hooks/useSarvestanData';
 import { getLocalNotes } from '../services/behestan/store';
 import { toFaDigits } from '../utils/faDigits';
@@ -103,41 +103,56 @@ export default function SideNav({ active, onChange }) {
           ))}
 
           {/* ابزارهای سریع — همان دکمه‌های هدر */}
-          <div className="mt-auto pt-2 border-t border-base-500/30 flex items-center gap-1.5 flex-wrap">
+          <div className="mt-auto pt-2 border-t border-base-500/30 space-y-2">
             <button
               type="button"
-              onClick={() => window.dispatchEvent(new Event('sarvestan-sidebar-theme'))}
-              className="flex items-center gap-1.5 h-8 px-2 rounded-xl bg-base-500/30 hover:bg-base-500/50 border border-base-500/40 text-neutral hover:text-base-content active:scale-95 transition-all outline-none"
-              title="تغییر تم"
+              onClick={() => window.dispatchEvent(new Event('sarvestan-open-export-modal'))}
+              className="w-full flex items-center justify-between gap-2 h-9 px-3 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/25 text-primary active:scale-95 transition-all outline-none font-bold text-xs cursor-pointer"
+              title="انتقال داده‌ها به وب و آیفون"
             >
-              <Palette className="w-3.5 h-3.5" />
-              <span className="text-[11px] font-medium">تم</span>
+              <div className="flex items-center gap-2">
+                <QrCode className="w-4 h-4" />
+                <span>انتقال داده‌ها</span>
+              </div>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20">QR/وب</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new Event('sarvestan-sidebar-notify'))}
-              className="relative w-8 h-8 rounded-xl bg-base-500/30 hover:bg-base-500/50 border border-base-500/40 grid place-items-center text-neutral hover:text-base-content active:scale-95 transition-all outline-none"
-              title="اعلانات و پیام‌ها"
-            >
-              <Bell className="w-4 h-4" />
-              {unread > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-content text-[9px] font-bold flex items-center justify-center shadow-sm">
-                  {toFaDigits(unread)}
-                </span>
-              )}
-            </button>
-
-            {overlayOpen && (
+            <div className="flex items-center gap-1.5 flex-wrap">
               <button
                 type="button"
-                onClick={closeBehestanOverlay}
-                className="flex items-center gap-1 h-8 px-2 rounded-xl bg-danger-soft hover:bg-danger/20 text-danger border border-danger/30 text-[11px] font-bold active:scale-95 transition-all outline-none cursor-pointer"
-                title="بستن پنجره سروستان و بازگشت به بهستان"
+                onClick={() => window.dispatchEvent(new Event('sarvestan-sidebar-theme'))}
+                className="flex items-center gap-1.5 h-8 px-2 rounded-xl bg-base-500/30 hover:bg-base-500/50 border border-base-500/40 text-neutral hover:text-base-content active:scale-95 transition-all outline-none"
+                title="تغییر تم"
               >
-                <X className="w-3.5 h-3.5" />
+                <Palette className="w-3.5 h-3.5" />
+                <span className="text-[11px] font-medium">تم</span>
               </button>
-            )}
+
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new Event('sarvestan-sidebar-notify'))}
+                className="relative w-8 h-8 rounded-xl bg-base-500/30 hover:bg-base-500/50 border border-base-500/40 grid place-items-center text-neutral hover:text-base-content active:scale-95 transition-all outline-none"
+                title="اعلانات و پیام‌ها"
+              >
+                <Bell className="w-4 h-4" />
+                {unread > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-content text-[9px] font-bold flex items-center justify-center shadow-sm">
+                    {toFaDigits(unread)}
+                  </span>
+                )}
+              </button>
+
+              {overlayOpen && (
+                <button
+                  type="button"
+                  onClick={closeBehestanOverlay}
+                  className="flex items-center gap-1 h-8 px-2 rounded-xl bg-danger-soft hover:bg-danger/20 text-danger border border-danger/30 text-[11px] font-bold active:scale-95 transition-all outline-none cursor-pointer"
+                  title="بستن پنجره سروستان و بازگشت به بهستان"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </LayoutGroup>
