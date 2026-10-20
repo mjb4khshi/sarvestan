@@ -96,7 +96,7 @@
         "assets/*",
         "*.png",
         "*.svg",
-        "*.woff2",
+        "*.woff2"
       ],
       "matches": [
         "*://*.kntu.ac.ir/*",
