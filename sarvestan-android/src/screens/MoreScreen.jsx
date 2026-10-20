@@ -36,6 +36,9 @@ import {
   SlidersHorizontal,
   Bot,
   Users,
+  QrCode,
+  Camera,
+  Upload,
 } from 'lucide-react';
 import UpdateModal from '../components/UpdateModal';
 import ClassAlarmModal from '../components/ClassAlarmModal';
@@ -139,6 +142,114 @@ function DarametDonateCard() {
         <ExternalLink className="w-3.5 h-3.5" />
       </div>
     </a>
+  );
+}
+
+function DataTransferCard({ onOpenExport, onOpenScanner }) {
+  const fileInputRef = useRef(null);
+  const [importing, setImporting] = useState(false);
+  const [toastMsg, setToastMsg] = useState('');
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setImporting(true);
+      const text = await file.text();
+      const bundle = JSON.parse(text);
+      await applyBundleToStorage(bundle);
+      setToastMsg('داده‌ها با موفقیت بازیابی شدند!');
+      setTimeout(() => setToastMsg(''), 3000);
+      window.location.reload();
+    } catch (err) {
+      alert('خطا در بازیابی فایل: ' + (err.message || err));
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleFastJsonDownload = () => {
+    const bundle = exportSnapshotBundle({ shrinkPhoto: false });
+    downloadJsonBundle(bundle);
+  };
+
+  return (
+    <div className="sarv-card p-4 space-y-3 border border-base-500/30">
+      <div className="flex items-center justify-between">
+        <h3 className="text-[13px] font-bold text-base-content flex items-center gap-2">
+          <QrCode className="w-4 h-4 text-primary" />
+          <span>پشتیبان‌گیری و انتقال داده‌ها</span>
+        </h3>
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-primary/10 text-primary border border-primary/20">
+          آفلاین و امن
+        </span>
+      </div>
+
+      <p className="text-[11px] text-neutral leading-relaxed">
+        انتقال بی‌درنگ برنامه و کارنامه به نسخه وب و آیفون (بدون سرور) یا پشتیبان‌گیری در فایل JSON
+      </p>
+
+      {toastMsg && (
+        <div className="p-2 rounded-xl bg-success/15 border border-success/30 text-success text-xs font-bold text-center">
+          {toastMsg}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={onOpenExport}
+          className="p-3 rounded-2xl bg-gradient-to-r from-primary to-emerald-600 hover:from-primary/90 hover:to-emerald-700 text-primary-content text-xs font-bold flex items-center justify-between shadow-md shadow-primary/20 transition-all cursor-pointer"
+        >
+          <div className="flex items-center gap-2">
+            <QrCode className="w-4 h-4" />
+            <span>انتقال با QR متحرک</span>
+          </div>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/20">آیفون/وب</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={handleFastJsonDownload}
+          className="p-3 rounded-2xl bg-base-500/20 hover:bg-base-500/35 border border-base-500/30 text-base-content text-xs font-bold flex items-center justify-between transition-all cursor-pointer"
+        >
+          <div className="flex items-center gap-2">
+            <Download className="w-4 h-4 text-primary" />
+            <span>دانلود فایل پشتیبان</span>
+          </div>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-base-500/30 text-neutral font-mono">.json</span>
+        </button>
+      </div>
+
+      <div className="flex items-center gap-2 pt-1">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json,application/json"
+          className="hidden"
+          onChange={handleFileUpload}
+        />
+        <button
+          type="button"
+          disabled={importing}
+          onClick={() => fileInputRef.current?.click()}
+          className="flex-1 py-2 px-3 rounded-xl bg-base-500/15 hover:bg-base-500/25 border border-base-500/30 text-neutral hover:text-base-content text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+        >
+          <Upload className="w-3.5 h-3.5 text-primary" />
+          <span>{importing ? 'در حال بازیابی...' : 'بازیابی از فایل JSON'}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={onOpenScanner}
+          className="py-2 px-3 rounded-xl bg-base-500/15 hover:bg-base-500/25 border border-base-500/30 text-neutral hover:text-base-content text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+          title="اسکن با دوربین"
+        >
+          <Camera className="w-3.5 h-3.5 text-primary" />
+          <span>اسکن دوربین</span>
+        </button>
+      </div>
+    </div>
   );
 }
 
