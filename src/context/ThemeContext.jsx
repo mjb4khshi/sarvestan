@@ -2,6 +2,30 @@ import { createContext, useContext, useState, useEffect } from 'react';
 
 export const SARV_THEMES = [
   {
+    id: 'tehran',
+    name: 'Tehran',
+    persianName: 'تهران',
+    icon: '🗼',
+    mode: 'dark',
+    primary: '#c1121f',
+    base: '#002236',
+    accent: '#669bbc',
+    isLimited: true,
+    badge: 'محدود',
+  },
+  {
+    id: 'tehran-2',
+    name: 'Tehran 2',
+    persianName: 'تهران دو',
+    icon: '🌿',
+    mode: 'dark',
+    primary: '#dda15e',
+    base: '#1b2610',
+    accent: '#606c38',
+    isLimited: true,
+    badge: 'محدود',
+  },
+  {
     id: 'persian-light',
     name: 'Persian Light',
     persianName: 'ایرانی روشن',

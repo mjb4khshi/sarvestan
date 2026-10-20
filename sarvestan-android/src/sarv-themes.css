@@ -602,3 +602,70 @@ html[data-theme="persian-light"],
   --theme-radius-input: 0.85rem;
 }
 
+
+
+/* ==========================================================================
+   Limited Themes: Tehran & Tehran 2 (تم‌های اختصاصی و محدود تهران و تهران دو)
+   ========================================================================== */
+
+/* تهران (Fiery Ocean) - پالت محدود */
+[datatheme="tehran"],
+[data-theme="tehran"] {
+  --theme-color-primary: #c1121f;
+  --theme-color-secondary: #669bbc;
+  --theme-color-accent: #780000;
+  --theme-color-success: #46c93a;
+  --theme-color-warn: #fdf0d5;
+  --theme-color-danger: #c1121f;
+  --theme-color-info: #669bbc;
+  --theme-color-neutral: #94a3b8;
+  --theme-color-neutral-dark: #1b3a4b;
+  --theme-color-neutral-darker: #0d2838;
+  --theme-color-base: #002236;
+  --theme-color-base-500: #003049;
+  --theme-color-base-900: #0d486d;
+  --theme-color-primary-content: #ffffff;
+  --theme-color-secondary-content: #ffffff;
+  --theme-color-accent-content: #ffffff;
+  --theme-color-success-content: #ffffff;
+  --theme-color-warn-content: #000000;
+  --theme-color-danger-content: #ffffff;
+  --theme-color-info-content: #ffffff;
+  --theme-color-neutral-content: #ffffff;
+  --theme-color-base-content: #fdf0d5;
+  --theme-shadow-color: 0, 48, 73;
+  --theme-radius-card: 1.15rem;
+  --theme-radius-button: 0.85rem;
+  --theme-radius-input: 0.85rem;
+}
+
+/* تهران دو (Olive Garden Feast) - پالت محدود */
+[datatheme="tehran-2"],
+[data-theme="tehran-2"] {
+  --theme-color-primary: #dda15e;
+  --theme-color-secondary: #606c38;
+  --theme-color-accent: #bc6c25;
+  --theme-color-success: #606c38;
+  --theme-color-warn: #dda15e;
+  --theme-color-danger: #bc6c25;
+  --theme-color-info: #8da256;
+  --theme-color-neutral: #a3a893;
+  --theme-color-neutral-dark: #364423;
+  --theme-color-neutral-darker: #1e2912;
+  --theme-color-base: #1b2610;
+  --theme-color-base-500: #283618;
+  --theme-color-base-900: #3d5225;
+  --theme-color-primary-content: #1b2610;
+  --theme-color-secondary-content: #ffffff;
+  --theme-color-accent-content: #ffffff;
+  --theme-color-success-content: #ffffff;
+  --theme-color-warn-content: #1b2610;
+  --theme-color-danger-content: #ffffff;
+  --theme-color-info-content: #ffffff;
+  --theme-color-neutral-content: #ffffff;
+  --theme-color-base-content: #fefae0;
+  --theme-shadow-color: 40, 54, 24;
+  --theme-radius-card: 1.15rem;
+  --theme-radius-button: 0.85rem;
+  --theme-radius-input: 0.85rem;
+}
