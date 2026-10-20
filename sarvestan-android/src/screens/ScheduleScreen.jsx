@@ -897,7 +897,11 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
 
                   <div className="space-y-2.5">
                     {unsched.map((c, ci) => {
-                      const units = c.units || (isProjectCourse(c.name || c.title) ? 3 : 2);
+                      const isTa =
+                        c.classType === 'ta' ||
+                        c.category === 'ta' ||
+                        String(c.name || c.title || '').includes('حل تمرین');
+                      const units = isTa ? 0 : (c.units != null ? c.units : (isProjectCourse(c.name || c.title) ? 3 : 2));
                       return (
                         <article
                           key={`unsched-${c.id || c.code || ci}`}
@@ -909,9 +913,15 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                                 <h4 className="text-[14px] font-bold text-base-content truncate">
                                   {c.name || c.title || 'درس'}
                                 </h4>
-                                <span className="px-2 py-0.5 rounded-full bg-accent-soft text-accent text-[10px] font-bold shrink-0">
-                                  {toFaDigits(units)} واحد
-                                </span>
+                                {isTa ? (
+                                  <span className="px-2 py-0.5 rounded-full bg-secondary-soft text-secondary text-[10px] font-bold shrink-0">
+                                    حل تمرین
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full bg-accent-soft text-accent text-[10px] font-bold shrink-0">
+                                    {toFaDigits(units)} واحد
+                                  </span>
+                                )}
                               </div>
                               <div className="mt-1 flex items-center gap-2 text-[11.5px] text-neutral">
                                 <span className="flex items-center gap-1">

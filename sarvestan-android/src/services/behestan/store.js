@@ -337,6 +337,11 @@ export function findKnownProfessor(course, termId) {
 
 export function findKnownUnits(course, termId) {
   if (!course) return 0;
+  const isTa =
+    course.classType === 'ta' ||
+    course.category === 'ta' ||
+    String(course.name || course.title || '').includes('حل تمرین');
+  if (isTa) return 0;
   if (course.units && Number(course.units) > 0) return Number(course.units);
 
   const targetCode = normalizeCourseCode(course.code || course.id);
@@ -530,26 +535,40 @@ export function hydrateAndHealScheduleProfessors() {
       let prof = c.professor;
       let units = c.units;
       let type = c.type;
+      const isTa =
+        c.classType === 'ta' ||
+        c.category === 'ta' ||
+        String(c.name || c.title || '').includes('حل تمرین');
 
-      if (!prof || prof === 'ـ') {
-        const found = findKnownProfessor(c, termId);
-        if (found) {
-          prof = found;
+      if (isTa) {
+        if (units !== 0) {
+          units = 0;
           termChanged = true;
         }
-      }
-      if (!units || units === 0) {
-        const foundU = findKnownUnits(c, termId);
-        if (foundU) {
-          units = foundU;
+        if (c.includeInGpa !== false) {
           termChanged = true;
         }
-      }
-      if (!type || type === 'ـ') {
-        const foundT = findKnownType(c, termId);
-        if (foundT) {
-          type = foundT;
-          termChanged = true;
+      } else {
+        if (!prof || prof === 'ـ') {
+          const found = findKnownProfessor(c, termId);
+          if (found) {
+            prof = found;
+            termChanged = true;
+          }
+        }
+        if (!units || units === 0) {
+          const foundU = findKnownUnits(c, termId);
+          if (foundU) {
+            units = foundU;
+            termChanged = true;
+          }
+        }
+        if (!type || type === 'ـ') {
+          const foundT = findKnownType(c, termId);
+          if (foundT) {
+            type = foundT;
+            termChanged = true;
+          }
         }
       }
 
@@ -558,12 +577,33 @@ export function hydrateAndHealScheduleProfessors() {
         professor: prof,
         units,
         type,
+        includeInGpa: isTa ? false : (c.includeInGpa !== false),
       };
     });
 
     if (termChanged) {
       newSchedule[termId] = healedList;
       anyChanged = true;
+    }
+  }
+
+  // خودترمیمی کش courses برای حل تمرین‌ها (جهت جلوگیری از احتساب واحد یا نمره در شبیه‌ساز)
+  if (Array.isArray(cache.courses)) {
+    let coursesChanged = false;
+    cache.courses = cache.courses.map((c) => {
+      if (!c) return c;
+      const isTa =
+        c.classType === 'ta' ||
+        c.category === 'ta' ||
+        String(c.name || c.title || '').includes('حل تمرین');
+      if (isTa && (c.units !== 0 || c.includeInGpa !== false)) {
+        coursesChanged = true;
+        return { ...c, units: 0, includeInGpa: false };
+      }
+      return c;
+    });
+    if (coursesChanged) {
+      persist(KEYS.COURSES, cache.courses);
     }
   }
 
@@ -786,14 +826,26 @@ export function updateScheduleCourse(termId, courseIdentifier, updatedCourse) {
   let idx = list.findIndex((c) => {
     if (!c) return false;
     if (idTarget && c.id && String(c.id) === String(idTarget)) return true;
-    if (codeTarget && c.code && norm(c.code) === norm(codeTarget)) return true;
     if (nameTarget && (c.name || c.title) && norm(c.name || c.title) === norm(nameTarget)) return true;
+    if (!nameTarget && codeTarget && c.code && norm(c.code) === norm(codeTarget)) return true;
     return false;
   });
+
+  const isTa =
+    updatedCourse.classType === 'ta' ||
+    updatedCourse.category === 'ta' ||
+    String(updatedCourse.name || updatedCourse.title || '').includes('حل تمرین');
+
+  const resolvedUnits = isTa ? 0 : (Number(updatedCourse.units) || 0);
+  const resolvedIncludeInGpa = isTa ? false : (updatedCourse.includeInGpa !== false);
 
   const merged = {
     ...(idx >= 0 ? list[idx] : {}),
     ...updatedCourse,
+    units: resolvedUnits,
+    includeInGpa: resolvedIncludeInGpa,
+    classType: isTa ? 'ta' : (updatedCourse.classType || 'lecture'),
+    category: isTa ? 'ta' : (updatedCourse.category || 'lecture'),
     id: (idx >= 0 ? list[idx].id : null) || updatedCourse.id || `course_${Date.now()}`,
     customEdited: true,
   };
@@ -814,15 +866,18 @@ export function updateScheduleCourse(termId, courseIdentifier, updatedCourse) {
     const cIdx = cache.courses.findIndex((cc) => {
       if (!cc) return false;
       if (idTarget && cc.id && String(cc.id) === String(idTarget)) return true;
-      if (codeTarget && cc.code && norm(cc.code) === norm(codeTarget)) return true;
       if (nameTarget && (cc.name || cc.title) && norm(cc.name || cc.title) === norm(nameTarget)) return true;
+      if (!nameTarget && codeTarget && cc.code && norm(cc.code) === norm(codeTarget)) return true;
       return false;
     });
     if (cIdx >= 0) {
       cache.courses[cIdx] = {
         ...cache.courses[cIdx],
         ...updatedCourse,
-        includeInGpa: updatedCourse.includeInGpa !== false,
+        units: resolvedUnits,
+        includeInGpa: resolvedIncludeInGpa,
+        classType: isTa ? 'ta' : 'lecture',
+        category: isTa ? 'ta' : 'lecture',
         color: updatedCourse.color || cache.courses[cIdx].color,
       };
     }
@@ -838,8 +893,20 @@ export function addScheduleCourse(termId, newCourse) {
   const schedule = { ...(cache.schedule || {}) };
   const list = [...(schedule[targetTerm] || [])];
 
+  const isTa =
+    newCourse.classType === 'ta' ||
+    newCourse.category === 'ta' ||
+    String(newCourse.name || newCourse.title || '').includes('حل تمرین');
+
+  const resolvedUnits = isTa ? 0 : (newCourse.units != null ? Number(newCourse.units) : 3);
+  const resolvedIncludeInGpa = isTa ? false : (newCourse.includeInGpa !== false);
+
   const courseWithId = {
     ...newCourse,
+    units: resolvedUnits,
+    includeInGpa: resolvedIncludeInGpa,
+    classType: isTa ? 'ta' : (newCourse.classType || 'lecture'),
+    category: isTa ? 'ta' : (newCourse.category || 'lecture'),
     id: newCourse.id || `custom_c_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
     customAdded: true,
   };
@@ -852,12 +919,14 @@ export function addScheduleCourse(termId, newCourse) {
       id: courseWithId.id,
       code: courseWithId.code || '',
       name: courseWithId.name || '',
-      units: courseWithId.units || 3,
+      units: resolvedUnits,
       termId: targetTerm,
       color: courseWithId.color || 'primary',
-      includeInGpa: courseWithId.includeInGpa !== false,
+      includeInGpa: resolvedIncludeInGpa,
       grade: null,
       status: 'در حال',
+      classType: isTa ? 'ta' : 'lecture',
+      category: isTa ? 'ta' : 'lecture',
     });
   }
 
@@ -1331,9 +1400,21 @@ export function getSummary() {
   ].sort();
   const currentTerm = termIds.length ? termIds[termIds.length - 1] : '4051';
   const scheduleCourses = getCurrentTermSchedule(currentTerm);
-  const scheduleUnits = scheduleCourses.reduce((s, c) => s + (c.units || 0), 0);
+  const scheduleUnits = scheduleCourses.reduce((s, c) => {
+    const isTa =
+      c?.classType === 'ta' ||
+      c?.category === 'ta' ||
+      String(c?.name || c?.title || '').includes('حل تمرین');
+    if (isTa) return s;
+    return s + (c?.units || 0);
+  }, 0);
   const currentCourses = courses.filter((c) => {
     if (c.termId !== currentTerm && !c.isRegistration) return false;
+    const isTa =
+      c?.classType === 'ta' ||
+      c?.category === 'ta' ||
+      String(c?.name || c?.title || '').includes('حل تمرین');
+    if (isTa) return false;
     const reg = String(c.regStatus || '');
     if (reg === 'dropped' || reg === 'waitlist') return false;
     const st = String(c.status || '');

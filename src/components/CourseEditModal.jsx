@@ -98,12 +98,12 @@ export default function CourseEditModal({
         setClassType(detectedType);
         setNotes(course.notes || '');
         setName(course.name || course.title || '');
-        setProfessor(course.professor || '');
+        setProfessor(course.professor || (detectedType === 'ta' ? 'دستیار آموزشی / TA' : ''));
         setHall(course.hall || course.room || course.daySlots?.[0]?.hall || '');
-        setUnits(course.units != null ? course.units : 3);
+        setUnits(detectedType === 'ta' ? 0 : (course.units != null ? course.units : 3));
         setCode(course.code || '');
         setGroup(course.group || '01');
-        setIncludeInGpa(course.includeInGpa !== false);
+        setIncludeInGpa(detectedType === 'ta' ? false : (course.includeInGpa !== false));
         setColor(course.color || 'primary');
         setAbsences(Number(course.absences) || 0);
         setMaxAbsences(course.maxAbsences != null ? Number(course.maxAbsences) : 3);
@@ -257,6 +257,7 @@ export default function CourseEditModal({
       hall: userHall || 'ـ',
     }));
 
+    const isTaClass = classType === 'ta';
     const resultCourse = {
       ...(course || {}),
       name: name.trim(),
@@ -264,7 +265,7 @@ export default function CourseEditModal({
       professor: professor.trim(),
       hall: userHall || 'ـ',
       room: userHall || 'ـ',
-      units: Number(units) || 0,
+      units: isTaClass ? 0 : (Number(units) || 0),
       code: code.trim(),
       group: group.trim(),
       days: combinedDays,
@@ -272,7 +273,7 @@ export default function CourseEditModal({
       time: timeFormatted,
       classTimeRaw: timeFormatted,
       daySlots: formattedDaySlots,
-      includeInGpa: Boolean(includeInGpa),
+      includeInGpa: isTaClass ? false : Boolean(includeInGpa),
       color: color || 'primary',
       absences: Math.max(0, Number(absences) || 0),
       maxAbsences: Math.max(1, Number(maxAbsences) || 3),
@@ -423,6 +424,15 @@ export default function CourseEditModal({
                             onClick={() => {
                               setClassType(opt.id);
                               setClassTypeDropdownOpen(false);
+                              if (opt.id === 'ta') {
+                                setUnits(0);
+                                setIncludeInGpa(false);
+                                if (!professor) setProfessor('دستیار آموزشی / TA');
+                              } else {
+                                if (Number(units) === 0) setUnits(3);
+                                setIncludeInGpa(true);
+                                if (professor === 'دستیار آموزشی / TA') setProfessor('');
+                              }
                             }}
                             className={`w-full p-2.5 rounded-xl text-right flex items-center justify-between transition-all cursor-pointer ${
                               classType === opt.id
@@ -520,14 +530,23 @@ export default function CourseEditModal({
                   <label className="text-[11px] font-bold text-neutral block mb-1">
                     تعداد واحد
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="12"
-                    value={units}
-                    onChange={(e) => setUnits(e.target.value)}
-                    className="w-full px-2.5 py-2 rounded-xl bg-base-500/15 border border-base-500/30 text-base-content text-[12.5px] text-center font-bold font-mono focus:border-primary outline-none transition"
-                  />
+                  {classType === 'ta' ? (
+                    <div
+                      className="w-full px-1.5 py-2 rounded-xl bg-base-500/10 border border-base-500/20 text-neutral text-[11px] text-center font-bold"
+                      title="کلاس‌های حل تمرین بدون واحد درسی هستند"
+                    >
+                      ۰ (حل تمرین)
+                    </div>
+                  ) : (
+                    <input
+                      type="number"
+                      min="0"
+                      max="12"
+                      value={units}
+                      onChange={(e) => setUnits(e.target.value)}
+                      className="w-full px-2.5 py-2 rounded-xl bg-base-500/15 border border-base-500/30 text-base-content text-[12.5px] text-center font-bold font-mono focus:border-primary outline-none transition"
+                    />
+                  )}
                 </div>
 
                 <div>
@@ -610,36 +629,38 @@ export default function CourseEditModal({
               </div>
 
               {/* تیک اضافه کردن درس به شبیه‌ساز معدل */}
-              <div
-                onClick={() => setIncludeInGpa((prev) => !prev)}
-                className="p-3 rounded-2xl bg-base-500/10 border border-base-500/20 flex items-center justify-between gap-3 cursor-pointer hover:bg-base-500/15 transition select-none"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span
-                    className={`w-8 h-8 rounded-xl grid place-items-center shrink-0 transition-colors ${
-                      includeInGpa ? 'bg-primary/15 text-primary' : 'bg-base-500/30 text-neutral'
+              {classType !== 'ta' && (
+                <div
+                  onClick={() => setIncludeInGpa((prev) => !prev)}
+                  className="p-3 rounded-2xl bg-base-500/10 border border-base-500/20 flex items-center justify-between gap-3 cursor-pointer hover:bg-base-500/15 transition select-none"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span
+                      className={`w-8 h-8 rounded-xl grid place-items-center shrink-0 transition-colors ${
+                        includeInGpa ? 'bg-primary/15 text-primary' : 'bg-base-500/30 text-neutral'
+                      }`}
+                    >
+                      <Calculator className="w-4 h-4" />
+                    </span>
+                    <div>
+                      <span className="text-[12px] font-bold text-base-content block">
+                        محاسبه در شبیه‌ساز معدل
+                      </span>
+                      <span className="text-[10.5px] text-neutral block">
+                        این درس در بخش محاسبه و شبیه‌ساز معدل ترم لحاظ شود
+                      </span>
+                    </div>
+                  </div>
+
+                  <div
+                    className={`w-11 h-6 rounded-full transition-colors relative p-0.5 shrink-0 flex items-center shadow-inner ${
+                      includeInGpa ? 'bg-primary justify-end' : 'bg-base-500/40 justify-start'
                     }`}
                   >
-                    <Calculator className="w-4 h-4" />
-                  </span>
-                  <div>
-                    <span className="text-[12px] font-bold text-base-content block">
-                      محاسبه در شبیه‌ساز معدل
-                    </span>
-                    <span className="text-[10.5px] text-neutral block">
-                      این درس در بخش محاسبه و شبیه‌ساز معدل ترم لحاظ شود
-                    </span>
+                    <span className="w-5 h-5 rounded-full bg-white shadow-md block transition-all" />
                   </div>
                 </div>
-
-                <div
-                  className={`w-11 h-6 rounded-full transition-colors relative p-0.5 shrink-0 flex items-center shadow-inner ${
-                    includeInGpa ? 'bg-primary justify-end' : 'bg-base-500/40 justify-start'
-                  }`}
-                >
-                  <span className="w-5 h-5 rounded-full bg-white shadow-md block transition-all" />
-                </div>
-              </div>
+              )}
 
               {/* شمارنده و تنظیم غیبت‌های مجاز درس */}
               <div className="p-3.5 rounded-2xl bg-base-500/10 border border-base-500/20 space-y-3">

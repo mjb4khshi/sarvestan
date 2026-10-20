@@ -251,20 +251,29 @@ function buildViewModel() {
   const allCourses = rawSchedule.map((sc) => {
     const scCode = cleanCourseCode(sc.code);
     const scName = cleanCourseName(sc.name || sc.course || sc.title || '');
-    const matched = (snap.courses || []).find((c) => {
-      const cCode = cleanCourseCode(c.code);
-      const cName = cleanCourseName(c.name || c.title || '');
-      return (scCode && cCode && scCode === cCode) || (scName && cName && scName === cName);
-    });
+    const isTa =
+      sc.classType === 'ta' ||
+      sc.category === 'ta' ||
+      String(sc.name || sc.course || sc.title || '').includes('حل تمرین');
+
+    const matched = isTa
+      ? null
+      : (snap.courses || []).find((c) => {
+          const cCode = cleanCourseCode(c.code);
+          const cName = cleanCourseName(c.name || c.title || '');
+          return (scCode && cCode && scCode === cCode) || (scName && cName && scName === cName);
+        });
     // exams ترکیب {termId:[...]} استاندارد است (نسخه‌های قدیمی آرایه ذخیره می‌کردند)
     const flatExams = Array.isArray(snap.exams)
       ? snap.exams
       : Object.values(snap.exams || {}).filter(Array.isArray).flat();
-    const matchedExam = flatExams.find((e) => {
-      const eCode = cleanCourseCode(e.code);
-      const eName = cleanCourseName(e.name || e.title || '');
-      return (scCode && eCode && scCode === eCode) || (scName && eName && scName === eName);
-    });
+    const matchedExam = isTa
+      ? null
+      : flatExams.find((e) => {
+          const eCode = cleanCourseCode(e.code);
+          const eName = cleanCourseName(e.name || e.title || '');
+          return (scCode && eCode && scCode === eCode) || (scName && eName && scName === eName);
+        });
 
     const prof =
       (sc.professor && sc.professor !== 'ـ' && sc.professor !== '؟')
@@ -273,10 +282,11 @@ function buildViewModel() {
         ? matched.professor
         : (matchedExam?.professor && matchedExam.professor !== 'ـ' && matchedExam.professor !== '؟')
         ? matchedExam.professor
-        : 'ـ';
+        : (isTa ? 'دستیار آموزشی / TA' : 'ـ');
 
-    const units =
-      (sc.units && Number(sc.units) > 0)
+    const units = isTa
+      ? 0
+      : (sc.units && Number(sc.units) > 0)
         ? Number(sc.units)
         : (matched?.units ? Number(matched.units) : 0);
 
@@ -284,6 +294,9 @@ function buildViewModel() {
       ...sc,
       professor: prof,
       units,
+      classType: isTa ? 'ta' : (sc.classType || 'lecture'),
+      category: isTa ? 'ta' : (sc.category || 'lecture'),
+      includeInGpa: isTa ? false : (sc.includeInGpa !== false),
     };
   });
   const todayCourses = day ? getTodayClasses(day) : [];
@@ -565,10 +578,18 @@ function buildViewModel() {
 
   // واحد اخذشدهٔ ترم جاری: فقط دروس ثبت‌شده — حذف اضطراری و در انتظار حساب نمی‌شوند
   const curriculum = getCurriculumView();
-  const scheduleUnits = allCourses.reduce(
-    (s, c) => s + (parseNum(c.units ?? c.unit) || (isProjectCourse(c.name || c.title) ? 3 : isInternshipCourse(c.name || c.title) ? 2 : 0)),
-    0
-  );
+  const scheduleUnits = allCourses.reduce((s, c) => {
+    const isTa =
+      c.classType === 'ta' ||
+      c.category === 'ta' ||
+      String(c.name || c.title || '').includes('حل تمرین');
+    if (isTa) return s;
+    return (
+      s +
+      (parseNum(c.units ?? c.unit) ||
+        (isProjectCourse(c.name || c.title) ? 3 : isInternshipCourse(c.name || c.title) ? 2 : 0))
+    );
+  }, 0);
 
   const liveTerms = buildTermsFromLive(snap);
   const activeTermUnits = Number(liveTerms[0]?.totalUnits) || 0;
@@ -581,9 +602,15 @@ function buildViewModel() {
   const profileUnits = parseNum(profile.enrolledUnits) || parseNum(profile.totalUnits) || 0;
 
   // واحدهای ثبت‌شده در snap.courses برای ترم جاری
-  const currentCourses = (snap.courses || []).filter(
-    (c) => String(c.termId) === String(currentTerm) && courseState(c) !== 'dropped' && courseState(c) !== 'waitlist',
-  );
+  const currentCourses = (snap.courses || []).filter((c) => {
+    if (String(c.termId) !== String(currentTerm)) return false;
+    const isTa =
+      c.classType === 'ta' ||
+      c.category === 'ta' ||
+      String(c.name || c.title || '').includes('حل تمرین');
+    if (isTa) return false;
+    return courseState(c) !== 'dropped' && courseState(c) !== 'waitlist';
+  });
   const currentCoursesUnits = currentCourses.reduce(
     (s, c) => s + (parseNum(c.units) || (isProjectCourse(c.name || c.title) ? 3 : isInternshipCourse(c.name || c.title) ? 2 : 0)),
     0
@@ -770,6 +797,12 @@ function buildTermsFromLive(snap) {
   // ادغام دروس برنامه جاری در کارنامه برای اطمینان از حضور دروس بدون نمره مانند پروژه و کارآموزی
   for (const sc of scheduleCourses) {
     if (!sc) continue;
+    const isTa =
+      sc.classType === 'ta' ||
+      sc.category === 'ta' ||
+      String(sc.name || sc.course || sc.title || '').includes('حل تمرین');
+    if (isTa) continue; // کلاس‌های حل تمرین در کارنامه یا شبیه‌ساز معدل وارد نمی‌شوند
+
     const scCode = cleanCourseCode(sc.code);
     const scName = cleanCourseName(sc.name || sc.course || sc.title || '');
 
