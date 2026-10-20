@@ -93,6 +93,90 @@ export function exportSnapshotBundle({ shrinkPhoto = false } = {}) {
 }
 
 /**
+ * Shrinks a base64 student portrait to an ultra-compact thumbnail (~1.5KB)
+ * for lightning-fast QR transmission while maintaining crisp profile display.
+ */
+export async function shrinkBase64Photo(rawBase64, { maxDim = 96, quality = 0.45 } = {}) {
+  if (!rawBase64 || typeof rawBase64 !== 'string') return null;
+  if (!rawBase64.startsWith('data:image')) return rawBase64;
+  if (typeof document === 'undefined') return rawBase64;
+
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const nw = img.naturalWidth || img.width || maxDim;
+          const nh = img.naturalHeight || img.height || maxDim;
+          const scale = Math.min(1, maxDim / Math.max(nw, nh));
+          const dw = Math.max(1, Math.round(nw * scale));
+          const dh = Math.max(1, Math.round(nh * scale));
+
+          const canvas = document.createElement('canvas');
+          canvas.width = dw;
+          canvas.height = dh;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return resolve(rawBase64);
+
+          ctx.drawImage(img, 0, 0, dw, dh);
+
+          // WebP gives superior compression for portraits
+          let out = canvas.toDataURL('image/webp', quality);
+          if (!out || !out.startsWith('data:image/webp') || out.length >= rawBase64.length) {
+            out = canvas.toDataURL('image/jpeg', quality);
+          }
+          resolve(out && out.length < rawBase64.length ? out : rawBase64);
+        } catch {
+          resolve(rawBase64);
+        }
+      };
+      img.onerror = () => resolve(rawBase64);
+      img.src = rawBase64;
+    } catch {
+      resolve(rawBase64);
+    }
+  });
+}
+
+/**
+ * Creates a clean snapshot bundle asynchronously, with high-efficiency photo thumbnail compression
+ */
+export async function exportSnapshotBundleAsync({ shrinkPhoto = false } = {}) {
+  const bundle = exportSnapshotBundle({ shrinkPhoto: false });
+  if (shrinkPhoto) {
+    if (bundle.data.sarvestan_live_profile?.photo) {
+      bundle.data.sarvestan_live_profile = { ...bundle.data.sarvestan_live_profile };
+      try {
+        const shrunk = await shrinkBase64Photo(bundle.data.sarvestan_live_profile.photo, { maxDim: 96, quality: 0.45 });
+        bundle.data.sarvestan_live_profile.photo = shrunk;
+        bundle.data.sarvestan_live_profile.photoLight = true;
+      } catch {
+        delete bundle.data.sarvestan_live_profile.photo;
+        bundle.data.sarvestan_live_profile.photoLight = true;
+      }
+    }
+    // Delete bulky server-side workflows (not needed for schedule/grades/dashboard)
+    delete bundle.data.sarvestan_live_workflows;
+
+    // Clean courses if present to keep only essential fields
+    if (Array.isArray(bundle.data.sarvestan_live_courses)) {
+      bundle.data.sarvestan_live_courses = bundle.data.sarvestan_live_courses.map((c) => ({
+        code: c.code,
+        name: c.name,
+        group: c.group,
+        units: c.units,
+        grade: c.grade,
+        status: c.status,
+        termId: c.termId,
+        instructor: c.instructor,
+      }));
+    }
+  }
+  return bundle;
+}
+
+/**
  * Compresses string using gzip when available, with raw fallback
  */
 export async function compressString(str) {

@@ -15,7 +15,7 @@ import {
   Check,
 } from 'lucide-react';
 import QRCode from 'qrcode';
-import { exportSnapshotBundle, generateQrChunks, downloadJsonBundle } from '../services/dataTransfer';
+import { exportSnapshotBundle, exportSnapshotBundleAsync, generateQrChunks, downloadJsonBundle } from '../services/dataTransfer';
 
 export default function AnimatedQrExportModal({ isOpen, onClose }) {
   const [loading, setLoading] = useState(true);
@@ -40,7 +40,7 @@ export default function AnimatedQrExportModal({ isOpen, onClose }) {
     (async () => {
       try {
         setLoading(true);
-        const bundle = exportSnapshotBundle({ shrinkPhoto: true });
+        const bundle = await exportSnapshotBundleAsync({ shrinkPhoto: true });
         const res = await generateQrChunks(bundle);
         if (active) {
           setChunks(res.chunks);
