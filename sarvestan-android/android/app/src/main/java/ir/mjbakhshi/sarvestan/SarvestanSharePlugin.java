@@ -189,4 +189,57 @@ public class SarvestanSharePlugin extends Plugin {
             call.reject("خطا در کپی: " + e.getMessage());
         }
     }
+
+    @PluginMethod
+    public void shareFile(PluginCall call) {
+        String content = call.getString("content");
+        String filename = call.getString("filename", "sarvestan-backup.json");
+        String mimeType = call.getString("mimeType", "application/json");
+        String title = call.getString("title", "فایل پشتیبان سروستان");
+
+        if (content == null) {
+            call.reject("محتوای فایل خالی است");
+            return;
+        }
+
+        try {
+            Context ctx = getContext();
+            File shareDir = new File(ctx.getCacheDir(), "shared_files");
+            if (!shareDir.exists()) shareDir.mkdirs();
+            File file = new File(shareDir, filename);
+
+            try (FileOutputStream fos = new FileOutputStream(file)) {
+                fos.write(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                fos.flush();
+            }
+
+            Uri contentUri = FileProvider.getUriForFile(
+                ctx,
+                ctx.getPackageName() + ".fileprovider",
+                file
+            );
+
+            Intent shareIntent = new Intent(Intent.ACTION_SEND);
+            shareIntent.setType(mimeType);
+            shareIntent.putExtra(Intent.EXTRA_STREAM, contentUri);
+            shareIntent.putExtra(Intent.EXTRA_SUBJECT, title);
+            shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+            Intent chooser = Intent.createChooser(shareIntent, title);
+            chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            Activity activity = getActivity();
+            if (activity != null) {
+                activity.startActivity(chooser);
+            } else {
+                chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                ctx.startActivity(chooser);
+            }
+
+            JSObject ret = new JSObject();
+            ret.put("ok", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("خطا در ارسال فایل: " + e.getMessage());
+        }
+    }
 }

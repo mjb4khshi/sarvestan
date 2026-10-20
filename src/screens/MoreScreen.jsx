@@ -164,9 +164,13 @@ function DataTransferCard({ onOpenExport, onOpenScanner }) {
     }
   };
 
-  const handleFastJsonDownload = () => {
-    const bundle = exportSnapshotBundle({ shrinkPhoto: false });
-    downloadJsonBundle(bundle);
+  const handleFastJsonDownload = async () => {
+    try {
+      const bundle = exportSnapshotBundle({ shrinkPhoto: false });
+      await downloadJsonBundle(bundle);
+    } catch (e) {
+      alert('خطا در پشتیبان‌گیری: ' + (e?.message || e));
+    }
   };
 
   return (

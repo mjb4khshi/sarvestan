@@ -257,14 +257,49 @@ export async function applyBundleToStorage(bundle) {
 }
 
 /**
- * Downloads bundle as a .json file
+ * Downloads bundle as a .json file (with native share on Android / Mobile)
  */
-export function downloadJsonBundle(bundle) {
+export async function downloadJsonBundle(bundle) {
   const std = bundle.data?.sarvestan_live_profile?.studentId || 'student';
   const date = new Date().toISOString().slice(0, 10);
   const fileName = `sarvestan-backup-${std}-${date}.json`;
+  const jsonStr = JSON.stringify(bundle, null, 2);
 
-  const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+  // If Capacitor native share plugin is present (Android)
+  if (typeof window !== 'undefined' && window.Capacitor?.Plugins?.SarvestanShare?.shareFile) {
+    try {
+      await window.Capacitor.Plugins.SarvestanShare.shareFile({
+        content: jsonStr,
+        filename: fileName,
+        mimeType: 'application/json',
+        title: 'فایل پشتیبان سروستان',
+      });
+      return;
+    } catch (e) {
+      console.warn('[downloadJsonBundle native err]', e);
+    }
+  }
+
+  // If Web Share API is available (iOS Safari / Mobile Chrome)
+  if (typeof navigator !== 'undefined' && navigator.share) {
+    try {
+      const file = new File([jsonStr], fileName, { type: 'application/json' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'پشتیبان سروستان',
+          text: `فایل پشتیبان سروستان (${fileName})`,
+        });
+        return;
+      }
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      console.warn('[share api err]', e);
+    }
+  }
+
+  // Standard Web Download fallback (Desktop browsers)
+  const blob = new Blob([jsonStr], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
