@@ -1,5 +1,5 @@
 import { getAnimationLevel, setAnimationLevel, ANIMATION_LEVELS } from '../services/animationSettings';
-import { checkBatteryOptimization, requestIgnoreBatteryOptimization } from '../services/classAlarms';
+import { isNativeAlarms, checkBatteryOptimization, requestIgnoreBatteryOptimization } from '../services/classAlarms';
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -259,6 +259,44 @@ export default function MoreScreen({
   onCloseFinance,
 }) {
   const vm = getViewModel();
+  const [animLevel, setAnimLevel] = useState(getAnimationLevel);
+  const [batteryOptimized, setBatteryOptimized] = useState(false);
+
+  useEffect(() => {
+    const handleAnimChange = (e) => {
+      setAnimLevel(e.detail?.level ?? getAnimationLevel());
+    };
+    window.addEventListener('sarvestanAnimationLevelChanged', handleAnimChange);
+    return () => window.removeEventListener('sarvestanAnimationLevelChanged', handleAnimChange);
+  }, []);
+
+  useEffect(() => {
+    const checkBattery = async () => {
+      try {
+        const res = await checkBatteryOptimization();
+        setBatteryOptimized(res?.ignoring === false);
+      } catch {}
+    };
+    checkBattery();
+    window.addEventListener('focus', checkBattery);
+    return () => window.removeEventListener('focus', checkBattery);
+  }, []);
+
+  const handleAnimChange = (lvl) => {
+    setAnimLevel(lvl);
+    setAnimationLevel(lvl);
+  };
+
+  const handleRequestBatteryExemption = async () => {
+    try {
+      await requestIgnoreBatteryOptimization();
+      const res = await checkBatteryOptimization();
+      setBatteryOptimized(res?.ignoring === false);
+    } catch {}
+  };
+
+  const activeAnimMeta = ANIMATION_LEVELS.find((a) => a.level === animLevel) || ANIMATION_LEVELS[1];
+
   const { workflows, sync, syncMeta } = useSarvestanData();
   const { activeThemeMeta } = useTheme();
   const lastSyncTime = getLastSyncTimestamp(syncMeta);
