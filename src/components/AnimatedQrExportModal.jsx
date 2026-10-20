@@ -111,7 +111,7 @@ export default function AnimatedQrExportModal({ isOpen, onClose }) {
           initial={{ opacity: 0, scale: 0.94, y: 16 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.94, y: 16 }}
-          className="relative w-full max-w-lg rounded-3xl bg-base-100 border border-base-500/30 p-5 sm:p-6 shadow-2xl text-right overflow-hidden"
+          className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-base border border-base-500/40 p-5 sm:p-6 shadow-2xl text-right overflow-hidden"
           dir="rtl"
         >
           {/* Header */}
@@ -149,7 +149,7 @@ export default function AnimatedQrExportModal({ isOpen, onClose }) {
           ) : (
             <div className="space-y-4">
               {/* QR Stream Display Box */}
-              <div className="relative mx-auto flex flex-col items-center justify-center p-4 rounded-2xl bg-base-200/80 border border-base-500/30 shadow-inner">
+              <div className="relative mx-auto flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-100/90 dark:bg-base-500/15 border border-base-500/30 shadow-inner">
                 {/* Neon Border Glow */}
                 <div className="relative p-2 rounded-2xl bg-white shadow-xl border border-primary/40 overflow-hidden">
                   <canvas ref={canvasRef} className="block rounded-xl mx-auto" />

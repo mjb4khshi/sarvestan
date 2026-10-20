@@ -167,7 +167,7 @@ export default function WebQrScannerModal({ isOpen, onClose, onSuccess }) {
           initial={{ opacity: 0, scale: 0.94, y: 16 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.94, y: 16 }}
-          className="relative w-full max-w-md rounded-3xl bg-base-100 border border-base-500/30 p-5 shadow-2xl text-right overflow-hidden"
+          className="relative w-full max-w-md rounded-3xl bg-white dark:bg-base border border-base-500/40 p-5 shadow-2xl text-right overflow-hidden"
           dir="rtl"
         >
           {/* Header */}
@@ -219,7 +219,7 @@ export default function WebQrScannerModal({ isOpen, onClose, onSuccess }) {
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="absolute inset-0 bg-base-100/90 backdrop-blur-sm flex flex-col items-center justify-center gap-2 text-success p-4 z-20"
+                className="absolute inset-0 bg-white/95 dark:bg-base/95 backdrop-blur-sm flex flex-col items-center justify-center gap-2 text-success p-4 z-20"
               >
                 <CheckCircle2 className="w-14 h-14" />
                 <span className="font-black text-base text-base-content">اطلاعات با موفقیت دریافت شد!</span>
@@ -229,7 +229,7 @@ export default function WebQrScannerModal({ isOpen, onClose, onSuccess }) {
 
             {/* Error Message */}
             {cameraError && (
-              <div className="absolute inset-4 bg-base-100/95 rounded-2xl p-4 flex flex-col items-center justify-center text-center gap-2 z-20">
+              <div className="absolute inset-4 bg-white/95 dark:bg-base/95 rounded-2xl p-4 flex flex-col items-center justify-center text-center gap-2 z-20">
                 <AlertCircle className="w-8 h-8 text-warn" />
                 <p className="text-xs text-neutral leading-relaxed">{cameraError}</p>
                 <button
@@ -245,7 +245,7 @@ export default function WebQrScannerModal({ isOpen, onClose, onSuccess }) {
           </div>
 
           {/* Progress Indicator */}
-          <div className="mt-4 p-3 rounded-2xl bg-base-200/80 border border-base-500/25">
+          <div className="mt-4 p-3 rounded-2xl bg-slate-100/90 dark:bg-base-500/15 border border-base-500/25">
             <div className="flex items-center justify-between text-xs mb-1.5">
               <span className="font-bold text-base-content flex items-center gap-1">
                 <Sparkles className="w-3.5 h-3.5 text-primary" />

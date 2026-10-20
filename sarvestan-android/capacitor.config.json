@@ -1,6 +1,6 @@
 {
-  "appId": "ir.mjb4khshi.sarvestan.kntu",
-  "appName": "Sarvestan",
+  "appId": "ir.mjbakhshi.sarvestan.preview",
+  "appName": "سروستان بتا",
   "webDir": "dist",
   "bundledWebRuntime": false,
   "android": {

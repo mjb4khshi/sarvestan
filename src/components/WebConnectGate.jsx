@@ -63,7 +63,7 @@ export default function WebConnectGate({ onDataLoaded }) {
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="w-full max-w-md rounded-3xl bg-base-100 border border-base-500/30 p-6 sm:p-7 shadow-2xl text-right my-auto"
+        className="w-full max-w-md rounded-3xl bg-white dark:bg-base border border-base-500/40 p-6 sm:p-7 shadow-2xl text-right my-auto"
       >
         {/* Brand Icon & Heading */}
         <div className="flex flex-col items-center text-center mb-6">
@@ -117,7 +117,7 @@ export default function WebConnectGate({ onDataLoaded }) {
             type="button"
             disabled={isUploading}
             onClick={() => fileInputRef.current?.click()}
-            className="w-full p-4 rounded-2xl bg-base-200/90 hover:bg-base-200 border border-base-500/30 text-base-content font-bold text-sm flex items-center justify-between transition-all cursor-pointer"
+            className="w-full p-4 rounded-2xl bg-slate-100/90 dark:bg-base-500/20 hover:bg-slate-200 dark:hover:bg-base-500/35 border border-base-500/30 text-base-content font-bold text-sm flex items-center justify-between transition-all cursor-pointer"
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-base-500/20 text-primary flex items-center justify-center">
