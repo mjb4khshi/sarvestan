@@ -55,6 +55,7 @@ import {
   updateTaskStatus,
   getStudySessions,
   logStudySession,
+  updateStudySession,
   deleteStudySession,
   getDailyActivityMap,
   calculateStudyStats,
@@ -578,8 +579,10 @@ export default function StudyScreen({ onNavigate }) {
     }
   };
 
-  // مودال ثبت دستی مطالعه بدون نیاز به تایمر
+  // مودال ثبت دستی و ویرایش مطالعه
   const [manualLogModalOpen, setManualLogModalOpen] = useState(false);
+  const [editingSessionId, setEditingSessionId] = useState(null);
+  const [sessionDatePickerOpen, setSessionDatePickerOpen] = useState(false);
   const [manualCourse, setManualCourse] = useState(coursesList[0]?.name || 'عمومی');
   const [manualDate, setManualDate] = useState(todayIso);
   const [manualMinutes, setManualMinutes] = useState(30);
@@ -616,8 +619,12 @@ export default function StudyScreen({ onNavigate }) {
       } else if (taskModalOpen) {
         setTaskModalOpen(false);
         e?.preventDefault?.();
+      } else if (sessionDatePickerOpen) {
+        setSessionDatePickerOpen(false);
+        e?.preventDefault?.();
       } else if (manualLogModalOpen) {
         setManualLogModalOpen(false);
+        setEditingSessionId(null);
         e?.preventDefault?.();
       } else if (isExamModalOpen) {
         setIsExamModalOpen(false);
@@ -626,7 +633,7 @@ export default function StudyScreen({ onNavigate }) {
     };
     window.addEventListener('sarvCloseTopModal', handleCloseTopModal);
     return () => window.removeEventListener('sarvCloseTopModal', handleCloseTopModal);
-  }, [zenModeOpen, sharePreview, taskModalOpen, manualLogModalOpen, isExamModalOpen]);
+  }, [zenModeOpen, sharePreview, taskModalOpen, manualLogModalOpen, sessionDatePickerOpen, isExamModalOpen]);
 
   // اسکرول خودکار و فوری هیت‌مپ به امروز در زمان نمایش
   const scrollToTodayHeatmap = (smooth = false) => {
@@ -795,7 +802,7 @@ export default function StudyScreen({ onNavigate }) {
     const totalSecs = customMinutes * 60;
     const actualElapsed = remaining <= 0 ? totalSecs : Math.max(0, totalSecs - remaining, customSessionSeconds);
     const durationMins = Math.max(1, Math.round(actualElapsed / 60));
-    logStudySession({
+    const loggedSession = logStudySession({
       courseCode: matchedCourse?.code || null,
       courseName: selectedCourse,
       taskId: selectedTaskId || null,
@@ -811,8 +818,12 @@ export default function StudyScreen({ onNavigate }) {
     setCustomSecondsLeft(customMinutes * 60);
     customTargetEndTimeRef.current = null;
 
-    setShareToast(`نشست مطالعه «${selectedCourse}» (${toFaDigits(durationMins)} دقیقه) ثبت شد 🎉`);
-    setTimeout(() => setShareToast(''), 3500);
+    setShareToast({
+      text: `نشست مطالعه «${selectedCourse}» (${toFaDigits(durationMins)} دقیقه) ثبت شد`,
+      actionLabel: 'ویرایش',
+      onAction: () => handleOpenEditSession(loggedSession),
+    });
+    setTimeout(() => setShareToast(''), 4500);
   };
 
   const handleStopwatchFinish = () => {
@@ -831,7 +842,7 @@ export default function StudyScreen({ onNavigate }) {
     const tone = getCourseColor(matchedCourse || selectedCourse);
 
     const durationMins = Math.max(1, Math.round(stopwatchSeconds / 60));
-    logStudySession({
+    const loggedSession = logStudySession({
       courseCode: matchedCourse?.code || null,
       courseName: selectedCourse,
       taskId: selectedTaskId || null,
@@ -848,8 +859,12 @@ export default function StudyScreen({ onNavigate }) {
     stopwatchStartRef.current = null;
     stopwatchBaseRef.current = 0;
 
-    setShareToast(`کرنومتر «${selectedCourse}» (${toFaDigits(durationMins)} دقیقه) ثبت شد 🎉`);
-    setTimeout(() => setShareToast(''), 3500);
+    setShareToast({
+      text: `کرنومتر «${selectedCourse}» (${toFaDigits(durationMins)} دقیقه) ثبت شد`,
+      actionLabel: 'ویرایش',
+      onAction: () => handleOpenEditSession(loggedSession),
+    });
+    setTimeout(() => setShareToast(''), 4500);
   };
 
   const handleFinishAndSaveSession = () => {
@@ -955,25 +970,57 @@ export default function StudyScreen({ onNavigate }) {
     setTimeout(() => setShareToast(''), 3000);
   };
 
+  const handleOpenManualLog = (defaultDate = selectedDate || todayIso) => {
+    setEditingSessionId(null);
+    setManualCourse(coursesList[0]?.name || 'مطالعه عمومی');
+    setManualMinutes(30);
+    setManualNote('');
+    setManualDate(defaultDate);
+    setManualLogModalOpen(true);
+  };
+
+  const handleOpenEditSession = (session) => {
+    if (!session) return;
+    setEditingSessionId(session.id);
+    setManualCourse(session.courseName || coursesList[0]?.name || 'مطالعه عمومی');
+    setManualMinutes(session.durationMinutes || 30);
+    setManualNote(session.taskTitle || '');
+    setManualDate(session.dateStr || todayIso);
+    setManualLogModalOpen(true);
+  };
+
   const handleManualLogSubmit = (e) => {
     e.preventDefault();
     const matched = coursesList.find((c) => c.name === manualCourse);
     const tone = getCourseColor(matched || manualCourse);
     const mins = Math.max(1, Number(manualMinutes) || 30);
 
-    logStudySession({
-      courseCode: matched?.code || null,
-      courseName: manualCourse,
-      taskTitle: manualNote.trim() || null,
-      durationMinutes: mins,
-      mode: 'manual',
-      color: tone,
-      dateStr: manualDate || todayIso,
-    });
+    if (editingSessionId) {
+      updateStudySession(editingSessionId, {
+        courseCode: matched?.code || null,
+        courseName: manualCourse,
+        taskTitle: manualNote.trim() || null,
+        durationMinutes: mins,
+        color: tone,
+        dateStr: manualDate || todayIso,
+      });
+      setShareToast(`نشست مطالعه «${manualCourse}» با موفقیت ویرایش شد`);
+    } else {
+      logStudySession({
+        courseCode: matched?.code || null,
+        courseName: manualCourse,
+        taskTitle: manualNote.trim() || null,
+        durationMinutes: mins,
+        mode: 'manual',
+        color: tone,
+        dateStr: manualDate || todayIso,
+      });
+      setShareToast(`مطالعه «${manualCourse}» به مدت ${toFaDigits(mins)} دقیقه با موفقیت ثبت شد.`);
+    }
 
     setManualLogModalOpen(false);
+    setEditingSessionId(null);
     setManualNote('');
-    setShareToast(`مطالعه «${manualCourse}» به مدت ${toFaDigits(mins)} دقیقه با موفقیت ثبت شد.`);
     setTimeout(() => setShareToast(''), 3500);
   };
 
@@ -1507,7 +1554,7 @@ export default function StudyScreen({ onNavigate }) {
             <div className="pt-3">
               <button
                 type="button"
-                onClick={() => setManualLogModalOpen(true)}
+                onClick={() => handleOpenManualLog()}
                 className="text-xs font-bold text-neutral hover:text-primary flex items-center gap-1.5 transition cursor-pointer py-1.5 px-3 rounded-xl hover:bg-base-500/20"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -2382,10 +2429,18 @@ export default function StudyScreen({ onNavigate }) {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-[12px] font-black text-primary font-mono">
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[12px] font-black text-primary font-mono ml-1">
                             {toFaDigits(s.durationMinutes)} د
                           </span>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditSession(s)}
+                            className="p-1.5 rounded-lg text-neutral hover:text-primary hover:bg-primary-soft transition cursor-pointer"
+                            title="ویرایش نشست"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
                           <button
                             type="button"
                             onClick={() => handleDeleteSession(s.id)}
@@ -2765,10 +2820,7 @@ export default function StudyScreen({ onNavigate }) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        setManualDate(selectedDate);
-                        setManualLogModalOpen(true);
-                      }}
+                      onClick={() => handleOpenManualLog(selectedDate)}
                       className="px-3 py-1.5 rounded-xl bg-base-500/25 text-base-content text-xs font-bold inline-flex items-center gap-1 cursor-pointer active:scale-95 transition"
                     >
                       <Plus className="w-3 h-3" />
@@ -2808,14 +2860,24 @@ export default function StudyScreen({ onNavigate }) {
                           </div>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteSession(s.id)}
-                          className="p-1 rounded-lg text-neutral hover:text-danger hover:bg-danger-soft transition cursor-pointer"
-                          title="حذف نشست مطالعه"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditSession(s)}
+                            className="p-1 rounded-lg text-neutral hover:text-primary hover:bg-primary-soft transition cursor-pointer"
+                            title="ویرایش نشست مطالعه"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSession(s.id)}
+                            className="p-1 rounded-lg text-neutral hover:text-danger hover:bg-danger-soft transition cursor-pointer"
+                            title="حذف نشست مطالعه"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -2900,10 +2962,25 @@ export default function StudyScreen({ onNavigate }) {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 15 }}
-            className="fixed bottom-20 left-4 right-4 z-[9999] mx-auto max-w-sm p-3 rounded-2xl bg-base/95 backdrop-blur-md border border-primary/35 shadow-xl text-xs font-bold text-base-content flex items-center gap-2"
+            className="fixed bottom-20 left-4 right-4 z-[9999] mx-auto max-w-sm p-3 rounded-2xl bg-base/95 backdrop-blur-md border border-primary/35 shadow-xl text-xs font-bold text-base-content flex items-center justify-between gap-2"
           >
-            <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
-            <span className="flex-1">{shareToast}</span>
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+              <span className="truncate">{typeof shareToast === 'string' ? shareToast : shareToast.text}</span>
+            </div>
+            {typeof shareToast === 'object' && shareToast.onAction && (
+              <button
+                type="button"
+                onClick={() => {
+                  const act = shareToast.onAction;
+                  setShareToast('');
+                  act();
+                }}
+                className="px-2.5 py-1 rounded-lg bg-primary text-primary-content text-xs font-black shrink-0 cursor-pointer hover:brightness-110 active:scale-95 transition"
+              >
+                {shareToast.actionLabel || 'ویرایش'}
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -3100,7 +3177,7 @@ export default function StudyScreen({ onNavigate }) {
           document.body
         )}
 
-      {/* مودال ثبت دستی جلسه مطالعه — پورتال‌شده به document.body */}
+      {/* مودال ثبت دستی و ویرایش جلسه مطالعه — پورتال‌شده به document.body */}
       {typeof document !== 'undefined' &&
         createPortal(
           <AnimatePresence>
@@ -3115,12 +3192,24 @@ export default function StudyScreen({ onNavigate }) {
                 >
                   <div className="flex items-center justify-between pb-2 border-b border-base-500/30">
                     <h3 className="text-sm font-black text-base-content flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 text-primary" />
-                      <span>ثبت دستی نشست مطالعه</span>
+                      {editingSessionId ? (
+                        <>
+                          <Pencil className="w-4 h-4 text-primary" />
+                          <span>ویرایش نشست مطالعه</span>
+                        </>
+                      ) : (
+                        <>
+                          <Clock className="w-4 h-4 text-primary" />
+                          <span>ثبت دستی نشست مطالعه</span>
+                        </>
+                      )}
                     </h3>
                     <button
                       type="button"
-                      onClick={() => setManualLogModalOpen(false)}
+                      onClick={() => {
+                        setManualLogModalOpen(false);
+                        setEditingSessionId(null);
+                      }}
                       className="p-1 rounded-lg text-neutral hover:text-base-content cursor-pointer"
                     >
                       <X className="w-4 h-4" />
@@ -3134,7 +3223,7 @@ export default function StudyScreen({ onNavigate }) {
                         value={manualCourse}
                         onChange={setManualCourse}
                         courses={coursesList}
-                        modalTitle="انتخاب درس برای ثبت مطالعه"
+                        modalTitle={editingSessionId ? 'تغییر درس مطالعه' : 'انتخاب درس برای ثبت مطالعه'}
                       />
                     </div>
 
@@ -3168,6 +3257,25 @@ export default function StudyScreen({ onNavigate }) {
                     </div>
 
                     <div>
+                      <label className="text-[11px] font-bold text-neutral block mb-1">تاریخ نشست مطالعه:</label>
+                      <button
+                        type="button"
+                        onClick={() => setSessionDatePickerOpen(true)}
+                        className="w-full p-2.5 rounded-xl bg-base-500/20 border border-base-500/40 hover:border-primary/50 text-right flex items-center justify-between transition active:scale-98 cursor-pointer group"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <CalendarDays className="w-4 h-4 text-primary shrink-0" />
+                          <span className="text-xs font-bold text-base-content truncate">
+                            {formatTaskDateDisplay(manualDate)}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-primary-soft text-primary group-hover:bg-primary/20 transition shrink-0">
+                          تقویم شمسی
+                        </span>
+                      </button>
+                    </div>
+
+                    <div>
                       <label className="text-[11px] font-bold text-neutral block mb-1">موضوع یا یادداشت (اختیاری):</label>
                       <input
                         type="text"
@@ -3181,7 +3289,10 @@ export default function StudyScreen({ onNavigate }) {
                     <div className="pt-2 flex items-center justify-end gap-2">
                       <button
                         type="button"
-                        onClick={() => setManualLogModalOpen(false)}
+                        onClick={() => {
+                          setManualLogModalOpen(false);
+                          setEditingSessionId(null);
+                        }}
                         className="px-4 py-2.5 rounded-xl text-xs font-bold text-neutral hover:bg-base-500/20 cursor-pointer"
                       >
                         انصراف
@@ -3190,7 +3301,7 @@ export default function StudyScreen({ onNavigate }) {
                         type="submit"
                         className="px-5 py-2.5 rounded-xl bg-primary text-primary-content text-xs font-black shadow-md cursor-pointer hover:brightness-110 active:scale-95 transition"
                       >
-                        ثبت در گزارش‌ها
+                        {editingSessionId ? 'ذخیره تغییرات' : 'ثبت در گزارش‌ها'}
                       </button>
                     </div>
                   </form>
@@ -3337,6 +3448,22 @@ export default function StudyScreen({ onNavigate }) {
             setNewTaskDate(toLocalDateString(jsDate));
           }
           setTaskDatePickerOpen(false);
+        }}
+      />
+
+      {/* تقویم نیتیو و شمسی سرو برای انتخاب تاریخ نشست مطالعه */}
+      <SarvDatePickerModal
+        isOpen={sessionDatePickerOpen}
+        initialDate={manualDate}
+        title="انتخاب تاریخ نشست مطالعه"
+        subtitle="تقویم هوشمند برنامه‌ریزی مطالعه"
+        mode="task"
+        onClose={() => setSessionDatePickerOpen(false)}
+        onConfirm={(_, jsDate) => {
+          if (jsDate) {
+            setManualDate(toLocalDateString(jsDate));
+          }
+          setSessionDatePickerOpen(false);
         }}
       />
     </div>

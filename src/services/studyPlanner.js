@@ -122,11 +122,11 @@ export function updateTaskStatus(taskId, newStatus) {
 }
 
 export function addTimeSpentToTask(taskId, seconds) {
-  if (!taskId || seconds <= 0) return;
+  if (!taskId || seconds === 0) return;
   const tasks = getStudyTasks();
   const task = tasks.find((t) => t.id === taskId);
   if (task) {
-    task.timeSpentSeconds = (task.timeSpentSeconds || 0) + seconds;
+    task.timeSpentSeconds = Math.max(0, (task.timeSpentSeconds || 0) + seconds);
     task.updatedAt = Date.now();
     write(STORAGE_KEYS.TASKS, tasks);
     notifyUpdate();
@@ -177,11 +177,65 @@ export function logStudySession({
   return newSession;
 }
 
-export function deleteStudySession(sessionId) {
-  const sessions = getStudySessions().filter((s) => s.id !== sessionId);
+export function updateStudySession(sessionId, updates) {
+  if (!sessionId || !updates) return null;
+  const sessions = getStudySessions();
+  const idx = sessions.findIndex((s) => s.id === sessionId);
+  if (idx < 0) return null;
+
+  const prev = sessions[idx];
+  const oldDuration = Number(prev.durationMinutes) || 0;
+  const oldTaskId = prev.taskId;
+
+  const newDuration = updates.durationMinutes !== undefined
+    ? Math.max(1, Math.round(Number(updates.durationMinutes) || 1))
+    : oldDuration;
+
+  const newTaskId = updates.taskId !== undefined ? updates.taskId : oldTaskId;
+
+  const updatedSession = {
+    ...prev,
+    ...updates,
+    durationMinutes: newDuration,
+    courseName: updates.courseName !== undefined ? updates.courseName : prev.courseName,
+    courseCode: updates.courseCode !== undefined ? updates.courseCode : prev.courseCode,
+    taskTitle: updates.taskTitle !== undefined ? updates.taskTitle : prev.taskTitle,
+    color: updates.color !== undefined ? updates.color : prev.color,
+    dateStr: updates.dateStr !== undefined ? updates.dateStr : prev.dateStr,
+    updatedAt: Date.now(),
+  };
+
+  sessions[idx] = updatedSession;
   write(STORAGE_KEYS.SESSIONS, sessions);
+
+  if (oldTaskId && oldTaskId === newTaskId) {
+    const diffSeconds = (newDuration - oldDuration) * 60;
+    if (diffSeconds !== 0) {
+      addTimeSpentToTask(oldTaskId, diffSeconds);
+    }
+  } else {
+    if (oldTaskId) {
+      addTimeSpentToTask(oldTaskId, -oldDuration * 60);
+    }
+    if (newTaskId) {
+      addTimeSpentToTask(newTaskId, newDuration * 60);
+    }
+  }
+
   notifyUpdate();
-  return sessions;
+  return updatedSession;
+}
+
+export function deleteStudySession(sessionId) {
+  const sessions = getStudySessions();
+  const target = sessions.find((s) => s.id === sessionId);
+  if (target && target.taskId && target.durationMinutes) {
+    addTimeSpentToTask(target.taskId, -target.durationMinutes * 60);
+  }
+  const filtered = sessions.filter((s) => s.id !== sessionId);
+  write(STORAGE_KEYS.SESSIONS, filtered);
+  notifyUpdate();
+  return filtered;
 }
 
 export function getDailyActivityMap() {
