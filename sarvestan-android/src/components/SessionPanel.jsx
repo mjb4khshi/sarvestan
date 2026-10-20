@@ -6,6 +6,7 @@ import { openLoginModal, isLoginModalOpen } from '../services/loginFlow';
 import { getSelectedUniversity, setSelectedUniversity } from '../services/behestan/session';
 import { canSync } from '../services/behestan/client';
 import { toFaDigits, formatLastSync, getLastSyncTimestamp } from '../utils/faDigits';
+import { isNativeAlarms } from '../services/classAlarms';
 
 /**
  * اتصال بهستان — وضعیت، همگام‌سازی دستی و خروج از حساب
@@ -31,7 +32,7 @@ export default function SessionPanel() {
 
   const hasActiveSession = canSync();
   const statusLabel = live
-    ? (hasActiveSession ? 'متصل — دادهٔ زنده' : 'داده آفلاین (آماده سنک)')
+    ? (hasActiveSession ? 'متصل — دادهٔ زنده' : 'داده‌های محلی (آفلاین)')
     : isSessionAlive
       ? 'نشست ثبت شده؛ دیتا نیامده'
       : 'بدون اتصال';
@@ -41,6 +42,48 @@ export default function SessionPanel() {
     : isSessionAlive
       ? 'bg-warn-soft text-warn border-warn-soft'
       : 'bg-base-500/40 text-neutral border-base-500/60';
+
+  const isLivePlatform = isNativeAlarms() || (typeof window !== 'undefined' && Boolean(window.chrome?.runtime?.id));
+
+  // در نسخه وب ورود زنده و سینک بهستان وجود ندارد؛ فقط کارت تمیز پروفایل دانشجو نمایش داده می‌شود
+  if (!isLivePlatform) {
+    if (!displayName && !displayId) return null;
+    return (
+      <section className="sarv-card p-4 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-[14px] font-bold text-base-content flex items-center gap-2">
+            <User className="w-4 h-4 text-primary" />
+            حساب کاربری دانشجو
+          </h3>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-base-500/20 text-neutral border-base-500/30">
+            داده‌های محلی آفلاین
+          </span>
+        </div>
+
+        <div className="rounded-2xl bg-base-500/15 border border-base-500/25 p-3 flex items-center gap-3">
+          <span className="w-10 h-10 rounded-2xl bg-primary-soft text-primary grid place-items-center shrink-0">
+            <User className="w-5 h-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            {displayName ? (
+              <p className="text-[13.5px] font-bold text-base-content truncate">{displayName}</p>
+            ) : null}
+            {displayId ? (
+              <p className="text-[11px] text-neutral font-mono mt-0.5">{toFaDigits(displayId)}</p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={logout}
+            className="text-[11px] font-bold py-1.5 px-3 rounded-xl bg-danger-soft text-danger border border-danger-soft hover:bg-danger/20 active:scale-95 transition-all inline-flex items-center gap-1.5 cursor-pointer shrink-0"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            خروج
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="sarv-card p-4 space-y-4">

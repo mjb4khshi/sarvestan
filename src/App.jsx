@@ -436,10 +436,10 @@ export default function App() {
       );
     }
 
-    // در مرورگر وب همیشه لندینگ پیج اختصاصی نمایش داده می‌شود
+    // در مرورگر وب لندینگ پیج اختصاصی نمایش داده می‌شود
     if (!isExtension && !isNative) {
       const hasData = hasLiveData() || isSessionAlive();
-      if (!hasData && !qs.has('app') && !qs.has('web')) {
+      if (qs.has('landing') || (!hasData && !qs.has('app') && !qs.has('web'))) {
         return <LandingPage />;
       }
     }

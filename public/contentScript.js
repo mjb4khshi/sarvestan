@@ -731,10 +731,8 @@ function injectHeaderButton() {
   `;
 
   headerBtn.innerHTML = `
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-      <path d="M2 17l10 5 10-5"/>
-      <path d="M2 12l10 5 10-5"/>
+    <svg viewBox="0 0 1080 1080" width="20" height="20" style="fill: #ffffff; filter: drop-shadow(0 1px 4px rgba(0,0,0,0.4)); display: block;">
+      <path d="M540,167.08 C540,167.08 213.25,912.92 540,912.92 C866.75,912.92 540,167.08 540,167.08 Z"/>
     </svg>
   `;
 
@@ -778,27 +776,40 @@ function injectFloatingDock() {
   `;
 
   const btn = document.createElement('button');
-  btn.innerText = 'سروستان | داشبورد هوشمند';
   btn.title = 'نمایش داشبورد مدرن، برنامه هفتگی، کارنامه و شهریه بهستان';
+  btn.innerHTML = `
+    <svg viewBox="0 0 1080 1080" width="22" height="22" style="fill: #10b981; filter: drop-shadow(0 2px 8px rgba(16,185,129,0.7)); shrink: 0; display: block;">
+      <path d="M540,167.08 C540,167.08 213.25,912.92 540,912.92 C866.75,912.92 540,167.08 540,167.08 Z"/>
+    </svg>
+    <span style="font-weight: 800; font-size: 13.5px; color: #f8fafc; letter-spacing: -0.2px;">سروستان</span>
+    <span style="font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); font-family: inherit;">رومیزی</span>
+  `;
   btn.style.cssText = `
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    background: rgba(15, 23, 42, 0.94) !important;
     color: #ffffff !important;
-    font-size: 13px !important;
-    font-weight: bold !important;
-    padding: 10px 18px !important;
+    padding: 8px 16px 8px 12px !important;
     border-radius: 9999px !important;
-    border: 2px solid rgba(255, 255, 255, 0.45) !important;
-    box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.55), 0 8px 10px -6px rgba(16, 185, 129, 0.4) !important;
+    border: 1px solid rgba(16, 185, 129, 0.45) !important;
+    box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.55), 0 0 20px -2px rgba(16, 185, 129, 0.3) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
     cursor: pointer !important;
-    transition: all 0.2s ease !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
     outline: none !important;
   `;
 
   btn.onmouseover = () => {
     btn.style.transform = 'translateY(-2px) scale(1.03)';
+    btn.style.borderColor = 'rgba(16, 185, 129, 0.75)';
+    btn.style.boxShadow = '0 16px 36px -4px rgba(0, 0, 0, 0.65), 0 0 28px 0 rgba(16, 185, 129, 0.45)';
   };
   btn.onmouseout = () => {
     btn.style.transform = 'none';
+    btn.style.borderColor = 'rgba(16, 185, 129, 0.45)';
+    btn.style.boxShadow = '0 12px 32px -4px rgba(0, 0, 0, 0.55), 0 0 20px -2px rgba(16, 185, 129, 0.3)';
   };
 
   btn.onclick = () => {
@@ -806,13 +817,16 @@ function injectFloatingDock() {
   };
 
   const openTabBtn = document.createElement('button');
-  openTabBtn.innerText = '↗';
+  openTabBtn.innerHTML = `
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+      <polyline points="15 3 21 3 21 9"></polyline>
+      <line x1="10" y1="14" x2="21" y2="3"></line>
+    </svg>
+  `;
   openTabBtn.title = 'باز کردن داشبورد در تب مستقل مرورگر';
   openTabBtn.style.cssText = `
-    background: rgba(15, 23, 42, 0.9) !important;
-    color: #38bdf8 !important;
-    font-size: 14px !important;
-    font-weight: bold !important;
+    background: rgba(15, 23, 42, 0.94) !important;
     width: 38px !important;
     height: 38px !important;
     border-radius: 9999px !important;
@@ -821,10 +835,23 @@ function injectFloatingDock() {
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    backdrop-filter: blur(8px) !important;
-    transition: all 0.2s ease !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.45) !important;
+    transition: all 0.25s ease !important;
     outline: none !important;
   `;
+
+  openTabBtn.onmouseover = () => {
+    openTabBtn.style.transform = 'translateY(-2px) scale(1.06)';
+    openTabBtn.style.borderColor = 'rgba(56, 189, 248, 0.7)';
+    openTabBtn.style.boxShadow = '0 12px 28px -4px rgba(56, 189, 248, 0.4)';
+  };
+  openTabBtn.onmouseout = () => {
+    openTabBtn.style.transform = 'none';
+    openTabBtn.style.borderColor = 'rgba(56, 189, 248, 0.35)';
+    openTabBtn.style.boxShadow = '0 10px 25px -5px rgba(0, 0, 0, 0.45)';
+  };
 
   openTabBtn.onclick = () => {
     if (typeof chrome !== 'undefined' && chrome.runtime) {

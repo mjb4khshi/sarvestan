@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Link2, RefreshCw, LogIn, LogOut, User, Clock, Sparkles, Database, CheckCircle2, XCircle } from 'lucide-react';
+import { Link2, RefreshCw, LogIn, LogOut, User, Clock, Sparkles } from 'lucide-react';
 import { useSarvestanData } from '../hooks/useSarvestanData';
 import { resetSyncState } from '../services/behestan/sync';
 import { openLoginModal, isLoginModalOpen } from '../services/loginFlow';
 import { getSelectedUniversity, setSelectedUniversity } from '../services/behestan/session';
 import { canSync } from '../services/behestan/client';
 import { toFaDigits, formatLastSync, getLastSyncTimestamp } from '../utils/faDigits';
-import { isExtensionRuntime } from '../services/extensionRuntime';
-import { getStorageInventory, checkExtensionSync } from '../services/extensionBridge';
+import { isNativeAlarms } from '../services/classAlarms';
 
 /**
  * اتصال بهستان — وضعیت، همگام‌سازی دستی و خروج از حساب
@@ -33,7 +32,7 @@ export default function SessionPanel() {
 
   const hasActiveSession = canSync();
   const statusLabel = live
-    ? (hasActiveSession ? 'متصل — دادهٔ زنده' : 'داده آفلاین (آماده سنک)')
+    ? (hasActiveSession ? 'متصل — دادهٔ زنده' : 'داده‌های محلی (آفلاین)')
     : isSessionAlive
       ? 'نشست ثبت شده؛ دیتا نیامده'
       : 'بدون اتصال';
@@ -43,6 +42,48 @@ export default function SessionPanel() {
     : isSessionAlive
       ? 'bg-warn-soft text-warn border-warn-soft'
       : 'bg-base-500/40 text-neutral border-base-500/60';
+
+  const isLivePlatform = isNativeAlarms() || (typeof window !== 'undefined' && Boolean(window.chrome?.runtime?.id));
+
+  // در نسخه وب ورود زنده و سینک بهستان وجود ندارد؛ فقط کارت تمیز پروفایل دانشجو نمایش داده می‌شود
+  if (!isLivePlatform) {
+    if (!displayName && !displayId) return null;
+    return (
+      <section className="sarv-card p-4 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-[14px] font-bold text-base-content flex items-center gap-2">
+            <User className="w-4 h-4 text-primary" />
+            حساب کاربری دانشجو
+          </h3>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-base-500/20 text-neutral border-base-500/30">
+            داده‌های محلی آفلاین
+          </span>
+        </div>
+
+        <div className="rounded-2xl bg-base-500/15 border border-base-500/25 p-3 flex items-center gap-3">
+          <span className="w-10 h-10 rounded-2xl bg-primary-soft text-primary grid place-items-center shrink-0">
+            <User className="w-5 h-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            {displayName ? (
+              <p className="text-[13.5px] font-bold text-base-content truncate">{displayName}</p>
+            ) : null}
+            {displayId ? (
+              <p className="text-[11px] text-neutral font-mono mt-0.5">{toFaDigits(displayId)}</p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={logout}
+            className="text-[11px] font-bold py-1.5 px-3 rounded-xl bg-danger-soft text-danger border border-danger-soft hover:bg-danger/20 active:scale-95 transition-all inline-flex items-center gap-1.5 cursor-pointer shrink-0"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            خروج
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="sarv-card p-4 space-y-4">
@@ -125,7 +166,7 @@ export default function SessionPanel() {
               resetSyncState();
               return;
             }
-            if (!canSync() && !isExtensionRuntime()) {
+            if (!canSync()) {
               const curUni = session?.university || getSelectedUniversity();
               if (curUni) setSelectedUniversity(curUni);
               openLoginModal();
@@ -157,71 +198,6 @@ export default function SessionPanel() {
           </button>
         )}
       </div>
-
-      {isExtensionRuntime() && <ExtensionDataInventory />}
     </section>
-  );
-}
-
-/**
- * انبارداتا تشخیصی افزونه: چه داده‌ای واقعاً در chrome.storage هست؟
- * جداسازی «دریافت از سامانه» از «نمایش در داشبورد» برای دیباگ
- */
-function ExtensionDataInventory() {
-  const [rows, setRows] = useState([]);
-  const [busy, setBusy] = useState(false);
-
-  const refresh = async ({ force = false } = {}) => {
-    setBusy(true);
-    try {
-      if (force) await checkExtensionSync({ bypassThrottle: true });
-      const inv = await getStorageInventory();
-      setRows(inv || []);
-    } catch {} finally {
-      setBusy(false);
-    }
-  };
-
-  useEffect(() => {
-    refresh();
-  }, []);
-
-  return (
-    <div className="rounded-xl border border-base-500/30 bg-base-500/15 p-3 space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-bold text-neutral flex items-center gap-1.5">
-          <Database className="w-3.5 h-3.5" />
-          انبار دادهٔ افزونه (chrome.storage)
-        </span>
-        <button
-          type="button"
-          onClick={() => refresh({ force: true })}
-          disabled={busy}
-          className="text-[10px] font-bold text-primary hover:opacity-80 active:scale-95 transition-all inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
-        >
-          <RefreshCw className={`w-3 h-3 ${busy ? 'animate-spin' : ''}`} />
-          بررسی مجدد
-        </button>
-      </div>
-      <div className="grid grid-cols-1 gap-1">
-        {rows.map((r) => (
-          <div key={r.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-base-500/10 border border-base-500/20">
-            {r.ok ? (
-              <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-success" />
-            ) : (
-              <XCircle className="w-3.5 h-3.5 shrink-0 text-base-content/40" />
-            )}
-            <span className="text-[11px] font-bold text-base-content min-w-[92px]">{r.label}</span>
-            <span className="text-[10px] text-neutral truncate flex-1">{r.detail}</span>
-          </div>
-        ))}
-        {!rows.length && (
-          <p className="text-[10.5px] text-neutral">در حال خواندن انبار…</p>
-        )}
-      </div>
-      <p className="text-[9.5px] text-neutral leading-relaxed px-1">
-        اگر برنامه/کارنامه «خالی» بود ولی در سامانه می‌بینی، یک بار سامانه را رفرش کن تا اینترسپتور گزارش‌ها را بگیرد.
-      </p>
-    </div>
   );
 }

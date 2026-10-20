@@ -3,19 +3,12 @@ import { motion } from 'framer-motion';
 import {
   QrCode,
   Upload,
-  Sparkles,
-  Smartphone,
   ShieldCheck,
-  Eye,
-  CheckCircle2,
-  FileCode,
-  Download,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useSarvestanData } from '../hooks/useSarvestanData';
 import { applyBundleToStorage } from '../services/dataTransfer';
 import WebQrScannerModal from './WebQrScannerModal';
-import devDataset from '../data/devDatasetLoader';
 
 export default function WebConnectGate({ onDataLoaded }) {
   const { live, profile } = useSarvestanData();
@@ -48,16 +41,6 @@ export default function WebConnectGate({ onDataLoaded }) {
     }
   };
 
-  const handleLoadDemo = () => {
-    try {
-      devDataset.loadDevDataset();
-      confetti({ particleCount: 50, spread: 50, origin: { y: 0.6 } });
-      window.location.reload();
-    } catch (e) {
-      console.warn('[demo error]', e);
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-[50] flex items-center justify-center p-4 bg-base/80 backdrop-blur-xl overflow-y-auto" dir="rtl">
       <motion.div
@@ -67,8 +50,8 @@ export default function WebConnectGate({ onDataLoaded }) {
       >
         {/* Brand Icon & Heading */}
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-primary to-accent text-primary-content flex items-center justify-center shadow-xl shadow-primary/25 mb-3.5">
-            <Sparkles className="w-8 h-8" />
+          <div className="w-16 h-16 rounded-3xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 shadow-md flex items-center justify-center mb-3.5 p-2.5">
+            <img src="./sarv-logo.png" alt="سروستان" className="w-10 h-10 object-contain" />
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-base-content">
             سروستان | نسخه وب و آیفون
@@ -84,20 +67,26 @@ export default function WebConnectGate({ onDataLoaded }) {
           </div>
         )}
 
-        {/* Primary Action 1: QR Scanner */}
+        {typeof window !== 'undefined' && window.isSecureContext === false && (
+          <div className="mb-4 p-3 rounded-2xl bg-warn/15 border border-warn/30 text-[11.5px] text-neutral leading-relaxed">
+            توجه: روی آدرس‌های HTTP شبکه محلی (غیر HTTPS)، مرورگرها دسترسی به دوربین را مسدود می‌کنند. برای اتصال می‌توانید از <strong>بارگذاری فایل پشتیبان (JSON)</strong> استفاده فرمایید.
+          </div>
+        )}
+
+        {/* Actions */}
         <div className="space-y-3">
           <button
             type="button"
             onClick={() => setIsScannerOpen(true)}
-            className="w-full p-4 rounded-2xl bg-gradient-to-r from-primary to-emerald-600 hover:from-primary/95 hover:to-emerald-700 text-primary-content font-black text-sm flex items-center justify-between shadow-lg shadow-primary/20 transition-all cursor-pointer group"
+            className="w-full p-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm flex items-center justify-between shadow-lg shadow-emerald-600/20 transition-all cursor-pointer group"
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <QrCode className="w-5 h-5" />
+                <QrCode className="w-5 h-5 text-white" />
               </div>
               <div className="text-right">
                 <div className="font-bold">اسکن QR متحرک</div>
-                <div className="text-[11px] opacity-85 font-medium">از روی افزونه یا گوشی اندروید</div>
+                <div className="text-[11px] opacity-90 font-medium">از روی افزونه یا گوشی اندروید</div>
               </div>
             </div>
             <span className="text-xs px-2.5 py-1 rounded-full bg-white/20 font-mono font-bold">
@@ -120,7 +109,7 @@ export default function WebConnectGate({ onDataLoaded }) {
             className="w-full p-4 rounded-2xl bg-slate-100/90 dark:bg-base-500/20 hover:bg-slate-200 dark:hover:bg-base-500/35 border border-base-500/30 text-base-content font-bold text-sm flex items-center justify-between transition-all cursor-pointer"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-base-500/20 text-primary flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-base-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                 <Upload className="w-5 h-5" />
               </div>
               <div className="text-right">
@@ -134,18 +123,9 @@ export default function WebConnectGate({ onDataLoaded }) {
           </button>
         </div>
 
-        {/* Demo Button */}
+        {/* Security notice */}
         <div className="mt-5 pt-4 border-t border-base-500/20 flex flex-col items-center gap-2">
-          <button
-            type="button"
-            onClick={handleLoadDemo}
-            className="text-xs text-neutral hover:text-primary font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <Eye className="w-3.5 h-3.5" />
-            <span>مشاهده محیط با داده‌های نمونه (حالت دمو)</span>
-          </button>
-
-          <div className="flex items-center gap-1.5 text-[11px] text-neutral/70 mt-1">
+          <div className="flex items-center gap-1.5 text-[11px] text-neutral/70">
             <ShieldCheck className="w-3.5 h-3.5 text-success" />
             <span>۱۰۰٪ امن و آفلاین — بدون دخالت سرور واسط (Zero MITM)</span>
           </div>

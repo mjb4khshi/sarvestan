@@ -1,9 +1,6 @@
 // devDatasetLoader.js
-// Loads devDataset.js if present locally on disk, otherwise safely falls back to empty defaults.
-// This allows devDataset.js to be safely .gitignored without breaking CI/CD or fresh clones.
-
-const modules = import.meta.glob('./devDataset.js', { eager: true });
-const devDataset = modules['./devDataset.js']?.default || {
+// Safe empty defaults schema - no mock/demo or personal data is bundled or shipped.
+const devDataset = {
   profile: {},
   courses: [],
   schedule: {},
@@ -11,6 +8,7 @@ const devDataset = modules['./devDataset.js']?.default || {
   transcripts: {},
   finance: {},
   curriculumStats: {},
+  loadDevDataset: () => {},
 };
 
 export default devDataset;

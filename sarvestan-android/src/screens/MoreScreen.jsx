@@ -1,3 +1,4 @@
+import { getAppPlatformBadge } from '../utils/platformBadge';
 import { getAnimationLevel, setAnimationLevel, ANIMATION_LEVELS } from '../services/animationSettings';
 import { isNativeAlarms, checkBatteryOptimization, requestIgnoreBatteryOptimization } from '../services/classAlarms';
 import { useState, useEffect, useRef } from 'react';
@@ -131,7 +132,7 @@ function DarametDonateCard() {
             </span>
           </div>
           <p className="text-[10.5px] text-neutral truncate mt-0.5">
-            پروژه رایگان و مستقل؛ با یک قهوه دلگرمی ببخشید ☕
+            پروژه رایگان و مستقل؛ با یک قهوه دلگرمی ببخشید 
           </p>
         </div>
       </div>
@@ -687,7 +688,7 @@ export default function MoreScreen({
 
 
   const INVITE_TEXT =
-    'سلام! 👋\nدیدم هنوز داری با سامانه بهستان کلنجار میری، گفتم سروستان رو بهت معرفی کنم 🌿\n\nاپلیکیشن هوشمند دانشجویان (نسخه جدید ۲ تهران):\n⚡ کارکرد کاملاً آفلاین برنامه کلاسی و امتحانات\n📱 ۳ ویجت زنده و هوشمند برای صفحه اصلی گوشی\n✨ تایپوگرافی جذاب آراد نقاط ۲ (Dots 2)\n☀️ تم اصیل ایرانی روشن و دارک\n🎓 پشتیبانی کامل از دانشجویان کهاد (دورشته‌ای)\n🔕 حالت سکوت خودکار گوشی سر کلاس (DND)\n🍱 یادآور هفتگی رزرو غذای سماد\n📊 کارنامه، محاسبه‌گر معدل و تحلیل بدهی شهریه\n🔒 ۱۰۰٪ امن، بدون واسطه و بدون نیاز به سرور یا فیلترشکن\n\n📱 دانلود مستقیم نسخه اندروید و افزونه مرورگر:\nhttps://mjb4khshi.github.io/sarvestan';
+    'سلام!\nدیدم هنوز داری با سامانه بهستان کلنجار میری، گفتم سروستان رو بهت معرفی کنم\n\nاپلیکیشن هوشمند دانشجویان (نسخه جدید ۲.۱ تهران):\n• کارکرد کاملاً آفلاین برنامه کلاسی و امتحانات\n• ۳ ویجت زنده و هوشمند برای صفحه اصلی گوشی\n• تایپوگرافی جذاب آراد نقاط ۲ (Dots 2)\n• تم اصیل ایرانی روشن و دارک\n• پشتیبانی کامل از دانشجویان کهاد (دورشته‌ای)\n• حالت سکوت خودکار گوشی سر کلاس (DND)\n• یادآور هفتگی رزرو غذای سماد\n• کارنامه، محاسبه‌گر معدل و تحلیل بدهی شهریه\n• ۱۰۰٪ امن، بدون واسطه و بدون نیاز به سرور یا فیلترشکن\n\nدانلود مستقیم نسخه اندروید و افزونه مرورگر:\nhttps://mjb4khshi.github.io/sarvestan';
 
   const handleCopyInvite = () => {
     navigator.clipboard?.writeText(INVITE_TEXT);
@@ -782,18 +783,6 @@ export default function MoreScreen({
         transition={{ delay: 0.03 }}
       >
         <SessionPanel />
-      </motion.section>
-
-      {/* انتقال و پشتیبان‌گیری داده‌ها (آیفون / وب / اندروید) */}
-      <motion.section
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.033 }}
-      >
-        <DataTransferCard
-          onOpenExport={() => setExportModalOpen(true)}
-          onOpenScanner={() => setScannerModalOpen(true)}
-        />
       </motion.section>
 
       {/* ۲. بخش حمایت مالی و دونیت (دارمت) */}
@@ -967,28 +956,30 @@ export default function MoreScreen({
             <ChevronLeft className="w-4 h-4 text-neutral shrink-0 mt-2" />
           </button>
 
-          {/* تنظیم یادآور و آلارم کلاس‌ها */}
-          <button
-            type="button"
-            onClick={() => setAlarmModalOpen(true)}
-            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors"
-          >
-            <div className="flex items-start gap-3 min-w-0">
-              <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-primary-soft text-primary border border-primary-soft mt-0.5">
-                <BellRing className="w-4.5 h-4.5" />
-              </span>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <p className="text-[13.5px] font-bold text-base-content truncate">تنظیم یادآور و آلارم کلاس‌ها</p>
-                  <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-primary-soft text-primary border border-primary-soft">
-                    نوتیفیکیشن و ساعت
-                  </span>
+          {/* تنظیم یادآور و آلارم کلاس‌ها (فقط در نسخه نیتیو) */}
+          {isNativeAlarms() && (
+            <button
+              type="button"
+              onClick={() => setAlarmModalOpen(true)}
+              className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors"
+            >
+              <div className="flex items-start gap-3 min-w-0">
+                <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-primary-soft text-primary border border-primary-soft mt-0.5">
+                  <BellRing className="w-4.5 h-4.5" />
+                </span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="text-[13.5px] font-bold text-base-content truncate">تنظیم یادآور و آلارم کلاس‌ها</p>
+                    <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-primary-soft text-primary border border-primary-soft">
+                      نوتیفیکیشن و ساعت
+                    </span>
+                  </div>
+                  <p className="text-[10.5px] text-neutral mt-0.5">اعلان پیش از شروع، آلارم هفتگی و یادآور غذای سماد</p>
                 </div>
-                <p className="text-[10.5px] text-neutral mt-0.5">اعلان پیش از شروع، آلارم هفتگی و یادآور غذای سماد</p>
               </div>
-            </div>
-            <ChevronLeft className="w-4 h-4 text-neutral shrink-0 mt-2" />
-          </button>
+              <ChevronLeft className="w-4 h-4 text-neutral shrink-0 mt-2" />
+            </button>
+          )}
 
           {/* چارت و وضعیت دروس */}
           <button
@@ -1017,53 +1008,7 @@ export default function MoreScreen({
             <ChevronLeft className="w-4 h-4 text-neutral shrink-0 mt-2" />
           </button>
 
-          {/* نامه‌ها و گواهی‌ها */}
-          <button
-            type="button"
-            onClick={() => window.open(getUniversityOrigin() + '/', '_blank')}
-            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors"
-          >
-            <div className="flex items-start gap-3 min-w-0">
-              <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-info-soft text-info border border-info-soft mt-0.5">
-                <FileText className="w-4.5 h-4.5" />
-              </span>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <p className="text-[13.5px] font-bold text-base-content truncate">نامه‌ها و گواهی‌ها</p>
-                  <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-warn-soft/80 text-warn border border-warn-soft inline-flex items-center gap-1 shrink-0">
-                    <ExternalLink className="w-2.5 h-2.5" />
-                    ارجاع به بهستان
-                  </span>
-                </div>
-                <p className="text-[10.5px] text-neutral mt-0.5">اشتغال به تحصیل، معرفی‌نامه و مدارک رسمی</p>
-              </div>
-            </div>
-            <ExternalLink className="w-4 h-4 text-neutral/70 shrink-0 mt-2" />
-          </button>
 
-          {/* درخواست‌های آموزشی */}
-          <button
-            type="button"
-            onClick={() => window.open(getUniversityOrigin() + '/', '_blank')}
-            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors"
-          >
-            <div className="flex items-start gap-3 min-w-0">
-              <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-primary-soft text-primary border border-primary-soft mt-0.5">
-                <FileCheck2 className="w-4.5 h-4.5" />
-              </span>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <p className="text-[13.5px] font-bold text-base-content truncate">پیشخوان خدمت و درخواست‌ها</p>
-                  <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-warn-soft/80 text-warn border border-warn-soft inline-flex items-center gap-1 shrink-0">
-                    <ExternalLink className="w-2.5 h-2.5" />
-                    ارجاع به بهستان
-                  </span>
-                </div>
-                <p className="text-[10.5px] text-neutral mt-0.5">فرم‌های ۲۱۱۲۲، حذف تک‌درس و مصوبات آموزشی</p>
-              </div>
-            </div>
-            <ExternalLink className="w-4 h-4 text-neutral/70 shrink-0 mt-2" />
-          </button>
         </div>
       </section>
 
@@ -1279,8 +1224,9 @@ export default function MoreScreen({
                 />
               </div>
 
-              {/* تنظیم اعلان شبانه ساعت ۱۱ شب (احتیاج شهر به بتمن) */}
-              <div className="p-3.5 bg-base-500/10">
+              {/* تنظیم اعلان شبانه ساعت ۱۱ شب (فقط در نسخه نیتیو) */}
+              {isNativeAlarms() && (
+                <div className="p-3.5 bg-base-500/10">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
                     <span className="w-9 h-9 rounded-xl bg-amber-400/15 text-amber-500 border border-amber-400/30 grid place-items-center shrink-0">
@@ -1332,6 +1278,7 @@ export default function MoreScreen({
                   </div>
                 )}
               </div>
+              )}
             </div>
           )}
 
@@ -1365,9 +1312,10 @@ export default function MoreScreen({
         </div>
       </section>
 
-      {/* یادآورها و تمرکز (مزاحم نشوید) */}
-      <section className="space-y-1.5">
-        <h3 className="text-[12.5px] font-bold text-neutral px-1">یادآورها و تمرکز کلاسی</h3>
+      {/* یادآورها و تمرکز (مزاحم نشوید) - فقط نسخه نیتیو */}
+      {isNativeAlarms() && (
+        <section className="space-y-1.5">
+          <h3 className="text-[12.5px] font-bold text-neutral px-1">یادآورها و تمرکز کلاسی</h3>
         <div className="sarv-card overflow-hidden divide-y divide-base-500/25">
           {/* سوییچ حالت مزاحم نشوید حین کلاس */}
           <div className="p-3.5 flex items-center justify-between gap-3">
@@ -1472,13 +1420,14 @@ export default function MoreScreen({
           </button>
         </div>
       </section>
+      )}
 
       {/* ۵. بررسی به‌روزرسانی و وضعیت نسخه */}
       <section className="space-y-1.5">
         <div className="flex items-center justify-between px-1">
           <h3 className="text-[12.5px] font-bold text-neutral">نسخه و به‌روزرسانی</h3>
           <span className="text-[11px] font-semibold text-neutral/70 font-mono">
-            v{CURRENT_VERSION} · تهران
+            ۲.۱ تهران
           </span>
         </div>
         <div className="sarv-card overflow-hidden">
@@ -1538,8 +1487,8 @@ export default function MoreScreen({
                     : updateState.error
                     ? `${updateState.error} — کلیک برای تلاش دوباره`
                     : updateState.checked
-                    ? `نسخه ${CURRENT_VERSION} (تهران) آخرین نگارش منتشرشده است ✓`
-                    : `نسخه کنونی: ${CURRENT_VERSION} (تهران) · کلیک برای بررسی`}
+                    ? `نسخه ۲.۱ تهران آخرین نگارش منتشرشده است `
+                    : `نسخه کنونی: ۲.۱ تهران · کلیک برای بررسی`}
                 </p>
               </div>
             </div>
@@ -1671,12 +1620,24 @@ export default function MoreScreen({
 
       {/* دکمه خروج — حذف شد (اضافی بود) */}
 
+      {/* انتقال و پشتیبان‌گیری داده‌ها (ته قسمت بیشتر) */}
+      <motion.section
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.033 }}
+      >
+        <DataTransferCard
+          onOpenExport={() => setExportModalOpen(true)}
+          onOpenScanner={() => setScannerModalOpen(true)}
+        />
+      </motion.section>
+
       <div className="text-center space-y-1.5 pb-3 pt-1">
         <p className="text-[11px] text-neutral font-medium">
-          طراحی و توسعه توسط <span className="font-mono font-bold text-base-content">@mjb4khshi</span> با چای و حوصله بسیار ☕
+          طراحی و توسعه توسط <span className="font-mono font-bold text-base-content">@mjb4khshi</span> با چای و حوصله بسیار 
         </p>
         <p className="text-[10px] text-neutral/60 font-mono">
-          نسخه {toFaDigits('2')} تهران سروستان همراه · Sarv UI
+          نسخه {toFaDigits('2.1')} تهران سروستان {getAppPlatformBadge()} · Sarv UI
         </p>
       </div>
 
@@ -1748,12 +1709,12 @@ export default function MoreScreen({
 
                 <div className="grid grid-cols-3 gap-2 text-center">
                   {[
-                    { icon: '⚡', label: 'آفلاین و سریع', sub: 'برنامه و تقویم' },
-                    { icon: '📱', label: 'ویجت‌های زنده', sub: 'صفحه اصلی گوشی' },
-                    { icon: '🎨', label: 'آراد Dots 2', sub: 'تم‌های چشم‌نواز' },
-                    { icon: '🎓', label: 'پشتیبانی کهاد', sub: 'دانشجویان دورشته‌ای' },
-                    { icon: '🔕', label: 'سایلنت خودکار', sub: 'حالت DND سر کلاس' },
-                    { icon: '🔒', label: '۱۰۰٪ امن و محلی', sub: 'بدون سرور و واسطه' },
+                    { icon: '•', label: 'آفلاین و سریع', sub: 'برنامه و تقویم' },
+                    { icon: '•', label: 'ویجت‌های زنده', sub: 'صفحه اصلی گوشی' },
+                    { icon: '•', label: 'آراد Dots 2', sub: 'تم‌های چشم‌نواز' },
+                    { icon: '•', label: 'پشتیبانی کهاد', sub: 'دانشجویان دورشته‌ای' },
+                    { icon: '•', label: 'سایلنت خودکار', sub: 'حالت DND سر کلاس' },
+                    { icon: '•', label: '۱۰۰٪ امن و محلی', sub: 'بدون سرور و واسطه' },
                   ].map((x) => (
                     <div
                       key={x.label}
@@ -1798,7 +1759,7 @@ export default function MoreScreen({
                     {copiedInvite ? (
                       <>
                         <Check className="w-4 h-4" />
-                        <span>کپی شد! ✓</span>
+                        <span>کپی شد! </span>
                       </>
                     ) : (
                       <>
@@ -1995,7 +1956,7 @@ export default function MoreScreen({
                   <span>
                     طراحی و توسعه: <strong className="text-base-content font-mono font-bold">@mjb4khshi</strong>
                   </span>
-                  <span className="font-mono">v{CURRENT_VERSION} · تهران</span>
+                  <span className="font-mono">۲.۱ تهران</span>
                 </div>
               </div>
             </motion.div>
@@ -2212,7 +2173,7 @@ export default function MoreScreen({
                         type="button"
                         onClick={async () => {
                           await setAppIcon(ic.id);
-                          setIconToast(`آیکون برنامه به «${ic.name}» تغییر یافت ✓`);
+                          setIconToast(`آیکون برنامه به «${ic.name}» تغییر یافت `);
                           setTimeout(() => setIconToast(''), 2500);
                         }}
                         className={`p-3 rounded-2xl border text-right transition-all flex flex-col justify-between relative group active:scale-[0.97] ${
@@ -2307,7 +2268,7 @@ export default function MoreScreen({
               </div>
 
               <div className="p-3 rounded-2xl bg-danger-soft/40 border border-danger/20 text-[11px] text-danger font-medium leading-relaxed">
-                ⚠️ پس از تایید، کلیه داده‌های دستگاه حذف شده و برنامه مانند روز اول آماده ورود مجدد خواهد شد.
+                توجه: پس از تایید، کلیه داده‌های دستگاه حذف شده و برنامه مانند روز اول آماده ورود مجدد خواهد شد.
               </div>
 
               <div className="flex items-center gap-2 pt-1">
@@ -2412,14 +2373,16 @@ export default function MoreScreen({
           </motion.div>
         )}
       </AnimatePresence>
-      {/* مودال تنظیم یادآور و آلارم کلاس‌ها */}
-      <ClassAlarmModal
-        isOpen={alarmModalOpen}
-        onClose={() => {
-          setAlarmModalOpen(false);
-          setDndEnabled(getDndDuringClass());
-        }}
-      />
+      {/* مودال تنظیم یادآور و آلارم کلاس‌ها (فقط نسخه نیتیو) */}
+      {isNativeAlarms() && (
+        <ClassAlarmModal
+          isOpen={alarmModalOpen}
+          onClose={() => {
+            setAlarmModalOpen(false);
+            setDndEnabled(getDndDuringClass());
+          }}
+        />
+      )}
       {/* مودال شخصی‌سازی چیدمان داشبورد */}
       <DashboardCustomizeModal
         isOpen={dashboardModalOpen}

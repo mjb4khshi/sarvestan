@@ -15,7 +15,7 @@ if (Test-Path $out) { Remove-Item $out -Force }
 Get-ChildItem -Path $dist -Filter "*.zip" -ErrorAction SilentlyContinue | Remove-Item -Force
 Get-ChildItem -Path (Join-Path $root "public") -Filter "sarvestan-extension.zip" -ErrorAction SilentlyContinue | Remove-Item -Force
 
-$filesToPack = Get-ChildItem -Path $dist -Exclude "*.zip", "*.apk"
+$filesToPack = Get-ChildItem -Path $dist -Exclude "*.zip", "*.apk", "dev-data"
 Compress-Archive -Path $filesToPack.FullName -DestinationPath $out -Force
 $mb = [math]::Round((Get-Item $out).Length / 1MB, 2)
 

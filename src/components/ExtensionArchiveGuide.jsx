@@ -10,8 +10,7 @@ function GithubIcon({ className = "w-4 h-4" }) {
 }
 
 /**
- * آرشیو راهنمای نصب و راه‌اندازی افزونه مرورگر دسکتاپ سروستان
- * نگهداری‌شده برای فعال‌سازی مجدد در آینده
+ * راهنمای جامع و رسمی نصب و فعال‌سازی افزونه مرورگر کرومیوم سروستان (رومیزی)
  */
 export default function ExtensionArchiveGuide() {
   const [copiedBrowser, setCopiedBrowser] = useState(null);

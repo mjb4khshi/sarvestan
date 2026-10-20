@@ -1,3 +1,4 @@
+import { getAppPlatformBadge } from '../utils/platformBadge';
 import { motion, LayoutGroup } from 'framer-motion';
 import { CalendarDays, Award, Timer, LayoutGrid, LayoutDashboard, Palette, Bell, X, QrCode } from 'lucide-react';
 import { useSarvestanData } from '../hooks/useSarvestanData';
@@ -85,9 +86,7 @@ export default function SideNav({ active, onChange }) {
             <div className="flex flex-col leading-tight min-w-0">
               <div className="text-[14px] font-bold text-base-content flex items-center gap-1 truncate">
                 سروستان
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-secondary-soft text-secondary shrink-0">
-                  همراه
-                </span>
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-secondary-soft text-secondary shrink-0">{getAppPlatformBadge()}</span>
               </div>
               <span className="text-[10px] text-neutral truncate">
                 {getUniversityName(

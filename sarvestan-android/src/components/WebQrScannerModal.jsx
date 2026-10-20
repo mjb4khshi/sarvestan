@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   AlertCircle,
   FileCode,
-  Sparkles,
   RefreshCw,
   Upload,
 } from 'lucide-react';
@@ -116,7 +115,12 @@ export default function WebQrScannerModal({ isOpen, onClose, onSuccess }) {
       }
     } catch (err) {
       console.warn('[WebQrScanner] camera access error:', err);
-      setCameraError('دسترسی به دوربین داده نشد یا این دستگاه فاقد دوربین است.');
+      const isHttpInsecure = typeof window !== 'undefined' && window.isSecureContext === false;
+      if (isHttpInsecure) {
+        setCameraError('مرورگرها به دلیل پروتکل HTTP در آدرس‌های آی‌پی شبکه محلی، دسترسی به دوربین را مسدود می‌کنند (نیاز به دامنه یا HTTPS).');
+      } else {
+        setCameraError('دسترسی به دوربین داده نشد یا این دستگاه فاقد دوربین است.');
+      }
     }
   };
 
@@ -254,17 +258,36 @@ export default function WebQrScannerModal({ isOpen, onClose, onSuccess }) {
 
             {/* Error Message */}
             {cameraError && (
-              <div className="absolute inset-4 bg-white/95 dark:bg-base/95 rounded-2xl p-4 flex flex-col items-center justify-center text-center gap-2 z-20">
-                <AlertCircle className="w-8 h-8 text-warn" />
-                <p className="text-xs text-neutral leading-relaxed">{cameraError}</p>
-                <button
-                  type="button"
-                  onClick={startCamera}
-                  className="mt-2 px-3 py-1.5 rounded-xl bg-primary text-primary-content text-xs font-bold flex items-center gap-1 cursor-pointer"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>تلاش مجدد</span>
-                </button>
+              <div className="absolute inset-2 sm:inset-4 bg-white/95 dark:bg-base/95 rounded-2xl p-4 flex flex-col items-center justify-center text-center gap-2 z-20 overflow-y-auto">
+                <AlertCircle className="w-7 h-7 text-warn shrink-0" />
+                <p className="text-[11.5px] text-neutral leading-relaxed">{cameraError}</p>
+                <div className="flex flex-col gap-2 w-full mt-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full px-3 py-2 rounded-xl bg-primary text-primary-content text-[11.5px] font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95 transition"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>بارگذاری فایل پشتیبان (JSON)</span>
+                  </button>
+                  <div className="flex items-center gap-2 w-full">
+                    <button
+                      type="button"
+                      onClick={startCamera}
+                      className="flex-1 px-3 py-1.5 rounded-xl bg-base-500/20 hover:bg-base-500/35 text-base-content text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      <span>تلاش مجدد</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="flex-1 px-3 py-1.5 rounded-xl bg-base-500/20 hover:bg-base-500/35 text-neutral text-[11px] font-bold cursor-pointer transition"
+                    >
+                      بستن
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -273,7 +296,7 @@ export default function WebQrScannerModal({ isOpen, onClose, onSuccess }) {
           <div className="mt-4 p-3 rounded-2xl bg-slate-100/90 dark:bg-base-500/15 border border-base-500/25">
             <div className="flex items-center justify-between text-xs mb-1.5">
               <span className="font-bold text-base-content flex items-center gap-1 font-mono">
-                <Sparkles className="w-3.5 h-3.5 text-primary" />
+                <Camera className="w-3.5 h-3.5 text-primary" />
                 <span>
                   {progress.totalChunks > 0
                     ? `تصاویر دریافت‌شده: ${toFaDigits(progress.receivedCount)} از ${toFaDigits(progress.totalChunks)}`

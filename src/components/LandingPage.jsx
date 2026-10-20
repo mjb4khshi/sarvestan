@@ -11,6 +11,8 @@ import {
   Users,
   Globe,
   QrCode,
+  Puzzle,
+  Terminal,
 } from 'lucide-react';
 import { toFaDigits } from '../utils/faDigits';
 import ExtensionArchiveGuide from './ExtensionArchiveGuide';
@@ -170,7 +172,7 @@ export default function LandingPage() {
             <div className="flex items-center gap-2">
               <span className="font-black text-base tracking-tight text-slate-900">سروستان</span>
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#10b981]/15 text-[#10b981] border border-[#10b981]/30">
-                ۲ تهران
+                ۲.۱ تهران
               </span>
             </div>
           </div>
@@ -178,11 +180,13 @@ export default function LandingPage() {
           <nav className="hidden md:flex items-center gap-6 text-xs font-bold text-slate-600">
             <a href="#universities" className="hover:text-slate-900 transition-colors">دانشگاه‌های تحت پوشش</a>
             <a href="#features" className="hover:text-slate-900 transition-colors">امکانات</a>
+            <a href="#extension-guide" className="hover:text-slate-900 transition-colors">افزونه و آموزش</a>
             <a href="#council" className="hover:text-slate-900 transition-colors">شورای هماهنگی</a>
             <a href="#download" className="hover:text-slate-900 transition-colors">دانلود</a>
           </nav>
 
-          <div className="flex items-center gap-2.5">
+          {/* دکمه‌های هدر فقط در سایز تبلت و دسکتاپ (مخفی در موبایل) */}
+          <div className="hidden sm:flex items-center gap-2.5">
             <a
               href="https://t.me/s4rvest4n"
               target="_blank"
@@ -227,7 +231,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto text-center space-y-6">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#10b981]/15 border border-[#10b981]/30 text-xs font-bold text-[#10b981]">
             <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" />
-            <span>سروستانی به گستره تهران • نگارش رسمی ۲.۰.۰ هم‌اکنون در دسترس است</span>
+            <span>سروستانی به گستره تهران • نگارش رسمی ۲.۱ تهران هم‌اکنون در دسترس است</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl md:text-6xl font-black text-slate-900 leading-tight sm:leading-tight tracking-tight">
@@ -242,33 +246,42 @@ export default function LandingPage() {
           </p>
 
           {/* دکمه‌های اقدام اصلی */}
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3 flex-wrap">
             <a
               href="./?web=1"
-              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold flex items-center justify-center gap-2.5 shadow-lg shadow-slate-900/15 hover:brightness-105 active:scale-95 transition-all"
+              className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold flex items-center justify-center gap-2.5 shadow-lg shadow-slate-900/15 hover:brightness-105 active:scale-95 transition-all"
             >
               <Globe className="w-4 h-4 text-emerald-400" />
               <span>ورود به نسخه وب و آیفون</span>
             </a>
             <a
               href={LATEST_APK_URL}
-              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-[#10b981] hover:bg-[#059669] text-white text-sm font-bold flex items-center justify-center gap-2.5 shadow-lg shadow-[#10b981]/30 hover:brightness-105 active:scale-95 transition-all"
+              className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-[#10b981] hover:bg-[#059669] text-white text-sm font-bold flex items-center justify-center gap-2.5 shadow-lg shadow-[#10b981]/30 hover:brightness-105 active:scale-95 transition-all"
             >
               <Download className="w-4 h-4" />
-              <span>دانلود مستقیم نسخه اندروید (APK)</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-lg bg-black/20 text-white font-mono font-bold">
+              <span>دانلود مستقیم اندروید (APK)</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-black/20 text-white font-mono font-bold">
                 {toFaDigits('5.3')} MB
               </span>
             </a>
-
+            <a
+              href="#extension-guide"
+              className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-800 text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm"
+            >
+              <Puzzle className="w-4 h-4 text-emerald-600" />
+              <span>افزونه مرورگر دسکتاپ</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
+                آموزش نصب
+              </span>
+            </a>
             <a
               href="https://t.me/s4rvest4n"
               target="_blank"
               rel="noreferrer"
-              className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-800 text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
+              className="w-full sm:w-auto px-4 py-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-700 text-sm font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95"
             >
               <TelegramIcon className="w-4 h-4 text-[#229ED9]" />
-              <span>کانال تلگرام @s4rvest4n</span>
+              <span>کانال تلگرام</span>
             </a>
           </div>
 
@@ -297,7 +310,7 @@ export default function LandingPage() {
           <div className="text-center space-y-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#10b981]/15 text-[#10b981] text-xs font-bold border border-[#10b981]/30">
               <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" />
-              <span>پوشش یکپارچه دانشگاهی • نگارش ۲.۰.۰ تهران</span>
+              <span>پوشش یکپارچه دانشگاهی • نگارش ۲.۱ تهران</span>
             </div>
             <h2 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
               سروستانی به گستره تهران
@@ -527,46 +540,192 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* بخش دانلود اصلی */}
+      {/* بخش دریافت ۳ پلتفرم سروستان */}
       <section id="download" className="py-16 sm:py-24 px-4 sm:px-6 border-t border-slate-200 bg-slate-50/70">
-        <div className="max-w-3xl mx-auto text-center space-y-6">
-          <div className="w-12 h-12 rounded-2xl bg-[#10b981] text-white grid place-items-center mx-auto shadow-lg shadow-[#10b981]/30">
-            <Download className="w-6 h-6" />
+        <div className="max-w-5xl mx-auto space-y-10">
+          <div className="text-center space-y-3 max-w-2xl mx-auto">
+            <div className="w-12 h-12 rounded-2xl bg-[#10b981] text-white grid place-items-center mx-auto shadow-lg shadow-[#10b981]/30">
+              <Download className="w-6 h-6" />
+            </div>
+            <h2 className="text-2xl sm:text-4xl font-black text-slate-900">
+              دریافت نگارش ۲ سروستان (تهران)
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+              سروستان در سه نگارش هماهنگ برای افزونه مرورگر رایانه، اپلیکیشن مستقل اندروید و نسخه وب و آیفون منتشر شده است.
+            </p>
           </div>
 
-          <h2 className="text-2xl sm:text-4xl font-black text-slate-900">
-            دریافت نسخه ۲ سروستان
-          </h2>
+          {/* ۳ کارت سکوهای انتشار */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* کارت ۱: افزونه مرورگر (رومیزی) */}
+            <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-md shadow-slate-200/50 flex flex-col justify-between space-y-4 text-right hover:border-emerald-500/50 transition-all">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 grid place-items-center border border-emerald-100">
+                    <Puzzle className="w-6 h-6" />
+                  </div>
+                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono">
+                    رومیزی
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">افزونه مرورگر دسکتاپ</h3>
+                  <p className="text-xs text-slate-500 mt-1">ویژه گوگل کروم، اج، بریو و اپرا</p>
+                </div>
+                <ul className="text-xs text-slate-600 space-y-1.5 pt-1">
+                  <li className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>داک شناور و دسترسی مستقیم در بهستان</span>
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>همگام‌سازی لحظه‌ای بدون نیاز به فیلترشکن</span>
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>خروجی کد QR جهت انتقال اطلاعات به گوشی</span>
+                  </li>
+                </ul>
+              </div>
 
-          <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
-            نسخه پایدار و رسمی ۲.۰.۰ با کد نام تهران را مستقیماً دریافت کنید و از تجربه سریع و مدرن خدمات آموزشی لذت ببرید.
-          </p>
+              <div className="space-y-2 pt-2">
+                <a
+                  href="./sarvestan-extension.zip"
+                  download
+                  className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition active:scale-95"
+                >
+                  <Download className="w-4 h-4 text-emerald-400" />
+                  <span>دانلود sarvestan-extension.zip</span>
+                  <span className="text-[10px] opacity-75 font-mono">({toFaDigits('2.2')} MB)</span>
+                </a>
+                <a
+                  href="#extension-guide"
+                  className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95"
+                >
+                  <Terminal className="w-3.5 h-3.5 text-slate-500" />
+                  <span>آموزش تصویری نصب</span>
+                </a>
+              </div>
+            </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-            <a
-              href="./?web=1"
-              className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm hover:brightness-105 active:scale-95 transition-all"
-            >
-              <Globe className="w-3.5 h-3.5 text-emerald-400" />
-              <span>نسخه وب و آیفون</span>
-            </a>
-            <a
-              href={LATEST_APK_URL}
-              className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-[#10b981] hover:bg-[#059669] text-white text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#10b981]/30 hover:brightness-105 active:scale-95 transition-all"
-            >
-              <Download className="w-4 h-4" />
-              <span>دانلود مستقیم sarvestan.apk</span>
-            </a>
+            {/* کارت ۲: اپلیکیشن اندروید (همراه) */}
+            <div className="p-6 rounded-3xl bg-white border-2 border-emerald-500/80 shadow-lg shadow-emerald-500/10 flex flex-col justify-between space-y-4 text-right relative overflow-hidden">
+              <span className="absolute top-0 right-0 bg-emerald-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl shadow-xs">
+                ویژه موبایل
+              </span>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white grid place-items-center shadow-md shadow-emerald-500/25">
+                    <Smartphone className="w-6 h-6" />
+                  </div>
+                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono">
+                    همراه
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">اپلیکیشن اندروید</h3>
+                  <p className="text-xs text-slate-500 mt-1">نسخه رسمی ۲.۱ تهران</p>
+                </div>
+                <ul className="text-xs text-slate-600 space-y-1.5 pt-1">
+                  <li className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>ویجت‌های زنده ۴ گانه صفحه اصلی گوشی</span>
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>آلارم رسمی ساعت و هشدار پیش از کلاس</span>
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>سایلنت خودکار حین جلسات (DND)</span>
+                  </li>
+                </ul>
+              </div>
 
-            <a
-              href={RELEASES_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="w-full sm:w-auto px-5 py-4 rounded-2xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-800 text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-xs"
-            >
-              <GithubIcon className="w-4 h-4" />
-              <span>ریلیزهای گیت‌هاب</span>
-            </a>
+              <div className="space-y-2 pt-2">
+                <a
+                  href={LATEST_APK_URL}
+                  className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-emerald-600/25 transition active:scale-95"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>دانلود مستقیم sarvestan.apk</span>
+                  <span className="text-[10px] opacity-80 font-mono">({toFaDigits('5.3')} MB)</span>
+                </a>
+                <a
+                  href={RELEASES_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95"
+                >
+                  <GithubIcon className="w-3.5 h-3.5 text-slate-500" />
+                  <span>ریلیزهای گیت‌هاب</span>
+                </a>
+              </div>
+            </div>
+
+            {/* کارت ۳: نسخه وب و آیفون (تارنما) */}
+            <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-md shadow-slate-200/50 flex flex-col justify-between space-y-4 text-right hover:border-emerald-500/50 transition-all">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-800 grid place-items-center border border-slate-200">
+                    <Globe className="w-6 h-6 text-emerald-600" />
+                  </div>
+                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 font-mono">
+                    تارنما
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">نسخه وب و آیفون (PWA)</h3>
+                  <p className="text-xs text-slate-500 mt-1">اجرا در مرورگر بدون نیاز به نصب</p>
+                </div>
+                <ul className="text-xs text-slate-600 space-y-1.5 pt-1">
+                  <li className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>سازگار با تمامی مدل‌های آیفون و سافاری</span>
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>امکان Add to Home Screen به عنوان وب‌اپ</span>
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>انتقال داده‌ها از طریق فایل یا بارگذاری دمو</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="pt-2">
+                <a
+                  href="./?web=1"
+                  className="w-full py-3.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition active:scale-95"
+                >
+                  <Globe className="w-4 h-4 text-emerald-400" />
+                  <span>ورود به نسخه وب و آیفون</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* بخش آموزش کامل و گام‌به‌گام نصب افزونه مرورگر */}
+      <section id="extension-guide" className="py-16 sm:py-24 px-4 sm:px-6 border-t border-slate-200 bg-white">
+        <div className="max-w-4xl mx-auto space-y-8">
+          <div className="text-center space-y-3 max-w-2xl mx-auto">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
+              <Puzzle className="w-3.5 h-3.5 text-emerald-600" />
+              <span>راهنمای ویژه کاربران دسکتاپ</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900">
+              آموزش تصویری و کامل نصب افزونه مرورگر
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+              افزونه سروستان با فعال‌سازی دکمه شناور روی سامانه‌های دانشگاهی (بهستان و گلستان)، امکان دسترسی و استفاده از داشبورد را در هر لحظه میسر می‌کند.
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-slate-50/50 p-5 sm:p-8 shadow-sm">
+            <ExtensionArchiveGuide />
           </div>
         </div>
       </section>
@@ -578,7 +737,7 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-right">
           <div className="flex items-center gap-2.5">
             <img src="./sarv-logo.png" alt="لوگو" className="w-6 h-6 object-contain" />
-            <span className="font-medium text-slate-700">پروژه آزاد سروستان • نگارش ۲ (تهران)</span>
+            <span className="font-medium text-slate-700">پروژه آزاد سروستان • نگارش ۲.۱ تهران</span>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-4">
@@ -587,7 +746,7 @@ export default function LandingPage() {
               onClick={() => setIsExtensionModalOpen(true)}
               className="text-[#10b981] hover:underline font-bold cursor-pointer"
             >
-              راهنمای آرشیوشده افزونه مرورگر
+              راهنمای نصب افزونه مرورگر
             </button>
             <span className="opacity-30">•</span>
             <a
@@ -639,7 +798,7 @@ export default function LandingPage() {
             >
               <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4 shrink-0">
                 <h3 className="text-base font-black text-slate-900">
-                  راهنمای نصب افزونه مرورگر دسکتاپ (نسخه آرشیو)
+                  راهنمای رسمی نصب افزونه مرورگر کروم سروستان (رومیزی)
                 </h3>
                 <button
                   type="button"

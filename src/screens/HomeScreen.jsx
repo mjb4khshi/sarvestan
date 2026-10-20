@@ -33,6 +33,7 @@ import ChannelSubscribeModal from '../components/ChannelSubscribeModal';
 import { fetchFeed, getFeedState, subscribeFeed, markPostAsRead } from '../services/feedService';
 
 import { getGpaStatusBadge } from '../utils/gpaBadge';
+import { isNativeAlarms } from '../services/classAlarms';
 export { getGpaStatusBadge };
 
 const statusMeta = {
@@ -46,6 +47,7 @@ const statusMeta = {
 const PROFILE_CARD_LAYOUT = 'row';
 
 export default function HomeScreen({ onNavigate }) {
+  const isLivePlatform = isNativeAlarms() || (typeof window !== 'undefined' && Boolean(window.chrome?.runtime?.id));
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
   const [widgetsConfig, setWidgetsConfig] = useState(getDashboardWidgetsConfig);
   const [feedState, setFeedState] = useState(getFeedState);
@@ -156,31 +158,33 @@ export default function HomeScreen({ onNavigate }) {
                       ) : (
                         <div className="space-y-1">
                           <h2 className="text-[13.5px] font-bold text-neutral leading-snug">
-                            {isSessionAlive ? 'نشست ثبت شده — در انتظار بارگذاری' : 'عدم اتصال به بهستان'}
+                            {isLivePlatform ? (isSessionAlive ? 'نشست ثبت شده — در انتظار بارگذاری' : 'عدم اتصال به بهستان') : 'داشبورد دانشجویی سروستان'}
                           </h2>
-                          <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                            {isSessionAlive ? (
-                              <button
-                                type="button"
-                                onClick={handleSyncClick}
-                                disabled={syncing}
-                                className="btn btn-primary !py-1 !px-2.5 text-[11px] font-bold shadow-sm inline-flex items-center gap-1"
-                              >
-                                <Sparkles className="w-3 h-3" />
-                                {syncing ? 'در حال دریافت…' : 'دریافت اطلاعات زنده'}
-                              </button>
-                            ) : null}
-                            {!isBehestanOverlay() && (
-                              <button
-                                type="button"
-                                onClick={() => openLoginModal()}
-                                className={`btn ${isSessionAlive ? 'btn-ghost' : 'btn-primary'} !py-1 !px-2.5 text-[11px] font-bold shadow-sm inline-flex items-center gap-1`}
-                              >
-                                <LogIn className="w-3 h-3" />
-                                {isSessionAlive ? 'ورود مجدد / تغییر دانشگاه' : 'ورود به بهستان'}
-                              </button>
-                            )}
-                          </div>
+                          {isLivePlatform && (
+                            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                              {isSessionAlive ? (
+                                <button
+                                  type="button"
+                                  onClick={handleSyncClick}
+                                  disabled={syncing}
+                                  className="btn btn-primary !py-1 !px-2.5 text-[11px] font-bold shadow-sm inline-flex items-center gap-1"
+                                >
+                                  <Sparkles className="w-3 h-3" />
+                                  {syncing ? 'در حال دریافت…' : 'دریافت اطلاعات زنده'}
+                                </button>
+                              ) : null}
+                              {!isBehestanOverlay() && (
+                                <button
+                                  type="button"
+                                  onClick={() => openLoginModal()}
+                                  className={`btn ${isSessionAlive ? 'btn-ghost' : 'btn-primary'} !py-1 !px-2.5 text-[11px] font-bold shadow-sm inline-flex items-center gap-1`}
+                                >
+                                  <LogIn className="w-3 h-3" />
+                                  {isSessionAlive ? 'ورود مجدد / تغییر دانشگاه' : 'ورود به بهستان'}
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                       {STUDENT.studentId ? (
@@ -258,31 +262,33 @@ export default function HomeScreen({ onNavigate }) {
                   ) : (
                     <div className="mt-3 space-y-1.5 flex flex-col items-center">
                       <h2 className="text-[15px] font-bold text-neutral leading-tight">
-                        {isSessionAlive ? 'نشست ثبت شده — در انتظار بارگذاری' : 'عدم اتصال به بهستان'}
+                        {isLivePlatform ? (isSessionAlive ? 'نشست ثبت شده — در انتظار بارگذاری' : 'عدم اتصال به بهستان') : 'داشبورد دانشجویی سروستان'}
                       </h2>
-                      <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                        {isSessionAlive ? (
-                          <button
-                            type="button"
-                            onClick={handleSyncClick}
-                            disabled={syncing}
-                            className="btn btn-primary !py-1 !px-2.5 text-[11px] font-bold shadow-sm inline-flex items-center gap-1"
-                          >
-                            <Sparkles className="w-3 h-3" />
-                            {syncing ? 'در حال دریافت…' : 'دریافت اطلاعات زنده'}
-                          </button>
-                        ) : null}
-                        {!isBehestanOverlay() && (
-                          <button
-                            type="button"
-                            onClick={() => openLoginModal()}
-                            className="btn btn-primary !py-1 !px-2.5 text-[11px] font-bold shadow-sm inline-flex items-center gap-1"
-                          >
-                            <LogIn className="w-3 h-3" />
-                            ورود به بهستان
-                          </button>
-                        )}
-                      </div>
+                      {isLivePlatform && (
+                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                          {isSessionAlive ? (
+                            <button
+                              type="button"
+                              onClick={handleSyncClick}
+                              disabled={syncing}
+                              className="btn btn-primary !py-1 !px-2.5 text-[11px] font-bold shadow-sm inline-flex items-center gap-1"
+                            >
+                              <Sparkles className="w-3 h-3" />
+                              {syncing ? 'در حال دریافت…' : 'دریافت اطلاعات زنده'}
+                            </button>
+                          ) : null}
+                          {!isBehestanOverlay() && (
+                            <button
+                              type="button"
+                              onClick={() => openLoginModal()}
+                              className="btn btn-primary !py-1 !px-2.5 text-[11px] font-bold shadow-sm inline-flex items-center gap-1"
+                            >
+                              <LogIn className="w-3 h-3" />
+                              ورود به بهستان
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                   {STUDENT.studentId ? (
@@ -370,7 +376,7 @@ export default function HomeScreen({ onNavigate }) {
               </div>
             </section>
 
-            {!live && (
+            {isLivePlatform && !live && (
               <button
                 type="button"
                 onClick={() => {

@@ -1,3 +1,4 @@
+import { getAppPlatformBadge } from '../utils/platformBadge';
 import { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -149,7 +150,7 @@ export default function TopBar({ title, onBack }) {
                   <>
                     سروستان
                     <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-secondary-soft text-secondary">
-                      همراه
+                      {getAppPlatformBadge()}
                     </span>
                   </>
                 )}

@@ -1,5 +1,5 @@
 // devCurriculumLoader.js
-// Loads devCurriculumReport.js if present locally, otherwise safely falls back to empty defaults.
-const modules = import.meta.glob('./devCurriculumReport.js', { eager: true });
-const devCurriculumReport = modules['./devCurriculumReport.js']?.default || null;
+// Safe null default - no mock/demo or personal data is bundled or shipped.
+const devCurriculumReport = null;
+
 export default devCurriculumReport;

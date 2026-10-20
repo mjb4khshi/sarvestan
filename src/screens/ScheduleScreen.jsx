@@ -1476,11 +1476,13 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
         </motion.div>
       )}
 
-      {/* مودال یادآور و آلارم کلاس‌ها */}
-      <ClassAlarmModal
-        isOpen={isAlarmModalOpen}
-        onClose={() => setIsAlarmModalOpen(false)}
-      />
+      {/* مودال یادآور و آلارم کلاس‌ها (فقط نیتیو) */}
+      {canAlarms && (
+        <ClassAlarmModal
+          isOpen={isAlarmModalOpen}
+          onClose={() => setIsAlarmModalOpen(false)}
+        />
+      )}
 
       {/* مودال ویرایش و افزودن درس به برنامه هفتگی */}
       <CourseEditModal

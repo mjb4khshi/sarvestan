@@ -3,9 +3,9 @@
  * Repository: mjb4khshi/sarvestan
  */
 
-export const CURRENT_VERSION = '2.0.0';
+export const CURRENT_VERSION = '2.1.0';
 export const VERSION_CODENAME = 'تهران';
-export const VERSION_DISPLAY_NAME = '۲ تهران';
+export const VERSION_DISPLAY_NAME = '۲.۱ تهران';
 export const GITHUB_REPO = 'mjb4khshi/sarvestan';
 export const GITHUB_RELEASES_API = `https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=10`;
 export const GITHUB_RELEASES_PAGE = `https://github.com/${GITHUB_REPO}/releases`;
