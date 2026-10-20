@@ -1286,26 +1286,54 @@ export function getExamsView() {
         const d = jalaliToDate(jy, jm, jd);
         if (!d || isNaN(d)) return null;
 
-        const daysLeft = Math.round((d - today) / 86400000);
+        // نرمال‌سازی هر دو تاریخ به ابتدای روز (ساعت ۰۰:۰۰:۰۰) جهت محاسبه دقیق و بدون خطای روزشمار
+        const targetDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+        const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
+        const daysLeft = Math.round((targetDate.getTime() - todayDate.getTime()) / 86400000);
         const y = d.getFullYear();
         const m = String(d.getMonth() + 1).padStart(2, '0');
         const day = String(d.getDate()).padStart(2, '0');
         const isoDate = `${y}-${m}-${day}`;
         const jalaliParts = { year: jy, month: jm, day: jd };
 
+        const courseCodeClean = String(e.code || '').replace(/\D/g, '');
+        const eNameNorm = String(e.name || e.course || '').trim();
+        const matchedCourse = allCourses.find((c) => {
+          const cCodeClean = String(c.code || '').replace(/\D/g, '');
+          if (cCodeClean && courseCodeClean && cCodeClean === courseCodeClean) return true;
+          const cNameNorm = String(c.name || c.title || '').trim();
+          return (
+            cNameNorm &&
+            eNameNorm &&
+            (cNameNorm === eNameNorm || cNameNorm.includes(eNameNorm) || eNameNorm.includes(cNameNorm))
+          );
+        });
+
+        const unitVal =
+          Number(e.units ?? e.unit) ||
+          Number(matchedCourse?.units ?? matchedCourse?.unit) ||
+          (isProjectCourse(eNameNorm) ? 3 : isInternshipCourse(eNameNorm) ? 2 : 0);
+
+        const category =
+          e.category ||
+          e.examType ||
+          (eNameNorm.includes('کوییز') ? 'quiz' : eNameNorm.includes('میان') ? 'midterm' : 'final');
+
         return {
           id: e.id || e.code || `exam_${idx}`,
           course: e.name || e.course || '',
-          code: e.code ? faDigits(e.code) : '',
-          unit: e.units || e.unit || 0,
-          instructor: e.professor || e.instructor || 'ـ',
+          code: e.code ? faDigits(e.code) : (matchedCourse?.code ? faDigits(matchedCourse.code) : ''),
+          unit: unitVal,
+          units: unitVal,
+          category,
+          instructor: e.professor || e.instructor || matchedCourse?.professor || 'ـ',
           day: e.day || '',
           examDate: e.examDate || 'ـ',
           examTime: e.examTime || 'ـ',
           room: formatRoomTag(e.hall || e.room) || e.hall || e.room || 'ـ',
           seat: e.chairNumber || e.seatNumber ? faDigits(e.chairNumber || e.seatNumber) : '—',
           daysLeft,
-          color: getToneForCourse(e, allCourses),
+          color: e.color || getToneForCourse(e, allCourses),
           isUrgent: daysLeft >= 0 && daysLeft <= 7,
           isCritical: daysLeft >= 0 && daysLeft <= 3,
           jalaliParts,

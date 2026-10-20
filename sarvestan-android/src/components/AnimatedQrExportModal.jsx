@@ -14,6 +14,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import QRCode from 'qrcode';
+import { toFaDigits } from '../utils/faDigits';
 import { exportSnapshotBundle, exportSnapshotBundleAsync, generateQrChunks, downloadJsonBundle } from '../services/dataTransfer';
 
 export default function AnimatedQrExportModal({ isOpen, onClose }) {
@@ -160,9 +161,9 @@ export default function AnimatedQrExportModal({ isOpen, onClose }) {
                   /* Animated Stream Controls */
                   <div className="w-full max-w-[270px] mt-2.5 space-y-2">
                     <div className="flex items-center justify-between text-[11px] px-1">
-                      <span className="font-bold text-primary flex items-center gap-1">
+                      <span className="font-bold text-primary flex items-center gap-1 font-mono">
                         <Sparkles className="w-3.5 h-3.5" />
-                        بسته {currentIndex + 1} از {chunks.length}
+                        تصویر {toFaDigits(currentIndex + 1)} از {toFaDigits(chunks.length)}
                       </span>
                       <div className="flex items-center gap-1 bg-base-500/20 px-1.5 py-0.5 rounded-lg text-[10px]">
                         <span className="text-neutral">سرعت:</span>
@@ -175,7 +176,7 @@ export default function AnimatedQrExportModal({ isOpen, onClose }) {
                               fps === s ? 'bg-primary text-primary-content' : 'text-neutral hover:text-base-content'
                             }`}
                           >
-                            {s}x
+                            {toFaDigits(s)}×
                           </button>
                         ))}
                       </div>
@@ -200,7 +201,7 @@ export default function AnimatedQrExportModal({ isOpen, onClose }) {
                           setCurrentIndex((prev) => (prev - 1 + chunks.length) % chunks.length);
                         }}
                         className="p-1.5 rounded-xl bg-base-500/20 hover:bg-base-500/35 text-base-content text-xs cursor-pointer transition-all"
-                        title="بسته قبلی"
+                        title="تصویر قبلی"
                       >
                         <ChevronRight className="w-3.5 h-3.5" />
                       </button>
@@ -221,7 +222,7 @@ export default function AnimatedQrExportModal({ isOpen, onClose }) {
                           setCurrentIndex((prev) => (prev + 1) % chunks.length);
                         }}
                         className="p-1.5 rounded-xl bg-base-500/20 hover:bg-base-500/35 text-base-content text-xs cursor-pointer transition-all"
-                        title="بسته بعدی"
+                        title="تصویر بعدی"
                       >
                         <ChevronLeft className="w-3.5 h-3.5" />
                       </button>

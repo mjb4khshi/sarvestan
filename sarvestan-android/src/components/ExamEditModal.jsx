@@ -28,12 +28,15 @@ function parseExamTime(timeStr) {
 export default function ExamEditModal({
   isOpen,
   exam = null,
+  courses = [],
   onClose,
   onSave,
   onDelete,
 }) {
   const isEditing = Boolean(exam && (exam.id || exam.course || exam.name || exam.code));
 
+  const [category, setCategory] = useState('final');
+  const [color, setColor] = useState('primary');
   const [courseName, setCourseName] = useState('');
   const [code, setCode] = useState('');
   const [professor, setProfessor] = useState('');
@@ -56,6 +59,8 @@ export default function ExamEditModal({
       setConfirmDelete(false);
       setErrorMsg('');
       if (exam) {
+        setCategory(exam.category || exam.examType || 'final');
+        setColor(exam.color || 'primary');
         setCourseName(exam.course || exam.name || '');
         setCode(exam.code || '');
         setProfessor(exam.instructor || exam.professor || '');
@@ -65,6 +70,8 @@ export default function ExamEditModal({
         setRoom(exam.room || exam.hall || '');
         setSeat(exam.seat || '—');
       } else {
+        setCategory('final');
+        setColor('primary');
         setCourseName('');
         setCode('');
         setProfessor('');
@@ -76,6 +83,18 @@ export default function ExamEditModal({
       }
     }
   }, [isOpen, exam]);
+
+  const handleSelectCourse = (selectedCourseName) => {
+    if (!selectedCourseName) return;
+    setCourseName(selectedCourseName);
+    const found = courses.find((c) => (c.name || c.title || c.course) === selectedCourseName);
+    if (found) {
+      setCode(found.code || '');
+      setProfessor(found.professor || found.instructor || '');
+      setUnits(found.units != null ? found.units : (found.unit != null ? found.unit : 3));
+      if (found.color) setColor(found.color);
+    }
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -103,6 +122,8 @@ export default function ExamEditModal({
       room: room.trim() || 'ـ',
       hall: room.trim() || 'ـ',
       seat: seat.trim() || '—',
+      category,
+      color,
     };
 
     onSave(resultExam);
@@ -172,6 +193,60 @@ export default function ExamEditModal({
                   <div className="p-3 rounded-xl bg-danger-soft text-danger text-[11.5px] font-bold border border-danger/30 flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 shrink-0" />
                     <span>{errorMsg}</span>
+                  </div>
+                )}
+
+                {/* دسته‌بندی آزمون */}
+                <div>
+                  <label className="text-[11.5px] font-bold text-neutral block mb-1.5">
+                    نوع آزمون (دسته‌بندی):
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: 'final', label: 'پایان‌ترم' },
+                      { id: 'midterm', label: 'میان‌ترم' },
+                      { id: 'quiz', label: 'کوییز' },
+                    ].map((cat) => {
+                      const isSelected = category === cat.id;
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => setCategory(cat.id)}
+                          className={`py-2 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
+                            isSelected
+                              ? 'bg-primary text-primary-content font-black shadow-xs border-primary'
+                              : 'bg-base-500/15 text-neutral border-base-500/30 hover:bg-base-500/25'
+                          }`}
+                        >
+                          {cat.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* انتخاب سریع از بین دروس ترم جاری */}
+                {Array.isArray(courses) && courses.length > 0 && (
+                  <div>
+                    <label className="text-[11.5px] font-bold text-neutral block mb-1">
+                      انتخاب از دروس ترم جاری:
+                    </label>
+                    <select
+                      value={courses.some((c) => (c.name || c.title || c.course) === courseName) ? courseName : ''}
+                      onChange={(e) => handleSelectCourse(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-base-500/15 border border-base-500/30 text-base-content text-[12.5px] font-bold focus:border-primary focus:bg-base outline-none transition cursor-pointer"
+                    >
+                      <option value="">-- انتخاب از لیست دروس ثبت‌نامی --</option>
+                      {courses.map((c, i) => {
+                        const cName = c.name || c.title || c.course;
+                        return (
+                          <option key={`${c.code || cName}_${i}`} value={cName}>
+                            {cName} {c.code ? `(${c.code})` : ''}
+                          </option>
+                        );
+                      })}
+                    </select>
                   </div>
                 )}
 

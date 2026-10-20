@@ -690,6 +690,11 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                     absences: Number(c.absences) || 0,
                     maxAbsences: c.maxAbsences != null ? Number(c.maxAbsences) : 3,
                     course: c,
+                    classType:
+                      c.classType ||
+                      c.category ||
+                      (String(c.name || c.title || '').includes('حل تمرین') ? 'ta' : 'lecture'),
+                    notes: c.notes || '',
                     virtualUrl: c.virtualUrl,
                     hasVirtualClass: c.hasVirtualClass,
                   };
@@ -763,7 +768,12 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {c.classType === 'ta' && (
+                                  <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-secondary-soft text-secondary border border-secondary/25">
+                                    حل تمرین / TA
+                                  </span>
+                                )}
                                 <h4 className="text-[14px] font-bold text-base-content truncate">
                                   {c.title}
                                 </h4>
@@ -783,6 +793,11 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                                   {c.professor}
                                 </span>
                               </div>
+                              {c.notes && (
+                                <p className="mt-1 text-[11px] text-base-content/80 bg-base-500/15 border border-base-500/20 px-2 py-0.5 rounded-lg line-clamp-2">
+                                  {c.notes}
+                                </p>
+                              )}
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
                               {/* بج شمارنده غیبت‌های مجاز با انیمیشن شمارشگر */}
@@ -1335,6 +1350,15 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded-lg ${
+                          exam.category === 'quiz'
+                            ? 'bg-accent-soft text-accent border border-accent/20'
+                            : exam.category === 'midterm'
+                            ? 'bg-warn-soft text-warn border border-warn/20'
+                            : 'bg-primary-soft text-primary border border-primary/20'
+                        }`}>
+                          {exam.category === 'quiz' ? 'کوییز' : exam.category === 'midterm' ? 'میان‌ترم' : 'پایان‌ترم'}
+                        </span>
                         <h4 className="text-[14px] font-bold text-base-content truncate">
                           {exam.course}
                         </h4>
@@ -1612,6 +1636,7 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
       <ExamEditModal
         isOpen={isExamModalOpen}
         exam={editingExam}
+        courses={getCurrentTermSchedule() || []}
         onClose={() => {
           setIsExamModalOpen(false);
           setEditingExam(null);

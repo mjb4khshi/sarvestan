@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import jsQR from 'jsqr';
 import confetti from 'canvas-confetti';
+import { toFaDigits } from '../utils/faDigits';
 import { QrStreamReassembler, applyBundleToStorage } from '../services/dataTransfer';
 
 export default function WebQrScannerModal({ isOpen, onClose, onSuccess }) {
@@ -271,16 +272,16 @@ export default function WebQrScannerModal({ isOpen, onClose, onSuccess }) {
           {/* Progress Indicator */}
           <div className="mt-4 p-3 rounded-2xl bg-slate-100/90 dark:bg-base-500/15 border border-base-500/25">
             <div className="flex items-center justify-between text-xs mb-1.5">
-              <span className="font-bold text-base-content flex items-center gap-1">
+              <span className="font-bold text-base-content flex items-center gap-1 font-mono">
                 <Sparkles className="w-3.5 h-3.5 text-primary" />
                 <span>
                   {progress.totalChunks > 0
-                    ? `بسته‌های دریافت‌شده: ${progress.receivedCount} از ${progress.totalChunks}`
+                    ? `تصاویر دریافت‌شده: ${toFaDigits(progress.receivedCount)} از ${toFaDigits(progress.totalChunks)}`
                     : 'در انتظار تشخیص QR Code...'}
                 </span>
               </span>
               <span className="text-xs font-mono font-bold text-primary">
-                {progress.progressPercent}%
+                {toFaDigits(progress.progressPercent)}٪
               </span>
             </div>
             <div className="w-full h-2 bg-base-500/25 rounded-full overflow-hidden">

@@ -55,6 +55,8 @@ export default function CourseEditModal({
   const isEditing = Boolean(course && (course.id || course.name || course.code));
   const isUt = getSelectedUniversity() === 'ut';
 
+  const [classType, setClassType] = useState('lecture'); // 'lecture' | 'ta'
+  const [notes, setNotes] = useState('');
   const [name, setName] = useState('');
   const [professor, setProfessor] = useState('');
   const [hall, setHall] = useState('');
@@ -82,6 +84,12 @@ export default function CourseEditModal({
       setDeleteConfirmModalOpen(false);
       setErrorMsg('');
       if (course) {
+        const detectedType =
+          course.classType ||
+          course.category ||
+          (String(course.name || course.title || '').includes('حل تمرین') ? 'ta' : 'lecture');
+        setClassType(detectedType);
+        setNotes(course.notes || '');
         setName(course.name || course.title || '');
         setProfessor(course.professor || '');
         setHall(course.hall || course.room || course.daySlots?.[0]?.hall || '');
@@ -127,6 +135,8 @@ export default function CourseEditModal({
           ]);
         }
       } else {
+        setClassType('lecture');
+        setNotes('');
         setName('');
         setProfessor('');
         setHall('');
@@ -139,6 +149,24 @@ export default function CourseEditModal({
       }
     }
   }, [isOpen, course, defaultDay]);
+
+  const handleSelectParentCourse = (parentCourseName) => {
+    if (!parentCourseName) return;
+    const parent = existingCourses.find(
+      (c) => (c.name || c.title) === parentCourseName
+    );
+    const cleanBaseName = parentCourseName.replace(/^حل\s*تمرین\s*/, '');
+    setName(`حل تمرین ${cleanBaseName}`);
+    if (parent) {
+      if (parent.color) setColor(parent.color);
+      if (parent.code) setCode(parent.code);
+      setUnits(0);
+      setIncludeInGpa(false);
+      if (parent.professor && !professor) {
+        setProfessor(`دستیار آموزشی / TA`);
+      }
+    }
+  };
 
   const handleAddSlot = () => {
     const last = slots[slots.length - 1];
@@ -238,6 +266,9 @@ export default function CourseEditModal({
       color: color || 'primary',
       absences: Math.max(0, Number(absences) || 0),
       maxAbsences: Math.max(1, Number(maxAbsences) || 3),
+      classType,
+      category: classType,
+      notes: notes.trim(),
     };
 
     onSave(resultCourse);
@@ -327,6 +358,66 @@ export default function CourseEditModal({
                       <Globe className="w-3 h-3" />
                       <span>ورود به کلاس</span>
                     </button>
+                  </div>
+                )}
+
+                {/* انتخاب نوع کلاس: استاد یا حل تمرین / TA */}
+                <div>
+                  <label className="text-[11.5px] font-bold text-neutral block mb-1.5">
+                    نوع کلاس (دسته‌بندی):
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setClassType('lecture')}
+                      className={`py-2 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
+                        classType === 'lecture'
+                          ? 'bg-primary text-primary-content font-black shadow-xs border-primary'
+                          : 'bg-base-500/15 text-neutral border-base-500/30 hover:bg-base-500/25'
+                      }`}
+                    >
+                      کلاس استاد
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setClassType('ta')}
+                      className={`py-2 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
+                        classType === 'ta'
+                          ? 'bg-secondary text-secondary-content font-black shadow-xs border-secondary'
+                          : 'bg-base-500/15 text-neutral border-base-500/30 hover:bg-base-500/25'
+                      }`}
+                    >
+                      حل تمرین و TA
+                    </button>
+                  </div>
+                </div>
+
+                {/* در حالت حل تمرین: انتخاب از دروس موجود برای تکمیل خودکار */}
+                {classType === 'ta' && Array.isArray(existingCourses) && existingCourses.length > 0 && (
+                  <div className="p-3 rounded-2xl bg-secondary/10 border border-secondary/25 space-y-1.5">
+                    <label className="text-[11.5px] font-bold text-secondary block">
+                      انتخاب درس مربوطه برای حل تمرین:
+                    </label>
+                    <select
+                      onChange={(e) => handleSelectParentCourse(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-base border border-secondary/30 text-base-content text-[12.5px] font-bold focus:border-secondary outline-none transition cursor-pointer"
+                      defaultValue=""
+                    >
+                      <option value="" disabled>
+                        -- انتخاب درس اصلی --
+                      </option>
+                      {existingCourses.map((c, idx) => {
+                        const cName = c.name || c.title;
+                        return (
+                          <option key={`${c.code || cName}_${idx}`} value={cName}>
+                            {cName} {c.code ? `(${c.code})` : ''}
+                          </option>
+                        );
+                      })}
+                    </select>
+                    <p className="text-[10px] text-neutral">
+                      با انتخاب درس، نام حل تمرین، رنگ تم و کد درس به صورت خودکار تنظیم می‌شوند.
+                    </p>
                   </div>
                 )}
 
@@ -459,6 +550,20 @@ export default function CourseEditModal({
                     );
                   })}
                 </div>
+              </div>
+
+              {/* یادداشت اختصاصی کلاس (بارم‌بندی، حضور غیاب، اختیاری بودن و...) */}
+              <div>
+                <label className="text-[11.5px] font-bold text-neutral block mb-1">
+                  یادداشت اختصاصی کلاس:
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={2}
+                  placeholder="مثال: حضور غیاب اختیاری است، ۲ نمره کوییز کلاسی، پروژه پایان‌ترم و..."
+                  className="w-full px-3.5 py-2 rounded-xl bg-base-500/15 border border-base-500/30 text-base-content text-[12px] font-medium focus:border-primary focus:bg-base outline-none transition resize-none"
+                />
               </div>
 
               {/* تیک اضافه کردن درس به شبیه‌ساز معدل */}

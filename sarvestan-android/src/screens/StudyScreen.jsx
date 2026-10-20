@@ -2529,6 +2529,15 @@ export default function StudyScreen({ onNavigate }) {
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded-lg ${
+                                ex.category === 'quiz'
+                                  ? 'bg-accent-soft text-accent border border-accent/20'
+                                  : ex.category === 'midterm'
+                                  ? 'bg-warn-soft text-warn border border-warn/20'
+                                  : 'bg-primary-soft text-primary border border-primary/20'
+                              }`}>
+                                {ex.category === 'quiz' ? 'کوییز' : ex.category === 'midterm' ? 'میان‌ترم' : 'پایان‌ترم'}
+                              </span>
                               <h6 className="text-[13px] font-black text-base-content truncate">
                                 امتحان {ex.course}
                               </h6>
@@ -3430,6 +3439,7 @@ export default function StudyScreen({ onNavigate }) {
       <ExamEditModal
         isOpen={isExamModalOpen}
         exam={editingExam}
+        courses={coursesList}
         onClose={() => setIsExamModalOpen(false)}
         onSave={handleSaveExam}
         onDelete={handleDeleteExam}

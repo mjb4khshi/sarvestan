@@ -213,12 +213,27 @@ function emptyViewModel() {
   };
 }
 
+// کش ویومدل: کلید = هویت اسنپ‌شات استور + باکت ۱۵ ثانیه‌ای.
+// هر جابجایی منو یک رندر جدید می‌سازد اما اسنپ‌شات تغییر نکرده است؛
+// بدون این کش، هر رندر یک محاسبهٔ کامل سنگین (تطبیق دروس×امتحانات×کارنامه) — کندی محسوس
+const VM_BUCKET_MS = 15000;
+let vmCache = null; // { snap, bucket, value }
+
 export function getViewModel() {
   try {
-    return buildViewModel();
+    const snap = getSnapshot();
+    const bucket = Math.floor(Date.now() / VM_BUCKET_MS);
+    if (vmCache && vmCache.snap === snap && vmCache.bucket === bucket) {
+      return vmCache.value;
+    }
+    const value = buildViewModel();
+    vmCache = { snap, bucket, value };
+    return value;
   } catch (e) {
     console.warn('[viewModel]', e);
-    return emptyViewModel();
+    const value = emptyViewModel();
+    vmCache = null; // خطا — دفعهٔ بعد دوباره تلاش کن
+    return value;
   }
 }
 
@@ -234,7 +249,6 @@ function buildViewModel() {
 
   const rawSchedule = getCurrentTermSchedule(currentTerm) || [];
   const allCourses = rawSchedule.map((sc) => {
-    if (sc.units && Number(sc.units) > 0) return sc;
     const scCode = cleanCourseCode(sc.code);
     const scName = cleanCourseName(sc.name || sc.course || sc.title || '');
     const matched = (snap.courses || []).find((c) => {
@@ -242,10 +256,35 @@ function buildViewModel() {
       const cName = cleanCourseName(c.name || c.title || '');
       return (scCode && cCode && scCode === cCode) || (scName && cName && scName === cName);
     });
-    if (matched && matched.units) {
-      return { ...sc, units: Number(matched.units) };
-    }
-    return sc;
+    // exams ترکیب {termId:[...]} استاندارد است (نسخه‌های قدیمی آرایه ذخیره می‌کردند)
+    const flatExams = Array.isArray(snap.exams)
+      ? snap.exams
+      : Object.values(snap.exams || {}).filter(Array.isArray).flat();
+    const matchedExam = flatExams.find((e) => {
+      const eCode = cleanCourseCode(e.code);
+      const eName = cleanCourseName(e.name || e.title || '');
+      return (scCode && eCode && scCode === eCode) || (scName && eName && scName === eName);
+    });
+
+    const prof =
+      (sc.professor && sc.professor !== 'ـ' && sc.professor !== '؟')
+        ? sc.professor
+        : (matched?.professor && matched.professor !== 'ـ' && matched.professor !== '؟')
+        ? matched.professor
+        : (matchedExam?.professor && matchedExam.professor !== 'ـ' && matchedExam.professor !== '؟')
+        ? matchedExam.professor
+        : 'ـ';
+
+    const units =
+      (sc.units && Number(sc.units) > 0)
+        ? Number(sc.units)
+        : (matched?.units ? Number(matched.units) : 0);
+
+    return {
+      ...sc,
+      professor: prof,
+      units,
+    };
   });
   const todayCourses = day ? getTodayClasses(day) : [];
 
@@ -305,14 +344,13 @@ function buildViewModel() {
   if (hasThu) days.push('پنجشنبه');
   if (hasFri) days.push('جمعه');
   const rangeHours = (raw) => {
-    const m = String(raw || '').match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
-    if (!m) return 1.5;
-    return Math.max(
-      0.5,
-      parseInt(m[3], 10) +
-      parseInt(m[4], 10) / 60 -
-      (parseInt(m[1], 10) + parseInt(m[2], 10) / 60)
-    );
+    if (!raw) return 1.5;
+    const { startHour, endHour } = parseClassTime(raw);
+    if (startHour != null && endHour != null) {
+      const diff = Math.round((endHour - startHour) * 10) / 10;
+      if (diff > 0.2) return diff;
+    }
+    return 1.5;
   };
 
   const getCourseHoursForDay = (c, targetDay) => {
@@ -505,7 +543,12 @@ function buildViewModel() {
     : (major ? (major.startsWith('دانشکده') ? major : `دانشکده ${major.replace(/—.*$/, '').trim()}`) : '');
 
   let level = profile.level || (isDevStudent ? devProf.level : '') || '';
+  // مقطع واقعی از گزارش ۸۸ (B6) به‌صورت degree ثبت می‌شود — الأولى از حدسِ رقم شمارهٔ دانشجویی
+  if (!level && profile.degree && profile.degree !== 'ـ') {
+    level = profile.degree;
+  }
   if (!level && resolvedStudentId) {
+    // حدسِ آخرِ محصول: فقط وقتی هیچ قرینهٔ واقعی نداریم
     const rawSid = String(resolvedStudentId).replace(/\D/g, '');
     if (rawSid.length >= 7) {
       const degDigit = rawSid.length === 8 ? rawSid[3] : rawSid[2];
@@ -1243,26 +1286,54 @@ export function getExamsView() {
         const d = jalaliToDate(jy, jm, jd);
         if (!d || isNaN(d)) return null;
 
-        const daysLeft = Math.round((d - today) / 86400000);
+        // نرمال‌سازی هر دو تاریخ به ابتدای روز (ساعت ۰۰:۰۰:۰۰) جهت محاسبه دقیق و بدون خطای روزشمار
+        const targetDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+        const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
+        const daysLeft = Math.round((targetDate.getTime() - todayDate.getTime()) / 86400000);
         const y = d.getFullYear();
         const m = String(d.getMonth() + 1).padStart(2, '0');
         const day = String(d.getDate()).padStart(2, '0');
         const isoDate = `${y}-${m}-${day}`;
         const jalaliParts = { year: jy, month: jm, day: jd };
 
+        const courseCodeClean = String(e.code || '').replace(/\D/g, '');
+        const eNameNorm = String(e.name || e.course || '').trim();
+        const matchedCourse = allCourses.find((c) => {
+          const cCodeClean = String(c.code || '').replace(/\D/g, '');
+          if (cCodeClean && courseCodeClean && cCodeClean === courseCodeClean) return true;
+          const cNameNorm = String(c.name || c.title || '').trim();
+          return (
+            cNameNorm &&
+            eNameNorm &&
+            (cNameNorm === eNameNorm || cNameNorm.includes(eNameNorm) || eNameNorm.includes(cNameNorm))
+          );
+        });
+
+        const unitVal =
+          Number(e.units ?? e.unit) ||
+          Number(matchedCourse?.units ?? matchedCourse?.unit) ||
+          (isProjectCourse(eNameNorm) ? 3 : isInternshipCourse(eNameNorm) ? 2 : 0);
+
+        const category =
+          e.category ||
+          e.examType ||
+          (eNameNorm.includes('کوییز') ? 'quiz' : eNameNorm.includes('میان') ? 'midterm' : 'final');
+
         return {
           id: e.id || e.code || `exam_${idx}`,
           course: e.name || e.course || '',
-          code: e.code ? faDigits(e.code) : '',
-          unit: e.units || e.unit || 0,
-          instructor: e.professor || e.instructor || 'ـ',
+          code: e.code ? faDigits(e.code) : (matchedCourse?.code ? faDigits(matchedCourse.code) : ''),
+          unit: unitVal,
+          units: unitVal,
+          category,
+          instructor: e.professor || e.instructor || matchedCourse?.professor || 'ـ',
           day: e.day || '',
           examDate: e.examDate || 'ـ',
           examTime: e.examTime || 'ـ',
           room: formatRoomTag(e.hall || e.room) || e.hall || e.room || 'ـ',
           seat: e.chairNumber || e.seatNumber ? faDigits(e.chairNumber || e.seatNumber) : '—',
           daysLeft,
-          color: getToneForCourse(e, allCourses),
+          color: e.color || getToneForCourse(e, allCourses),
           isUrgent: daysLeft >= 0 && daysLeft <= 7,
           isCritical: daysLeft >= 0 && daysLeft <= 3,
           jalaliParts,
