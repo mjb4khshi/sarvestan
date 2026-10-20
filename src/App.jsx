@@ -428,7 +428,8 @@ export default function App() {
                 try {
                   sessionStorage.removeItem('sarvestan_manual_logout');
                 } catch {}
-                window.location.replace(window.location.origin + window.location.pathname);
+                const target = window.location.origin + window.location.pathname + (isNative ? '' : '?web=1');
+                window.location.replace(target);
               }}
             />
           </ThemeProvider>
@@ -438,8 +439,11 @@ export default function App() {
 
     // در مرورگر وب لندینگ پیج اختصاصی نمایش داده می‌شود
     if (!isExtension && !isNative) {
-      const hasData = hasLiveData() || isSessionAlive();
-      if (qs.has('landing') || (!hasData && !qs.has('app') && !qs.has('web'))) {
+      const isStandalone = typeof window !== 'undefined' && (
+        window.matchMedia?.('(display-mode: standalone)')?.matches ||
+        window.navigator?.standalone === true
+      );
+      if (qs.has('landing') || (!isStandalone && !qs.has('app') && !qs.has('web'))) {
         return <LandingPage />;
       }
     }

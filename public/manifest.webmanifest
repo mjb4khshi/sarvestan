@@ -2,7 +2,7 @@
   "name": "سروستان | دستیار هوشمند بهستان",
   "short_name": "سروستان",
   "description": "اکوسیستم و داشبورد مدرن، هوشمند و یکپارچه خدمات دانشجویی دانشگاه‌های ایران",
-  "start_url": "./",
+  "start_url": "./?web=1",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",

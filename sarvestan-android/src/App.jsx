@@ -6,6 +6,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import DataBootstrap from './components/DataBootstrap';
 import TopBar from './components/TopBar';
 import BottomNav from './components/BottomNav';
+import SideNav from './components/SideNav';
 import HomeScreen from './screens/HomeScreen';
 import ScheduleScreen from './screens/ScheduleScreen';
 import GradesScreen from './screens/GradesScreen';
@@ -33,6 +34,12 @@ import UpdateModal from './components/UpdateModal';
 import BatBackground from './components/BatBackground';
 import { checkForUpdate, hasDismissedUpdate, dismissUpdate } from './services/updater';
 import { isBatNotifEnabled, scheduleBatNightNotification, initBatWebTimer } from './services/batMode';
+import { initExtensionBridge, isBehestanOverlay } from './services/extensionBridge';
+import { isExtensionRuntime } from './services/extensionRuntime';
+import ExtensionConnectGate from './components/ExtensionConnectGate';
+import WebConnectGate from './components/WebConnectGate';
+import AnimatedQrExportModal from './components/AnimatedQrExportModal';
+import LandingPage from './components/LandingPage';
 
 const TITLES = {
   schedule: 'برنامه هفتگی',
@@ -152,8 +159,9 @@ function Shell() {
     return () => window.removeEventListener('sarvShortcut', onShortcut);
   }, []);
 
-  // راه‌اندازی و بررسی زمان‌بندی اعلان شبانه بت‌سیگنال (ساعت ۱۱ شب)
+  // راه‌اندازی و بررسی زمان‌بندی اعلان شبانه بت‌سیگنال (ساعت ۱۱ شب) و اتصال به افزونه
   useEffect(() => {
+    initExtensionBridge();
     if (isBatNotifEnabled()) {
       scheduleBatNightNotification().catch(() => {});
       initBatWebTimer();
@@ -296,7 +304,10 @@ function Shell() {
   return (
     <MotionConfig reducedMotion={animLevel === 0 ? 'always' : 'never'}>
     <div className="min-h-full bg-base text-base-content selection:bg-primary/30 selection:text-primary">
-      <div className="mobile-shell min-h-screen relative flex flex-col justify-between">
+      {/* دسکتاپ: ناوبری کناری + ستون محتوا — همان زبان طراحی، چینش داشبوردی */}
+      <div className="lg:flex lg:justify-center lg:items-stretch lg:gap-4 lg:px-4">
+        <SideNav active={tab} onChange={changeTabWithDirection} />
+        <div className="mobile-shell min-h-screen relative flex flex-col justify-between">
         <TopBar
           title={TITLES[tab] || null}
           onBack={showBack ? () => changeTabWithDirection('home') : undefined}
@@ -364,6 +375,7 @@ function Shell() {
         </AnimatePresence>
 
         <BottomNav active={tab} onChange={changeTabWithDirection} />
+        </div>
       </div>
     </div>
       </MotionConfig>
@@ -371,6 +383,19 @@ function Shell() {
 }
 
 export default function App() {
+  const [globalExportOpen, setGlobalExportOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = () => setGlobalExportOpen(true);
+    window.addEventListener('sarvestan-open-export-modal', handler);
+    return () => window.removeEventListener('sarvestan-open-export-modal', handler);
+  }, []);
+  const isExtension = typeof window !== 'undefined' && window.location.protocol === 'chrome-extension:';
+  const isNative = typeof window !== 'undefined' && (
+    window.Capacitor?.isNativePlatform?.() ||
+    window.location.protocol === 'capacitor:'
+  );
+
   try {
     const qs = new URLSearchParams(window.location.search);
     // صفحهٔ شبیه‌ساز استوری و پوستر با ?story=1
@@ -403,12 +428,24 @@ export default function App() {
                 try {
                   sessionStorage.removeItem('sarvestan_manual_logout');
                 } catch {}
-                window.location.replace(window.location.origin + window.location.pathname);
+                const target = window.location.origin + window.location.pathname + (isNative ? '' : '?web=1');
+                window.location.replace(target);
               }}
             />
           </ThemeProvider>
         </ErrorBoundary>
       );
+    }
+
+    // در مرورگر وب لندینگ پیج اختصاصی نمایش داده می‌شود
+    if (!isExtension && !isNative) {
+      const isStandalone = typeof window !== 'undefined' && (
+        window.matchMedia?.('(display-mode: standalone)')?.matches ||
+        window.navigator?.standalone === true
+      );
+      if (qs.has('landing') || (!isStandalone && !qs.has('app') && !qs.has('web'))) {
+        return <LandingPage />;
+      }
     }
   } catch {}
 
@@ -418,10 +455,21 @@ export default function App() {
         <div className="relative">
           <BatBackground />
           <AutoUpdateGate />
-          <LoginGate />
+          {/* افزونه: هیچ فرم لاگینی نیست — فقط گیت اتصال بی‌رمز از طریق سامانه دانشگاه */}
+          {isExtensionRuntime() ? (
+            <ExtensionConnectGate />
+          ) : !isNative ? (
+            <WebConnectGate />
+          ) : (
+            <LoginGate />
+          )}
           <SsoCallbackBridge />
           <DataBootstrap />
           <Shell />
+          <AnimatedQrExportModal
+            isOpen={globalExportOpen}
+            onClose={() => setGlobalExportOpen(false)}
+          />
         </div>
       </ThemeProvider>
     </ErrorBoundary>
@@ -479,13 +527,14 @@ function LoginGate() {
 
   useEffect(() => {
     try {
+      if (isBehestanOverlay()) return;
       if (!isLoginModalOpen() && !isSessionAlive() && !hasLiveData()) {
         openLoginModal();
       }
     } catch {}
   }, []);
 
-  if (!isLoginModalOpen()) return null;
+  if (isBehestanOverlay() || !isLoginModalOpen()) return null;
 
   return (
     <LoginScreen

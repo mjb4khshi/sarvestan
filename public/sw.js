@@ -1,6 +1,7 @@
-const CACHE_NAME = 'sarvestan-pwa-v1';
+const CACHE_NAME = 'sarvestan-pwa-v2';
 const STATIC_ASSETS = [
   './',
+  './?web=1',
   './manifest.webmanifest',
   './favicon.svg',
   './sarv-logo.png',
