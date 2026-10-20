@@ -15,6 +15,11 @@ const STORAGE_KEYS = [
   'sarvestan_live_finance',
   'sarvestan_live_workflows',
   'sarvestan_live_curriculum_stats',
+  'sarvestan_live_curriculum_report',
+  'sarvestan_manual_equivalences',
+  'sarvestan_live_announcements',
+  'sarvestan_live_reg77',
+  'sarvestan_app_icon',
   'sarvestan_selected_university',
   'sarvestan_auth_status',
   'sarvestan_theme',
@@ -369,6 +374,7 @@ export async function applyBundleToStorage(bundle) {
   try {
     window.dispatchEvent(new CustomEvent('sarvestan_data_restored', { detail: { count: itemsApplied } }));
     window.dispatchEvent(new CustomEvent('sarvStudyUpdated'));
+    window.dispatchEvent(new CustomEvent('sarvestan:curriculum-update'));
     window.dispatchEvent(new StorageEvent('storage', { key: 'sarvestan_live_profile' }));
   } catch {}
 
