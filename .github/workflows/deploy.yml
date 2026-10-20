@@ -4,6 +4,8 @@ on:
   push:
     branches: ["main", "master", "dev"]
   workflow_dispatch:
+  release:
+    types: [published]
 
 permissions:
   contents: write
@@ -46,6 +48,14 @@ jobs:
           name: sarvestan-extension
           path: dist/sarvestan-extension.zip
           if-no-files-found: error
+
+      - name: Attach Extension ZIP to GitHub Release (if release)
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/sarvestan-extension.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

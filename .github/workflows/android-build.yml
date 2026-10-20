@@ -131,10 +131,21 @@ jobs:
           path: ${{ steps.apk.outputs.path }}
           if-no-files-found: error
 
-      - name: Attach APK to GitHub Release (if release)
+      - name: Package Extension ZIP (if release)
+        if: github.event_name == 'release'
+        run: |
+          npm ci || npm install
+          npm run build
+          cd dist
+          zip -r sarvestan-extension.zip . -x "sarvestan-extension.zip" "*.apk" "*.map"
+          cd ..
+
+      - name: Attach APK and Extension ZIP to GitHub Release (if release)
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ steps.apk.outputs.path }}
+          files: |
+            ${{ steps.apk.outputs.path }}
+            dist/sarvestan-extension.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
