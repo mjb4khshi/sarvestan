@@ -110,18 +110,18 @@ export default function WebConnectGate({ onDataLoaded }) {
           <button
             type="button"
             onClick={handleInstallPwa}
-            className="w-full p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border border-emerald-300 dark:border-emerald-700/50 text-emerald-800 dark:text-emerald-300 font-bold text-xs flex items-center justify-between transition cursor-pointer shadow-xs active:scale-95"
+            className="w-full p-3.5 rounded-2xl bg-base-500/25 hover:bg-base-500/35 border border-base-500/50 flex items-center justify-between transition-all cursor-pointer shadow-sm active:scale-[0.98] group"
           >
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white grid place-items-center shrink-0">
-                <Download className="w-4 h-4" />
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white grid place-items-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                <Download className="w-4.5 h-4.5" />
               </div>
               <div className="text-right">
-                <div className="font-black text-[12px]">نصب به عنوان وب‌اپلیکیشن (PWA)</div>
-                <div className="text-[10px] opacity-80 font-normal">افزودن به صفحه اصلی و اجرای تمام‌صفحه</div>
+                <div className="font-bold text-[13px] text-base-content">نصب به عنوان وب‌اپلیکیشن (PWA)</div>
+                <div className="text-[11px] text-neutral mt-0.5 font-normal">افزودن به صفحه اصلی و اجرای تمام‌صفحه</div>
               </div>
             </div>
-            <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-600 text-white font-bold">
+            <span className="text-[11px] px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-xs transition-colors">
               نصب
             </span>
           </button>
@@ -129,10 +129,10 @@ export default function WebConnectGate({ onDataLoaded }) {
 
         {/* iOS Safari Add to Home Screen Tip */}
         {isIosDevice && (
-          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-base-500/10 border border-slate-200 dark:border-base-500/25 flex items-start gap-2.5 text-[11px] text-neutral leading-relaxed">
-            <Smartphone className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+          <div className="p-3.5 rounded-2xl bg-base-500/15 border border-base-500/35 flex items-start gap-2.5 text-[11px] text-neutral leading-relaxed">
+            <Smartphone className="w-4.5 h-4.5 text-emerald-600 shrink-0 mt-0.5" />
             <div>
-              <strong>راهنمای نصب در آیفون:</strong> در مرورگر سافاری روی دکمه <span className="font-bold text-base-content">Share</span> (مربع با فلش رو به بالا) بزنید و گزینه <span className="font-bold text-base-content">«Add to Home Screen»</span> را انتخاب کنید تا برنامه روی صفحه اصلی گوشی اضافه شود.
+              <strong className="text-base-content font-bold">راهنمای نصب در آیفون:</strong> در مرورگر سافاری روی دکمه <span className="font-bold text-base-content">Share</span> (مربع با فلش رو به بالا) بزنید و گزینه <span className="font-bold text-base-content">«Add to Home Screen»</span> را انتخاب کنید تا برنامه روی صفحه اصلی گوشی اضافه شود.
             </div>
           </div>
         )}
