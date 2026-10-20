@@ -66,8 +66,8 @@ export default function AnimatedQrExportModal({ isOpen, onClose }) {
     if (!item) return;
 
     QRCode.toCanvas(canvasRef.current, item.payload, {
-      width: 300,
-      margin: 1.5,
+      width: 320,
+      margin: 2,
       color: {
         dark: '#0f172a',
         light: '#ffffff',

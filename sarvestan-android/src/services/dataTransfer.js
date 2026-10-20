@@ -29,11 +29,16 @@ const STORAGE_KEYS = [
   'sarv_matrix_transposed',
   'sarv_study_sound_v1',
   'sarv_study_wakelock_v1',
+  'sarv_study_tasks_v1',
+  'sarv_study_sessions_v1',
+  'sarv_study_settings_v1',
+  'sarvestan_class_reminders_settings',
+  'sarvestan_samad_reminder_settings',
   'sarvestan_dnd_during_class',
 ];
 
 const PROTOCOL_HEADER = 'SRV1';
-const CHUNK_SIZE = 750; // Optimized density for rapid multi-frame camera scanning
+const CHUNK_SIZE = 480; // High-readability density: produces large, sharp QR blocks for instant camera locking
 
 /**
  * Creates a clean snapshot of all stored student data
@@ -279,6 +284,7 @@ export async function applyBundleToStorage(bundle) {
   // Notify store and all components of full data update
   try {
     window.dispatchEvent(new CustomEvent('sarvestan_data_restored', { detail: { count: itemsApplied } }));
+    window.dispatchEvent(new CustomEvent('sarvStudyUpdated'));
     window.dispatchEvent(new StorageEvent('storage', { key: 'sarvestan_live_profile' }));
   } catch {}
 

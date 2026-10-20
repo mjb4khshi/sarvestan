@@ -26,6 +26,18 @@ export default function WebQrScannerModal({ isOpen, onClose, onSuccess }) {
   const animFrameRef = useRef(null);
   const fileInputRef = useRef(null);
   const reassemblerRef = useRef(null);
+  const isDoneRef = useRef(false);
+  const barcodeDetectorRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
+      try {
+        barcodeDetectorRef.current = new window.BarcodeDetector({ formats: ['qr_code'] });
+      } catch (e) {
+        barcodeDetectorRef.current = null;
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (!isOpen) {
@@ -44,6 +56,7 @@ export default function WebQrScannerModal({ isOpen, onClose, onSuccess }) {
   }, [isOpen]);
 
   const stopCamera = () => {
+    isDoneRef.current = true;
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
@@ -54,6 +67,7 @@ export default function WebQrScannerModal({ isOpen, onClose, onSuccess }) {
   const startCamera = async () => {
     setCameraError(null);
     setIsDone(false);
+    isDoneRef.current = false;
     setProgress({ receivedCount: 0, totalChunks: 0, progressPercent: 0 });
 
     reassemblerRef.current = new QrStreamReassembler({
@@ -62,6 +76,7 @@ export default function WebQrScannerModal({ isOpen, onClose, onSuccess }) {
       },
       onComplete: async (bundle) => {
         setIsDone(true);
+        isDoneRef.current = true;
         stopCamera();
         try {
           if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
@@ -89,7 +104,15 @@ export default function WebQrScannerModal({ isOpen, onClose, onSuccess }) {
         },
         audio: false,
       };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (e1) {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' },
+          audio: false,
+        });
+      }
       streamRef.current = stream;
 
       if (videoRef.current) {
@@ -105,42 +128,66 @@ export default function WebQrScannerModal({ isOpen, onClose, onSuccess }) {
   };
 
   const tickScan = () => {
-    if (!videoRef.current || videoRef.current.readyState !== videoRef.current.HAVE_ENOUGH_DATA) {
+    if (isDoneRef.current) return;
+    if (!videoRef.current || videoRef.current.readyState < 2) {
       animFrameRef.current = requestAnimationFrame(tickScan);
       return;
     }
 
     const video = videoRef.current;
+
+    // Fast path: Hardware BarcodeDetector
+    if (barcodeDetectorRef.current) {
+      barcodeDetectorRef.current
+        .detect(video)
+        .then((barcodes) => {
+          if (barcodes && barcodes.length > 0) {
+            for (const b of barcodes) {
+              if (b.rawValue) reassemblerRef.current?.feedFrame(b.rawValue);
+            }
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (!isDoneRef.current) {
+            animFrameRef.current = requestAnimationFrame(tickScan);
+          }
+        });
+      return;
+    }
+
+    // High accuracy fallback: jsQR without downscaling blur
     if (!canvasRef.current) {
       canvasRef.current = document.createElement('canvas');
     }
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-    // Downscale for ultra-fast, smooth 60fps QR analysis
     const vw = video.videoWidth;
     const vh = video.videoHeight;
-    const maxDim = 500;
-    const scale = Math.min(1, maxDim / Math.max(vw, vh));
-    const dw = Math.round(vw * scale);
-    const dh = Math.round(vh * scale);
 
-    if (canvas.width !== dw || canvas.height !== dh) {
-      canvas.width = dw;
-      canvas.height = dh;
+    if (vw && vh) {
+      if (canvas.width !== vw || canvas.height !== vh) {
+        canvas.width = vw;
+        canvas.height = vh;
+      }
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(video, 0, 0, vw, vh);
+
+      try {
+        const imageData = ctx.getImageData(0, 0, vw, vh);
+        const code = jsQR(imageData.data, vw, vh, {
+          inversionAttempts: 'dontInvert',
+        });
+
+        if (code && code.data) {
+          reassemblerRef.current?.feedFrame(code.data);
+        }
+      } catch (e) {
+        console.warn('[WebQrScanner] jsQR frame error:', e);
+      }
     }
-    ctx.drawImage(video, 0, 0, dw, dh);
 
-    const imageData = ctx.getImageData(0, 0, dw, dh);
-    const code = jsQR(imageData.data, dw, dh, {
-      inversionAttempts: 'dontInvert',
-    });
-
-    if (code && code.data) {
-      reassemblerRef.current?.feedFrame(code.data);
-    }
-
-    if (!isDone) {
+    if (!isDoneRef.current) {
       animFrameRef.current = requestAnimationFrame(tickScan);
     }
   };
