@@ -441,3 +441,10 @@ html[data-anim-level="0"] *::after {
 html[data-anim-level="1"] {
   --anim-transition-duration: 150ms;
 }
+
+[datatheme="tehran"] .sarv-card,
+[data-theme="tehran"] .sarv-card {
+  background: #ffffff !important;
+  border-color: rgba(0, 48, 73, 0.12) !important;
+  box-shadow: 0 4px 18px -4px rgba(0, 48, 73, 0.08) !important;
+}

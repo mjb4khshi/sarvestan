@@ -608,31 +608,33 @@ html[data-theme="persian-light"],
    Limited Themes: Tehran & Tehran 2 (تم‌های اختصاصی و محدود تهران و تهران دو)
    ========================================================================== */
 
-/* تهران (Fiery Ocean) - پالت محدود */
+/* تهران (Fiery Ocean) - پالت محدود روشن با پس‌زمینه سفید/عاجی پالت */
+html[datatheme="tehran"],
+html[data-theme="tehran"],
 [datatheme="tehran"],
 [data-theme="tehran"] {
   --theme-color-primary: #c1121f;
-  --theme-color-secondary: #669bbc;
-  --theme-color-accent: #780000;
-  --theme-color-success: #46c93a;
-  --theme-color-warn: #fdf0d5;
-  --theme-color-danger: #c1121f;
-  --theme-color-info: #669bbc;
-  --theme-color-neutral: #94a3b8;
-  --theme-color-neutral-dark: #1b3a4b;
-  --theme-color-neutral-darker: #0d2838;
-  --theme-color-base: #002236;
-  --theme-color-base-500: #003049;
-  --theme-color-base-900: #0d486d;
+  --theme-color-secondary: #003049;
+  --theme-color-accent: #669bbc;
+  --theme-color-success: #15803d;
+  --theme-color-warn: #b45309;
+  --theme-color-danger: #780000;
+  --theme-color-info: #0284c7;
+  --theme-color-neutral: #5c7080;
+  --theme-color-neutral-dark: #cbd5e1;
+  --theme-color-neutral-darker: #e2e8f0;
+  --theme-color-base: #fdf0d5;
+  --theme-color-base-500: #f4e3c3;
+  --theme-color-base-900: #d6be96;
   --theme-color-primary-content: #ffffff;
   --theme-color-secondary-content: #ffffff;
   --theme-color-accent-content: #ffffff;
   --theme-color-success-content: #ffffff;
-  --theme-color-warn-content: #000000;
+  --theme-color-warn-content: #ffffff;
   --theme-color-danger-content: #ffffff;
   --theme-color-info-content: #ffffff;
   --theme-color-neutral-content: #ffffff;
-  --theme-color-base-content: #fdf0d5;
+  --theme-color-base-content: #003049;
   --theme-shadow-color: 0, 48, 73;
   --theme-radius-card: 1.15rem;
   --theme-radius-button: 0.85rem;
