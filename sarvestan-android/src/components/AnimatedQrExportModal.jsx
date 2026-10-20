@@ -22,7 +22,7 @@ export default function AnimatedQrExportModal({ isOpen, onClose }) {
   const [chunks, setChunks] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [fps, setFps] = useState(5); // 5 frames per second
+  const [fps, setFps] = useState(3); // 3 frames per second (ideal for reliable mobile camera scanning)
   const [stats, setStats] = useState(null);
   const [copiedJson, setCopiedJson] = useState(false);
   const canvasRef = useRef(null);
@@ -66,13 +66,13 @@ export default function AnimatedQrExportModal({ isOpen, onClose }) {
     if (!item) return;
 
     QRCode.toCanvas(canvasRef.current, item.payload, {
-      width: 280,
+      width: 300,
       margin: 1.5,
       color: {
         dark: '#0f172a',
         light: '#ffffff',
       },
-      errorCorrectionLevel: 'M',
+      errorCorrectionLevel: 'L',
     }).catch((err) => console.warn('[QRCode canvas err]', err));
   }, [chunks, currentIndex]);
 
@@ -218,7 +218,7 @@ export default function AnimatedQrExportModal({ isOpen, onClose }) {
                   {/* Speed toggle */}
                   <div className="flex items-center gap-1 mr-2 px-2 py-1 rounded-lg bg-base-500/20 text-[11px]">
                     <span className="text-neutral">سرعت:</span>
-                    {[3, 5, 8].map((s) => (
+                    {[2, 3, 5].map((s) => (
                       <button
                         key={s}
                         type="button"

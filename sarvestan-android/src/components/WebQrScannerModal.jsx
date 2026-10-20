@@ -117,12 +117,22 @@ export default function WebQrScannerModal({ isOpen, onClose, onSuccess }) {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // Downscale for ultra-fast, smooth 60fps QR analysis
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    const maxDim = 500;
+    const scale = Math.min(1, maxDim / Math.max(vw, vh));
+    const dw = Math.round(vw * scale);
+    const dh = Math.round(vh * scale);
 
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+    if (canvas.width !== dw || canvas.height !== dh) {
+      canvas.width = dw;
+      canvas.height = dh;
+    }
+    ctx.drawImage(video, 0, 0, dw, dh);
+
+    const imageData = ctx.getImageData(0, 0, dw, dh);
+    const code = jsQR(imageData.data, dw, dh, {
       inversionAttempts: 'dontInvert',
     });
 

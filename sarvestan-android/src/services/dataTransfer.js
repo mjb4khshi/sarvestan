@@ -21,7 +21,7 @@ const STORAGE_KEYS = [
 ];
 
 const PROTOCOL_HEADER = 'SRV1';
-const CHUNK_SIZE = 550; // Optimal density for instant camera recognition
+const CHUNK_SIZE = 750; // Optimized density for rapid multi-frame camera scanning
 
 /**
  * Creates a clean snapshot of all stored student data
@@ -46,12 +46,29 @@ export function exportSnapshotBundle({ shrinkPhoto = false } = {}) {
     } catch {}
   }
 
-  // If shrinking photo for light QR stream:
-  if (shrinkPhoto && bundle.data.sarvestan_live_profile?.photo) {
-    const photo = bundle.data.sarvestan_live_profile.photo;
-    if (typeof photo === 'string' && photo.length > 4000) {
-      // Large photo skipped or marked for light export
+  // Lightweight QR stream optimizations:
+  // Removes 100KB+ base64 student photo and bulky raw Behestan workflow dumps
+  if (shrinkPhoto) {
+    if (bundle.data.sarvestan_live_profile) {
+      bundle.data.sarvestan_live_profile = { ...bundle.data.sarvestan_live_profile };
+      delete bundle.data.sarvestan_live_profile.photo;
       bundle.data.sarvestan_live_profile.photoLight = true;
+    }
+    // Delete bulky server-side workflows (not needed for schedule/grades/dashboard)
+    delete bundle.data.sarvestan_live_workflows;
+
+    // Clean courses if present to keep only essential fields
+    if (Array.isArray(bundle.data.sarvestan_live_courses)) {
+      bundle.data.sarvestan_live_courses = bundle.data.sarvestan_live_courses.map((c) => ({
+        code: c.code,
+        name: c.name,
+        group: c.group,
+        units: c.units,
+        grade: c.grade,
+        status: c.status,
+        termId: c.termId,
+        instructor: c.instructor,
+      }));
     }
   }
 
