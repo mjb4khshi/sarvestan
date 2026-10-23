@@ -7,9 +7,14 @@ import "./index.css"
 // PWA Service Worker Registration
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator && !window.Capacitor?.isNativePlatform?.()) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch((err) => {
-      console.warn('[PWA] Service worker registration error:', err);
-    });
+    navigator.serviceWorker
+      .register('./sw.js')
+      .then((reg) => {
+        reg.update().catch(() => {});
+      })
+      .catch((err) => {
+        console.warn('[PWA] Service worker registration error:', err);
+      });
   });
 }
 
