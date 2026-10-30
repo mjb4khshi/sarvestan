@@ -15,7 +15,7 @@ import { useAppIcon } from '../services/appIcon';
  * شیت‌ها خودِ TopBar دارند و با رویداد سراسری باز می‌شوند (نمونهٔ واحد).
  */
 const NAV_ITEMS = [
-  { id: 'home', label: 'میز کار', Icon: LayoutDashboard, activeColor: 'text-primary' },
+  { id: 'home', label: 'میزکار', Icon: LayoutDashboard, activeColor: 'text-primary' },
   { id: 'schedule', label: 'برنامه هفتگی', Icon: CalendarDays, activeColor: 'text-secondary' },
   { id: 'grades', label: 'کارنامه', Icon: Award, activeColor: 'text-info' },
   { id: 'study', label: 'مطالعه و پلنر', Icon: Timer, activeColor: 'text-warn' },

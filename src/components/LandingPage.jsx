@@ -173,7 +173,7 @@ export default function LandingPage() {
             <div className="flex items-center gap-2">
               <span className="font-black text-base tracking-tight text-slate-900">سروستان</span>
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#10b981]/15 text-[#10b981] border border-[#10b981]/30">
-                ۲.۱ تهران
+                ۲.۱.۱ تهران
               </span>
             </div>
           </div>
@@ -232,7 +232,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto text-center space-y-6">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#10b981]/15 border border-[#10b981]/30 text-xs font-bold text-[#10b981]">
             <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" />
-            <span>سروستانی به گستره تهران • نگارش رسمی ۲.۱ تهران هم‌اکنون در دسترس است</span>
+            <span>سروستانی به گستره تهران • نگارش رسمی ۲.۱.۱ تهران هم‌اکنون در دسترس است</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl md:text-6xl font-black text-slate-900 leading-tight sm:leading-tight tracking-tight">
@@ -311,7 +311,7 @@ export default function LandingPage() {
           <div className="text-center space-y-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#10b981]/15 text-[#10b981] text-xs font-bold border border-[#10b981]/30">
               <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" />
-              <span>پوشش یکپارچه دانشگاهی • نگارش ۲.۱ تهران</span>
+              <span>پوشش یکپارچه دانشگاهی • نگارش ۲.۱.۱ تهران</span>
             </div>
             <h2 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
               سروستانی به گستره تهران
@@ -625,12 +625,12 @@ export default function LandingPage() {
                 </div>
                 <div>
                   <h3 className="text-base font-black text-slate-900">اپلیکیشن اندروید</h3>
-                  <p className="text-xs text-slate-500 mt-1">نسخه رسمی ۲.۱ تهران</p>
+                  <p className="text-xs text-slate-500 mt-1">نسخه رسمی ۲.۱.۱ تهران</p>
                 </div>
                 <ul className="text-xs text-slate-600 space-y-1.5 pt-1">
                   <li className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    <span>ویجت‌های زنده ۴ گانه صفحه اصلی گوشی</span>
+                    <span>ویجت‌های متنوع و زنده صفحه اصلی گوشی</span>
                   </li>
                   <li className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
@@ -738,7 +738,7 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-right">
           <div className="flex items-center gap-2.5">
             <img src="./sarv-logo.png" alt="لوگو" className="w-6 h-6 object-contain" />
-            <span className="font-medium text-slate-700">پروژه آزاد سروستان • نگارش ۲.۱ تهران</span>
+            <span className="font-medium text-slate-700">پروژه آزاد سروستان • نگارش ۲.۱.۱ تهران</span>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-4">

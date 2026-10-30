@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react';
 import {
   Smartphone,
   Layers,
-  Palette,
   ArrowRight,
   Sun,
   Moon,
@@ -12,93 +11,143 @@ import {
   Wifi,
   BatteryCharging,
   Signal,
+  CheckSquare,
+  ListTodo,
+  Timer,
+  Flame,
+  BookOpen,
+  GraduationCap,
+  CalendarDays,
+  Clock,
+  MapPin,
+  AlertCircle,
+  FileText,
+  CheckCircle2,
+  ChevronLeft,
   Check,
+  TrendingUp,
+  Play,
+  Zap,
 } from 'lucide-react';
 import { toFaDigits } from '../utils/faDigits';
-import { useTheme } from '../context/ThemeContext';
 import { getViewModel } from '../data/viewModel';
 import { hasLiveData } from '../services/behestan/store';
 
-// سناریوهای پیش‌فرض دیتا برای بررسی رفتارهای گوناگون ویجت‌ها
+// سناریوهای آزمایشی داده برای بررسی حالت‌های مختلف ویجت‌ها
 const SCENARIOS = {
   active: {
-    name: 'حالت عادی (کلاس فعال + امتحان نزدیک)',
+    name: 'حالت عادی و فعال (کلاس، تسک‌های امروز، مطالعه و امتحان)',
     nextTitle: 'طراحی الگوریتم‌ها',
     nextTime: '۱۳:۳۰ تا ۱۵:۰۰',
     nextRoom: 'کلاس ۴۰۱ کامپیوتر',
+    nextProf: 'دکتر علوی',
     examTitle: 'هوش مصنوعی و سیستم‌های خبره',
     examDays: 3,
-    examDate: '۱۴۰۴/۱۰/۱۸',
+    examDate: '۱۴۰۴/۱۰/۱۸ ساعت ۱۰:۰۰',
+    examRoom: 'سالن امتحانات شماره ۲',
+    secondExamTitle: 'شبکه‌های کامپیوتری',
+    secondExamDays: 7,
     gpa: '۱۸.۴۵',
-    statusText: '★ دانشجوی رتبه ممتاز (الف) ★',
+    statusText: 'دانشجوی ممتاز رتبه اول',
     unitsPassed: '۸۴',
+    totalUnits: '۱۴۰',
     termGpa: '۱۸.۸۰',
-  },
-  noClass: {
-    name: 'روز بدون کلاس (تعطیل / خارج از ساعت)',
-    nextTitle: 'امروز کلاسی ثبت نشده',
-    nextTime: '',
-    nextRoom: '',
-    examTitle: 'شبکه‌های کامپیوتری',
-    examDays: 1,
-    examDate: '۱۴۰۴/۱۰/۱۴',
-    gpa: '۱۷.۶۰',
-    statusText: '★ دانشجوی رتبه ممتاز (الف) ★',
-    unitsPassed: '۹۱',
-    termGpa: '۱۷.۱۵',
+    tasksDoneCount: 3,
+    tasksTotalCount: 5,
+    topTaskTitle: 'حل تمرین سری سوم الگوریتم',
+    topTaskPriority: 'فوری',
+    secondTaskTitle: 'مطالعه فصل ۴ هوش مصنوعی',
+    todayStudyMinutes: 165,
+    targetStudyMinutes: 240,
+    studyStreak: 6,
+    currentStudySubject: 'مبانی مهندسی برق',
+    isTimerRunning: true,
   },
   examSeason: {
-    name: 'فرجه امتحانات (امتحان فردا)',
+    name: 'فرجه امتحانات (امتحان فردا + مطالعه فشرده)',
     nextTitle: 'برنامه کلاس‌ها به پایان رسیده',
     nextTime: '',
     nextRoom: '',
+    nextProf: '',
     examTitle: 'معماری کامپیوتر و ریزپردازنده',
-    examDays: 0,
-    examDate: 'امروز ۱۴:۰۰',
-    gpa: '۱۶.۲۵',
-    statusText: '✓ وضعیت تحصیلی: عادی و مطلوب',
-    unitsPassed: '۷۰',
-    termGpa: '۱۶.۵۰',
+    examDays: 1,
+    examDate: 'فردا ساعت ۱۴:۰۰',
+    examRoom: 'دانشکده مهندسی، تالار ۴',
+    secondExamTitle: 'سیستم‌های عامل',
+    secondExamDays: 4,
+    gpa: '۱۷.۶۰',
+    statusText: 'وضعیت تحصیلی: ممتاز و مجاز',
+    unitsPassed: '۹۲',
+    totalUnits: '۱۴۰',
+    termGpa: '۱۷.۱۵',
+    tasksDoneCount: 5,
+    tasksTotalCount: 6,
+    topTaskTitle: 'مرور نمونه سوالات امتحانی',
+    topTaskPriority: 'مهم',
+    secondTaskTitle: 'جمع‌بندی نکات خط لوله',
+    todayStudyMinutes: 310,
+    targetStudyMinutes: 300,
+    studyStreak: 12,
+    currentStudySubject: 'مرور مبحث خط لوله و کش',
+    isTimerRunning: true,
   },
-  noExams: {
-    name: 'اوایل ترم (امتحانی نزدیک نیست)',
-    nextTitle: 'سیستم‌های عامل',
-    nextTime: '۰۸:۰۰ تا ۱۰:۰۰',
-    nextRoom: 'آمفی‌تئاتر خوارزمی',
-    examTitle: 'امتحانی نزدیک نیست',
+  weekend: {
+    name: 'آخر هفته و برنامه‌ریزی (بدون کلاس، مطالعه آزاد)',
+    nextTitle: 'امروز کلاسی ثبت نشده است',
+    nextTime: '',
+    nextRoom: '',
+    nextProf: '',
+    examTitle: 'امتحانی در هفته جاری نیست',
     examDays: -1,
     examDate: '',
+    examRoom: '',
+    secondExamTitle: '',
+    secondExamDays: -1,
     gpa: '۱۹.۱۰',
-    statusText: '★ دانشجوی رتبه ممتاز (الف) ★',
-    unitsPassed: '۵۲',
+    statusText: 'دانشجوی رتبه برتر الف',
+    unitsPassed: '۵۶',
+    totalUnits: '۱۴۰',
     termGpa: '۱۹.۳۰',
+    tasksDoneCount: 2,
+    tasksTotalCount: 3,
+    topTaskTitle: 'پروژه پایانی سیستم‌های عامل',
+    topTaskPriority: 'عادی',
+    secondTaskTitle: 'خلاصه نویسی یادداشت‌های کلاسی',
+    todayStudyMinutes: 90,
+    targetStudyMinutes: 180,
+    studyStreak: 7,
+    currentStudySubject: 'تمرین حل الگوریتم حریصانه',
+    isTimerRunning: false,
   },
 };
 
 export default function WidgetPreviewScreen({ onBack }) {
   const [selectedScenario, setSelectedScenario] = useState('active');
-  const [themeMode, setThemeMode] = useState('both'); // 'light' | 'dark' | 'both'
-  const [viewMode, setViewMode] = useState('both'); // 'phone' | 'cards' | 'both'
-  const [wallpaper, setWallpaper] = useState('default'); // 'default' | 'vibrant' | 'minimal'
-  const [activeWidgetTab, setActiveWidgetTab] = useState('all'); // 'all' | 'combo' | 'gpa' | 'class'
+  const [themeMode, setThemeMode] = useState('both');
+  const [viewMode, setViewMode] = useState('both');
+  const [activeCategory, setActiveCategory] = useState('all');
 
-  // استخراج داده بر اساس سناریو یا دیتای زنده
   const data = useMemo(() => {
     if (selectedScenario === 'live' && hasLiveData()) {
       const vm = getViewModel();
       const next = vm?.nextClass;
       const exam = (vm?.exams || [])[0];
+      const secondExam = (vm?.exams || [])[1];
       const gpaNum = parseFloat(String(vm?.summary?.gpa || '').replace(/[^\d.]/g, '')) || 0;
       return {
-        name: 'دیتای زندهٔ جاری بهستان',
+        ...SCENARIOS.active,
+        name: 'داده‌های واقعی سامانه بهستان',
         nextTitle: next?.title || 'امروز کلاسی ثبت نشده',
         nextTime: next?.time || '',
         nextRoom: next?.room ? `کلاس ${toFaDigits(next.room)}` : '',
+        nextProf: next?.instructor || '',
         examTitle: exam?.course || 'امتحانی نزدیک نیست',
         examDays: exam?.daysLeft ?? -1,
         examDate: exam?.examDate || '',
+        secondExamTitle: secondExam?.course || '',
+        secondExamDays: secondExam?.daysLeft ?? -1,
         gpa: vm?.summary?.gpa || '—',
-        statusText: gpaNum >= 17 ? '★ دانشجوی رتبه ممتاز (الف) ★' : '✓ وضعیت تحصیلی: عادی',
+        statusText: gpaNum >= 17 ? 'دانشجوی ممتاز (الف)' : 'وضعیت تحصیلی: مطلوب',
         unitsPassed: String(vm?.curriculum?.passedCredits ?? vm?.profile?.totalUnitsPassed ?? '—'),
         termGpa: vm?.termsData?.[0]?.gpa || '—',
       };
@@ -108,7 +157,7 @@ export default function WidgetPreviewScreen({ onBack }) {
 
   return (
     <div className="min-h-screen bg-[#070b13] text-slate-100 font-sans" dir="rtl">
-      {/* هدر کنترل میز کار */}
+      {/* سربرگ کنترل */}
       <header className="sticky top-0 z-40 bg-slate-900/95 border-b border-slate-800/80 backdrop-blur-md px-4 py-3">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -116,7 +165,7 @@ export default function WidgetPreviewScreen({ onBack }) {
               <button
                 onClick={onBack}
                 className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
-                title="بازگشت به اپ"
+                title="بازگشت به برنامه"
               >
                 <ArrowRight className="w-5 h-5" />
               </button>
@@ -126,27 +175,24 @@ export default function WidgetPreviewScreen({ onBack }) {
             </div>
             <div>
               <h1 className="text-base font-black text-white flex items-center gap-2">
-                میز کار مقایسه نسخه‌های لایت و دارک ویجت‌ها
-                <span className="text-[10px] bg-sky-500/20 text-sky-400 font-bold px-2 py-0.5 rounded-full border border-sky-500/30">
-                  Light & Dark Modes
+                پیش‌نمایش نسل جدید ویجت‌های سروستان
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                  Sarv Design System 2.0
                 </span>
               </h1>
               <p className="text-[11px] text-slate-400">
-                بررسی و اصلاحیه نسخه‌های روشن و تاریک ویجت‌های اندروید سروستان
+                بررسی نسخه‌های بزرگ (۴×۲)، متوسط (۲×۲)، نواری فشرده (۴×۱) و مینی جمع‌وجور (۱×۱)
               </p>
             </div>
           </div>
 
-          {/* ابزارها و فیلترها */}
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* انتخاب تم ویجت: لایت / دارک / مقایسه دوتایی */}
             <div className="flex items-center bg-slate-800/90 p-1 rounded-xl border border-slate-700/70 text-xs">
               <button
                 onClick={() => setThemeMode('both')}
                 className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 transition-all ${
                   themeMode === 'both' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
                 }`}
-                title="مقایسه نسخه روشن و تاریک کنار هم"
               >
                 <Columns className="w-3.5 h-3.5" />
                 مقایسه دوگانه
@@ -156,24 +202,21 @@ export default function WidgetPreviewScreen({ onBack }) {
                 className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 transition-all ${
                   themeMode === 'light' ? 'bg-amber-500 text-slate-950 shadow font-black' : 'text-slate-400 hover:text-slate-200'
                 }`}
-                title="نمایش نسخه لایت (روشن)"
               >
                 <Sun className="w-3.5 h-3.5" />
-                نسخه روشن (Light)
+                نسخه روشن
               </button>
               <button
                 onClick={() => setThemeMode('dark')}
                 className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 transition-all ${
                   themeMode === 'dark' ? 'bg-slate-700 text-white shadow' : 'text-slate-400 hover:text-slate-200'
                 }`}
-                title="نمایش نسخه دارک (تاریک)"
               >
                 <Moon className="w-3.5 h-3.5" />
-                نسخه تاریک (Dark)
+                نسخه تاریک
               </button>
             </div>
 
-            {/* سناریوی دیتا */}
             <div className="flex items-center gap-1.5 bg-slate-800/80 px-2.5 py-1.5 rounded-xl border border-slate-700/60 text-xs">
               <Sliders className="w-3.5 h-3.5 text-emerald-400" />
               <select
@@ -181,15 +224,13 @@ export default function WidgetPreviewScreen({ onBack }) {
                 onChange={(e) => setSelectedScenario(e.target.value)}
                 className="bg-transparent text-white font-bold outline-none cursor-pointer text-xs"
               >
-                <option value="active" className="bg-slate-800">کلاس فعال + امتحان نزدیک</option>
-                <option value="noClass" className="bg-slate-800">روز بدون کلاس</option>
-                <option value="examSeason" className="bg-slate-800">فرجه امتحانات (فردا)</option>
-                <option value="noExams" className="bg-slate-800">اوایل ترم (بدون امتحان)</option>
-                {hasLiveData() && <option value="live" className="bg-slate-800">دیتای زنده بهستان</option>}
+                <option value="active" className="bg-slate-800">حالت فعال و عادی</option>
+                <option value="examSeason" className="bg-slate-800">فصل امتحانات</option>
+                <option value="weekend" className="bg-slate-800">تعطیل / آخر هفته</option>
+                {hasLiveData() && <option value="live" className="bg-slate-800">داده‌های زنده بهستان</option>}
               </select>
             </div>
 
-            {/* حالت نمایش */}
             <div className="flex items-center bg-slate-800/80 p-1 rounded-xl border border-slate-700/60 text-xs">
               <button
                 onClick={() => setViewMode('both')}
@@ -205,7 +246,7 @@ export default function WidgetPreviewScreen({ onBack }) {
                   viewMode === 'phone' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                روی لانچر گوشی
+                روی گوشی
               </button>
               <button
                 onClick={() => setViewMode('cards')}
@@ -213,7 +254,7 @@ export default function WidgetPreviewScreen({ onBack }) {
                   viewMode === 'cards' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                کارت‌های بزرگ
+                کارت‌ها
               </button>
             </div>
           </div>
@@ -223,37 +264,35 @@ export default function WidgetPreviewScreen({ onBack }) {
       {/* محتوا */}
       <main className="max-w-7xl mx-auto p-4 md:p-8 space-y-12">
 
-        {/* بخش ۱: شبیه‌ساز صفحه اصلی موبایل */}
+        {/* بخش ۱: شبیه‌ساز گوشی */}
         {(viewMode === 'both' || viewMode === 'phone') && (
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Smartphone className="w-5 h-5 text-emerald-400" />
                 <h2 className="text-base font-bold text-white">
-                  شبیه‌ساز صفحه اصلی اندروید {themeMode === 'both' ? '(مقایسه نسخه روشن و تاریک)' : themeMode === 'light' ? '(نسخه روشن - Light)' : '(نسخه تاریک - Dark)'}
+                  شبیه‌ساز هوم‌اسکرین موبایل با پالت‌های ابعاد مختلف
                 </h2>
               </div>
               <span className="text-xs text-slate-400">
-                بررسی هماهنگی ویجت با والپیپر و تم سیستم‌عامل
+                چیدمان متنوع: ویجت جامع + ویجت‌های نواری باریک + ویجت‌های مینی ۱×۱
               </span>
             </div>
 
             <div className={`grid gap-8 place-items-center ${themeMode === 'both' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
               
-              {/* گوشی شماره ۱: نسخه روشن (Light Mode) */}
+              {/* شبیه‌ساز لایت */}
               {(themeMode === 'both' || themeMode === 'light') && (
                 <div className="w-full flex flex-col items-center space-y-3">
                   <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
                     <Sun className="w-4 h-4" />
-                    <span>لانچر در حالت روشن (Light Mode)</span>
+                    <span>لانچر روشن (Light Mode)</span>
                   </div>
 
-                  <div className="w-full max-w-[380px] rounded-[48px] p-3.5 bg-gradient-to-b from-slate-200 via-slate-300 to-slate-400 shadow-2xl border-4 border-slate-300 relative overflow-hidden">
-                    {/* صفحه نمایش با والپیپر روشن */}
-                    <div className="rounded-[38px] p-4 min-h-[720px] flex flex-col justify-between select-none relative bg-gradient-to-b from-[#e8f0fe] via-[#f1f5f9] to-[#ffffff] text-slate-900 transition-all">
+                  <div className="w-full max-w-[390px] rounded-[50px] p-3.5 bg-gradient-to-b from-slate-200 via-slate-300 to-slate-400 shadow-2xl border-4 border-slate-300 relative overflow-hidden">
+                    <div className="rounded-[40px] p-4 min-h-[790px] flex flex-col justify-between select-none relative bg-gradient-to-b from-[#eef4fb] via-[#f6f8fb] to-[#ffffff] text-slate-900 transition-all">
                       
-                      {/* استاتوس‌بار لایت */}
-                      <div className="flex items-center justify-between text-[11px] text-slate-700 font-bold px-2 pt-1 pb-3">
+                      <div className="flex items-center justify-between text-[11px] text-slate-700 font-bold px-2 pt-1 pb-2">
                         <span className="font-mono">۱۲:۴۲</span>
                         <div className="flex items-center gap-1.5 opacity-85">
                           <Signal className="w-3.5 h-3.5 text-slate-800" />
@@ -265,7 +304,6 @@ export default function WidgetPreviewScreen({ onBack }) {
                         </div>
                       </div>
 
-                      {/* ساعت و تاریخ لایت */}
                       <div className="text-center py-2 space-y-0.5">
                         <div className="text-4xl font-black text-slate-800 tracking-tight font-mono">
                           ۱۲:۴۲
@@ -275,51 +313,34 @@ export default function WidgetPreviewScreen({ onBack }) {
                         </div>
                       </div>
 
-                      {/* ویجت‌های لایت */}
-                      <div className="space-y-3.5 my-auto">
-                        {/* ویجت جامع لایت */}
-                        <div>
-                          <div className="text-[10px] text-slate-500 font-bold px-1 mb-1 flex items-center justify-between">
-                            <span>ویجت جامع روشن (۴×۲)</span>
-                            <span className="text-[9px] text-emerald-700 font-bold">Light Version</span>
-                          </div>
-                          <ComboWidget data={data} mode="light" />
-                        </div>
+                      <div className="space-y-2.5 my-auto">
+                        {/* ویجت جامع ۴×۲ */}
+                        <DailyHubWidget data={data} mode="light" />
 
-                        {/* دو ویجت مربعی لایت */}
-                        <div className="grid grid-cols-2 gap-2.5">
-                          <div>
-                            <div className="text-[10px] text-slate-500 font-bold px-1 mb-1">
-                              <span>معدل و کارنامه (۲×۲)</span>
-                            </div>
-                            <GpaWidget data={data} mode="light" />
-                          </div>
-                          <div>
-                            <div className="text-[10px] text-slate-500 font-bold px-1 mb-1">
-                              <span>کلاس بعدی (۲×۲)</span>
-                            </div>
-                            <ClassWidget data={data} mode="light" />
-                          </div>
+                        {/* ویجت‌های نواری باریک جمع‌وجور ۴×۱ */}
+                        <SlimClassWidget data={data} mode="light" />
+                        <SlimStudyWidget data={data} mode="light" />
+
+                        {/* ردیف ویجت‌های مینی بندانگشتی ۱×۱ */}
+                        <div className="grid grid-cols-4 gap-2">
+                          <MicroGpaWidget data={data} mode="light" />
+                          <MicroStreakWidget data={data} mode="light" />
+                          <MicroExamWidget data={data} mode="light" />
+                          <MicroClassWidget data={data} mode="light" />
                         </div>
                       </div>
 
-                      {/* داک لایت */}
-                      <div className="pt-4 pb-1">
-                        <div className="bg-white/80 backdrop-blur-md rounded-3xl p-2.5 flex items-center justify-around border border-slate-200/80 shadow-md">
+                      {/* داک */}
+                      <div className="pt-3 pb-1">
+                        <div className="bg-white/85 backdrop-blur-md rounded-3xl p-2.5 flex items-center justify-around border border-slate-200/90 shadow-md">
                           <div className="w-11 h-11 rounded-2xl bg-emerald-600 text-white grid place-items-center shadow-md">
                             <svg viewBox="0 0 1080 1080" className="w-6 h-6 fill-white">
                               <path d="M540,167.08 C540,167.08 213.25,912.92 540,912.92 C866.75,912.92 540,167.08 540,167.08 Z" />
                             </svg>
                           </div>
-                          <div className="w-11 h-11 rounded-2xl bg-blue-500 text-white grid place-items-center text-xs font-bold shadow-sm">
-                            تلفن
-                          </div>
-                          <div className="w-11 h-11 rounded-2xl bg-amber-500 text-white grid place-items-center text-xs font-bold shadow-sm">
-                            پیام
-                          </div>
-                          <div className="w-11 h-11 rounded-2xl bg-slate-600 text-white grid place-items-center text-xs font-bold shadow-sm">
-                            تنظیمات
-                          </div>
+                          <div className="w-11 h-11 rounded-2xl bg-blue-500 text-white grid place-items-center text-xs font-bold shadow-sm">تماس</div>
+                          <div className="w-11 h-11 rounded-2xl bg-amber-500 text-white grid place-items-center text-xs font-bold shadow-sm">پیام</div>
+                          <div className="w-11 h-11 rounded-2xl bg-slate-600 text-white grid place-items-center text-xs font-bold shadow-sm">تنظیمات</div>
                         </div>
                         <div className="w-32 h-1 bg-slate-400/60 rounded-full mx-auto mt-3" />
                       </div>
@@ -329,20 +350,18 @@ export default function WidgetPreviewScreen({ onBack }) {
                 </div>
               )}
 
-              {/* گوشی شماره ۲: نسخه تاریک (Dark Mode) */}
+              {/* شبیه‌ساز دارک */}
               {(themeMode === 'both' || themeMode === 'dark') && (
                 <div className="w-full flex flex-col items-center space-y-3">
                   <div className="flex items-center gap-2 text-xs font-bold text-sky-400">
                     <Moon className="w-4 h-4" />
-                    <span>لانچر در حالت تاریک (Dark Mode)</span>
+                    <span>لانچر تاریک (Dark Mode)</span>
                   </div>
 
-                  <div className="w-full max-w-[380px] rounded-[48px] p-3.5 bg-gradient-to-b from-slate-700 via-slate-850 to-slate-900 shadow-2xl border-4 border-slate-700/80 relative overflow-hidden">
-                    {/* صفحه نمایش با والپیپر تیره */}
-                    <div className="rounded-[38px] p-4 min-h-[720px] flex flex-col justify-between select-none relative bg-gradient-to-br from-[#0e1626] via-[#090d16] to-[#04060a] text-slate-100 transition-all">
+                  <div className="w-full max-w-[390px] rounded-[50px] p-3.5 bg-gradient-to-b from-slate-700 via-slate-850 to-slate-900 shadow-2xl border-4 border-slate-700/80 relative overflow-hidden">
+                    <div className="rounded-[40px] p-4 min-h-[790px] flex flex-col justify-between select-none relative bg-gradient-to-br from-[#0c1424] via-[#080d18] to-[#04060b] text-slate-100 transition-all">
                       
-                      {/* استاتوس‌بار دارک */}
-                      <div className="flex items-center justify-between text-[11px] text-slate-300 font-bold px-2 pt-1 pb-3">
+                      <div className="flex items-center justify-between text-[11px] text-slate-300 font-bold px-2 pt-1 pb-2">
                         <span className="font-mono">۱۲:۴۲</span>
                         <div className="flex items-center gap-1.5 opacity-85">
                           <Signal className="w-3.5 h-3.5" />
@@ -354,9 +373,8 @@ export default function WidgetPreviewScreen({ onBack }) {
                         </div>
                       </div>
 
-                      {/* ساعت و تاریخ دارک */}
                       <div className="text-center py-2 space-y-0.5">
-                        <div className="text-4xl font-black text-white/90 tracking-tight font-mono">
+                        <div className="text-4xl font-black text-white/95 tracking-tight font-mono">
                           ۱۲:۴۲
                         </div>
                         <div className="text-[12px] text-slate-400 font-medium">
@@ -364,51 +382,30 @@ export default function WidgetPreviewScreen({ onBack }) {
                         </div>
                       </div>
 
-                      {/* ویجت‌های دارک */}
-                      <div className="space-y-3.5 my-auto">
-                        {/* ویجت جامع دارک */}
-                        <div>
-                          <div className="text-[10px] text-emerald-400/80 font-bold px-1 mb-1 flex items-center justify-between">
-                            <span>ویجت جامع تاریک (۴×۲)</span>
-                            <span className="text-[9px] text-slate-500 font-mono">Dark Version</span>
-                          </div>
-                          <ComboWidget data={data} mode="dark" />
-                        </div>
+                      <div className="space-y-2.5 my-auto">
+                        <DailyHubWidget data={data} mode="dark" />
 
-                        {/* دو ویجت مربعی دارک */}
-                        <div className="grid grid-cols-2 gap-2.5">
-                          <div>
-                            <div className="text-[10px] text-purple-400/80 font-bold px-1 mb-1">
-                              <span>معدل و کارنامه (۲×۲)</span>
-                            </div>
-                            <GpaWidget data={data} mode="dark" />
-                          </div>
-                          <div>
-                            <div className="text-[10px] text-sky-400/80 font-bold px-1 mb-1">
-                              <span>کلاس بعدی (۲×۲)</span>
-                            </div>
-                            <ClassWidget data={data} mode="dark" />
-                          </div>
+                        <SlimClassWidget data={data} mode="dark" />
+                        <SlimStudyWidget data={data} mode="dark" />
+
+                        <div className="grid grid-cols-4 gap-2">
+                          <MicroGpaWidget data={data} mode="dark" />
+                          <MicroStreakWidget data={data} mode="dark" />
+                          <MicroExamWidget data={data} mode="dark" />
+                          <MicroClassWidget data={data} mode="dark" />
                         </div>
                       </div>
 
-                      {/* داک دارک */}
-                      <div className="pt-4 pb-1">
-                        <div className="bg-white/5 backdrop-blur-md rounded-3xl p-2.5 flex items-center justify-around border border-white/10">
+                      <div className="pt-3 pb-1">
+                        <div className="bg-white/5 backdrop-blur-md rounded-3xl p-2.5 flex items-center justify-around border border-white/10 shadow-lg">
                           <div className="w-11 h-11 rounded-2xl bg-emerald-500 text-white grid place-items-center shadow-lg shadow-emerald-500/25">
                             <svg viewBox="0 0 1080 1080" className="w-6 h-6 fill-white">
-                              <path d="M540,167.08 C540,167.08 213.25,912.92 540,912.92 C866.75,912.92 540,167.08 540,167.08 Z" />
+                              <path d="M540,167.08 C540,167.08 213.25,912.92 540,912.92 C866.75,912.92 540,167.08 Z" />
                             </svg>
                           </div>
-                          <div className="w-11 h-11 rounded-2xl bg-blue-600/80 text-white grid place-items-center text-xs font-bold">
-                            تلفن
-                          </div>
-                          <div className="w-11 h-11 rounded-2xl bg-amber-600/80 text-white grid place-items-center text-xs font-bold">
-                            پیام
-                          </div>
-                          <div className="w-11 h-11 rounded-2xl bg-slate-700/80 text-white grid place-items-center text-xs font-bold">
-                            تنظیمات
-                          </div>
+                          <div className="w-11 h-11 rounded-2xl bg-blue-600/80 text-white grid place-items-center text-xs font-bold">تماس</div>
+                          <div className="w-11 h-11 rounded-2xl bg-amber-600/80 text-white grid place-items-center text-xs font-bold">پیام</div>
+                          <div className="w-11 h-11 rounded-2xl bg-slate-700/80 text-white grid place-items-center text-xs font-bold">تنظیمات</div>
                         </div>
                         <div className="w-32 h-1 bg-slate-400/40 rounded-full mx-auto mt-3" />
                       </div>
@@ -422,171 +419,199 @@ export default function WidgetPreviewScreen({ onBack }) {
           </section>
         )}
 
-        {/* بخش ۲: بازرسی دقیق و بزرگ‌نمایی تفکیکی */}
+        {/* بخش ۲: بازرسی تفکیکی کارت‌ها */}
         {(viewMode === 'both' || viewMode === 'cards') && (
           <section className="space-y-6 pt-6 border-t border-slate-800/80">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
                   <Layers className="w-5 h-5 text-amber-400" />
-                  بررسی مجزا و مقایسه تفکیکی نسخه لایت و دارک
+                  بررسی مجزا و مقایسه تفکیکی تمامی ویجت‌ها
                 </h2>
                 <p className="text-xs text-slate-400">
-                  جهت بررسی جزئیات کادرها، کنتراست متن‌ها، فونت آراد و پالت رنگی هر دو تم
+                  شامل سایزهای استاندارد و خانواده جدید ویجت‌های فشرده (Slim & Micro)
                 </p>
               </div>
 
-              {/* تب انتخاب ویجت */}
-              <div className="flex items-center bg-slate-800/80 p-1 rounded-2xl border border-slate-700/60 text-xs">
-                <button
-                  onClick={() => setActiveWidgetTab('all')}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
-                    activeWidgetTab === 'all' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  همه ویجت‌ها
-                </button>
-                <button
-                  onClick={() => setActiveWidgetTab('combo')}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
-                    activeWidgetTab === 'combo' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  ۱. ویجت جامع ۴×۲
-                </button>
-                <button
-                  onClick={() => setActiveWidgetTab('gpa')}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
-                    activeWidgetTab === 'gpa' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  ۲. ویجت معدل ۲×۲
-                </button>
-                <button
-                  onClick={() => setActiveWidgetTab('class')}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
-                    activeWidgetTab === 'class' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  ۳. ویجت کلاس ۲×۲
-                </button>
+              <div className="flex flex-wrap items-center bg-slate-800/80 p-1 rounded-2xl border border-slate-700/60 text-xs gap-1">
+                {[
+                  { id: 'all', label: 'همه ویجت‌ها' },
+                  { id: 'compact', label: 'جم و جور (۴×۱ و ۱×۱)' },
+                  { id: 'hub', label: '۱. داشبورد روز (۴×۲)' },
+                  { id: 'tasks', label: '۲. تسک‌ها و کارها' },
+                  { id: 'study', label: '۳. مطالعه و تایمر' },
+                  { id: 'exam', label: '۴. روزشمار امتحانات' },
+                  { id: 'class', label: '۵. کلاس بعدی' },
+                  { id: 'gpa', label: '۶. معدل و کارنامه' },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveCategory(tab.id)}
+                    className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
+                      activeCategory === tab.id ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
             </div>
 
             <div className="space-y-8">
-              
-              {/* ۱. مقایسه ویجت جامع */}
-              {(activeWidgetTab === 'all' || activeWidgetTab === 'combo') && (
-                <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 md:p-6 shadow-xl space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                    <h3 className="font-bold text-white text-base flex items-center gap-2">
-                      ۱. ویجت جامع سروستان (Combo Widget - ۴×۲)
-                      <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
-                        کلاس بعدی + روزشمار امتحان + معدل
-                      </span>
-                    </h3>
-                  </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* نسخه روشن */}
-                    <div className="p-5 rounded-2xl bg-slate-100/10 border border-slate-700/50 flex flex-col items-center space-y-3">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400 self-start">
-                        <Sun className="w-4 h-4" />
-                        <span>نسخه لایت (روشن) - پالت سفید و کرم با کادر Slate</span>
+              {/* ۰. دسته ویجت‌های جمع‌وجور و فشرده (Slim & Micro) */}
+              {(activeCategory === 'all' || activeCategory === 'compact') && (
+                <>
+                  <WidgetCardRow
+                    title="ویجت‌های نواری و باریک جمع‌وجور (Slim Bar - ۴×۱)"
+                    description="نوار تک‌خطی بسیار ظریف برای هوم‌اسکرین خلوت: کلاس بعدی، مطالعه، روزشمار امتحان و کارهای امروز"
+                    badge="فوق‌العاده مینیمال"
+                    badgeColor="emerald"
+                    lightComponent={
+                      <div className="space-y-2 w-full">
+                        <SlimClassWidget data={data} mode="light" />
+                        <SlimStudyWidget data={data} mode="light" />
+                        <SlimExamWidget data={data} mode="light" />
+                        <SlimTasksWidget data={data} mode="light" />
                       </div>
-                      <div className="w-full max-w-[360px]">
-                        <ComboWidget data={data} mode="light" />
+                    }
+                    darkComponent={
+                      <div className="space-y-2 w-full">
+                        <SlimClassWidget data={data} mode="dark" />
+                        <SlimStudyWidget data={data} mode="dark" />
+                        <SlimExamWidget data={data} mode="dark" />
+                        <SlimTasksWidget data={data} mode="dark" />
                       </div>
-                    </div>
+                    }
+                    widthClass="w-full max-w-[390px]"
+                  />
 
-                    {/* نسخه تاریک */}
-                    <div className="p-5 rounded-2xl bg-slate-950/70 border border-slate-800 flex flex-col items-center space-y-3">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-sky-400 self-start">
-                        <Moon className="w-4 h-4" />
-                        <span>نسخه دارک (تاریک) - گرادیان مشکی سرمه‌ای</span>
+                  <WidgetCardRow
+                    title="ویجت‌های بندانگشتی و تک‌خانه‌ای (Micro Square - ۱×۱)"
+                    description="ویجت‌های بسیار کوچک اندازه یک آیکون برنامه جهت چینش در کنار سایر اپ‌ها"
+                    badge="کوچک و سریع"
+                    badgeColor="sky"
+                    lightComponent={
+                      <div className="grid grid-cols-4 gap-2 w-full">
+                        <MicroGpaWidget data={data} mode="light" />
+                        <MicroStreakWidget data={data} mode="light" />
+                        <MicroExamWidget data={data} mode="light" />
+                        <MicroClassWidget data={data} mode="light" />
                       </div>
-                      <div className="w-full max-w-[360px]">
-                        <ComboWidget data={data} mode="dark" />
+                    }
+                    darkComponent={
+                      <div className="grid grid-cols-4 gap-2 w-full">
+                        <MicroGpaWidget data={data} mode="dark" />
+                        <MicroStreakWidget data={data} mode="dark" />
+                        <MicroExamWidget data={data} mode="dark" />
+                        <MicroClassWidget data={data} mode="dark" />
                       </div>
-                    </div>
-                  </div>
-                </div>
+                    }
+                    widthClass="w-full max-w-[390px]"
+                  />
+                </>
               )}
 
-              {/* ۲. مقایسه ویجت معدل */}
-              {(activeWidgetTab === 'all' || activeWidgetTab === 'gpa') && (
-                <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 md:p-6 shadow-xl space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                    <h3 className="font-bold text-white text-base flex items-center gap-2">
-                      ۲. ویجت کارنامه و معدل (GPA Widget - ۲×۲)
-                      <span className="text-[10px] bg-purple-500/20 text-purple-400 font-bold px-2 py-0.5 rounded-full border border-purple-500/30">
-                        عدد درشت معدل + رتبه ممتاز + واحدها
-                      </span>
-                    </h3>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* نسخه روشن */}
-                    <div className="p-5 rounded-2xl bg-slate-100/10 border border-slate-700/50 flex flex-col items-center space-y-3">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400 self-start">
-                        <Sun className="w-4 h-4" />
-                        <span>نسخه لایت (روشن)</span>
-                      </div>
-                      <div className="w-[190px]">
-                        <GpaWidget data={data} mode="light" />
-                      </div>
-                    </div>
-
-                    {/* نسخه تاریک */}
-                    <div className="p-5 rounded-2xl bg-slate-950/70 border border-slate-800 flex flex-col items-center space-y-3">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-sky-400 self-start">
-                        <Moon className="w-4 h-4" />
-                        <span>نسخه دارک (تاریک)</span>
-                      </div>
-                      <div className="w-[190px]">
-                        <GpaWidget data={data} mode="dark" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              {/* ۱. ویجت هوشمند روز */}
+              {(activeCategory === 'all' || activeCategory === 'hub') && (
+                <WidgetCardRow
+                  title="۱. ویجت هوشمند روز سروستان (Daily Hub Widget - ۴×۲)"
+                  description="کارت یکپارچه روزانه: کلاس بعدی همراه با زمان، اولویت تسک‌های کاری امروز یا روزشمار امتحان نزدیک"
+                  badge="جدید و پرچمدار"
+                  badgeColor="emerald"
+                  lightComponent={<DailyHubWidget data={data} mode="light" />}
+                  darkComponent={<DailyHubWidget data={data} mode="dark" />}
+                  widthClass="w-full max-w-[390px]"
+                />
               )}
 
-              {/* ۳. مقایسه ویجت کلاس بعدی */}
-              {(activeWidgetTab === 'all' || activeWidgetTab === 'class') && (
-                <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 md:p-6 shadow-xl space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                    <h3 className="font-bold text-white text-base flex items-center gap-2">
-                      ۳. ویجت کلاس بعدی (Next Class Widget - ۲×۲)
-                      <span className="text-[10px] bg-sky-500/20 text-sky-400 font-bold px-2 py-0.5 rounded-full border border-sky-500/30">
-                        عنوان درس + ساعت + موقعیت کلاس
-                      </span>
-                    </h3>
-                  </div>
+              {/* ۲. تسک‌ها */}
+              {(activeCategory === 'all' || activeCategory === 'tasks') && (
+                <>
+                  <WidgetCardRow
+                    title="۲. ویجت کارهای امروز و چک‌لیست (Daily Tasks Widget - ۲×۲)"
+                    description="شمارش کارهای انجام شده، تسک با اولویت بالا و دسترسی سریع به کارهای روز"
+                    badge="جدید"
+                    badgeColor="amber"
+                    lightComponent={<TasksWidget data={data} mode="light" />}
+                    darkComponent={<TasksWidget data={data} mode="dark" />}
+                    widthClass="w-[200px]"
+                  />
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* نسخه روشن */}
-                    <div className="p-5 rounded-2xl bg-slate-100/10 border border-slate-700/50 flex flex-col items-center space-y-3">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400 self-start">
-                        <Sun className="w-4 h-4" />
-                        <span>نسخه لایت (روشن)</span>
-                      </div>
-                      <div className="w-[190px]">
-                        <ClassWidget data={data} mode="light" />
-                      </div>
-                    </div>
+                  <WidgetCardRow
+                    title="۲.۲. ویجت تسک‌های کاری و اهداف روزانه (Tasks Full Widget - ۴×۲)"
+                    description="لیست اولویت‌های کاری روز، نوار پیشرفت تسک‌ها و دسترسی به چک‌لیست مطالعه"
+                    badge="جدید افقی"
+                    badgeColor="amber"
+                    lightComponent={<TasksFullWidget data={data} mode="light" />}
+                    darkComponent={<TasksFullWidget data={data} mode="dark" />}
+                    widthClass="w-full max-w-[390px]"
+                  />
+                </>
+              )}
 
-                    {/* نسخه تاریک */}
-                    <div className="p-5 rounded-2xl bg-slate-950/70 border border-slate-800 flex flex-col items-center space-y-3">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-sky-400 self-start">
-                        <Moon className="w-4 h-4" />
-                        <span>نسخه دارک (تاریک)</span>
-                      </div>
-                      <div className="w-[190px]">
-                        <ClassWidget data={data} mode="dark" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              {/* ۳. مطالعه */}
+              {(activeCategory === 'all' || activeCategory === 'study') && (
+                <>
+                  <WidgetCardRow
+                    title="۳. ویجت تایمر مطالعه و پومودورو (Study Tracker - ۲×۲)"
+                    description="میزان مطالعه امروز به دقیقه، زنجیره استریک روزانه، درس در حال خواندن و وضعیت فعال تایمر"
+                    badge="جدید"
+                    badgeColor="violet"
+                    lightComponent={<StudyWidget data={data} mode="light" />}
+                    darkComponent={<StudyWidget data={data} mode="dark" />}
+                    widthClass="w-[200px]"
+                  />
+
+                  <WidgetCardRow
+                    title="۳.۲. ویجت پیشرفت مطالعه و استریک هفتگی (Study Progress Widget - ۴×۲)"
+                    description="نوار پیشرفت هدف روزانه، آمار مطالعه، استریک متوالی بدون وقفه و کلید دسترسی سریع به پلنر"
+                    badge="جدید افقی"
+                    badgeColor="violet"
+                    lightComponent={<StudyFullWidget data={data} mode="light" />}
+                    darkComponent={<StudyFullWidget data={data} mode="dark" />}
+                    widthClass="w-full max-w-[390px]"
+                  />
+                </>
+              )}
+
+              {/* ۴. روزشمار امتحانات */}
+              {(activeCategory === 'all' || activeCategory === 'exam') && (
+                <WidgetCardRow
+                  title="۴. ویجت روزشمار و برنامه امتحانات (Exam Tracker - ۴×۲)"
+                  description="کارت هوشمند امتحانات ترم با شمارش معکوس روزها، تاریخ، ساعت، محل برگزاری و امتحان بعدی"
+                  badge="بازطراحی هوشمند"
+                  badgeColor="rose"
+                  lightComponent={<ExamTrackerWidget data={data} mode="light" />}
+                  darkComponent={<ExamTrackerWidget data={data} mode="dark" />}
+                  widthClass="w-full max-w-[390px]"
+                />
+              )}
+
+              {/* ۵. کلاس بعدی */}
+              {(activeCategory === 'all' || activeCategory === 'class') && (
+                <WidgetCardRow
+                  title="۵. ویجت کلاس بعدی و برنامه هفتگی (Next Class - ۲×۲)"
+                  description="نام درس، استاد، ساعت تشکیل و موقعیت کلاس بر اساس ساعت جاری سیستم"
+                  badge="بازطراحی شده"
+                  badgeColor="sky"
+                  lightComponent={<NextClassWidget data={data} mode="light" />}
+                  darkComponent={<NextClassWidget data={data} mode="dark" />}
+                  widthClass="w-[200px]"
+                />
+              )}
+
+              {/* ۶. معدل و کارنامه */}
+              {(activeCategory === 'all' || activeCategory === 'gpa') && (
+                <WidgetCardRow
+                  title="۶. ویجت کارنامه و معدل کل (GPA & Standing - ۲×۲)"
+                  description="معدل درشت رسمی، نشان دانشجوی رتبه الف و نسبت واحدهای گذرانده به کل دوره تحصیلی"
+                  badge="بازطراحی شده"
+                  badgeColor="emerald"
+                  lightComponent={<GpaStandingWidget data={data} mode="light" />}
+                  darkComponent={<GpaStandingWidget data={data} mode="dark" />}
+                  widthClass="w-[200px]"
+                />
               )}
 
             </div>
@@ -599,341 +624,845 @@ export default function WidgetPreviewScreen({ onBack }) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// کامپوننت‌های رندر ویجت با پشتیبانی کامل از Light و Dark
+// کامپوننت کمکی ردیف مقایسه
 // ─────────────────────────────────────────────────────────────
 
-/**
- * ۱. ویجت جامع ۴×۲ (Combo Widget)
- */
-function ComboWidget({ data, mode = 'dark' }) {
-  const isLight = mode === 'light';
-
-  const examDaysStr =
-    data.examDays === 0
-      ? 'امروز'
-      : data.examDays === 1
-        ? 'فردا'
-        : data.examDays > 1
-          ? `${toFaDigits(data.examDays)} روز`
-          : '—';
+function WidgetCardRow({ title, description, badge, badgeColor, lightComponent, darkComponent, widthClass }) {
+  const badgeClasses = {
+    emerald: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    amber: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+    violet: 'bg-violet-500/20 text-violet-400 border-violet-500/30',
+    rose: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
+    sky: 'bg-sky-500/20 text-sky-400 border-sky-500/30',
+  }[badgeColor] || 'bg-slate-700 text-slate-300 border-slate-600';
 
   return (
-    <div
-      className={`w-full rounded-[24px] p-3.5 border shadow-xl relative overflow-hidden text-right select-none transition-all ${
-        isLight
-          ? 'bg-gradient-to-br from-[#FFFFFF] to-[#F8FAFC] border-slate-200 shadow-slate-300/40 text-slate-900'
-          : 'border-[#24344D] text-slate-100'
-      }`}
-      style={
-        !isLight
-          ? {
-              background: 'linear-gradient(135deg, #141D2E 0%, #0B101D 100%)',
-            }
-          : {}
-      }
-    >
-      {/* سربرگ ویجت */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1.5">
-          <div
-            className={`w-4 h-4 rounded-md grid place-items-center ${
-              isLight ? 'bg-emerald-100 text-emerald-700' : 'bg-emerald-500/20 text-emerald-400'
-            }`}
-          >
-            <svg
-              viewBox="0 0 1080 1080"
-              className={`w-2.5 h-2.5 ${isLight ? 'fill-emerald-700' : 'fill-emerald-400'}`}
-            >
-              <path d="M540,167.08 C540,167.08 213.25,912.92 540,912.92 C866.75,912.92 540,167.08 540,167.08 Z" />
-            </svg>
-          </div>
-          <span
-            className={`text-[13px] font-black ${
-              isLight ? 'text-emerald-700' : 'text-[#34D399]'
-            }`}
-          >
-            سروستان
-          </span>
-        </div>
-
-        {data.gpa && data.gpa !== 'ـ' && (
-          <span
-            className={`text-[11px] font-bold px-2 py-0.5 rounded-lg border ${
-              isLight
-                ? 'bg-slate-100 text-slate-800 border-slate-200/80'
-                : 'text-[#F1F5F9] bg-white/5 border-white/10'
-            }`}
-          >
-            معدل {toFaDigits(data.gpa)}
-          </span>
-        )}
-      </div>
-
-      {/* کارت اول: کلاس بعدی */}
-      <div
-        className={`rounded-[16px] p-2.5 mb-1.5 border transition-all ${
-          isLight
-            ? 'bg-[#F1F5F9] border-slate-200/90 shadow-sm'
-            : 'border-[#2A3C58]'
-        }`}
-        style={!isLight ? { background: '#1A2438' } : {}}
-      >
-        <div
-          className={`text-[10px] font-bold mb-0.5 ${
-            isLight ? 'text-sky-700' : 'text-[#38BDF8]'
-          }`}
-        >
-          کلاس بعدی
-        </div>
-        <div
-          className={`text-[13px] font-black truncate ${
-            isLight ? 'text-slate-900' : 'text-[#F8FAFC]'
-          }`}
-        >
-          {data.nextTitle}
-        </div>
-        <div
-          className={`text-[10.5px] font-medium mt-0.5 truncate ${
-            isLight ? 'text-slate-600' : 'text-[#94A3B8]'
-          }`}
-        >
-          {data.nextTime
-            ? `${toFaDigits(data.nextTime)} ${data.nextRoom ? `· ${toFaDigits(data.nextRoom)}` : ''}`
-            : 'برنامه هفتگی خالی است'}
+    <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 md:p-6 shadow-xl space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800">
+        <div>
+          <h3 className="font-bold text-white text-base flex items-center gap-2">
+            {title}
+            {badge && (
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeClasses}`}>
+                {badge}
+              </span>
+            )}
+          </h3>
+          <p className="text-xs text-slate-400 mt-0.5">{description}</p>
         </div>
       </div>
 
-      {/* کارت دوم: روزشمار امتحان */}
-      <div
-        className={`rounded-[16px] p-2.5 border flex items-center justify-between gap-2 transition-all ${
-          isLight
-            ? 'bg-[#F1F5F9] border-slate-200/90 shadow-sm'
-            : 'border-[#2A3C58]'
-        }`}
-        style={!isLight ? { background: '#1A2438' } : {}}
-      >
-        <div className="flex-1 min-w-0">
-          <div
-            className={`text-[12px] font-black truncate ${
-              isLight ? 'text-slate-900' : 'text-[#F8FAFC]'
-            }`}
-          >
-            {data.examTitle}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="p-5 rounded-2xl bg-slate-100/10 border border-slate-700/50 flex flex-col items-center space-y-3">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400 self-start">
+            <Sun className="w-4 h-4" />
+            <span>نسخه روشن (Light)</span>
           </div>
-          <div
-            className={`text-[10px] font-medium mt-0.5 truncate ${
-              isLight ? 'text-slate-600' : 'text-[#94A3B8]'
-            }`}
-          >
-            {data.examDate ? toFaDigits(data.examDate) : 'روزشمار خالی'}
+          <div className={widthClass}>
+            {lightComponent}
           </div>
         </div>
 
-        {/* بج روزشمار */}
-        <div
-          className={`px-2.5 py-1 rounded-xl border text-[11px] font-black shrink-0 ${
-            isLight
-              ? 'bg-emerald-100 border-emerald-300 text-emerald-800'
-              : 'bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border-emerald-500/30 text-emerald-300'
-          }`}
-        >
-          {examDaysStr}
+        <div className="p-5 rounded-2xl bg-slate-950/70 border border-slate-800 flex flex-col items-center space-y-3">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-sky-400 self-start">
+            <Moon className="w-4 h-4" />
+            <span>نسخه تاریک (Dark)</span>
+          </div>
+          <div className={widthClass}>
+            {darkComponent}
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-/**
- * ۲. ویجت کارنامه و معدل ۲×۲ (GPA Widget)
- */
-function GpaWidget({ data, mode = 'dark' }) {
+// ─────────────────────────────────────────────────────────────
+// ویجت‌های نواری و باریک جمع‌وجور (Slim Bar - ۴×۱ / ۲×۱)
+// ─────────────────────────────────────────────────────────────
+
+function SlimClassWidget({ data, mode = 'dark' }) {
   const isLight = mode === 'light';
-  const numGpa = parseFloat(String(data.gpa || '').replace(/[^\d.]/g, '')) || 0;
 
   return (
     <div
-      className={`w-full h-full rounded-[24px] p-3 border shadow-xl flex flex-col justify-between text-right select-none aspect-square transition-all ${
+      className={`w-full rounded-[20px] px-3 py-2 border shadow-sm flex items-center justify-between gap-2 select-none transition-all ${
         isLight
-          ? 'bg-gradient-to-br from-[#FFFFFF] to-[#F8FAFC] border-slate-200 shadow-slate-300/40 text-slate-900'
-          : 'border-[#24344D] text-slate-100'
+          ? 'bg-white/95 border-slate-200/90 shadow-[0_4px_16px_rgb(0,0,0,0.04)] text-slate-900'
+          : 'bg-[#0f172a]/95 border-white/10 shadow-[0_4px_16px_rgb(0,0,0,0.3)] text-slate-100'
       }`}
-      style={
-        !isLight
-          ? {
-              background: 'linear-gradient(135deg, #141D2E 0%, #0B101D 100%)',
-            }
-          : {}
-      }
     >
-      {/* سربرگ */}
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="w-6 h-6 rounded-lg bg-sky-500/20 text-sky-500 grid place-items-center shrink-0">
+          <Clock className="w-3.5 h-3.5" />
+        </div>
+        <div className="min-w-0">
+          <div className="text-[11.5px] font-black truncate leading-tight">
+            {data.nextTitle}
+          </div>
+          <div className="text-[9.5px] text-slate-400 truncate">
+            {data.nextRoom ? toFaDigits(data.nextRoom) : 'کلاس حضوری'}
+          </div>
+        </div>
+      </div>
+
+      <span className="shrink-0 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-300 border border-sky-500/30">
+        {data.nextTime ? toFaDigits(data.nextTime) : '—'}
+      </span>
+    </div>
+  );
+}
+
+function SlimStudyWidget({ data, mode = 'dark' }) {
+  const isLight = mode === 'light';
+  const hours = Math.floor(data.todayStudyMinutes / 60);
+  const mins = data.todayStudyMinutes % 60;
+  const timeStr = hours > 0 ? `${toFaDigits(hours)}س و ${toFaDigits(mins)}د` : `${toFaDigits(mins)} دقیقه`;
+
+  return (
+    <div
+      className={`w-full rounded-[20px] px-3 py-2 border shadow-sm flex items-center justify-between gap-2 select-none transition-all ${
+        isLight
+          ? 'bg-white/95 border-slate-200/90 shadow-[0_4px_16px_rgb(0,0,0,0.04)] text-slate-900'
+          : 'bg-[#0f172a]/95 border-white/10 shadow-[0_4px_16px_rgb(0,0,0,0.3)] text-slate-100'
+      }`}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="w-6 h-6 rounded-lg bg-violet-500/20 text-violet-500 grid place-items-center shrink-0">
+          <Timer className="w-3.5 h-3.5" />
+        </div>
+        <div className="min-w-0">
+          <div className="text-[11.5px] font-black truncate leading-tight">
+            مطالعه امروز: {timeStr}
+          </div>
+          <div className="text-[9.5px] text-slate-400 truncate">
+            {data.currentStudySubject}
+          </div>
+        </div>
+      </div>
+
+      <span className="shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1">
+        <Flame className="w-3 h-3 fill-amber-500 text-amber-500" />
+        {toFaDigits(data.studyStreak)} روز
+      </span>
+    </div>
+  );
+}
+
+function SlimExamWidget({ data, mode = 'dark' }) {
+  const isLight = mode === 'light';
+
+  return (
+    <div
+      className={`w-full rounded-[20px] px-3 py-2 border shadow-sm flex items-center justify-between gap-2 select-none transition-all ${
+        isLight
+          ? 'bg-white/95 border-slate-200/90 shadow-[0_4px_16px_rgb(0,0,0,0.04)] text-slate-900'
+          : 'bg-[#0f172a]/95 border-white/10 shadow-[0_4px_16px_rgb(0,0,0,0.3)] text-slate-100'
+      }`}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="w-6 h-6 rounded-lg bg-rose-500/20 text-rose-500 grid place-items-center shrink-0">
+          <AlertCircle className="w-3.5 h-3.5" />
+        </div>
+        <div className="min-w-0">
+          <div className="text-[11.5px] font-black truncate leading-tight">
+            {data.examTitle}
+          </div>
+          <div className="text-[9.5px] text-slate-400 truncate">
+            {data.examDate ? toFaDigits(data.examDate) : 'روزشمار امتحانات'}
+          </div>
+        </div>
+      </div>
+
+      <span className="shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-300 border border-rose-500/30">
+        {data.examDays === 0 ? 'امروز' : data.examDays === 1 ? 'فردا' : `${toFaDigits(data.examDays)} روز`}
+      </span>
+    </div>
+  );
+}
+
+function SlimTasksWidget({ data, mode = 'dark' }) {
+  const isLight = mode === 'light';
+
+  return (
+    <div
+      className={`w-full rounded-[20px] px-3 py-2 border shadow-sm flex items-center justify-between gap-2 select-none transition-all ${
+        isLight
+          ? 'bg-white/95 border-slate-200/90 shadow-[0_4px_16px_rgb(0,0,0,0.04)] text-slate-900'
+          : 'bg-[#0f172a]/95 border-white/10 shadow-[0_4px_16px_rgb(0,0,0,0.3)] text-slate-100'
+      }`}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="w-6 h-6 rounded-lg bg-purple-500/20 text-purple-500 grid place-items-center shrink-0">
+          <CheckSquare className="w-3.5 h-3.5" />
+        </div>
+        <div className="min-w-0">
+          <div className="text-[11.5px] font-black truncate leading-tight">
+            {data.topTaskTitle || 'کاری برای امروز در انتظار نیست'}
+          </div>
+          <div className="text-[9.5px] text-slate-400 truncate">
+            {data.tasksTotalCount ? 'تسک دارای اولویت امروز' : 'پلنر هوشمند و برنامه‌ریزی'}
+          </div>
+        </div>
+      </div>
+
+      <span className="shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-500/30">
+        {data.tasksTotalCount ? `${toFaDigits(data.tasksDoneCount)} از ${toFaDigits(data.tasksTotalCount)} کار` : 'پلنر فعال'}
+      </span>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// ویجت‌های بندانگشتی و تک‌خانه‌ای (Micro Square - ۱×۱)
+// ─────────────────────────────────────────────────────────────
+
+function MicroGpaWidget({ data, mode = 'dark' }) {
+  const isLight = mode === 'light';
+
+  return (
+    <div
+      className={`w-full aspect-square rounded-[18px] p-2 border shadow-sm flex flex-col justify-between text-center select-none transition-all ${
+        isLight
+          ? 'bg-white/95 border-slate-200/90 text-slate-900'
+          : 'bg-[#0f172a]/95 border-white/10 text-white'
+      }`}
+    >
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1">
+        <div className="w-4 h-4 rounded-md bg-emerald-500/20 text-emerald-500 grid place-items-center">
+          <GraduationCap className="w-2.5 h-2.5" />
+        </div>
+        <span className="text-[8px] font-bold text-emerald-500">معدل</span>
+      </div>
+
+      <div className="text-[17px] font-black font-mono leading-none my-auto">
+        {toFaDigits(data.gpa || '—')}
+      </div>
+
+      <div className="text-[8.5px] font-bold text-slate-400 truncate">
+        رتبه ممتاز
+      </div>
+    </div>
+  );
+}
+
+function MicroStreakWidget({ data, mode = 'dark' }) {
+  const isLight = mode === 'light';
+
+  return (
+    <div
+      className={`w-full aspect-square rounded-[18px] p-2 border shadow-sm flex flex-col justify-between text-center select-none transition-all ${
+        isLight
+          ? 'bg-white/95 border-slate-200/90 text-slate-900'
+          : 'bg-[#0f172a]/95 border-white/10 text-white'
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="w-4 h-4 rounded-md bg-amber-500/20 text-amber-500 grid place-items-center">
+          <Flame className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
+        </div>
+        <span className="text-[8px] font-bold text-amber-500">استریک</span>
+      </div>
+
+      <div className="text-[17px] font-black font-mono leading-none my-auto text-amber-500">
+        {toFaDigits(data.studyStreak)}
+      </div>
+
+      <div className="text-[8.5px] font-bold text-slate-400 truncate">
+        روز متوالی
+      </div>
+    </div>
+  );
+}
+
+function MicroExamWidget({ data, mode = 'dark' }) {
+  const isLight = mode === 'light';
+
+  return (
+    <div
+      className={`w-full aspect-square rounded-[18px] p-2 border shadow-sm flex flex-col justify-between text-center select-none transition-all ${
+        isLight
+          ? 'bg-white/95 border-slate-200/90 text-slate-900'
+          : 'bg-[#0f172a]/95 border-white/10 text-white'
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="w-4 h-4 rounded-md bg-rose-500/20 text-rose-500 grid place-items-center">
+          <AlertCircle className="w-2.5 h-2.5" />
+        </div>
+        <span className="text-[8px] font-bold text-rose-500">امتحان</span>
+      </div>
+
+      <div className="text-[15px] font-black leading-none my-auto text-rose-500">
+        {data.examDays === 0 ? 'امروز' : data.examDays === 1 ? 'فردا' : `${toFaDigits(data.examDays)} روز`}
+      </div>
+
+      <div className="text-[8.5px] font-bold text-slate-400 truncate">
+        {data.examTitle ? data.examTitle.split(' ')[0] : 'آزمون'}
+      </div>
+    </div>
+  );
+}
+
+function MicroClassWidget({ data, mode = 'dark' }) {
+  const isLight = mode === 'light';
+
+  return (
+    <div
+      className={`w-full aspect-square rounded-[18px] p-2 border shadow-sm flex flex-col justify-between text-center select-none transition-all ${
+        isLight
+          ? 'bg-white/95 border-slate-200/90 text-slate-900'
+          : 'bg-[#0f172a]/95 border-white/10 text-white'
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="w-4 h-4 rounded-md bg-sky-500/20 text-sky-500 grid place-items-center">
+          <Clock className="w-2.5 h-2.5" />
+        </div>
+        <span className="text-[8px] font-bold text-sky-500">کلاس</span>
+      </div>
+
+      <div className="text-[11px] font-black font-mono leading-none my-auto text-sky-600 dark:text-sky-300">
+        {data.nextTime ? toFaDigits(data.nextTime.split(' ')[0]) : '—'}
+      </div>
+
+      <div className="text-[8.5px] font-bold text-slate-400 truncate">
+        {data.nextTitle ? data.nextTitle.split(' ')[0] : 'برنامه'}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// ویجت‌های استاندارد قبلی (Daily Hub, Tasks, Study, Exam, Class, GPA)
+// ─────────────────────────────────────────────────────────────
+
+function DailyHubWidget({ data, mode = 'dark' }) {
+  const isLight = mode === 'light';
+
+  return (
+    <div
+      className={`w-full rounded-[26px] p-3.5 border shadow-xl relative overflow-hidden select-none transition-all ${
+        isLight
+          ? 'bg-white/95 border-slate-200/90 shadow-[0_8px_30px_rgb(0,0,0,0.06)] text-slate-900'
+          : 'bg-[#0f172a]/95 border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.4)] text-slate-100'
+      }`}
+    >
+      <div className="flex items-center justify-between mb-2.5">
+        <div className="flex items-center gap-1.5">
           <div
-            className={`w-3.5 h-3.5 rounded-md grid place-items-center ${
-              isLight ? 'bg-emerald-100 text-emerald-700' : 'bg-emerald-500/20 text-emerald-400'
+            className={`w-6 h-6 rounded-xl grid place-items-center shadow-xs ${
+              isLight ? 'bg-emerald-600 text-white' : 'bg-emerald-500 text-white'
             }`}
           >
-            <svg
-              viewBox="0 0 1080 1080"
-              className={`w-2.5 h-2.5 ${isLight ? 'fill-emerald-700' : 'fill-emerald-400'}`}
-            >
+            <svg viewBox="0 0 1080 1080" className="w-3.5 h-3.5 fill-white">
               <path d="M540,167.08 C540,167.08 213.25,912.92 540,912.92 C866.75,912.92 540,167.08 540,167.08 Z" />
             </svg>
           </div>
-          <span
-            className={`text-[11px] font-black ${
-              isLight ? 'text-emerald-700' : 'text-[#34D399]'
-            }`}
-          >
-            کارنامه
+          <div>
+            <div className={`text-[12px] font-black leading-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
+              سروستان
+            </div>
+            <div className={`text-[9.5px] font-medium leading-none ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+              داشبورد هوشمند روز
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          {data.gpa && (
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                isLight
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+              }`}
+            >
+              معدل {toFaDigits(data.gpa)}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div
+          className={`rounded-2xl p-2.5 border transition-all ${
+            isLight ? 'bg-[#f8fafc] border-slate-200/80' : 'bg-white/[0.04] border-white/5'
+          }`}
+        >
+          <div className="flex items-center gap-1 text-[9.5px] font-bold text-sky-600 dark:text-sky-400 mb-1">
+            <Clock className="w-3 h-3" />
+            <span>کلاس بعدی</span>
+          </div>
+          <div className="text-[12px] font-black truncate leading-tight">
+            {data.nextTitle}
+          </div>
+          <div className="flex items-center gap-1 mt-1 text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
+            {data.nextTime ? (
+              <>
+                <span>{toFaDigits(data.nextTime)}</span>
+                {data.nextRoom && <span>· {toFaDigits(data.nextRoom)}</span>}
+              </>
+            ) : (
+              <span>کلاسی برای امروز نیست</span>
+            )}
+          </div>
+        </div>
+
+        <div
+          className={`rounded-2xl p-2.5 border transition-all ${
+            isLight ? 'bg-[#f8fafc] border-slate-200/80' : 'bg-white/[0.04] border-white/5'
+          }`}
+        >
+          {data.examDays >= 0 && data.examDays <= 2 ? (
+            <>
+              <div className="flex items-center justify-between text-[9.5px] font-bold text-rose-600 dark:text-rose-400 mb-1">
+                <span className="flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  <span>امتحان نزدیک</span>
+                </span>
+                <span className="px-1.5 py-0.2 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-300 font-black">
+                  {data.examDays === 0 ? 'امروز' : data.examDays === 1 ? 'فردا' : `${toFaDigits(data.examDays)} روز`}
+                </span>
+              </div>
+              <div className="text-[12px] font-black truncate leading-tight">
+                {data.examTitle}
+              </div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-1 truncate">
+                {data.examDate ? toFaDigits(data.examDate) : 'روزشمار امتحانات'}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between text-[9.5px] font-bold text-amber-600 dark:text-amber-400 mb-1">
+                <span className="flex items-center gap-1">
+                  <ListTodo className="w-3 h-3" />
+                  <span>کارهای امروز</span>
+                </span>
+                <span className="px-1.5 py-0.2 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-300 font-black">
+                  {toFaDigits(data.tasksDoneCount)} از {toFaDigits(data.tasksTotalCount)}
+                </span>
+              </div>
+              <div className="text-[12px] font-black truncate leading-tight">
+                {data.topTaskTitle}
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-1">
+                <span className="truncate">{data.secondTaskTitle}</span>
+                <span className="font-bold text-amber-600 dark:text-amber-400">
+                  {data.topTaskPriority}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TasksWidget({ data, mode = 'dark' }) {
+  const isLight = mode === 'light';
+
+  return (
+    <div
+      className={`w-full h-full rounded-[26px] p-3.5 border shadow-xl flex flex-col justify-between aspect-square select-none transition-all ${
+        isLight
+          ? 'bg-white/95 border-slate-200/90 shadow-[0_8px_30px_rgb(0,0,0,0.06)] text-slate-900'
+          : 'bg-[#0f172a]/95 border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.4)] text-slate-100'
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <div className="w-5 h-5 rounded-lg bg-amber-500/20 text-amber-500 grid place-items-center">
+            <ListTodo className="w-3 h-3" />
+          </div>
+          <span className="text-[11px] font-black text-amber-600 dark:text-amber-400">
+            کارهای امروز
+          </span>
+        </div>
+        <span
+          className={`text-[9.5px] font-black px-1.5 py-0.5 rounded-md border ${
+            data.tasksDoneCount === data.tasksTotalCount
+              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+              : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
+          }`}
+        >
+          {toFaDigits(data.tasksDoneCount)}/{toFaDigits(data.tasksTotalCount)}
+        </span>
+      </div>
+
+      <div className="my-auto py-1">
+        <div className="text-[9.5px] font-bold text-slate-400 mb-0.5">تسک در اولویت</div>
+        <div className="text-[12.5px] font-black leading-snug line-clamp-2">
+          {data.topTaskTitle}
+        </div>
+        <div className="text-[9.5px] font-medium text-slate-500 dark:text-slate-400 mt-1 truncate">
+          بعدی: {data.secondTaskTitle}
+        </div>
+      </div>
+
+      <div
+        className={`rounded-xl px-2 py-1.5 border flex items-center justify-between text-[10px] ${
+          isLight ? 'bg-slate-50 border-slate-200/80' : 'bg-white/[0.04] border-white/5'
+        }`}
+      >
+        <span className="text-slate-500 dark:text-slate-400 font-medium">وضعیت چک‌لیست:</span>
+        <span className="font-bold text-amber-600 dark:text-amber-400">
+          {toFaDigits(Math.round((data.tasksDoneCount / data.tasksTotalCount) * 100))}٪ انجام شد
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function TasksFullWidget({ data, mode = 'dark' }) {
+  const isLight = mode === 'light';
+
+  return (
+    <div
+      className={`w-full rounded-[26px] p-3.5 border shadow-xl select-none transition-all ${
+        isLight
+          ? 'bg-white/95 border-slate-200/90 shadow-[0_8px_30px_rgb(0,0,0,0.06)] text-slate-900'
+          : 'bg-[#0f172a]/95 border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.4)] text-slate-100'
+      }`}
+    >
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          <div className="w-5 h-5 rounded-lg bg-amber-500/20 text-amber-500 grid place-items-center">
+            <ListTodo className="w-3 h-3" />
+          </div>
+          <span className="text-[12px] font-black text-amber-600 dark:text-amber-400">
+            برنامه کاری و چک‌لیست روز
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+            {toFaDigits(data.tasksDoneCount)} از {toFaDigits(data.tasksTotalCount)} کار تکمیل شد
+          </span>
+        </div>
+      </div>
+
+      <div className="space-y-1.5 mt-2">
+        <div
+          className={`rounded-2xl p-2 px-3 border flex items-center justify-between gap-2 ${
+            isLight ? 'bg-slate-50 border-slate-200/80' : 'bg-white/[0.04] border-white/5'
+          }`}
+        >
+          <div className="flex items-center gap-2 truncate">
+            <div className="w-4 h-4 rounded-md border border-amber-500 grid place-items-center text-amber-500">
+              <Check className="w-2.5 h-2.5" />
+            </div>
+            <span className="text-[12px] font-black truncate">{data.topTaskTitle}</span>
+          </div>
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0">
+            {data.topTaskPriority}
+          </span>
+        </div>
+
+        <div
+          className={`rounded-2xl p-2 px-3 border flex items-center justify-between gap-2 ${
+            isLight ? 'bg-slate-50 border-slate-200/80' : 'bg-white/[0.04] border-white/5'
+          }`}
+        >
+          <div className="flex items-center gap-2 truncate">
+            <div className="w-4 h-4 rounded-md border border-slate-400 dark:border-slate-600" />
+            <span className="text-[12px] font-bold text-slate-400 truncate">{data.secondTaskTitle}</span>
+          </div>
+          <span className="text-[10px] text-slate-400 shrink-0">عادی</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StudyWidget({ data, mode = 'dark' }) {
+  const isLight = mode === 'light';
+  const hours = Math.floor(data.todayStudyMinutes / 60);
+  const mins = data.todayStudyMinutes % 60;
+  const timeStr = hours > 0 ? `${toFaDigits(hours)}س و ${toFaDigits(mins)}د` : `${toFaDigits(mins)} دقیقه`;
+
+  return (
+    <div
+      className={`w-full h-full rounded-[26px] p-3.5 border shadow-xl flex flex-col justify-between aspect-square select-none transition-all ${
+        isLight
+          ? 'bg-white/95 border-slate-200/90 shadow-[0_8px_30px_rgb(0,0,0,0.06)] text-slate-900'
+          : 'bg-[#0f172a]/95 border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.4)] text-slate-100'
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <div className="w-5 h-5 rounded-lg bg-violet-500/20 text-violet-500 grid place-items-center">
+            <Timer className="w-3 h-3" />
+          </div>
+          <span className="text-[11px] font-black text-violet-600 dark:text-violet-400">
+            مطالعه امروز
+          </span>
+        </div>
+        <div className="flex items-center gap-0.5 text-amber-500 text-[10px] font-black">
+          <Flame className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+          <span>{toFaDigits(data.studyStreak)}</span>
+        </div>
+      </div>
+
+      <div className="my-auto py-1 text-center">
+        <div className="text-[26px] font-black leading-none font-mono tracking-tight">
+          {timeStr}
+        </div>
+        <div className="text-[10px] font-bold text-slate-400 mt-1 truncate px-1">
+          {data.currentStudySubject}
+        </div>
+      </div>
+
+      <div
+        className={`rounded-xl p-1.5 border flex items-center justify-between text-[9.5px] ${
+          isLight ? 'bg-slate-50 border-slate-200/80' : 'bg-white/[0.04] border-white/5'
+        }`}
+      >
+        <span className="text-slate-500 dark:text-slate-400 font-medium">هدف: ۴ ساعت</span>
+        <span className="font-bold text-violet-600 dark:text-violet-400">
+          {toFaDigits(Math.min(100, Math.round((data.todayStudyMinutes / data.targetStudyMinutes) * 100)))}٪ تکمیل
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function StudyFullWidget({ data, mode = 'dark' }) {
+  const isLight = mode === 'light';
+  const hours = Math.floor(data.todayStudyMinutes / 60);
+  const mins = data.todayStudyMinutes % 60;
+  const pct = Math.min(100, Math.round((data.todayStudyMinutes / data.targetStudyMinutes) * 100));
+
+  return (
+    <div
+      className={`w-full rounded-[26px] p-3.5 border shadow-xl select-none transition-all ${
+        isLight
+          ? 'bg-white/95 border-slate-200/90 shadow-[0_8px_30px_rgb(0,0,0,0.06)] text-slate-900'
+          : 'bg-[#0f172a]/95 border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.4)] text-slate-100'
+      }`}
+    >
+      <div className="flex items-center justify-between mb-2.5">
+        <div className="flex items-center gap-1.5">
+          <div className="w-5 h-5 rounded-lg bg-violet-500/20 text-violet-500 grid place-items-center">
+            <Timer className="w-3 h-3" />
+          </div>
+          <div>
+            <div className="text-[12px] font-black text-violet-600 dark:text-violet-400">
+              پلنر و پومودورو مطالعه
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1">
+            <Flame className="w-3 h-3 fill-amber-500 text-amber-500" />
+            استریک {toFaDigits(data.studyStreak)} روزه
+          </span>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex-1">
+          <div className="flex items-center justify-between text-[11px] font-bold mb-1">
+            <span>مجموع امروز: {toFaDigits(hours)} ساعت و {toFaDigits(mins)} دقیقه</span>
+            <span className="text-violet-600 dark:text-violet-400">{toFaDigits(pct)}٪</span>
+          </div>
+          <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all duration-500"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <div className="text-[10px] text-slate-400 mt-1 truncate">
+            در حال مطالعه: {data.currentStudySubject}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ExamTrackerWidget({ data, mode = 'dark' }) {
+  const isLight = mode === 'light';
+
+  const daysBadge =
+    data.examDays === 0
+      ? 'امروز'
+      : data.examDays === 1
+        ? 'فردا'
+        : data.examDays > 1
+          ? `${toFaDigits(data.examDays)} روز مانده`
+          : 'پایان امتحانات';
+
+  const isUrgent = data.examDays >= 0 && data.examDays <= 2;
+
+  return (
+    <div
+      className={`w-full rounded-[26px] p-3.5 border shadow-xl select-none transition-all ${
+        isLight
+          ? 'bg-white/95 border-slate-200/90 shadow-[0_8px_30px_rgb(0,0,0,0.06)] text-slate-900'
+          : 'bg-[#0f172a]/95 border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.4)] text-slate-100'
+      }`}
+    >
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          <div className="w-5 h-5 rounded-lg bg-rose-500/20 text-rose-500 grid place-items-center">
+            <AlertCircle className="w-3 h-3" />
+          </div>
+          <span className="text-[12px] font-black text-rose-600 dark:text-rose-400">
+            روزشمار امتحانات پایان‌ترم
+          </span>
+        </div>
+        <span
+          className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${
+            isUrgent
+              ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'
+              : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+          }`}
+        >
+          {daysBadge}
+        </span>
+      </div>
+
+      <div
+        className={`rounded-2xl p-2.5 border ${
+          isLight ? 'bg-slate-50 border-slate-200/80' : 'bg-white/[0.04] border-white/5'
+        }`}
+      >
+        <div className="text-[13px] font-black truncate">{data.examTitle}</div>
+        <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-1">
+          <span>{data.examDate ? toFaDigits(data.examDate) : 'روزشمار خالی'}</span>
+          <span>{data.examRoom ? toFaDigits(data.examRoom) : ''}</span>
+        </div>
+      </div>
+
+      {data.secondExamTitle && (
+        <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 mt-2 px-1">
+          <span className="truncate">امتحان بعدی: {data.secondExamTitle}</span>
+          <span className="shrink-0 font-bold text-slate-400">
+            {toFaDigits(data.secondExamDays)} روز بعد
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NextClassWidget({ data, mode = 'dark' }) {
+  const isLight = mode === 'light';
+
+  return (
+    <div
+      className={`w-full h-full rounded-[26px] p-3.5 border shadow-xl flex flex-col justify-between aspect-square select-none transition-all ${
+        isLight
+          ? 'bg-white/95 border-slate-200/90 shadow-[0_8px_30px_rgb(0,0,0,0.06)] text-slate-900'
+          : 'bg-[#0f172a]/95 border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.4)] text-slate-100'
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <div className="w-5 h-5 rounded-lg bg-sky-500/20 text-sky-500 grid place-items-center">
+            <Clock className="w-3 h-3" />
+          </div>
+          <span className="text-[11px] font-black text-sky-600 dark:text-sky-400">
+            کلاس بعدی
           </span>
         </div>
         <span
           className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${
             isLight
-              ? 'bg-sky-100 text-sky-800 border-sky-200'
-              : 'text-[#38BDF8] bg-[#38BDF8]/10 border-[#38BDF8]/20'
+              ? 'bg-sky-50 text-sky-700 border-sky-200'
+              : 'bg-sky-500/15 text-sky-300 border-sky-500/30'
+          }`}
+        >
+          امروز
+        </span>
+      </div>
+
+      <div className="my-auto py-1">
+        <div className="text-[13px] font-black leading-snug line-clamp-2">
+          {data.nextTitle}
+        </div>
+        {data.nextProf && (
+          <div className="text-[10px] font-medium text-slate-400 mt-1 truncate">
+            استاد: {data.nextProf}
+          </div>
+        )}
+      </div>
+
+      <div
+        className={`rounded-xl px-2 py-1.5 border flex items-center justify-between text-[10px] ${
+          isLight ? 'bg-slate-50 border-slate-200/80' : 'bg-white/[0.04] border-white/5'
+        }`}
+      >
+        <span className="font-bold text-sky-600 dark:text-sky-400">
+          {data.nextTime ? toFaDigits(data.nextTime) : '—'}
+        </span>
+        <span className="text-slate-500 dark:text-slate-400 font-medium truncate">
+          {data.nextRoom ? toFaDigits(data.nextRoom) : 'کلاس حضوری'}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function GpaStandingWidget({ data, mode = 'dark' }) {
+  const isLight = mode === 'light';
+  const numGpa = parseFloat(String(data.gpa || '').replace(/[^\d.]/g, '')) || 0;
+
+  return (
+    <div
+      className={`w-full h-full rounded-[26px] p-3.5 border shadow-xl flex flex-col justify-between aspect-square select-none transition-all ${
+        isLight
+          ? 'bg-white/95 border-slate-200/90 shadow-[0_8px_30px_rgb(0,0,0,0.06)] text-slate-900'
+          : 'bg-[#0f172a]/95 border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.4)] text-slate-100'
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <div className="w-5 h-5 rounded-lg bg-emerald-500/20 text-emerald-500 grid place-items-center">
+            <GraduationCap className="w-3 h-3" />
+          </div>
+          <span className="text-[11px] font-black text-emerald-600 dark:text-emerald-400">
+            کارنامه رسمی
+          </span>
+        </div>
+        <span
+          className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${
+            isLight
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+              : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
           }`}
         >
           رسمی
         </span>
       </div>
 
-      {/* بخش وسط: عدد معدل و وضعیت */}
       <div className="text-center my-auto py-1">
-        <div
-          className={`text-[32px] font-black leading-none tracking-tight ${
-            isLight
-              ? numGpa >= 17
-                ? 'text-emerald-700'
-                : 'text-slate-900'
-              : 'text-white'
-          }`}
-        >
+        <div className="text-[34px] font-black leading-none font-mono tracking-tight">
           {toFaDigits(data.gpa || '—')}
         </div>
         <div
           className={`text-[10px] font-bold mt-1.5 truncate px-1 ${
-            isLight
-              ? numGpa >= 17
-                ? 'text-emerald-700'
-                : 'text-sky-700'
-              : 'text-[#34D399]'
+            numGpa >= 17
+              ? 'text-emerald-600 dark:text-emerald-400'
+              : 'text-sky-600 dark:text-sky-400'
           }`}
         >
           {data.statusText || 'وضعیت تحصیلی'}
         </div>
       </div>
 
-      {/* نوار پایین: واحدهای گذرانده */}
       <div
-        className={`rounded-[14px] px-2 py-1.5 border flex items-center justify-between text-[9.5px] transition-all ${
-          isLight
-            ? 'bg-[#F1F5F9] border-slate-200/90 text-slate-700'
-            : 'border-[#2A3C58]'
+        className={`rounded-xl px-2 py-1.5 border flex items-center justify-between text-[10px] ${
+          isLight ? 'bg-slate-50 border-slate-200/80' : 'bg-white/[0.04] border-white/5'
         }`}
-        style={!isLight ? { background: '#1A2438' } : {}}
       >
-        <span className={isLight ? 'text-slate-700 font-bold truncate' : 'text-[#CBD5E1] truncate'}>
-          پاس‌شده: {toFaDigits(data.unitsPassed)}
+        <span className="text-slate-500 dark:text-slate-400 font-medium">
+          پاس: {toFaDigits(data.unitsPassed)} واحد
         </span>
-        <span className={isLight ? 'text-slate-500 font-bold shrink-0' : 'text-[#94A3B8] font-bold shrink-0'}>
+        <span className="font-bold text-slate-400">
           ترم: {toFaDigits(data.termGpa)}
         </span>
-      </div>
-    </div>
-  );
-}
-
-/**
- * ۳. ویجت کلاس بعدی ۲×۲ (Next Class Widget)
- */
-function ClassWidget({ data, mode = 'dark' }) {
-  const isLight = mode === 'light';
-
-  return (
-    <div
-      className={`w-full h-full rounded-[24px] p-3 border shadow-xl flex flex-col justify-between text-right select-none aspect-square transition-all ${
-        isLight
-          ? 'bg-gradient-to-br from-[#FFFFFF] to-[#F8FAFC] border-slate-200 shadow-slate-300/40 text-slate-900'
-          : 'border-[#24344D] text-slate-100'
-      }`}
-      style={
-        !isLight
-          ? {
-              background: 'linear-gradient(135deg, #141D2E 0%, #0B101D 100%)',
-            }
-          : {}
-      }
-    >
-      {/* سربرگ */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1">
-          <div
-            className={`w-3.5 h-3.5 rounded-md grid place-items-center ${
-              isLight ? 'bg-emerald-100 text-emerald-700' : 'bg-emerald-500/20 text-emerald-400'
-            }`}
-          >
-            <svg
-              viewBox="0 0 1080 1080"
-              className={`w-2.5 h-2.5 ${isLight ? 'fill-emerald-700' : 'fill-emerald-400'}`}
-            >
-              <path d="M540,167.08 C540,167.08 213.25,912.92 540,912.92 C866.75,912.92 540,167.08 540,167.08 Z" />
-            </svg>
-          </div>
-          <span
-            className={`text-[11px] font-black ${
-              isLight ? 'text-emerald-700' : 'text-[#34D399]'
-            }`}
-          >
-            برنامه روز
-          </span>
-        </div>
-        <span
-          className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${
-            isLight
-              ? 'bg-sky-100 text-sky-800 border-sky-200'
-              : 'text-[#38BDF8] bg-[#38BDF8]/10 border-[#38BDF8]/20'
-          }`}
-        >
-          کلاس بعدی
-        </span>
-      </div>
-
-      {/* کارت داخلی کلاس */}
-      <div
-        className={`rounded-[16px] p-2.5 my-auto border flex flex-col justify-center transition-all ${
-          isLight
-            ? 'bg-[#F1F5F9] border-slate-200/90 shadow-sm'
-            : 'border-[#2A3C58]'
-        }`}
-        style={!isLight ? { background: '#1A2438' } : {}}
-      >
-        <div
-          className={`text-[13px] font-black leading-tight line-clamp-2 ${
-            isLight ? 'text-slate-900' : 'text-white'
-          }`}
-        >
-          {data.nextTitle}
-        </div>
-
-        <div className="flex items-center justify-between gap-1 mt-2 text-[10px]">
-          <span
-            className={`font-bold shrink-0 ${
-              isLight ? 'text-sky-700' : 'text-[#38BDF8]'
-            }`}
-          >
-            {data.nextTime ? toFaDigits(data.nextTime) : '—'}
-          </span>
-          <span
-            className={`truncate ${
-              isLight ? 'text-slate-600 font-medium' : 'text-[#94A3B8]'
-            }`}
-          >
-            {data.nextRoom ? toFaDigits(data.nextRoom) : 'کلاس حضوری'}
-          </span>
-        </div>
       </div>
     </div>
   );

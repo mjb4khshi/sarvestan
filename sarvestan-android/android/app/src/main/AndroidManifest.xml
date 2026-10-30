@@ -250,10 +250,140 @@
         </receiver>
 
         <receiver
+            android:name=".SarvestanSlimClassWidgetProvider"
+            android:label="@string/widget_slim_class_name"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sarvestan_widget_slim_class_info" />
+        </receiver>
+
+        <receiver
+            android:name=".SarvestanStudyWidgetProvider"
+            android:label="@string/widget_study_name"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sarvestan_widget_study_info" />
+        </receiver>
+
+        <receiver
+            android:name=".SarvestanExamWidgetProvider"
+            android:label="@string/widget_exam_name"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sarvestan_widget_exam_info" />
+        </receiver>
+
+        <receiver
+            android:name=".SarvestanMicroWidgetProvider"
+            android:label="@string/widget_micro_gpa_name"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sarvestan_widget_micro_gpa_info" />
+        </receiver>
+
+        <receiver
+            android:name=".SarvestanMicroStreakWidgetProvider"
+            android:label="@string/widget_micro_streak_name"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sarvestan_widget_micro_streak_info" />
+        </receiver>
+
+        <receiver
+            android:name=".SarvestanMicroExamWidgetProvider"
+            android:label="@string/widget_micro_exam_name"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sarvestan_widget_micro_exam_info" />
+        </receiver>
+
+        <receiver
+            android:name=".SarvestanMicroClassWidgetProvider"
+            android:label="@string/widget_micro_class_name"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sarvestan_widget_micro_class_info" />
+        </receiver>
+
+        <receiver
+            android:name=".SarvestanSlimExamWidgetProvider"
+            android:label="@string/widget_slim_exam_name"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sarvestan_widget_slim_exam_info" />
+        </receiver>
+
+        <receiver
+            android:name=".SarvestanSlimTasksWidgetProvider"
+            android:label="@string/widget_slim_tasks_name"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sarvestan_widget_slim_tasks_info" />
+        </receiver>
+
+        <receiver
+            android:name=".SarvestanTasksWidgetProvider"
+            android:label="@string/widget_tasks_name"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sarvestan_widget_tasks_info" />
+        </receiver>
+
+        <receiver
             android:name=".ClassReminderReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="ir.mjbakhshi.sarvestan.CLASS_REMINDER" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".SarvestanBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
 
@@ -278,6 +408,7 @@
     <!-- یادآوری کلاس و حالت مزاحم نشوید -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />

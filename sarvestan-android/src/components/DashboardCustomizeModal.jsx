@@ -18,6 +18,7 @@ import {
   Megaphone,
   Eye,
   EyeOff,
+  ListTodo,
 } from 'lucide-react';
 import {
   DEFAULT_WIDGETS,
@@ -35,6 +36,7 @@ const ICON_MAP = {
   Calendar,
   Flame,
   Megaphone,
+  ListTodo,
 };
 
 export default function DashboardCustomizeModal({ isOpen, onClose }) {
@@ -116,8 +118,8 @@ export default function DashboardCustomizeModal({ isOpen, onClose }) {
               <SlidersHorizontal className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-[15px] font-black text-base-content">شخصی‌سازی داشبورد</h3>
-              <p className="text-[11px] text-neutral">تغییر ترتیب و نمایش یا عدم نمایش ویجت‌ها</p>
+              <h3 className="text-[15px] font-black text-base-content">شخصی‌سازی میزکار</h3>
+              <p className="text-[11px] text-neutral">تغییر ترتیب و نمایش یا عدم نمایش ویجت‌ها در میزکار</p>
             </div>
           </div>
           <button
@@ -200,7 +202,7 @@ export default function DashboardCustomizeModal({ isOpen, onClose }) {
                       ? 'bg-success-soft text-success border border-success/30'
                       : 'bg-base-500/30 text-neutral border border-base-500/40'
                   }`}
-                  title={isEnabled ? 'مخفی کردن از داشبورد' : 'نمایش در داشبورد'}
+                  title={isEnabled ? 'مخفی کردن از میزکار' : 'نمایش در میزکار'}
                 >
                   {isEnabled ? (
                     <>

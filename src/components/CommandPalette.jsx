@@ -92,7 +92,7 @@ export default function CommandPalette({ isOpen, onClose, onNavigate, onSelectSe
           {filteredLinks.length > 0 && (
             <div className="space-y-1">
               <span className="text-[11px] font-bold text-neutral px-3 block">
-                بخش‌های فعال داشبورد
+                بخش‌های فعال میزکار
               </span>
               {filteredLinks.map((item) => {
                 const Icon = item.icon;

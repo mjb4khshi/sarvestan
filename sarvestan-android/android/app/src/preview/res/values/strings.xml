@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">سروستان پیش‌نمایش</string>
+    <string name="title_activity_main">سروستان پیش‌نمایش</string>
+    <string name="package_name">ir.mjb4khshi.sarvestan.preview</string>
+    <string name="custom_url_scheme">ir.mjb4khshi.sarvestan.preview</string>
+</resources>

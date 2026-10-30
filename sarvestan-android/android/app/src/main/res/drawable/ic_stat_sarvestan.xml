@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="1080"
+    android:viewportHeight="1080">
+    <!-- آیکون رسمی و اصیل سروستان — منطبق دقیق ۱۰۰ درصدی با لوگوی اصلی بدون تنه -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M540,167 C540,167 213,913 540,913 C867,913 540,167 540,167 Z" />
+</vector>

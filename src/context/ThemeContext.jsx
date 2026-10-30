@@ -4,7 +4,7 @@ export const SARV_THEMES = [
   {
     id: 'tehran',
     name: 'Tehran',
-    persianName: 'تهران',
+    persianName: 'موچی در ملایر',
     icon: '🗼',
     mode: 'light',
     primary: '#c1121f',
@@ -16,7 +16,7 @@ export const SARV_THEMES = [
   {
     id: 'tehran-2',
     name: 'Tehran 2',
-    persianName: 'تهران دو',
+    persianName: 'سیاهکل',
     icon: '🌿',
     mode: 'dark',
     primary: '#dda15e',
@@ -84,16 +84,6 @@ export const SARV_THEMES = [
     primary: '#10b981',
     base: '#06130b',
     accent: '#34d399',
-  },
-  {
-    id: 'royal-purple',
-    name: 'Royal Purple',
-    persianName: 'بنفش سلطنتی',
-    icon: '🔮',
-    mode: 'dark',
-    primary: '#a855f7',
-    base: '#0d0718',
-    accent: '#ec4899',
   },
   {
     id: 'crimson',

@@ -364,7 +364,7 @@ export default function GradesScreen({ onNavigate }) {
               <p className="text-[13px] font-bold text-base-content truncate">
                 مشاوره تحصیلی با هوش مصنوعی
               </p>
-              <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-md bg-primary-soft text-primary">
+              <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-md bg-primary-soft text-primary shrink-0 whitespace-nowrap">
                 پرامپت هوشمند
               </span>
             </div>

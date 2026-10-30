@@ -33,12 +33,14 @@ import UpdateModal from './components/UpdateModal';
 import BatBackground from './components/BatBackground';
 import { checkForUpdate, hasDismissedUpdate, dismissUpdate } from './services/updater';
 import { isBatNotifEnabled, scheduleBatNightNotification, initBatWebTimer } from './services/batMode';
+import { rearmIfEnabled } from './services/classAlarms';
 
 const TITLES = {
   schedule: 'برنامه هفتگی',
   grades: 'کارنامه و نمرات',
   study: 'مطالعه و پلنر',
   more: 'خدمات و تنظیمات',
+  widgets: 'ویجت‌های هوم‌اسکرین',
 };
 
 const TABS_ORDER = ['schedule', 'grades', 'home', 'study', 'more'];
@@ -158,6 +160,7 @@ function Shell() {
       scheduleBatNightNotification().catch(() => {});
       initBatWebTimer();
     }
+    rearmIfEnabled();
   }, []);
 
   // مدیریت رویداد دکمه فیزیکی یا ژست بازگشت (Back) اندروید
@@ -329,6 +332,7 @@ function Shell() {
               {tab === 'grades' && <GradesScreen onNavigate={handleNavigate} />}
               {tab === 'study' && <StudyScreen onNavigate={handleNavigate} />}
               {tab === 'more' && <MoreScreen onNavigate={handleNavigate} />}
+              {tab === 'widgets' && <WidgetPreviewScreen onBack={() => changeTabWithDirection('more')} />}
             </motion.main>
           </AnimatePresence>
         </div>

@@ -229,10 +229,17 @@
   }
 
   .glass-nav {
-    background: color-mix(in oklab, var(--theme-color-base, #000) 90%, transparent);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    background: color-mix(in oklab, var(--theme-color-base, #000) 94%, transparent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-top: 1px solid color-mix(in oklab, var(--theme-color-base-500, #222) 55%, transparent);
+    will-change: transform;
+    transform: translateZ(0);
+  }
+
+  .content-visibility-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 80px;
   }
 
   .sarv-glow-primary {

@@ -4,12 +4,45 @@
     <string name="title_activity_main">Sarvestan</string>
     <string name="package_name">ir.mjb4khshi.sarvestan.kntu</string>
     <string name="custom_url_scheme">ir.mjb4khshi.sarvestan.kntu</string>
+    
     <string name="widget_combo_name">سروستان: ویجت جامع (۴×۲)</string>
     <string name="widget_combo_desc">ویجت جامع سروستان (کلاس بعدی، امتحان و معدل)</string>
+    
     <string name="widget_gpa_name">سروستان: معدل و کارنامه (۲×۲)</string>
     <string name="widget_gpa_desc">ویجت شیک معدل کل و کارنامه</string>
+    
     <string name="widget_class_name">سروستان: کلاس بعدی (۲×۲)</string>
     <string name="widget_class_desc">ویجت کلاس بعدی و برنامه امروز</string>
+
+    <string name="widget_slim_class_name">سروستان: نوار کلاس بعدی (۴×۱)</string>
+    <string name="widget_slim_class_desc">نوار باریک و جمع‌وجور کلاس بعدی، ساعت و محل کلاس</string>
+
+    <string name="widget_study_name">سروستان: نوار مطالعه و استریک (۴×۱)</string>
+    <string name="widget_study_desc">نوار فشرده مطالعه امروز و زنجیره استریک متوالی</string>
+
+    <string name="widget_exam_name">سروستان: روزشمار امتحانات (۴×۲)</string>
+    <string name="widget_exam_desc">کارت روزشمار امتحانات با تاریخ، ساعت و محل برگزاری</string>
+
+    <string name="widget_micro_gpa_name">سروستان: معدل فوری (۱×۱)</string>
+    <string name="widget_micro_gpa_desc">ویجت بندانگشتی معدل کل و رتبه دانشگاهی</string>
+
+    <string name="widget_micro_streak_name">سروستان: استریک مطالعه (۱×۱)</string>
+    <string name="widget_micro_streak_desc">ویجت بندانگشتی روزهای متوالی و زنجیره مطالعه</string>
+
+    <string name="widget_micro_exam_name">سروستان: روزشمار مینی امتحان (۱×۱)</string>
+    <string name="widget_micro_exam_desc">ویجت بندانگشتی روزهای باقیمانده تا نزدیک‌ترین امتحان</string>
+
+    <string name="widget_micro_class_name">سروستان: ساعت کلاس بعدی (۱×۱)</string>
+    <string name="widget_micro_class_desc">ویجت بندانگشتی ساعت شروع و عنوان کلاس پیش‌رو</string>
+
+    <string name="widget_slim_exam_name">سروستان: نوار روزشمار امتحان (۴×۱)</string>
+    <string name="widget_slim_exam_desc">نوار باریک امتحان پیش‌رو، تاریخ برگزاری و کپسول روزهای باقیمانده</string>
+
+    <string name="widget_slim_tasks_name">سروستان: نوار کارهای امروز (۴×۱)</string>
+    <string name="widget_slim_tasks_desc">نوار فشرده تسک اولویت‌دار و کپسول پیشرفت کارهای روزانه</string>
+
+    <string name="widget_tasks_name">سروستان: کارهای امروز و پلنر (۴×۲)</string>
+    <string name="widget_tasks_desc">کارت برنامه‌ریزی کارهای دارای اولویت و نسبت تکمیل تسک‌ها</string>
 
     <!-- لانچر شورتکات‌ها -->
     <string name="shortcut_schedule_short">برنامه هفتگی</string>

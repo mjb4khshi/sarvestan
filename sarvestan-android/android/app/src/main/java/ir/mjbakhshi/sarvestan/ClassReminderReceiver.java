@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
+import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
 
@@ -76,10 +77,7 @@ public class ClassReminderReceiver extends BroadcastReceiver {
                 open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        int iconRes = context.getApplicationInfo().icon;
-        if (iconRes == 0) {
-            iconRes = android.R.drawable.ic_lock_idle_alarm;
-        }
+        int iconRes = R.drawable.ic_stat_sarvestan;
 
         NotificationCompat.Builder b = new NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(iconRes)
@@ -94,8 +92,10 @@ public class ClassReminderReceiver extends BroadcastReceiver {
 
         try {
             nm.notify(notifId, b.build());
-        } catch (SecurityException ignore) {
-            // POST_NOTIFICATIONS داده نشده
+        } catch (SecurityException e) {
+            Log.e("SarvestanClassAlarms", "notify failed: POST_NOTIFICATIONS missing", e);
+        } catch (Exception e) {
+            Log.e("SarvestanClassAlarms", "notify failed", e);
         }
     }
 }

@@ -290,36 +290,7 @@ html[data-theme="persian-light"],
   --theme-radius-input: 14px;
 }
 
-/* 9. Royal Purple */
-[datatheme="royal-purple"],
-[data-theme="royal-purple"] {
-  --theme-color-primary: #8b5cf6;
-  --theme-color-secondary: #6366f1;
-  --theme-color-accent: #ec4899;
-  --theme-color-success: #10b981;
-  --theme-color-warn: #f59e0b;
-  --theme-color-danger: #ef4444;
-  --theme-color-info: #38bdf8;
-  --theme-color-neutral: #a5b4fc;
-  --theme-color-base: #0b0914;
-  --theme-color-base-500: #1b162f;
-  --theme-color-base-900: #2d244c;
-  --theme-color-neutral-dark: #151124;
-  --theme-color-neutral-darker: #0d0a17;
-  --theme-color-primary-content: #ffffff;
-  --theme-color-secondary-content: #ffffff;
-  --theme-color-accent-content: #ffffff;
-  --theme-color-success-content: #ffffff;
-  --theme-color-warn-content: #000000;
-  --theme-color-danger-content: #ffffff;
-  --theme-color-info-content: #ffffff;
-  --theme-color-neutral-content: #ffffff;
-  --theme-color-base-content: #f5f3ff;
-  --theme-shadow-color: 139, 92, 246;
-  --theme-radius-card: 1.15rem;
-  --theme-radius-button: 16px;
-  --theme-radius-input: 16px;
-}
+
 
 /* 10. Crimson Velvet */
 [datatheme="crimson"],

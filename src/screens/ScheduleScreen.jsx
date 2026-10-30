@@ -460,20 +460,7 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
         </AnimatePresence>
 
         {/* سوییچر ۳گانه بین روزانه، ماتریس هفتگی و امتحانات */}
-        <div className="sarv-seg w-full relative overflow-hidden" dir="rtl">
-          {/* قرص متحرک کشویی بر پایه موقعیت خالص افقی */}
-          <div
-            className="absolute top-1 bottom-1 w-[calc(33.333%-2px)] bg-primary rounded-xl z-0 shadow-sm transition-transform duration-250 ease-out will-change-transform"
-            style={{
-              transform: `translateX(${
-                activeTab === 'cards'
-                  ? '0%'
-                  : activeTab === 'matrix'
-                    ? '-100%'
-                    : '-200%'
-              }) translateZ(0)`,
-            }}
-          />
+        <div className="sarv-seg w-full relative" dir="rtl">
 
           <button
             type="button"
@@ -484,6 +471,13 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                 : 'text-neutral hover:text-base-content font-medium'
             }`}
           >
+            {activeTab === 'cards' && (
+              <motion.div
+                layoutId="scheduleTabIndicator"
+                className="absolute inset-0 bg-primary rounded-xl shadow-xs -z-10"
+                transition={{ type: 'spring', bounce: 0.15, duration: 0.25 }}
+              />
+            )}
             <span className="relative z-10 inline-flex items-center gap-1.5">
               <CalendarDays className="w-3.5 h-3.5" />
               نمای روزانه
@@ -499,6 +493,13 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                 : 'text-neutral hover:text-base-content font-medium'
             }`}
           >
+            {activeTab === 'matrix' && (
+              <motion.div
+                layoutId="scheduleTabIndicator"
+                className="absolute inset-0 bg-primary rounded-xl shadow-xs -z-10"
+                transition={{ type: 'spring', bounce: 0.15, duration: 0.25 }}
+              />
+            )}
             <span className="relative z-10 inline-flex items-center gap-1.5">
               {isAut ? <Clock className="w-3.5 h-3.5" /> : <Table2 className="w-3.5 h-3.5" />}
               {isAut ? 'برنامه هفتگی' : 'جدول هفتگی'}
@@ -514,6 +515,13 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                 : 'text-neutral hover:text-base-content font-medium'
             }`}
           >
+            {activeTab === 'exams' && (
+              <motion.div
+                layoutId="scheduleTabIndicator"
+                className="absolute inset-0 bg-primary rounded-xl shadow-xs -z-10"
+                transition={{ type: 'spring', bounce: 0.15, duration: 0.25 }}
+              />
+            )}
             <span className="relative z-10 inline-flex items-center gap-1.5">
               <Timer className="w-3.5 h-3.5" />
               امتحانات

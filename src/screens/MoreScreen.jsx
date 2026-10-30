@@ -24,6 +24,7 @@ import {
   Check,
   Heart,
   Sparkles,
+  Smartphone,
   Zap,
   Image as ImageIcon,
   CalendarDays,
@@ -909,7 +910,7 @@ export default function MoreScreen({
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <p className="text-[13.5px] font-bold text-base-content truncate">متن برای هوش مصنوعی</p>
-                  <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-primary-soft text-primary border border-primary-soft">
+                  <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-md bg-primary-soft text-primary border border-primary-soft shrink-0 whitespace-nowrap">
                     مشاور تحصیلی
                   </span>
                 </div>
@@ -970,7 +971,7 @@ export default function MoreScreen({
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <p className="text-[13.5px] font-bold text-base-content truncate">تنظیم یادآور و آلارم کلاس‌ها</p>
-                    <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-primary-soft text-primary border border-primary-soft">
+                    <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-md bg-primary-soft text-primary border border-primary-soft shrink-0 whitespace-nowrap">
                       نوتیفیکیشن و ساعت
                     </span>
                   </div>
@@ -1159,7 +1160,32 @@ export default function MoreScreen({
             </div>
           </div>
 
-{/* چیدمان و ویجت‌های داشبورد */}
+          {/* پیش‌نمایش و اصلاحیه ویجت‌های هوم‌اسکرین گوشی */}
+          <button
+            type="button"
+            onClick={() => onNavigate && onNavigate('widgets')}
+            className="w-full sarv-card p-4 flex items-center justify-between text-right border border-base-500/40 hover:border-primary/50 transition cursor-pointer group"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="w-10 h-10 rounded-2xl bg-secondary-soft text-secondary grid place-items-center shrink-0">
+                <Smartphone className="w-5 h-5" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-[13.5px] font-bold text-base-content">ویجت‌های هوم‌اسکرین گوشی</p>
+                  <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-secondary-soft text-secondary shrink-0 whitespace-nowrap">
+                    پیش‌نمایش و اصلاح
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-neutral mt-0.5">
+                  میز کار بررسی و اصلاحیه ظاهری نسخه‌های روشن و تاریک ویجت‌ها
+                </p>
+              </div>
+            </div>
+            <ChevronLeft className="w-4 h-4 text-neutral group-hover:text-base-content shrink-0" />
+          </button>
+
+{/* چیدمان و ویجت‌های میزکار */}
           <button
             type="button"
             onClick={() => setDashboardModalOpen(true)}
@@ -1171,13 +1197,13 @@ export default function MoreScreen({
               </span>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="text-[13.5px] font-bold text-base-content">چیدمان و ویجت‌های داشبورد</p>
+                  <p className="text-[13.5px] font-bold text-base-content">چیدمان و ویجت‌های میزکار</p>
                   <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-full bg-primary-soft text-primary">
                     جدید
                   </span>
                 </div>
                 <p className="text-[10.5px] text-neutral mt-0.5">
-                  تغییر ترتیب، حذف و اضافه کردن کارت‌های صفحه اصلی
+                  تغییر ترتیب، حذف و اضافه کردن کارت‌های صفحه میزکار
                 </p>
               </div>
             </div>
@@ -1686,7 +1712,7 @@ export default function MoreScreen({
                   </div>
                   <div>
                     <h3 className="text-[15px] font-bold text-base-content">معرفی سروستان به دیگران</h3>
-                    <p className="text-[11px] text-neutral">دعوت دوستان به داشبورد هوشمند بهستان</p>
+                    <p className="text-[11px] text-neutral">دعوت دوستان به میزکار هوشمند بهستان</p>
                   </div>
                 </div>
                 <button

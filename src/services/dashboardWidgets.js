@@ -47,6 +47,13 @@ export const DEFAULT_WIDGETS = [
     enabled: true,
   },
   {
+    id: 'todayTasks',
+    title: 'کارهای امروز (برنامه‌ریزی)',
+    description: 'چک‌لیست کارهای امروز، تکالیف و درصد پیشرفت روزانه',
+    icon: 'ListTodo',
+    enabled: true,
+  },
+  {
     id: 'studyHeatmap',
     title: 'هیت‌مپ پیوستگی مطالعه',
     description: 'ماتریس سبز سالانه فعالیت‌ها و دقایق فوکوس',

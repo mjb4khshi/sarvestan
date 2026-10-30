@@ -28,6 +28,9 @@ export function persistTimerState(state) {
         localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(state));
       }
     }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('sarvTimerStateChanged', { detail: state }));
+    }
   } catch (e) {
     console.warn('[studyTimerEngine] persist timer error', e);
   }
@@ -171,7 +174,7 @@ export function notifyTimerFinished({ courseName = 'عمومی', minutes = 25 })
   if (typeof window === 'undefined' || !('Notification' in window)) return;
   try {
     if (Notification.permission === 'granted') {
-      new Notification('پایان زمان تمرکز! 🍅', {
+      new Notification('پایان زمان تمرکز!', {
         body: `نشست مطالعه «${courseName}» (${minutes} دقیقه) با موفقیت ثبت شد. وقت استراحته!`,
         icon: '/favicon.ico',
         tag: 'study-timer-finish',

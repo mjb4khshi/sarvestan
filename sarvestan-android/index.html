@@ -12,14 +12,14 @@
           var saved = localStorage.getItem('sarvestan_theme');
           var validThemes = [
             'persian-light', 'persian-dark', 'cyberpunk', 'tokyo-midnight',
-            'ocean-abyss', 'emerald', 'royal-purple', 'crimson',
+            'ocean-abyss', 'emerald', 'crimson',
             'coffee-roast', 'sunset', 'matcha', 'nordic', 'batman',
             'monochrome', 'monochrome-light'
           ];
           var theme = (saved && validThemes.indexOf(saved) !== -1) ? saved : 'persian-light';
           document.documentElement.setAttribute('data-theme', theme);
           document.documentElement.setAttribute('datatheme', theme);
-          var darkThemes = ['persian-dark', 'cyberpunk', 'tokyo-midnight', 'ocean-abyss', 'emerald', 'royal-purple', 'crimson', 'coffee-roast', 'batman', 'monochrome'];
+          var darkThemes = ['persian-dark', 'cyberpunk', 'tokyo-midnight', 'ocean-abyss', 'emerald', 'crimson', 'coffee-roast', 'batman', 'monochrome'];
           var isDark = darkThemes.indexOf(theme) !== -1;
           document.documentElement.setAttribute('data-theme-mode', isDark ? 'dark' : 'light');
           var meta = document.querySelector('meta[name="theme-color"]');

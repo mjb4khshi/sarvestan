@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.PowerManager;
 import android.provider.AlarmClock;
 
@@ -24,6 +25,7 @@ import org.json.JSONObject;
 import android.Manifest;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.content.SharedPreferences;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
@@ -36,6 +38,7 @@ import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -53,6 +56,9 @@ import java.util.List;
 public class SarvestanClassAlarmPlugin extends Plugin {
 
     private static final int REQ_BASE = 17000;
+    // زمان‌بندی‌ها روی دیسک می‌مانند تا بعد از ریبوت یا آپدیت APK دوباره ثبت شوند
+    private static final String ALARM_PREFS = "sarvestan_alarms";
+    private static final String ALARM_ITEMS_KEY = "items";
     private PluginCall pendingPermissionCall;
 
     @PluginMethod
@@ -73,40 +79,34 @@ public class SarvestanClassAlarmPlugin extends Plugin {
 
     @PluginMethod
     public void requestNotificationPermission(PluginCall call) {
-        Context ctx = getContext();
-        boolean systemEnabled = NotificationManagerCompat.from(ctx).areNotificationsEnabled();
-        if (!systemEnabled) {
-            JSObject ret = new JSObject();
-            ret.put("granted", false);
-            ret.put("systemEnabled", false);
-            ret.put("blockedInSettings", true);
-            call.resolve(ret);
+        // در اندروید ۱۳+ تا وقتی POST_NOTIFICATIONS داده نشده، areNotificationsEnabled() هم false است؛
+        // اگر اول آن را چک کنیم دیالوگ مجوز سیستم هرگز نمایش داده نمی‌شود.
+        if (Build.VERSION.SDK_INT >= 33
+                && getPermissionState("notifications") != PermissionState.GRANTED) {
+            pendingPermissionCall = call;
+            requestPermissionForAlias("notifications", call, "notificationPermissionCallback");
             return;
         }
-
-        if (android.os.Build.VERSION.SDK_INT < 33) {
-            JSObject ret = new JSObject();
-            ret.put("granted", true);
-            call.resolve(ret);
-            return;
-        }
-        if (getPermissionState("notifications") == PermissionState.GRANTED) {
-            JSObject ret = new JSObject();
-            ret.put("granted", true);
-            call.resolve(ret);
-            return;
-        }
-        pendingPermissionCall = call;
-        requestPermissionForAlias("notifications", call, "notificationPermissionCallback");
+        resolveNotificationPermission(call);
     }
 
     @PermissionCallback
     private void notificationPermissionCallback(PluginCall call) {
-        boolean granted = getPermissionState("notifications") == PermissionState.GRANTED;
-        JSObject ret = new JSObject();
-        ret.put("granted", granted);
-        call.resolve(ret);
         pendingPermissionCall = null;
+        resolveNotificationPermission(call);
+    }
+
+    private void resolveNotificationPermission(PluginCall call) {
+        Context ctx = getContext();
+        boolean systemEnabled = NotificationManagerCompat.from(ctx).areNotificationsEnabled();
+        boolean runtimeGranted = Build.VERSION.SDK_INT < 33
+                || getPermissionState("notifications") == PermissionState.GRANTED;
+        JSObject ret = new JSObject();
+        ret.put("granted", systemEnabled && runtimeGranted);
+        ret.put("systemEnabled", systemEnabled);
+        ret.put("runtimeGranted", runtimeGranted);
+        if (!systemEnabled) ret.put("blockedInSettings", true);
+        call.resolve(ret);
     }
 
     /** نگاشت روز فارسی → Calendar.* (شنبه=7 ... پنجشنبه=5) */
@@ -123,7 +123,7 @@ public class SarvestanClassAlarmPlugin extends Plugin {
         return null;
     }
 
-    private PendingIntent reminderPi(Context ctx, int id, String title, String body, String url, String dndMode) {
+    private static PendingIntent reminderPi(Context ctx, int id, String title, String body, String url, String dndMode) {
         Intent i = new Intent(ctx, ClassReminderReceiver.class);
         i.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         i.putExtra(ClassReminderReceiver.EXTRA_TITLE, title);
@@ -214,9 +214,73 @@ public class SarvestanClassAlarmPlugin extends Plugin {
         return intent;
     }
 
-    private boolean canExact(AlarmManager am) {
+    private static boolean canExact(AlarmManager am) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true;
         return am.canScheduleExactAlarms();
+    }
+
+    /** ثبت آیتم‌های آینده روی دیسک تا بعد از ریبوت/آپدیت قابل بازیابی باشند */
+    private static synchronized void persistScheduled(Context ctx, JSArray items) {
+        try {
+            SharedPreferences sp = ctx.getSharedPreferences(ALARM_PREFS, Context.MODE_PRIVATE);
+            JSONObject map = new JSONObject(sp.getString(ALARM_ITEMS_KEY, "{}"));
+            long now = System.currentTimeMillis();
+            for (int i = 0; i < items.length(); i++) {
+                JSONObject o = items.getJSONObject(i);
+                if (o.optLong("triggerAtMs", 0) <= now) continue;
+                map.put(String.valueOf(o.optInt("id", 0)), o);
+            }
+            sp.edit().putString(ALARM_ITEMS_KEY, map.toString()).apply();
+        } catch (Exception e) {
+            Log.e("SarvestanClassAlarms", "persistScheduled failed", e);
+        }
+    }
+
+    private static synchronized void forgetScheduled(Context ctx, JSArray ids) {
+        try {
+            SharedPreferences sp = ctx.getSharedPreferences(ALARM_PREFS, Context.MODE_PRIVATE);
+            JSONObject map = new JSONObject(sp.getString(ALARM_ITEMS_KEY, "{}"));
+            for (int i = 0; i < ids.length(); i++) {
+                map.remove(String.valueOf(ids.getInt(i)));
+            }
+            sp.edit().putString(ALARM_ITEMS_KEY, map.toString()).apply();
+        } catch (Exception ignore) {}
+    }
+
+    /** بعد از BOOT_COMPLETED یا MY_PACKAGE_REPLACED همهٔ یادآورهای آینده را دوباره ثبت می‌کند */
+    static void restoreScheduled(Context ctx) {
+        try {
+            SharedPreferences sp = ctx.getSharedPreferences(ALARM_PREFS, Context.MODE_PRIVATE);
+            JSONObject map = new JSONObject(sp.getString(ALARM_ITEMS_KEY, "{}"));
+            AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
+            if (am == null) return;
+            boolean exact = canExact(am);
+            long now = System.currentTimeMillis();
+            JSONObject keep = new JSONObject();
+            Iterator<String> keys = map.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                JSONObject o = map.optJSONObject(key);
+                if (o == null) continue;
+                long at = o.optLong("triggerAtMs", 0);
+                if (at <= now) continue;
+                int id = o.optInt("id", 0);
+                String url = o.isNull("url") ? null : o.optString("url", null);
+                String dndMode = o.isNull("dndMode") ? null : o.optString("dndMode", null);
+                PendingIntent pi = reminderPi(ctx, id, o.optString("title", "یادآوری کلاس"),
+                        o.optString("body", ""), url, dndMode);
+                if (exact) {
+                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
+                } else {
+                    am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
+                }
+                keep.put(key, o);
+            }
+            sp.edit().putString(ALARM_ITEMS_KEY, keep.toString()).apply();
+            Log.i("SarvestanClassAlarms", "restored " + keep.length() + " alarms");
+        } catch (Exception e) {
+            Log.e("SarvestanClassAlarms", "restoreScheduled failed", e);
+        }
     }
 
     @PluginMethod
@@ -244,8 +308,9 @@ public class SarvestanClassAlarmPlugin extends Plugin {
                 int id = o.optInt("id", REQ_BASE + i);
                 String title = o.optString("title", "یادآوری کلاس");
                 String body = o.optString("body", "");
-                String url = o.optString("url", null);
-                String dndMode = o.optString("dndMode", null);
+                // optString روی مقدار JSON null رشتهٔ "null" برمی‌گرداند، نه null
+                String url = o.isNull("url") ? null : o.optString("url", null);
+                String dndMode = o.isNull("dndMode") ? null : o.optString("dndMode", null);
                 long at = o.optLong("triggerAtMs", 0);
                 if (at <= now) {
                     skipped++;
@@ -259,6 +324,7 @@ public class SarvestanClassAlarmPlugin extends Plugin {
                 }
                 scheduled++;
             }
+            persistScheduled(ctx, items);
         } catch (Exception e) {
             call.reject("خطای زمان‌بندی یادآوری: " + e.getMessage());
             return;
@@ -286,6 +352,7 @@ public class SarvestanClassAlarmPlugin extends Plugin {
                 }
             } catch (Exception ignore) {}
         }
+        if (ids != null) forgetScheduled(ctx, ids);
         JSObject ret = new JSObject();
         ret.put("ok", true);
         ret.put("cancelled", cancelled);
@@ -655,10 +722,7 @@ public class SarvestanClassAlarmPlugin extends Plugin {
                 nm.createNotificationChannel(ch);
             }
 
-            int iconRes = ctx.getApplicationInfo().icon;
-            if (iconRes == 0) {
-                iconRes = android.R.drawable.ic_lock_idle_alarm;
-            }
+            int iconRes = R.drawable.ic_stat_sarvestan;
 
             Intent open;
             if (url != null && !url.trim().isEmpty()) {
@@ -756,6 +820,155 @@ public class SarvestanClassAlarmPlugin extends Plugin {
             call.resolve(ret);
         } catch (Exception e) {
             call.reject("خطا در باز کردن تقویم: " + e.getMessage());
+        }
+    }
+
+    private static final String CHANNEL_TIMER_ID = "sarv_honor_magic_capsule_v1";
+    private static final int TIMER_NOTIF_ID = 19800;
+
+    /** نمایش اعلان کپسولی زنده با ثانیه‌شمار سیستمی (Dynamic Island / Chronometer Notification) */
+    @PluginMethod
+    public void startLiveTimer(PluginCall call) {
+        Context ctx = getContext();
+        if (!NotificationManagerCompat.from(ctx).areNotificationsEnabled()) {
+            JSObject ret = new JSObject();
+            ret.put("ok", false);
+            ret.put("disabled", true);
+            call.resolve(ret);
+            return;
+        }
+
+        String title = call.getString("title", "مطالعه و تمرکز");
+        String subtitle = call.getString("subtitle", "تایمر فعال");
+        boolean isCountDown = Boolean.TRUE.equals(call.getBoolean("isCountDown", true));
+        Long targetEndMsVal = call.getLong("targetEndMs");
+        Long baseStartMsVal = call.getLong("baseStartMs");
+        long targetEndMs = targetEndMsVal != null ? targetEndMsVal : 0L;
+        long baseStartMs = baseStartMsVal != null ? baseStartMsVal : 0L;
+        if (baseStartMs <= 0) {
+            Double d = call.getDouble("baseStartMs");
+            if (d != null) baseStartMs = d.longValue();
+        }
+        if (targetEndMs <= 0) {
+            Double d = call.getDouble("targetEndMs");
+            if (d != null) targetEndMs = d.longValue();
+        }
+
+        NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm == null) {
+            call.reject("NotificationManager unavailable");
+            return;
+        }
+
+        // حذف کانال قدیمی بی‌صدا (Muted) و ساخت کانال اختصاصی کپسول جادویی با اهمیت بالا
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                nm.deleteNotificationChannel("sarvestan_live_timer");
+                nm.deleteNotificationChannel("sarv_magic_capsule_live");
+            } catch (Exception ignored) {}
+
+            NotificationChannel ch = new NotificationChannel(
+                    CHANNEL_TIMER_ID,
+                    "کپسول مطالعه و تایمر زنده (Magic Capsule)",
+                    NotificationManager.IMPORTANCE_HIGH);
+            ch.setDescription("نمایش وضعیت تایمر در کپسول جادویی آنر (Magic Capsule)، نوار وضعیت و صفحه قفل");
+            ch.setShowBadge(true);
+            ch.setSound(null, null);
+            ch.enableVibration(false);
+            ch.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+            nm.createNotificationChannel(ch);
+        }
+
+        Intent open = ctx.getPackageManager().getLaunchIntentForPackage(ctx.getPackageName());
+        if (open == null) open = new Intent();
+        open.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        PendingIntent pi = PendingIntent.getActivity(
+                ctx,
+                TIMER_NOTIF_ID,
+                open,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        NotificationCompat.Builder b = new NotificationCompat.Builder(ctx, CHANNEL_TIMER_ID)
+                .setSmallIcon(R.drawable.ic_stat_sarvestan)
+                .setContentTitle(title)
+                .setContentText(subtitle)
+                .setSubText("سروستان · " + (isCountDown ? "تایمر زنده" : "کرنومتر زنده"))
+                .setColor(0xFF0D9275)
+                .setColorized(true)
+                .setCategory(NotificationCompat.CATEGORY_STOPWATCH)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setShowWhen(true)
+                .setUsesChronometer(true)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setContentIntent(pi)
+                .addAction(R.drawable.ic_stat_sarvestan, "مشاهده برنامه", pi);
+
+        // تنظیم آیکون بزرگ با لوگوی رسمی سروستان
+        try {
+            android.graphics.Bitmap largeIcon = android.graphics.BitmapFactory.decodeResource(
+                    ctx.getResources(), R.mipmap.ic_launcher);
+            if (largeIcon != null) {
+                b.setLargeIcon(largeIcon);
+            }
+        } catch (Exception ignored) {}
+
+        // اکستراهای اختصاصی برای پشتیبانی کامل Magic Capsule در آنر و اندروید ۱۴
+        Bundle extras = new Bundle();
+        extras.putString("android.substName", "سروستان");
+        extras.putBoolean("android.showChronometer", true);
+        extras.putBoolean("android.chronometerCountDown", isCountDown);
+        extras.putBoolean("android.ongoing", true);
+        extras.putBoolean("android.showWhen", true);
+        extras.putBoolean("com.hihonor.notification.ongoing", true);
+        extras.putBoolean("com.huawei.notification.ongoing", true);
+        extras.putString("hw_live_activity", "true");
+        extras.putString("honor_magic_capsule", "true");
+        b.addExtras(extras);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            b.setChronometerCountDown(isCountDown);
+        }
+
+        if (isCountDown && targetEndMs > 0) {
+            b.setWhen(targetEndMs);
+        } else if (!isCountDown && baseStartMs > 0) {
+            b.setWhen(baseStartMs);
+        } else {
+            b.setWhen(System.currentTimeMillis());
+        }
+
+        try {
+            nm.notify(TIMER_NOTIF_ID, b.build());
+            JSObject ret = new JSObject();
+            ret.put("ok", true);
+            call.resolve(ret);
+        } catch (SecurityException e) {
+            JSObject ret = new JSObject();
+            ret.put("ok", false);
+            ret.put("disabled", true);
+            ret.put("error", "SecurityException: POST_NOTIFICATIONS missing");
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("startLiveTimer failed: " + e.getMessage());
+        }
+    }
+
+    /** لغو و حذف اعلان زنده تایمر */
+    @PluginMethod
+    public void stopLiveTimer(PluginCall call) {
+        Context ctx = getContext();
+        try {
+            NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) {
+                nm.cancel(TIMER_NOTIF_ID);
+            }
+            JSObject ret = new JSObject();
+            ret.put("ok", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("stopLiveTimer failed: " + e.getMessage());
         }
     }
 }

@@ -14,8 +14,22 @@ import {
   LogIn,
   Globe,
   SlidersHorizontal,
+  CheckSquare,
+  ListTodo,
+  CheckCircle2,
+  Circle,
+  ArrowLeft,
+  Plus,
+  Check,
+  Bell,
 } from 'lucide-react';
-import { getViewModel } from '../data/viewModel';
+import { getStudyTasks, updateTaskStatus } from '../services/studyPlanner';
+import { toLocalDateString } from '../services/calendarHelper';
+import { triggerHaptic } from '../services/studyTimerEngine';
+import { cancelTaskReminder } from '../services/classAlarms';
+import { subscribeStore } from '../services/behestan';
+import { getViewModel, getToneForCourse } from '../data/viewModel';
+import SarvCheckbox from '../components/SarvCheckbox';
 import { useSarvestanData } from '../hooks/useSarvestanData';
 import { openLoginModal } from '../services/loginFlow';
 import { toFaDigits } from '../utils/faDigits';
@@ -42,6 +56,34 @@ const statusMeta = {
   done: { label: 'پایان یافته', chip: 'bg-base-500/30 text-neutral font-normal' },
 };
 
+const toneClasses = {
+  primary: 'border-r-primary text-primary bg-primary-soft',
+  info: 'border-r-info text-info bg-info-soft',
+  success: 'border-r-success text-success bg-success-soft',
+  secondary: 'border-r-secondary text-secondary bg-secondary-soft',
+  accent: 'border-r-accent text-accent bg-accent-soft',
+  warn: 'border-r-warn text-warn bg-warn-soft',
+  danger: 'border-r-danger text-danger bg-danger-soft',
+};
+
+const TASK_PRIORITIES = {
+  high: {
+    label: 'اولویت بالا',
+    shortLabel: 'بالا',
+    color: 'text-danger bg-danger-soft border-danger/40',
+  },
+  medium: {
+    label: 'اولویت متوسط',
+    shortLabel: 'متوسط',
+    color: 'text-warn bg-warn-soft border-warn/40',
+  },
+  low: {
+    label: 'اولویت عادی',
+    shortLabel: 'عادی',
+    color: 'text-info bg-info-soft border-info/40',
+  },
+};
+
 // نحوه نمایش کارت مشخصات: 'row' (عکس مربعی لبه گرد در راست) | 'centered' (مرکزچین دایره‌ای قبلی برای بازگشت آسان)
 const PROFILE_CARD_LAYOUT = 'row';
 
@@ -53,6 +95,11 @@ export default function HomeScreen({ onNavigate }) {
   const [selectedFeedPost, setSelectedFeedPost] = useState(null);
   const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
   const [feedFilter, setFeedFilter] = useState('all');
+  const [tasksVer, setTasksVer] = useState(0);
+
+  useEffect(() => {
+    return subscribeStore(() => setTasksVer((v) => v + 1));
+  }, []);
 
   useEffect(() => {
     fetchFeed();
@@ -700,6 +747,172 @@ export default function HomeScreen({ onNavigate }) {
           </div>
         );
 
+      case 'todayTasks': {
+        const todayIso = toLocalDateString(new Date());
+        const allTasks = getStudyTasks();
+        const todayTasks = allTasks.filter((t) => {
+          const d = t.dateStr || toLocalDateString(new Date(t.createdAt || Date.now()));
+          return d === todayIso;
+        });
+        const todayPending = todayTasks.filter((t) => t.status !== 'done');
+        const todayDone = todayTasks.filter((t) => t.status === 'done');
+        const progressPct = todayTasks.length > 0
+          ? Math.round((todayDone.length / todayTasks.length) * 100)
+          : 0;
+
+        const coursesList = vm?.scheduleCourses || [];
+        const getCourseColor = (courseOrName) => {
+          if (!courseOrName) return 'primary';
+          if (typeof courseOrName === 'object' && courseOrName.color) return courseOrName.color;
+          const name = typeof courseOrName === 'object'
+            ? (courseOrName.name || courseOrName.courseName || courseOrName.title)
+            : courseOrName;
+          const matched = coursesList.find(
+            (c) => c.name === name || (c.code && courseOrName?.code && c.code === courseOrName.code)
+          );
+          if (matched?.color) return matched.color;
+          return getToneForCourse(courseOrName, coursesList);
+        };
+
+        return (
+          <div key="todayTasks">
+            <section className="sarv-card p-4 space-y-3">
+              {/* هدر ویجت کارهای امروز */}
+              <div className="flex items-center justify-between pb-2 border-b border-base-500/20">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-primary-soft text-primary grid place-items-center">
+                    <ListTodo className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-base-content flex items-center gap-1.5">
+                      <span>کارهای امروز</span>
+                      {todayPending.length > 0 && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-primary-soft text-primary">
+                          {toFaDigits(todayPending.length)} کار
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-[10px] text-neutral">
+                      {todayTasks.length === 0
+                        ? 'برنامه‌ریزی و تکالیف روزانه'
+                        : `${toFaDigits(todayDone.length)} از ${toFaDigits(todayTasks.length)} کار انجام شد (${toFaDigits(progressPct)}٪)`}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => onNavigate?.('study')}
+                  className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer bg-primary-soft/60 px-2 py-1 rounded-xl border border-primary/20 active:scale-95 transition"
+                >
+                  <span>مدیریت کارها</span>
+                  <ArrowLeft className="w-3 h-3" />
+                </button>
+              </div>
+
+              {/* نوار پیشرفت در صورت وجود کار */}
+              {todayTasks.length > 0 && (
+                <div className="w-full bg-base-500/30 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="bg-primary h-full rounded-full transition-all duration-300"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
+              )}
+
+              {/* لیست کارهای امروز با ظاهر و رنگ‌های دقیق بخش اصلی کارها */}
+              {todayTasks.length === 0 ? (
+                <div className="py-4 text-center space-y-2">
+                  <p className="text-xs text-neutral">برای امروز کاری تعریف نشده است</p>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate?.('study')}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-soft text-primary text-xs font-bold border border-primary/25 hover:bg-primary/20 cursor-pointer active:scale-95 transition"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>افزودن کار در برنامه مطالعه</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-0.5">
+                  {todayTasks.map((t) => {
+                    const isDone = t.status === 'done';
+                    const matched = coursesList.find((c) => c.name === t.courseName);
+                    const tone = getCourseColor(matched || t.courseName);
+                    const priority = TASK_PRIORITIES[t.priority] || TASK_PRIORITIES.medium;
+
+                    return (
+                      <div
+                        key={t.id}
+                        className={`sarv-card p-3 rounded-2xl border transition flex items-center justify-between gap-3 ${
+                          isDone
+                            ? 'bg-base-500/10 border-base-500/20 opacity-60'
+                            : 'border-base-500/40 hover:border-primary/50 shadow-xs'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <SarvCheckbox
+                            checked={isDone}
+                            onChange={() => {
+                              triggerHaptic('light');
+                              const nextStatus = isDone ? 'todo' : 'done';
+                              updateTaskStatus(t.id, nextStatus);
+                              if (nextStatus === 'done') {
+                                cancelTaskReminder(t.id);
+                              }
+                              setTasksVer((v) => v + 1);
+                            }}
+                            variant="primary"
+                          />
+
+                          <div className="min-w-0 flex-1">
+                            <p
+                              className={`text-xs font-bold truncate ${
+                                isDone ? 'line-through text-neutral' : 'text-base-content'
+                              }`}
+                            >
+                              {t.title}
+                            </p>
+                            <div className="flex items-center gap-1.5 mt-1 text-[10px]">
+                              <span
+                                className={`px-1.5 py-0.2 rounded-md font-bold truncate max-w-[120px] ${
+                                  toneClasses[tone] || 'bg-base-500/20 text-neutral'
+                                }`}
+                              >
+                                {t.courseName || 'عمومی'}
+                              </span>
+
+                              {t.timeStr && (
+                                <span className="flex items-center gap-1 font-mono text-[10px] text-primary bg-primary-soft px-1.5 py-0.2 rounded-md">
+                                  <Clock className="w-3 h-3" />
+                                  <span>{toFaDigits(t.timeStr)}</span>
+                                </span>
+                              )}
+
+                              {t.reminderEnabled && (
+                                <span className="text-primary flex items-center" title="یادآوری فعال">
+                                  <Bell className="w-3 h-3" />
+                                </span>
+                              )}
+
+                              {t.priority && t.priority !== 'medium' && (
+                                <span className={`px-1.5 py-0.2 rounded-md font-bold border ${priority.color}`}>
+                                  {priority.shortLabel}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          </div>
+        );
+      }
+
       case 'studyHeatmap':
         return (
           <div key="studyHeatmap">
@@ -856,14 +1069,14 @@ export default function HomeScreen({ onNavigate }) {
         .filter((w) => w.enabled !== false)
         .map((w) => renderWidget(w.id))}
 
-      {/* دکمه شخصی‌سازی چیدمان داشبورد */}
+      {/* دکمه شخصی‌سازی چیدمان میزکار */}
       <button
         type="button"
         onClick={() => setIsCustomizeOpen(true)}
         className="w-full sarv-card p-3 flex items-center justify-center gap-2 border border-base-500/40 bg-base-200/40 text-neutral hover:text-base-content hover:border-primary/50 text-[12.5px] font-bold active:scale-[0.98] transition-all cursor-pointer shadow-sm"
       >
         <SlidersHorizontal className="w-4 h-4 text-primary" />
-        <span>شخصی‌سازی و چیدمان داشبورد</span>
+        <span>شخصی‌سازی و چیدمان میزکار</span>
       </button>
 
       <DashboardCustomizeModal

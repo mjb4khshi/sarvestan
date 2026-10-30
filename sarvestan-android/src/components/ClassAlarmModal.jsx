@@ -48,6 +48,9 @@ import {
   getDndDuringClass,
   setDndDuringClass,
   SAMAD_URL,
+  UT_DINING_URL,
+  getDiningPortalInfo,
+  DINING_WEEKDAY_OPTIONS,
 } from '../services/classAlarms';
 import { toFaDigits } from '../utils/faDigits';
 import SarvCheckbox from './SarvCheckbox';
@@ -67,6 +70,9 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
   const [dndEnabled, setDndEnabled] = useState(false);
   const [samadEnabled, setSamadEnabled] = useState(false);
   const [samadTime, setSamadTime] = useState('14:00');
+  const [samadDayOfWeek, setSamadDayOfWeek] = useState(3);
+  const [samadUrl, setSamadUrl] = useState(SAMAD_URL);
+  const [portalInfo, setPortalInfo] = useState(() => getDiningPortalInfo());
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [notifGranted, setNotifGranted] = useState(true);
   const [batteryOptimized, setBatteryOptimized] = useState(false);
@@ -81,11 +87,15 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
       setNotifyAtStart(settings.notifyAtStart !== false);
       setDndEnabled(Boolean(settings.dndDuringClass));
 
+      const currentPortal = getDiningPortalInfo();
+      setPortalInfo(currentPortal);
       const samadSettings = getSamadReminderSettings();
       setSamadEnabled(Boolean(samadSettings.enabled));
       const sh = String(samadSettings.hour ?? 14).padStart(2, '0');
       const sm = String(samadSettings.minute ?? 0).padStart(2, '0');
       setSamadTime(`${sh}:${sm}`);
+      setSamadDayOfWeek(samadSettings.dayOfWeek ?? 3);
+      setSamadUrl(samadSettings.url || currentPortal.defaultUrl);
 
       setFeedback(null);
 
@@ -174,7 +184,7 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
       });
 
       const res = await scheduleClassReminders({
-        daysAhead: 7,
+        daysAhead: 84,
         leadMinutes,
         notifyAtStart,
         dndDuringClass: dndEnabled,
@@ -185,12 +195,17 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
         showMsg(res.error || 'خطا در ثبت یادآورها', 'error');
       } else {
         const count = res.scheduled || 0;
-        showMsg(
-          count > 0
-            ? `${toFaDigits(count)} یادآور هوشمند برای کلاس‌های هفته${samadEnabled ? ' و سامانه سماد' : ''}${dndEnabled ? ' (همراه با حالت مزاحم نشوید)' : ''} تنظیم شد.`
-            : res.message || 'جلسه‌ای برای یادآوری یافت نشد.',
-          'success',
-        );
+        if (count > 0) {
+          showMsg(
+            `${toFaDigits(count)} یادآور هوشمند برای کلاس‌های هفته${samadEnabled ? ' و سامانه سماد' : ''}${dndEnabled ? ' (همراه با حالت مزاحم نشوید)' : ''} تنظیم شد.`,
+            'success',
+          );
+        } else {
+          showMsg(
+            'هیچ کلاسی در برنامه هفتگی پیدا نشد؛ هیچ یادآوری ثبت نشد. اول برنامه کلاسی را همگام‌سازی کنید.',
+            'error',
+          );
+        }
       }
     } catch (e) {
       showMsg(String(e?.message || e), 'error');
@@ -227,6 +242,69 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
     }
   };
 
+  const handleTogglePortal = async (portalKey) => {
+    const nextUrl = portalKey === 'ut' ? UT_DINING_URL : SAMAD_URL;
+    setSamadUrl(nextUrl);
+    const newPortal = getDiningPortalInfo(nextUrl);
+    setPortalInfo(newPortal);
+
+    const [hStr, mStr] = samadTime.split(':');
+    const hour = parseInt(hStr, 10) || 14;
+    const minute = parseInt(mStr, 10) || 0;
+
+    saveSamadReminderSettings({
+      enabled: samadEnabled,
+      hour,
+      minute,
+      dayOfWeek: samadDayOfWeek,
+      url: nextUrl,
+    });
+
+    if (samadEnabled) {
+      await updateSamadReminder({
+        enabled: true,
+        hour,
+        minute,
+        dayOfWeek: samadDayOfWeek,
+        url: nextUrl,
+      });
+      showMsg(`سامانه تغذیه به ${portalKey === 'ut' ? 'دانشگاه تهران (dining.ut)' : 'سماد (samad.app)'} تغییر یافت.`, 'success');
+    } else {
+      showMsg(`سامانه تغذیه به ${portalKey === 'ut' ? 'دانشگاه تهران (dining.ut)' : 'سماد (samad.app)'} تنظیم شد.`, 'info');
+    }
+  };
+
+  const handleChangeSamadDay = async (newDay) => {
+    setSamadDayOfWeek(newDay);
+    const [hStr, mStr] = samadTime.split(':');
+    const hour = parseInt(hStr, 10) || 14;
+    const minute = parseInt(mStr, 10) || 0;
+
+    saveSamadReminderSettings({
+      enabled: samadEnabled,
+      hour,
+      minute,
+      dayOfWeek: newDay,
+      url: samadUrl,
+    });
+
+    const dayObj = DINING_WEEKDAY_OPTIONS.find((d) => d.day === newDay);
+    const dayLabel = dayObj ? dayObj.label : 'روز انتخابی';
+
+    if (samadEnabled) {
+      await updateSamadReminder({
+        enabled: true,
+        hour,
+        minute,
+        dayOfWeek: newDay,
+        url: samadUrl,
+      });
+      showMsg(`روز ارسال یادآوری به ${dayLabel} ساعت ${toFaDigits(samadTime)} تغییر یافت.`, 'success');
+    } else {
+      showMsg(`روز ارسال یادآوری به ${dayLabel} تنظیم شد.`, 'info');
+    }
+  };
+
   const handleToggleSamad = async (nextState) => {
     setSamadEnabled(nextState);
     const [hStr, mStr] = samadTime.split(':');
@@ -250,14 +328,19 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
         enabled: nextState,
         hour,
         minute,
+        dayOfWeek: samadDayOfWeek,
+        url: samadUrl,
       });
 
+      const dayObj = DINING_WEEKDAY_OPTIONS.find((d) => d.day === samadDayOfWeek);
+      const dayLabel = dayObj ? dayObj.label : 'روز انتخابی';
+
       if (!res.ok) {
-        showMsg(res.error || 'خطا در ثبت یادآور سماد', 'error');
+        showMsg(res.error || 'خطا در ثبت یادآور غذا', 'error');
       } else if (nextState) {
-        showMsg(`یادآور سماد فعال شد؛ هر چهارشنبه ساعت ${toFaDigits(samadTime)} نوتیفیکیشن ورود به سماد ارسال می‌شود.`, 'success');
+        showMsg(`یادآور رزرو غذا فعال شد؛ هر ${dayLabel} ساعت ${toFaDigits(samadTime)} نوتیفیکیشن ارسال می‌شود.`, 'success');
       } else {
-        showMsg('یادآور رزرو غذای سماد غیرفعال شد.', 'info');
+        showMsg('یادآور رزرو غذای سلف غیرفعال شد.', 'info');
       }
     } catch (e) {
       showMsg(String(e?.message || e), 'error');
@@ -276,14 +359,20 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
       enabled: samadEnabled,
       hour,
       minute,
+      dayOfWeek: samadDayOfWeek,
+      url: samadUrl,
     });
+    const dayObj = DINING_WEEKDAY_OPTIONS.find((d) => d.day === samadDayOfWeek);
+    const dayLabel = dayObj ? dayObj.label : 'روز انتخابی';
     if (samadEnabled) {
       await updateSamadReminder({
         enabled: true,
         hour,
         minute,
+        dayOfWeek: samadDayOfWeek,
+        url: samadUrl,
       });
-      showMsg(`ساعت یادآوری سماد به ${toFaDigits(newTimeStr)} در روزهای چهارشنبه تغییر یافت.`, 'success');
+      showMsg(`ساعت یادآوری غذا به ${toFaDigits(newTimeStr)} در روزهای ${dayLabel} تغییر یافت.`, 'success');
     }
   };
 
@@ -671,33 +760,99 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
                 </div>
               </div>
 
-              {/* بخش ۲: یادآور هفتگی رزرو غذای سماد */}
+              {/* بخش ۲: یادآور هفتگی رزرو غذای سلف و تغذیه */}
               <div className="sarv-card bg-base-500/10 border border-base-500/30 p-3.5 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <UtensilsCrossed className="w-4 h-4 text-warning" />
+                    <UtensilsCrossed className="w-4 h-4 text-primary" />
                     <span className="text-[13px] font-bold text-base-content">
-                      یادآور رزرو غذای سلف (سامانه سماد)
+                      {samadUrl.includes('dining.ut.ac.ir') ? 'یادآور رزرو غذای دانشگاه تهران' : 'یادآور رزرو غذای سلف (سماد)'}
                     </span>
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-warning/10 text-warning border border-warning/20">
-                    چهارشنبه‌ها
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary-soft text-primary border border-primary/30">
+                    {DINING_WEEKDAY_OPTIONS.find((d) => d.day === samadDayOfWeek)?.label || 'هفتگی'}
                   </span>
                 </div>
 
                 <p className="text-[11.5px] text-neutral leading-relaxed">
-                  هر چهارشنبه اعلان یادآوری جهت رزرو غذای هفته آینده سلف با امکان ورود مستقیم به سامانه سماد با یک لمس دریافت کنید.
+                  اعلان یادآوری جهت رزرو غذای هفته آینده سلف با امکان انتخاب روز هفته، تنظیم ساعت دقیق و باز کردن مستقیم سامانه تغذیه با یک لمس.
                 </p>
+
+                {/* انتخاب سامانه تغذیه (سماد یا دانشگاه تهران) */}
+                <div className="p-3 rounded-2xl bg-base border border-base-500/25 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] font-bold text-base-content">سامانه تغذیه هدف:</span>
+                    <span className="text-[11px] text-primary font-bold">
+                      {samadUrl.includes('dining.ut.ac.ir') ? 'دانشگاه تهران' : 'سامانه سماد'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePortal('ut')}
+                      className={`py-2 px-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                        samadUrl.includes('dining.ut.ac.ir')
+                          ? 'bg-primary text-primary-content font-black shadow-xs'
+                          : 'bg-base-500/15 text-neutral hover:text-base-content hover:bg-base-500/25'
+                      }`}
+                    >
+                      <span>دانشگاه تهران (dining.ut)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePortal('samad')}
+                      className={`py-2 px-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                        !samadUrl.includes('dining.ut.ac.ir')
+                          ? 'bg-primary text-primary-content font-black shadow-xs'
+                          : 'bg-base-500/15 text-neutral hover:text-base-content hover:bg-base-500/25'
+                      }`}
+                    >
+                      <span>سامانه سماد (samad.app)</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* انتخاب روز هفته (همیشه در دسترس برای تغییر) */}
+                <div className="p-3 rounded-2xl bg-base border border-base-500/25 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] font-bold text-base-content">
+                      روز ارسال اعلان در هفته:
+                    </span>
+                    <span className="text-[11px] text-primary font-bold">
+                      {DINING_WEEKDAY_OPTIONS.find((d) => d.day === samadDayOfWeek)?.label}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-7 gap-1">
+                    {DINING_WEEKDAY_OPTIONS.map((d) => {
+                      const isSelected = samadDayOfWeek === d.day;
+                      return (
+                        <button
+                          key={d.day}
+                          type="button"
+                          onClick={() => handleChangeSamadDay(d.day)}
+                          className={`py-1.5 px-0.5 rounded-xl text-center text-xs font-bold transition cursor-pointer ${
+                            isSelected
+                              ? 'bg-primary text-primary-content font-black shadow-xs'
+                              : 'bg-base-500/15 text-neutral hover:text-base-content hover:bg-base-500/25'
+                          }`}
+                        >
+                          <span className="hidden sm:inline">{d.label}</span>
+                          <span className="sm:hidden">{d.short}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 {/* ردیف سوییچ اختصاصی فعالسازی */}
                 <div className="flex items-center justify-between p-3 rounded-2xl bg-base border border-base-500/25">
                   <div className="flex flex-col min-w-0 pr-1">
                     <span className="text-[12.5px] font-bold text-base-content">
-                      یادآوری رزرو غذای چهارشنبه‌ها
+                      فعال‌سازی یادآوری رزرو غذا
                     </span>
                     <span className="text-[11px] text-neutral mt-0.5">
                       {samadEnabled
-                        ? `فعال — ارسال هر چهارشنبه ساعت ${toFaDigits(samadTime)}`
+                        ? `فعال — ارسال هر ${DINING_WEEKDAY_OPTIONS.find((d) => d.day === samadDayOfWeek)?.label || 'هفته'} ساعت ${toFaDigits(samadTime)}`
                         : 'غیرفعال'}
                     </span>
                   </div>
@@ -707,7 +862,7 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
                     onChange={(val) => handleToggleSamad(val)}
                     disabled={busyAction === 'samad'}
                     variant="primary"
-                    aria-label="یادآوری رزرو غذای چهارشنبه‌ها"
+                    aria-label="یادآوری رزرو غذا"
                   />
                 </div>
 
@@ -722,7 +877,7 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
                     {/* ردیف باز کردن مودال چرخشی تنظیم ساعت */}
                     <div className="p-3 rounded-2xl bg-base border border-base-500/25 flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
-                        <span className="w-8 h-8 rounded-xl bg-warning/15 text-warning grid place-items-center shrink-0">
+                        <span className="w-8 h-8 rounded-xl bg-primary-soft text-primary grid place-items-center shrink-0">
                           <Clock className="w-4 h-4" />
                         </span>
                         <div>
@@ -730,7 +885,7 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
                             ساعت ارسال اعلان
                           </span>
                           <span className="text-[11px] text-neutral mt-0.5">
-                            چهارشنبه‌ها ساعت {toFaDigits(samadTime)}
+                            ساعت {toFaDigits(samadTime)}
                           </span>
                         </div>
                       </div>
@@ -738,24 +893,24 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
                       <button
                         type="button"
                         onClick={() => setTimePickerOpen(true)}
-                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-warning/15 hover:bg-warning/25 text-warning border border-warning/30 text-[12px] font-bold transition active:scale-95 shadow-2xs cursor-pointer"
+                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-primary-soft hover:bg-primary/20 text-primary border border-primary/30 text-[12px] font-bold transition active:scale-95 shadow-2xs cursor-pointer"
                       >
                         <span className="font-mono text-[13px] font-black" dir="ltr">{toFaDigits(samadTime)}</span>
-                        <span className="text-[10.5px] px-1.5 py-0.5 rounded-md bg-warning/20 text-warning font-semibold">تغییر ساعت</span>
+                        <span className="text-[10.5px] px-1.5 py-0.5 rounded-md bg-primary text-primary-content font-semibold">تغییر ساعت</span>
                       </button>
                     </div>
 
-                    {/* پیش‌نمایش نوتیفیکیشن سماد */}
+                    {/* پیش‌نمایش نوتیفیکیشن */}
                     <div className="p-2.5 rounded-xl bg-base border border-base-500/25 space-y-1">
-                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-warning">
-                        <span>🍽️ یادآوری رزرو غذای سماد</span>
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-primary">
+                        <span>{samadUrl.includes('dining.ut.ac.ir') ? 'یادآوری رزرو غذای دانشگاه تهران' : 'یادآوری رزرو غذای سلف'}</span>
                       </div>
                       <p className="text-[11px] text-neutral leading-relaxed">
-                        فرصت رزرو غذای هفته آینده سلف رو به اتمامه! برای ورود به سامانه سماد کلیک کنید.
+                        فرصت رزرو غذای هفته آینده سلف رو به اتمامه! برای ورود به سامانه تغذیه کلیک کنید.
                       </p>
                     </div>
 
-                    {/* دکمه‌های تست و ورود به سماد */}
+                    {/* دکمه‌های تست و ورود مستقیم */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                       <button
                         type="button"
@@ -766,19 +921,19 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
                         {busyAction === 'samad-test' ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         ) : (
-                          <Volume2 className="w-3.5 h-3.5 text-warning" />
+                          <Volume2 className="w-3.5 h-3.5 text-primary" />
                         )}
-                        تست اعلان سماد (ارسال آنی)
+                        تست اعلان (ارسال آنی)
                       </button>
 
                       <a
-                        href={SAMAD_URL}
+                        href={samadUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-warning/15 hover:bg-warning/25 text-warning border border-warning/25 text-[11.5px] font-bold transition active:scale-95"
+                        className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-primary-soft hover:bg-primary/25 text-primary border border-primary/30 text-[11.5px] font-bold transition active:scale-95"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
-                        ورود به سامانه سماد
+                        ورود به {samadUrl.includes('dining.ut.ac.ir') ? 'تغذیه دانشگاه تهران' : 'سامانه سماد'}
                       </a>
                     </div>
                   </motion.div>

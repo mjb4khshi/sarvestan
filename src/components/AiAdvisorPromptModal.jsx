@@ -218,42 +218,78 @@ ${hidePrivacyInfo ? '- هویت: دانشجو (نام و شماره دانشجو
             const courseTitle = c.course || c.name || c.title || 'درس';
             const unitCount = c.unit != null ? toFaDigits(c.unit) : '؟';
             let finalScore = c.displayScore;
+            let isScoreDetermined = true;
             if (!finalScore || finalScore === '—') {
               if (c.score !== null && c.score !== undefined && !isNaN(c.score)) {
                 finalScore = toFaDigits(c.score);
               } else {
-                finalScore = c.status || 'در حال برگزاری';
+                finalScore = (c.status && c.status !== 'در حال') ? c.status : 'در حال برگزاری (نمره هنوز ثبت نشده)';
+                isScoreDetermined = false;
               }
             } else {
               finalScore = toFaDigits(finalScore);
             }
-            p += `- ${courseTitle} (${unitCount} واحد): نمره ${finalScore}\n`;
+            p += `- ${courseTitle} (${unitCount} واحد): ${isScoreDetermined ? `نمره ${finalScore}` : finalScore}\n`;
           });
         } else {
           p += `- اطلاعات ریزدروس ثبت نشده است.\n`;
         }
       });
 
-      // استخراج دروس افتاده یا نیازمند توجه (نمره زیر ۱۲)
-      const lowGrades = [];
+      // تفکیک دقیق دروس: افتاده، نیازمند توجه، ممتاز، و دروس در حال گذراندن (بدون نمره)
+      const failedGrades = [];
+      const borderlineGrades = [];
       const highGrades = [];
+
       termsData.forEach((t) => {
         (t.courses || []).forEach((c) => {
-          const s = Number(c.score);
           const cName = c.course || c.name || c.title || '';
           if (!cName) return;
-          if (c.status === 'مردود' || c.status === 'حذف اضطراری' || (Number.isFinite(s) && s < 12)) {
-            lowGrades.push(`${cName} (${toFaDigits(c.unit || 0)} واحد - نمره ${toFaDigits(c.displayScore || c.score)})`);
-          } else if (c.status === 'قبول' || (Number.isFinite(s) && s >= 17)) {
-            highGrades.push(`${cName} (${toFaDigits(c.unit || 0)} واحد - نمره ${toFaDigits(c.displayScore || c.score)})`);
+
+          const hasNumericScore =
+            c.score !== null &&
+            c.score !== undefined &&
+            c.score !== '' &&
+            !isNaN(Number(c.score));
+          const numScore = hasNumericScore ? Number(c.score) : null;
+
+          const isExplicitFailed = c.status === 'مردود' || c.regStatus === 'failed';
+          const isExplicitPassed = c.status === 'قبول' || c.regStatus === 'passed';
+          const isDropped = c.status === 'حذف اضطراری' || c.regStatus === 'dropped';
+          const isPending =
+            !hasNumericScore &&
+            !isExplicitFailed &&
+            !isExplicitPassed &&
+            !isDropped;
+
+          // درس‌های جاری یا بدون نمره ثبت‌شده به هیچ‌وجه مردود حساب نمی‌شوند
+          if (isPending || c.status === 'در حال' || c.status === 'در حال ثبت نمرات' || c.displayScore === '—') {
+            return;
+          } else if (isExplicitFailed || (hasNumericScore && numScore < 10 && !isExplicitPassed)) {
+            const scoreLabel = hasNumericScore ? `نمره ${toFaDigits(c.displayScore || numScore)}` : 'مردود';
+            failedGrades.push(`${cName} (${toFaDigits(c.unit || 0)} واحد - ${scoreLabel})`);
+          } else if (isDropped) {
+            failedGrades.push(`${cName} (${toFaDigits(c.unit || 0)} واحد - حذف اضطراری)`);
+          } else if (hasNumericScore && numScore >= 10 && numScore < 12) {
+            borderlineGrades.push(`${cName} (${toFaDigits(c.unit || 0)} واحد - نمره ${toFaDigits(c.displayScore || numScore)})`);
+          } else if (isExplicitPassed || (hasNumericScore && numScore >= 17)) {
+            const scoreLabel = hasNumericScore ? `نمره ${toFaDigits(c.displayScore || numScore)}` : 'قبول';
+            highGrades.push(`${cName} (${toFaDigits(c.unit || 0)} واحد - ${scoreLabel})`);
           }
         });
       });
 
-      if (lowGrades.length > 0) {
-        p += `\n⚠️ دروس افتاده، حذف‌شده یا با نمره لب‌مرزی (زیر ۱۲):\n`;
-        lowGrades.forEach((lg) => {
-          p += `- ${lg}\n`;
+      if (failedGrades.length > 0) {
+        p += `\n⚠️ دروس افتاده یا حذف‌شده (نیازمند اخذ مجدد یا ترمیم):\n`;
+        failedGrades.forEach((fg) => {
+          p += `- ${fg}\n`;
+        });
+      }
+
+      if (borderlineGrades.length > 0) {
+        p += `\n⚡ دروس گذرانده‌شده با نمره لب‌مرزی (۱۰ تا ۱۲):\n`;
+        borderlineGrades.forEach((bg) => {
+          p += `- ${bg}\n`;
         });
       }
 
@@ -350,7 +386,7 @@ ${modeObj.goalPrompt}
                   <h3 className="text-[15px] font-black text-base-content truncate">
                     پرامپت هوش مصنوعی
                   </h3>
-                  <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-full bg-primary-soft text-primary">
+                  <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-primary-soft text-primary shrink-0 whitespace-nowrap">
                     مشاور تحصیلی
                   </span>
                 </div>

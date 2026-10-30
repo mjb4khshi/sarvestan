@@ -12,11 +12,13 @@ import {
   AlertTriangle,
   Hash,
   ChevronDown,
+  Bell,
 } from 'lucide-react';
 import { toFaDigits } from '../utils/faDigits';
 import { getToneForCourse } from '../data/viewModel';
 import SarvDatePickerModal from './SarvDatePickerModal';
 import SarvTimePickerModal from './SarvTimePickerModal';
+import SarvSwitch from './SarvSwitch';
 import NativeCourseSelector from './NativeCourseSelector';
 
 function parseExamTime(timeStr) {
@@ -52,6 +54,7 @@ export default function ExamEditModal({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [examReminder, setExamReminder] = useState(true);
   const [timePickerState, setTimePickerState] = useState({
     isOpen: false,
     field: 'start',
@@ -135,6 +138,11 @@ export default function ExamEditModal({
     };
 
     onSave(resultExam);
+    if (examReminder) {
+      scheduleExamReminder(resultExam, 2);
+    } else {
+      cancelExamReminder(resultExam.id || resultExam.course || resultExam.code);
+    }
     onClose();
   };
 
@@ -506,7 +514,25 @@ export default function ExamEditModal({
                 </div>
               </div>
 
+              {/* سوییچ یادآوری قبل از امتحان */}
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-base-500/15 border border-base-500/30">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-primary-soft text-primary grid place-items-center shrink-0">
+                    <Bell className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-[12px] font-bold text-base-content block">یادآوری قبل از آزمون</span>
+                    <span className="text-[10.5px] text-neutral mt-0.5">اعلان و هشدار ۲ ساعت قبل از شروع امتحان</span>
+                  </div>
                 </div>
+                <SarvSwitch
+                  checked={examReminder}
+                  onChange={setExamReminder}
+                  variant="primary"
+                  aria-label="یادآوری امتحان"
+                />
+              </div>
+            </div>
 
               {/* اکشن‌های پایین فرم — به صورت شناور و چسبیده در پایین مودال */}
               <div className="shrink-0 pt-3 border-t border-base-500/30 flex items-center gap-2 bg-base">

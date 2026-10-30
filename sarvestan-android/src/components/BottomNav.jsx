@@ -18,7 +18,7 @@ const TABS_RIGHT = [
 
 const TABS_CENTER = {
   id: 'home',
-  label: 'میز کار',
+  label: 'میزکار',
   Icon: LayoutDashboard,
   activeColor: 'text-primary',
 };

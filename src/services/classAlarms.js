@@ -798,6 +798,28 @@ export function saveReminderSettings(settings) {
 }
 
 /**
+ * مسلح‌سازی مجدد یادآورها در زمان راه‌اندازی برنامه (اگر فعال باشند)
+ */
+export async function rearmIfEnabled() {
+  try {
+    const s = getReminderSettings();
+    if (s && s.enabled) {
+      await scheduleClassReminders({
+        leadMinutes: s.leadMinutes,
+        notifyAtStart: s.notifyAtStart,
+        dndDuringClass: s.dndDuringClass,
+      });
+    }
+    const samad = getSamadReminderSettings();
+    if (samad && samad.enabled) {
+      await updateSamadReminder(samad);
+    }
+  } catch (err) {
+    console.warn('[ClassAlarms] rearm error:', err);
+  }
+}
+
+/**
  * بررسی دسترسی تغییر وضعیت Do Not Disturb (مزاحم نشوید)
  */
 export async function checkDndPermission() {
@@ -1006,14 +1028,16 @@ export function getNextWednesdayTimestamp(hour = 14, minute = 0) {
 /**
  * ساخت آبجکت نوتیفیکیشن یادآوری رزرو غذای سماد
  */
-export function buildSamadReminderItem(hour = 14, minute = 0) {
-  const triggerAtMs = getNextWednesdayTimestamp(hour, minute);
+export function buildSamadReminderItem(hour = 14, minute = 0, dayOfWeek = 3, customUrl = null) {
+  const portalInfo = getDiningPortalInfo(customUrl);
+  const triggerAtMs = getNextWeekdayTimestamp(dayOfWeek, hour, minute);
+  const url = customUrl || portalInfo.defaultUrl;
   return {
     id: SAMAD_REMINDER_ID,
     triggerAtMs,
-    title: '🍽️ یادآوری رزرو غذای سماد',
-    body: 'فرصت رزرو غذای هفته آینده سلف رو به اتمامه! برای ورود به سامانه سماد کلیک کنید.',
-    url: SAMAD_URL,
+    title: portalInfo.title,
+    body: portalInfo.body,
+    url,
     kind: 'samad',
   };
 }
@@ -1022,6 +1046,7 @@ export function buildSamadReminderItem(hour = 14, minute = 0) {
  * دریافت تنظیمات یادآور سماد از حافظه محلی
  */
 export function getSamadReminderSettings() {
+  const portalInfo = getDiningPortalInfo();
   try {
     const raw = localStorage.getItem(SAMAD_SETTINGS_KEY);
     if (!raw) {
@@ -1029,6 +1054,8 @@ export function getSamadReminderSettings() {
         enabled: false,
         hour: 14,
         minute: 0,
+        dayOfWeek: 3,
+        url: portalInfo.defaultUrl,
       };
     }
     const parsed = JSON.parse(raw);
@@ -1036,9 +1063,11 @@ export function getSamadReminderSettings() {
       enabled: Boolean(parsed.enabled),
       hour: Number.isInteger(parsed.hour) ? parsed.hour : 14,
       minute: Number.isInteger(parsed.minute) ? parsed.minute : 0,
+      dayOfWeek: Number.isInteger(parsed.dayOfWeek) ? parsed.dayOfWeek : 3,
+      url: parsed.url || portalInfo.defaultUrl,
     };
   } catch {
-    return { enabled: false, hour: 14, minute: 0 };
+    return { enabled: false, hour: 14, minute: 0, dayOfWeek: 3, url: portalInfo.defaultUrl };
   }
 }
 
@@ -1054,8 +1083,8 @@ export function saveSamadReminderSettings(settings) {
 /**
  * بروزرسانی یا لغو اختصاصی یادآور سماد در سیستم
  */
-export async function updateSamadReminder({ enabled, hour = 14, minute = 0 } = {}) {
-  saveSamadReminderSettings({ enabled, hour, minute });
+export async function updateSamadReminder({ enabled, hour = 14, minute = 0, dayOfWeek = 3, url = null } = {}) {
+  saveSamadReminderSettings({ enabled, hour, minute, dayOfWeek, url });
 
   // بستر افزونه
   if (supportsExtensionReminders()) {
@@ -1065,7 +1094,7 @@ export async function updateSamadReminder({ enabled, hour = 14, minute = 0 } = {
     }
     const permOk = await ensureNotificationPermission();
     if (!permOk) return { ok: false, error: 'مجوز اعلان داده نشد' };
-    const item = buildSamadReminderItem(hour, minute);
+    const item = buildSamadReminderItem(hour, minute, dayOfWeek, url);
     const res = await scheduleExtensionReminders([item]);
     return {
       ok: Boolean(res?.ok),
@@ -1089,7 +1118,7 @@ export async function updateSamadReminder({ enabled, hour = 14, minute = 0 } = {
     return { ok: true, enabled: false };
   }
 
-  const item = buildSamadReminderItem(hour, minute);
+  const item = buildSamadReminderItem(hour, minute, dayOfWeek, url);
   try {
     const res = await p.scheduleReminders({
       items: [
@@ -1113,7 +1142,8 @@ export async function updateSamadReminder({ enabled, hour = 14, minute = 0 } = {
  */
 export async function testSamadNotification() {
   const p = plugins().ClassAlarms;
-  const item = buildSamadReminderItem();
+  const samadSettings = getSamadReminderSettings();
+  const item = buildSamadReminderItem(samadSettings.hour, samadSettings.minute, samadSettings.dayOfWeek, samadSettings.url);
   if (!p?.testNotification) {
     if (typeof Notification !== 'undefined') {
       try {
@@ -1125,7 +1155,7 @@ export async function testSamadNotification() {
           icon: '/favicon.ico',
         });
         n.onclick = () => {
-          window.open(SAMAD_URL, '_blank');
+          window.open(item.url || SAMAD_URL, '_blank');
         };
         return { ok: true };
       } catch (e) {
@@ -1227,4 +1257,227 @@ export async function exportExamToCalendar(exam) {
   }
 }
 
+/**
+ * نمایش اعلان زنده تایمر مطالعه (Dynamic Island / Chronometer Notification)
+ */
+export async function startNativeLiveTimer({ title, subtitle, isCountDown = true, targetEndMs = 0, baseStartMs = 0 }) {
+  try {
+    const p = plugins().ClassAlarms;
+    if (!p?.startLiveTimer) return { ok: false, reason: 'not-supported' };
+    return await p.startLiveTimer({
+      title: title || 'مطالعه و تمرکز',
+      subtitle: subtitle || 'تایمر فعال',
+      isCountDown: Boolean(isCountDown),
+      targetEndMs: targetEndMs ? Number(targetEndMs) : 0,
+      baseStartMs: baseStartMs ? Number(baseStartMs) : 0,
+    });
+  } catch (e) {
+    console.warn('[startNativeLiveTimer error]', e);
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
 
+/**
+ * توقف و حذف اعلان زنده تایمر
+ */
+export async function stopNativeLiveTimer() {
+  try {
+    const p = plugins().ClassAlarms;
+    if (!p?.stopLiveTimer) return { ok: false, reason: 'not-supported' };
+    return await p.stopLiveTimer();
+  } catch (e) {
+    console.warn('[stopNativeLiveTimer error]', e);
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
+
+
+export const UT_DINING_URL = 'https://dining.ut.ac.ir/fa';
+
+export const DINING_WEEKDAY_OPTIONS = [
+  { day: 6, label: 'شنبه', short: 'ش' },
+  { day: 0, label: 'یکشنبه', short: 'ی' },
+  { day: 1, label: 'دوشنبه', short: 'د' },
+  { day: 2, label: 'سه‌شنبه', short: 'س' },
+  { day: 3, label: 'چهارشنبه', short: 'چ' },
+  { day: 4, label: 'پنج‌شنبه', short: 'پ' },
+  { day: 5, label: 'جمعه', short: 'ج' },
+];
+
+export function getDiningPortalInfo(customUrl = null) {
+  let isUT = false;
+  if (customUrl) {
+    isUT = customUrl.includes('dining.ut.ac.ir');
+  } else {
+    try {
+      const rawSettings = localStorage.getItem(SAMAD_SETTINGS_KEY);
+      if (rawSettings) {
+        const s = JSON.parse(rawSettings);
+        if (s?.url) isUT = s.url.includes('dining.ut.ac.ir');
+      }
+      if (!isUT) {
+        const rawProfile = localStorage.getItem('sarvestan_live_profile');
+        if (rawProfile) {
+          const parsed = JSON.parse(rawProfile);
+          if (parsed?.university === 'ut' || /تهران/i.test(parsed?.faculty || '')) isUT = true;
+        }
+        const currentUni = localStorage.getItem('sarvestan_selected_uni');
+        if (currentUni === 'ut') isUT = true;
+      }
+    } catch {}
+  }
+
+  return {
+    isUT,
+    defaultUrl: isUT ? UT_DINING_URL : SAMAD_URL,
+    name: isUT ? 'سامانه تغذیه دانشگاه تهران (dining.ut.ac.ir)' : 'سامانه سماد (تغذیه)',
+    shortName: isUT ? 'تغذیه تهران' : 'سماد',
+    title: isUT ? 'یادآوری رزرو غذای دانشگاه تهران' : 'یادآوری رزرو غذای سلف',
+    body: isUT
+      ? 'فرصت رزرو غذای هفته آینده سلف و خوابگاه رو به اتمامه! برای ورود به سامانه تغذیه کلیک کنید.'
+      : 'فرصت رزرو غذای هفته آینده سلف رو به اتمامه! برای ورود به سامانه سماد کلیک کنید.',
+  };
+}
+
+export function getNextWeekdayTimestamp(targetDay = 3, hour = 14, minute = 0) {
+  const now = new Date();
+  const target = new Date(now);
+  target.setHours(hour, minute, 0, 0);
+
+  const currentDay = now.getDay();
+  let daysUntil = (targetDay - currentDay + 7) % 7;
+
+  if (daysUntil === 0 && target.getTime() <= now.getTime()) {
+    daysUntil = 7;
+  }
+
+  target.setDate(now.getDate() + daysUntil);
+  return target.getTime();
+}
+
+export function getTaskReminderId(taskId) {
+  let hash = 0;
+  const str = String(taskId);
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 31 + str.charCodeAt(i)) & 0x7fffffff;
+  }
+  return 30000 + (hash % 10000);
+}
+
+export async function scheduleTaskReminder(task) {
+  if (!task || !task.dateStr || !task.timeStr) return { ok: false, error: 'تاریخ یا ساعت کار مشخص نیست' };
+  try {
+    const [h, m] = task.timeStr.split(':').map(Number);
+    const [y, mon, d] = task.dateStr.split('-').map(Number);
+    const target = new Date(y, mon - 1, d, h, m, 0, 0);
+    const triggerAtMs = target.getTime();
+
+    if (triggerAtMs <= Date.now()) {
+      return { ok: false, error: 'زمان کار سپری شده است' };
+    }
+
+    const notifId = getTaskReminderId(task.id);
+    const item = {
+      id: notifId,
+      triggerAtMs,
+      title: `یادآوری کار: ${task.title}`,
+      body: `موعد انجام کار درس «${task.courseName || 'عمومی'}» فرا رسیده است.`,
+      url: null,
+      kind: 'task',
+    };
+
+    const p = plugins().ClassAlarms;
+    if (p?.scheduleReminders) {
+      await p.scheduleReminders({ items: [item] });
+    }
+
+    return { ok: true, triggerAtMs };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
+
+export async function cancelTaskReminder(taskId) {
+  try {
+    const notifId = getTaskReminderId(taskId);
+    const p = plugins().ClassAlarms;
+    if (p?.cancelReminders) {
+      await p.cancelReminders({ ids: [notifId] });
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
+
+export function getExamReminderId(examIdOrCourse) {
+  let hash = 0;
+  const str = String(examIdOrCourse || 'exam');
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 31 + str.charCodeAt(i)) & 0x7fffffff;
+  }
+  return 40000 + (hash % 10000);
+}
+
+export async function scheduleExamReminder(exam, leadHours = 2) {
+  if (!exam) return { ok: false };
+  try {
+    let startMs = 0;
+    const rawDate = String(exam.examDate || '').replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+    const dm = rawDate.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+    if (dm) {
+      const jy = parseInt(dm[1], 10);
+      const jm = parseInt(dm[2], 10);
+      const jd = parseInt(dm[3], 10);
+      const d = jalaliToDate(jy, jm, jd);
+      if (d) {
+        let sh = 8;
+        let sm = 30;
+        const rawTime = String(exam.examTime || '').replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+        const tm = [...rawTime.matchAll(/(\d{1,2}):(\d{2})/g)];
+        if (tm.length >= 1) {
+          sh = parseInt(tm[0][1], 10);
+          sm = parseInt(tm[0][2], 10);
+        }
+        const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), sh, sm, 0, 0);
+        startMs = start.getTime();
+      }
+    }
+
+    if (!startMs) return { ok: false, error: 'تاریخ یا ساعت امتحان مشخص نیست' };
+    const triggerAtMs = startMs - (leadHours * 60 * 60 * 1000);
+    if (triggerAtMs <= Date.now()) return { ok: false, error: 'زمان یادآوری سپری شده است' };
+
+    const notifId = getExamReminderId(exam.id || exam.course || exam.code);
+    const item = {
+      id: notifId,
+      triggerAtMs,
+      title: `یادآوری امتحان: ${exam.course || exam.name || 'درس'}`,
+      body: `امتحان شما تا ${toFaDigits(leadHours)} ساعت دیگر برگزار می‌شود.${exam.room ? ` محل: ${exam.room}` : ''}${exam.seat && exam.seat !== '—' ? ` صندلی: ${exam.seat}` : ''}`,
+      url: null,
+      kind: 'exam',
+    };
+
+    const p = plugins().ClassAlarms;
+    if (p?.scheduleReminders) {
+      await p.scheduleReminders({ items: [item] });
+    }
+
+    return { ok: true, triggerAtMs };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
+
+export async function cancelExamReminder(examIdOrCourse) {
+  try {
+    const notifId = getExamReminderId(examIdOrCourse);
+    const p = plugins().ClassAlarms;
+    if (p?.cancelReminders) {
+      await p.cancelReminders({ ids: [notifId] });
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Clock, ChevronUp, ChevronDown, Check } from 'lucide-react';
 import { toFaDigits } from '../utils/faDigits';
@@ -87,7 +88,7 @@ function WheelColumn({ items, selectedValue, onSelect, label }) {
       <div className="relative w-full h-[220px] overflow-hidden my-1 select-none">
         {/* نشانگر ردیف وسط */}
         <div
-          className="absolute inset-x-2 rounded-2xl bg-warning/15 border border-warning/30 pointer-events-none z-0"
+          className="absolute inset-x-2 rounded-2xl bg-primary-soft border border-primary/30 pointer-events-none z-0"
           style={{
             top: `${PADDING_COUNT * ITEM_HEIGHT}px`,
             height: `${ITEM_HEIGHT}px`,
@@ -117,7 +118,7 @@ function WheelColumn({ items, selectedValue, onSelect, label }) {
                 onClick={() => onSelect(val)}
                 className={`snap-center h-[44px] flex items-center justify-center font-mono cursor-pointer transition-all duration-150 ${
                   isSelected
-                    ? 'text-[22px] font-black text-warning scale-110'
+                    ? 'text-[22px] font-black text-primary scale-110'
                     : diff === 1
                       ? 'text-[16px] font-bold text-base-content/60'
                       : 'text-[14px] font-medium text-neutral/40'
@@ -179,10 +180,10 @@ export default function SarvTimePickerModal({
     onClose();
   };
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div className="fixed inset-0 z-[100060] flex items-end sm:items-center justify-center p-0 sm:p-4">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -227,11 +228,11 @@ export default function SarvTimePickerModal({
             <div className="p-3.5 rounded-2xl bg-base-500/10 border border-base-500/25 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-[11.5px] font-bold text-neutral">زمان انتخابی:</span>
-                <span className="px-2 py-0.5 rounded-lg bg-warning/15 text-warning text-[11px] font-black border border-warning/20">
+                <span className="px-2 py-0.5 rounded-lg bg-primary-soft text-primary text-[11px] font-black border border-primary/30">
                   {getTimePeriodLabel(hour)}
                 </span>
               </div>
-              <div className="flex items-center gap-1 font-mono text-[22px] font-black text-warning tracking-wider" dir="ltr">
+              <div className="flex items-center gap-1 font-mono text-[22px] font-black text-primary tracking-wider" dir="ltr">
                 <span>{toFaDigits(hour)}</span>
                 <span className="animate-pulse">:</span>
                 <span>{toFaDigits(minute)}</span>
@@ -253,8 +254,8 @@ export default function SarvTimePickerModal({
                       onClick={() => handleApplyPreset(p.value)}
                       className={`py-1 px-1 rounded-xl text-center border transition-all ${
                         isMatch
-                          ? 'bg-warning text-warning-content border-warning font-black shadow-xs'
-                          : 'bg-base text-base-content border-base-500/30 hover:border-warning/40'
+                          ? 'bg-primary text-primary-content border-primary font-black shadow-xs'
+                          : 'bg-base text-base-content border-base-500/30 hover:border-primary/40'
                       }`}
                     >
                       <span className="block text-[11px] font-mono font-bold" dir="ltr">
@@ -278,7 +279,7 @@ export default function SarvTimePickerModal({
               />
 
               {/* دونقطه جداکننده */}
-              <div className="text-[24px] font-black text-warning/70 pt-6 font-mono select-none">
+              <div className="text-[24px] font-black text-primary/70 pt-6 font-mono select-none">
                 :
               </div>
 
@@ -314,4 +315,7 @@ export default function SarvTimePickerModal({
       )}
     </AnimatePresence>
   );
+
+  if (typeof document === 'undefined') return modalContent;
+  return createPortal(modalContent, document.body);
 }
