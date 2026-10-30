@@ -2,18 +2,20 @@ name: Build & Release Sarvestan
 
 on:
   push:
-    branches: ["main", "master", "dev"]
-    tags: ['v*', '[0-9]*']
+    tags:
+      - 'v*'
   workflow_dispatch:
-  release:
-    types: [published]
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-release:
-    name: Build APKs, Extension & Release
+    name: Build APK, Extension & Release
     runs-on: ubuntu-latest
 
     steps:
@@ -83,45 +85,35 @@ jobs:
           keyPassword=${ANDROID_KEY_PASSWORD}
           EOF
 
-      - name: Build Android Release APKs (Production & Preview)
+      - name: Build Android Release APK
         if: steps.secrets.outputs.has_keystore == 'true'
         working-directory: sarvestan-android/android
         run: |
           for i in 1 2 3; do
-            gradle clean assembleProductionRelease assemblePreviewRelease --no-daemon && exit 0
+            gradle clean assembleRelease --no-daemon && exit 0
             echo "gradle attempt $i failed; retrying..."
             sleep $((i * 15))
           done
           exit 1
 
-      - name: Build Android Debug APKs (Fallback, No Secrets)
+      - name: Build Android Debug APK (Fallback, No Secrets)
         if: steps.secrets.outputs.has_keystore == 'false'
         working-directory: sarvestan-android/android
         run: |
           for i in 1 2 3; do
-            gradle clean assembleProductionDebug assemblePreviewDebug --no-daemon && exit 0
+            gradle clean assembleDebug --no-daemon && exit 0
             echo "gradle attempt $i failed; retrying..."
             sleep $((i * 15))
           done
           exit 1
 
-      - name: Collect Android APKs
+      - name: Collect Android APK
         run: |
           mkdir -p dist-artifacts
-          # Production APK
-          if [ -f sarvestan-android/android/app/build/outputs/apk/production/release/app-production-release.apk ]; then
-            cp sarvestan-android/android/app/build/outputs/apk/production/release/app-production-release.apk dist-artifacts/sarvestan.apk
-          elif [ -f sarvestan-android/android/app/build/outputs/apk/production/debug/app-production-debug.apk ]; then
-            cp sarvestan-android/android/app/build/outputs/apk/production/debug/app-production-debug.apk dist-artifacts/sarvestan.apk
-          elif [ -f sarvestan-android/android/app/build/outputs/apk/release/app-release.apk ]; then
+          if [ -f sarvestan-android/android/app/build/outputs/apk/release/app-release.apk ]; then
             cp sarvestan-android/android/app/build/outputs/apk/release/app-release.apk dist-artifacts/sarvestan.apk
-          fi
-
-          # Preview APK
-          if [ -f sarvestan-android/android/app/build/outputs/apk/preview/release/app-preview-release.apk ]; then
-            cp sarvestan-android/android/app/build/outputs/apk/preview/release/app-preview-release.apk dist-artifacts/sarvestan-preview.apk
-          elif [ -f sarvestan-android/android/app/build/outputs/apk/preview/debug/app-preview-debug.apk ]; then
-            cp sarvestan-android/android/app/build/outputs/apk/preview/debug/app-preview-debug.apk dist-artifacts/sarvestan-preview.apk
+          elif [ -f sarvestan-android/android/app/build/outputs/apk/debug/app-debug.apk ]; then
+            cp sarvestan-android/android/app/build/outputs/apk/debug/app-debug.apk dist-artifacts/sarvestan.apk
           fi
           ls -la dist-artifacts/
 
@@ -153,26 +145,18 @@ jobs:
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "title=سروستان نگارش ${VERSION}" >> "$GITHUB_OUTPUT"
-          if [ -f RELEASE_NOTES.md ]; then
-            echo "has_notes=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_notes=false" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release_meta.outputs.tag }}
           name: ${{ steps.release_meta.outputs.title }}
-          body_path: ${{ steps.release_meta.outputs.has_notes == 'true' && 'RELEASE_NOTES.md' || '' }}
-          generate_release_notes: ${{ steps.release_meta.outputs.has_notes == 'false' }}
+          body_path: RELEASE_NOTES.md
           draft: false
           prerelease: false
           make_latest: true
           files: |
             dist-artifacts/sarvestan.apk
-            dist-artifacts/sarvestan-preview.apk
             dist-artifacts/sarvestan-extension.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

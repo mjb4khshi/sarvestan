@@ -23,18 +23,6 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
-    flavorDimensions "mode"
-    productFlavors {
-        production {
-            dimension "mode"
-            applicationId "ir.mjb4khshi.sarvestan.kntu"
-        }
-        preview {
-            dimension "mode"
-            applicationId "ir.mjb4khshi.sarvestan.preview"
-            versionNameSuffix "-preview"
-        }
-    }
     signingConfigs {
         release {
             if (keystorePropsFile.exists()) {
