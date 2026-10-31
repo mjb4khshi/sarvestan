@@ -48,6 +48,7 @@ import {
 import UpdateModal from '../components/UpdateModal';
 import AnimatedQrExportModal from '../components/AnimatedQrExportModal';
 import WebQrScannerModal from '../components/WebQrScannerModal';
+import { exportScheduleToMehestan } from '../services/mehestanBridge';
 import { exportSnapshotBundle, downloadJsonBundle, applyBundleToStorage } from '../services/dataTransfer';
 import ClassAlarmModal from '../components/ClassAlarmModal';
 import CurriculumChartModal from '../components/CurriculumChartModal';
@@ -900,11 +901,7 @@ export default function MoreScreen({
           {/* مهستان — سامانه مودل و کلاس‌های مجازی */}
           <button
             type="button"
-            onClick={() => {
-              if (typeof window !== 'undefined') {
-                window.open('https://mjb4khshi.github.io/sarvestan', '_blank');
-              }
-            }}
+            onClick={() => exportScheduleToMehestan()}
             className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors cursor-pointer group"
           >
             <div className="flex items-start gap-3 min-w-0">

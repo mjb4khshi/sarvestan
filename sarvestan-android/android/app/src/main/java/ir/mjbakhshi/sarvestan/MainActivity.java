@@ -4,6 +4,8 @@ import android.content.Intent;
 import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Bundle;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebView;
 
 import androidx.annotation.NonNull;
 
@@ -33,6 +35,27 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SarvestanIconPlugin.class);
         registerPlugin(SarvestanInstallerPlugin.class);
         super.onCreate(savedInstanceState);
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            WebView webView = getBridge().getWebView();
+            webView.addJavascriptInterface(new Object() {
+                @JavascriptInterface
+                public boolean openMehestan(String deepLinkUrl) {
+                    try {
+                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(deepLinkUrl));
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                        return true;
+                    } catch (Exception e) {
+                        try {
+                            Intent webIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://mjb4khshi.github.io/sarvestan"));
+                            webIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(webIntent);
+                        } catch (Exception ignored) {}
+                        return false;
+                    }
+                }
+            }, "MehestanLauncher");
+        }
         SarvestanIconPlugin.syncShortcuts(this, null);
         handleShortcutIntent(getIntent());
     }

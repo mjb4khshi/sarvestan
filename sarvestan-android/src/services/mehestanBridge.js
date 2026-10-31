@@ -18,11 +18,13 @@ function importSingleTask(item, allCourses) {
   const itemTitle = String(item.title).trim();
   const rawCourseName = item.courseName || '';
   const rawCourseCode = item.courseCode || '';
+  const cleanRaw = cleanCourseName(rawCourseName);
 
   const matchedCourse = allCourses.find((c) => {
     if (!c) return false;
-    if (rawCourseName && c.name && (c.name.includes(rawCourseName) || rawCourseName.includes(c.name))) return true;
-    if (rawCourseCode && c.code && c.code.includes(rawCourseCode)) return true;
+    const cClean = cleanCourseName(c.name || c.title || '');
+    if (cleanRaw && cClean && (cleanRaw === cClean || cleanRaw.includes(cClean) || cClean.includes(cleanRaw))) return true;
+    if (rawCourseCode && c.code && (c.code.includes(rawCourseCode) || rawCourseCode.includes(c.code))) return true;
     return false;
   });
 
@@ -51,13 +53,16 @@ function importSingleTask(item, allCourses) {
     return false;
   });
 
+  // استفاده از عنوان استاندارد درس در سروستان جهت هماهنگی کامل با فیلترها و لیست دروس
+  const finalCourseName = matchedCourse?.name || cleanRaw || '';
+
   const taskPayload = {
     id: existing ? existing.id : undefined,
     externalId: extId,
     title: itemTitle,
-    courseName: rawCourseName || matchedCourse?.name || '',
+    courseName: finalCourseName,
     courseCode: matchedCourse?.code || rawCourseCode || null,
-    color: matchedCourse ? getToneForCourse(matchedCourse) : item.color || 'primary',
+    color: matchedCourse ? getToneForCourse(matchedCourse) : item.color || getToneForCourse(finalCourseName),
     priority: item.priority || 'high',
     status: existing ? existing.status : 'todo',
     dateStr,
@@ -95,6 +100,61 @@ function processIncomingSync(type, payload, allCourses) {
   }
 }
 
+/**
+ * ارسال و همگام‌سازی مستقیم برنامه و رنگ دروس با مهستان از طریق اینترفیس نیتیو یا دیپ‌لینک
+ */
+export function exportScheduleToMehestan() {
+  if (typeof window === 'undefined') return false;
+
+  const snap = getSnapshot();
+  const term = detectCurrentTermId(snap?.courses || []) || '4051';
+  const schedule = getCurrentTermSchedule(term) || [];
+  const courses = (snap?.courses || []).map((c) => ({
+    code: c.code || '',
+    name: c.name || '',
+    color: c.color || getToneForCourse(c),
+    professor: c.professor || '',
+    group: c.group || '',
+    units: c.units || '',
+  }));
+  const scheduleWithColors = schedule.map((s) => ({
+    code: s.code || '',
+    name: s.name || '',
+    color: s.color || getToneForCourse(s),
+    professor: s.professor || '',
+    day: s.day || '',
+    time: s.time || '',
+  }));
+
+  const payload = {
+    schedule: scheduleWithColors,
+    courses,
+    exportedAt: Date.now(),
+  };
+
+  const encoded = encodeURIComponent(JSON.stringify(payload));
+  const deepLink = `mehestan://sync-schedule?data=${encoded}`;
+
+  if (window.MehestanLauncher && typeof window.MehestanLauncher.openMehestan === 'function') {
+    try {
+      const ok = window.MehestanLauncher.openMehestan(deepLink);
+      if (ok) return true;
+    } catch (e) {
+      console.warn('MehestanLauncher error:', e);
+    }
+  }
+
+  try {
+    window.location.href = deepLink;
+    return true;
+  } catch (e) {
+    try {
+      window.open('https://mjb4khshi.github.io/sarvestan', '_blank');
+    } catch {}
+  }
+  return true;
+}
+
 export function initMehestanBridge() {
   if (typeof window === 'undefined') return () => {};
 
@@ -112,7 +172,13 @@ export function initMehestanBridge() {
       ...s,
       color: getToneForCourse(s),
     }));
-    return { snap, term, schedule: scheduleWithColors, courses };
+    const combined = [...scheduleWithColors];
+    courses.forEach((c) => {
+      if (!combined.some((x) => x.name === c.name || (x.code && x.code === c.code))) {
+        combined.push(c);
+      }
+    });
+    return { snap, term, schedule: scheduleWithColors, courses: combined };
   };
 
   const broadcastData = () => {
@@ -173,6 +239,10 @@ export function initMehestanBridge() {
   const handleDeepLinkString = (rawUri) => {
     if (!rawUri || typeof rawUri !== 'string') return;
     try {
+      if (rawUri.includes('export-schedule')) {
+        exportScheduleToMehestan();
+        return;
+      }
       let rawData = null;
       if (rawUri.includes('data=')) {
         const parts = rawUri.split('data=');
