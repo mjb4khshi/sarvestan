@@ -34,6 +34,7 @@ import BatBackground from './components/BatBackground';
 import { checkForUpdate, hasDismissedUpdate, dismissUpdate } from './services/updater';
 import { isBatNotifEnabled, scheduleBatNightNotification, initBatWebTimer } from './services/batMode';
 import { rearmIfEnabled } from './services/classAlarms';
+import { initMehestanBridge } from './services/mehestanBridge';
 
 const TITLES = {
   schedule: 'برنامه هفتگی',
@@ -154,13 +155,15 @@ function Shell() {
     return () => window.removeEventListener('sarvShortcut', onShortcut);
   }, []);
 
-  // راه‌اندازی و بررسی زمان‌بندی اعلان شبانه بت‌سیگنال (ساعت ۱۱ شب)
+  // راه‌اندازی و بررسی زمان‌بندی اعلان شبانه بت‌سیگنال (ساعت ۱۱ شب) و اتصال به مهستان
   useEffect(() => {
+    const cleanupMehestan = initMehestanBridge();
     if (isBatNotifEnabled()) {
       scheduleBatNightNotification().catch(() => {});
       initBatWebTimer();
     }
     rearmIfEnabled();
+    return () => cleanupMehestan?.();
   }, []);
 
   // مدیریت رویداد دکمه فیزیکی یا ژست بازگشت (Back) اندروید
