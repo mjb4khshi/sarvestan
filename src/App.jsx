@@ -35,6 +35,7 @@ import BatBackground from './components/BatBackground';
 import { checkForUpdate, hasDismissedUpdate, dismissUpdate } from './services/updater';
 import { isBatNotifEnabled, scheduleBatNightNotification, initBatWebTimer } from './services/batMode';
 import { initExtensionBridge, isBehestanOverlay } from './services/extensionBridge';
+import { initMehestanBridge } from './services/mehestanBridge';
 import { isExtensionRuntime } from './services/extensionRuntime';
 import ExtensionConnectGate from './components/ExtensionConnectGate';
 import WebConnectGate from './components/WebConnectGate';
@@ -163,10 +164,12 @@ function Shell() {
   // راه‌اندازی و بررسی زمان‌بندی اعلان شبانه بت‌سیگنال (ساعت ۱۱ شب) و اتصال به افزونه
   useEffect(() => {
     initExtensionBridge();
+    const cleanupMehestan = initMehestanBridge();
     if (isBatNotifEnabled()) {
       scheduleBatNightNotification().catch(() => {});
       initBatWebTimer();
     }
+    return () => cleanupMehestan?.();
   }, []);
 
   // مدیریت رویداد دکمه فیزیکی یا ژست بازگشت (Back) اندروید
@@ -439,17 +442,43 @@ export default function App() {
       );
     }
 
+    // صفحه لندینگ پیج عمومی وب
+    const isLocalhost = typeof window !== 'undefined' && (
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1' ||
+      window.location.hostname.startsWith('192.168.') ||
+      window.location.hostname.startsWith('10.')
+    );
+    if (qs.has('landing')) {
+      return <LandingPage />;
+    }
+
+    const forceApp = qs.has('app') || qs.has('android') || isLocalhost;
+    const isAndroidMode = isNative || forceApp;
+
     // در مرورگر وب لندینگ پیج اختصاصی نمایش داده می‌شود
-    if (!isExtension && !isNative) {
+    if (!isExtension && !isAndroidMode) {
       const isStandalone = typeof window !== 'undefined' && (
         window.matchMedia?.('(display-mode: standalone)')?.matches ||
         window.navigator?.standalone === true
       );
-      if (qs.has('landing') || (!isStandalone && !qs.has('app') && !qs.has('web'))) {
+      if (!isStandalone && !qs.has('web')) {
         return <LandingPage />;
       }
     }
   } catch {}
+
+  const isLocalhost = typeof window !== 'undefined' && (
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname.startsWith('192.168.') ||
+    window.location.hostname.startsWith('10.')
+  );
+  let qsCheck = null;
+  try {
+    qsCheck = new URLSearchParams(window.location.search);
+  } catch {}
+  const isAndroidMode = isNative || isLocalhost || qsCheck?.has('app') || qsCheck?.has('android');
 
   return (
     <ErrorBoundary>
@@ -460,7 +489,7 @@ export default function App() {
           {/* افزونه: هیچ فرم لاگینی نیست — فقط گیت اتصال بی‌رمز از طریق سامانه دانشگاه */}
           {isExtensionRuntime() ? (
             <ExtensionConnectGate />
-          ) : !isNative ? (
+          ) : !isAndroidMode ? (
             <WebConnectGate />
           ) : (
             <LoginGate />
