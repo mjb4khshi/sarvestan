@@ -155,19 +155,51 @@ export function initMehestanBridge() {
     }
   };
 
+  const parseAndApplyPayloadString = (rawJsonString) => {
+    try {
+      if (!rawJsonString) return;
+      const parsed = JSON.parse(rawJsonString);
+      const { courses } = getAllCoursesWithColors();
+      if (Array.isArray(parsed)) {
+        processIncomingSync('batch_tasks', parsed, courses);
+      } else {
+        processIncomingSync('single_task', parsed, courses);
+      }
+    } catch (e) {
+      console.warn('Failed to parse incoming payload string:', e);
+    }
+  };
+
+  const handleDeepLinkString = (rawUri) => {
+    if (!rawUri || typeof rawUri !== 'string') return;
+    try {
+      let rawData = null;
+      if (rawUri.includes('data=')) {
+        const parts = rawUri.split('data=');
+        if (parts.length > 1) {
+          rawData = parts[1].split('&')[0];
+        }
+      } else if (rawUri.includes('import_task=')) {
+        const parts = rawUri.split('import_task=');
+        if (parts.length > 1) {
+          rawData = parts[1].split('&')[0];
+        }
+      }
+      if (rawData) {
+        parseAndApplyPayloadString(decodeURIComponent(rawData));
+      }
+    } catch (e) {
+      console.warn('Error handling deep link URI:', e);
+    }
+  };
+
   // استخراج و بررسی پارامترهای URL یا دیپ‌لینک
   const checkUrlImport = () => {
     try {
       const url = new URL(window.location.href);
       const importData = url.searchParams.get('import_task') || url.searchParams.get('data');
       if (importData) {
-        const parsed = JSON.parse(decodeURIComponent(importData));
-        const { courses } = getAllCoursesWithColors();
-        if (Array.isArray(parsed)) {
-          processIncomingSync('batch_tasks', parsed, courses);
-        } else {
-          processIncomingSync('single_task', parsed, courses);
-        }
+        parseAndApplyPayloadString(decodeURIComponent(importData));
         url.searchParams.delete('import_task');
         url.searchParams.delete('data');
         window.history.replaceState({}, '', url.pathname + url.search);
@@ -200,6 +232,11 @@ export function initMehestanBridge() {
     };
     window.addEventListener('storage', handleStorageEvent);
 
+    const handleDeepLinkEvent = (e) => {
+      if (e?.detail) handleDeepLinkString(e.detail);
+    };
+    window.addEventListener('sarvDeepLink', handleDeepLinkEvent);
+
     broadcastData();
     flushLocalStorageQueue();
     checkUrlImport();
@@ -207,6 +244,7 @@ export function initMehestanBridge() {
     return () => {
       if (bc) bc.close();
       window.removeEventListener('storage', handleStorageEvent);
+      window.removeEventListener('sarvDeepLink', handleDeepLinkEvent);
     };
   } catch (err) {
     console.warn('Sarvestan-Mehestan Bridge initialization error:', err);

@@ -80,6 +80,7 @@ public class MainActivity extends BridgeActivity {
         if (intent == null) return;
         Uri data = intent.getData();
         if (data != null && "sarvestan".equalsIgnoreCase(data.getScheme())) {
+            final String fullUri = data.toString();
             String path = data.getPath();
             String host = data.getHost();
             String target = "";
@@ -95,6 +96,22 @@ public class MainActivity extends BridgeActivity {
                 triggerShortcutInWebView(finalTarget, 1000);
                 triggerShortcutInWebView(finalTarget, 2000);
             }
+            // ارسال کامل URI حاوی دیتای همگام‌سازی مهستان به وب‌ویو
+            triggerDeepLinkInWebView(fullUri, 500);
+            triggerDeepLinkInWebView(fullUri, 1200);
+            triggerDeepLinkInWebView(fullUri, 2500);
+        }
+    }
+
+    private void triggerDeepLinkInWebView(String fullUri, int delayMs) {
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            getBridge().getWebView().postDelayed(() -> {
+                String safeUri = fullUri.replace("\\", "\\\\").replace("'", "\\'");
+                getBridge().getWebView().evaluateJavascript(
+                    "window.dispatchEvent(new CustomEvent('sarvDeepLink', { detail: '" + safeUri + "' }));",
+                    null
+                );
+            }, delayMs);
         }
     }
 

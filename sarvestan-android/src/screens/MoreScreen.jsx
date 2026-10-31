@@ -902,7 +902,7 @@ export default function MoreScreen({
             type="button"
             onClick={() => {
               if (typeof window !== 'undefined') {
-                window.open('http://localhost:5180/', '_blank');
+                window.open('https://mjb4khshi.github.io/sarvestan', '_blank');
               }
             }}
             className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors cursor-pointer group"
