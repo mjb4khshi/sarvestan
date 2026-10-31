@@ -100,7 +100,7 @@ import { getViewModel } from '../data/viewModel';
 import { useSarvestanData } from '../hooks/useSarvestanData';
 import { useTheme } from '../context/ThemeContext';
 import SessionPanel from '../components/SessionPanel';
-import { toFaDigits, formatLastSync, getLastSyncTimestamp } from '../utils/faDigits';
+import { toFaDigits, formatLastSync, getLastSyncTimestamp, cleanPersianText } from '../utils/faDigits';
 import { getGpaStatusBadge } from '../utils/gpaBadge';
 import {
   renderScheduleImage,
@@ -769,9 +769,9 @@ export default function MoreScreen({
           </p>
           <p className="text-[10.5px] text-neutral truncate mt-0.5">
             {[
-              STUDENT.college,
-              STUDENT.major && !String(STUDENT.college || '').includes(STUDENT.major) ? STUDENT.major : null,
-              STUDENT.level,
+              cleanPersianText(STUDENT.college),
+              STUDENT.major && !String(STUDENT.college || '').includes(STUDENT.major) ? cleanPersianText(STUDENT.major) : null,
+              cleanPersianText(STUDENT.level),
             ].filter(Boolean).join(' · ') || '—'}
           </p>
         </div>
@@ -897,6 +897,44 @@ export default function MoreScreen({
       <section className="space-y-1.5">
         <h3 className="text-[12.5px] font-bold text-neutral px-1">خدمات و وضعیت آموزشی</h3>
         <div className="sarv-card overflow-hidden divide-y divide-base-500/30">
+          {/* مهستان — سامانه مودل و کلاس‌های مجازی */}
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                window.open('http://localhost:5180/', '_blank');
+              }
+            }}
+            className="w-full flex items-center justify-between gap-3 p-3.5 text-right hover:bg-base-500/25 active:bg-base-500/40 transition-colors cursor-pointer group"
+          >
+            <div className="flex items-start gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-primary-soft text-primary border border-primary-soft mt-0.5 group-hover:scale-105 transition-transform">
+                <svg
+                  viewBox="0 0 261.778 284.888"
+                  className="w-5 h-5 drop-shadow-xs"
+                  style={{ fill: 'currentColor' }}
+                  aria-label="مهستان"
+                >
+                  <path
+                    d="M249.915,219.637A142.574,142.574,0,0,1,9.144,229.3a10.687,10.687,0,0,1,5.2-16.123c53.684-19.214,82.435-41.48,99.12-73.329,17.565-33.528,22.1-70.255,9.816-120.6A10.687,10.687,0,0,1,134.236,6.046,142.566,142.566,0,0,1,249.915,219.637Z"
+                    transform="translate(-7.254 -6.03)"
+                  />
+                </svg>
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-[13.5px] font-bold text-base-content truncate">مهستان</p>
+                  <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-md bg-secondary-soft text-secondary border border-secondary-soft shrink-0 whitespace-nowrap">
+                    سامانه مودل و تکالیف
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-neutral mt-0.5">
+                  تکالیف آنلاین، کوییزها، نمرات و ارتباط مستقیم کلاسی مودل
+                </p>
+              </div>
+            </div>
+            <ChevronLeft className="w-4 h-4 text-neutral shrink-0 mt-2" />
+          </button>
           {/* متن برای هوش مصنوعی (مشاوره تحصیلی) */}
           <button
             type="button"

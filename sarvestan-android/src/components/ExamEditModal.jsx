@@ -33,12 +33,14 @@ function parseExamTime(timeStr) {
 export default function ExamEditModal({
   isOpen,
   exam = null,
+  initialExam = null,
   courses = [],
   onClose,
   onSave,
   onDelete,
 }) {
-  const isEditing = Boolean(exam && (exam.id || exam.course || exam.name || exam.code));
+  const actualExam = exam || initialExam;
+  const isEditing = Boolean(actualExam && (actualExam.id || actualExam.course || actualExam.name || actualExam.code));
 
   const [category, setCategory] = useState('final');
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
@@ -66,17 +68,17 @@ export default function ExamEditModal({
       setConfirmDelete(false);
       setCategoryDropdownOpen(false);
       setErrorMsg('');
-      if (exam) {
-        setCategory(exam.category || exam.examType || 'final');
-        setColor(exam.color || 'primary');
-        setCourseName(exam.course || exam.name || '');
-        setCode(exam.code || '');
-        setProfessor(exam.instructor || exam.professor || '');
-        setUnits(exam.unit || exam.units || 3);
-        setExamDate(exam.examDate && exam.examDate !== 'ـ' ? exam.examDate : '1404/03/20');
-        setExamTime(exam.examTime && exam.examTime !== 'ـ' ? exam.examTime : '08:30-10:30');
-        setRoom(exam.room || exam.hall || '');
-        setSeat(exam.seat || '—');
+      if (actualExam) {
+        setCategory(actualExam.category || actualExam.examType || 'final');
+        setColor(actualExam.color || 'primary');
+        setCourseName(actualExam.course || actualExam.name || '');
+        setCode(actualExam.code || '');
+        setProfessor(actualExam.instructor || actualExam.professor || '');
+        setUnits(actualExam.unit || actualExam.units || 3);
+        setExamDate(actualExam.examDate && actualExam.examDate !== 'ـ' ? actualExam.examDate : '1404/03/20');
+        setExamTime(actualExam.examTime && actualExam.examTime !== 'ـ' ? actualExam.examTime : '08:30-10:30');
+        setRoom(actualExam.room || actualExam.hall || '');
+        setSeat(actualExam.seat || '—');
       } else {
         setCategory('final');
         setColor('primary');
@@ -119,8 +121,8 @@ export default function ExamEditModal({
     }
 
     const resultExam = {
-      ...(exam || {}),
-      id: exam?.id || `custom_exam_${Date.now()}`,
+      ...(actualExam || {}),
+      id: actualExam?.id || `custom_exam_${Date.now()}`,
       course: courseName.trim(),
       name: courseName.trim(),
       code: code.trim(),
@@ -137,11 +139,21 @@ export default function ExamEditModal({
       color,
     };
 
-    onSave(resultExam);
-    if (examReminder) {
-      scheduleExamReminder(resultExam, 2);
-    } else {
-      cancelExamReminder(resultExam.id || resultExam.course || resultExam.code);
+    try {
+      if (typeof onSave === 'function') {
+        onSave(resultExam);
+      }
+    } catch (err) {
+      console.error('[ExamEditModal] onSave error:', err);
+    }
+    try {
+      if (examReminder) {
+        scheduleExamReminder(resultExam, 2)?.catch?.(() => {});
+      } else {
+        cancelExamReminder(resultExam.id || resultExam.course || resultExam.code)?.catch?.(() => {});
+      }
+    } catch (err) {
+      console.warn('[ExamEditModal] reminder scheduling error:', err);
     }
     onClose();
   };
@@ -151,8 +163,8 @@ export default function ExamEditModal({
       setConfirmDelete(true);
       return;
     }
-    if (exam) {
-      onDelete(exam.id || exam.code || exam);
+    if (actualExam) {
+      onDelete(actualExam.id || actualExam.code || actualExam);
     }
     onClose();
   };

@@ -1245,6 +1245,8 @@ export default function StudyScreen({ onNavigate }) {
       addExamToStore(currentTerm, examData);
       setShareToast(`امتحان «${examData.course}» به تقویم اضافه شد`);
     }
+    setIsExamModalOpen(false);
+    setEditingExam(null);
     setStoreVer((v) => v + 1);
     setTimeout(() => setShareToast(''), 3000);
   };
@@ -1252,6 +1254,8 @@ export default function StudyScreen({ onNavigate }) {
   const handleDeleteExam = (examIdOrObj) => {
     const currentTerm = resolveCurrentTermId();
     deleteExamFromStore(currentTerm, examIdOrObj);
+    setIsExamModalOpen(false);
+    setEditingExam(null);
     setStoreVer((v) => v + 1);
     setShareToast('امتحان از تقویم حذف شد');
     setTimeout(() => setShareToast(''), 3000);

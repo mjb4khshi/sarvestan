@@ -102,3 +102,19 @@ export function toPersianCourseName(name) {
     .trim();
 }
 
+/**
+ * اصلاح حروف عربی (ي، ى، ك) به فارسی استاندارد و پاکسازی ارقام و فاصله‌ها
+ */
+export function cleanPersianText(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/[\u064A\u0649\u06D2]/g, 'ی')
+    .replace(/\u0643/g, 'ک')
+    .replace(/\u0629/g, 'ه')
+    .replace(/[\u0660-\u0669]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d.charCodeAt(0) - 0x0660])
+    .replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)])
+    .replace(/[\u200B-\u200D\uFEFF]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+

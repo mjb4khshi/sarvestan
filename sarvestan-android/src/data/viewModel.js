@@ -12,7 +12,7 @@ import {
 } from '../services/behestan/store.js';
 import { termIdToLabel, detectCurrentTermId, isProjectCourse, isInternshipCourse } from '../services/behestan/parsers.js';
 import { resolveTotalDegreeCredits, buildCurriculumState } from '../services/curriculumEngine.js';
-import { toFaDigits, toFaDigits as faDigits } from '../utils/faDigits.js';
+import { toFaDigits, toFaDigits as faDigits, cleanPersianText } from '../utils/faDigits.js';
 import { simplifyRoomName, formatRoomTag } from '../utils/roomUtils.js';
 import { getStudentId, getSelectedUniversity } from '../services/behestan/session.js';
 import devDataset from './devDatasetLoader.js';
@@ -640,13 +640,13 @@ function buildViewModel() {
   return {
     live: true,
     student: {
-      fullName,
+      fullName: cleanPersianText(fullName),
       studentId: resolvedStudentId ? faDigits(resolvedStudentId) : '',
-      college,
-      major,
-      level,
+      college: cleanPersianText(college),
+      major: cleanPersianText(major),
+      level: cleanPersianText(level),
       term,
-      greeting: fullName ? `سلام ${fullName.split(' ')[0]}` : 'سلام',
+      greeting: fullName ? `سلام ${cleanPersianText(fullName.split(' ')[0])}` : 'سلام',
       photo,
     },
     summary: {
