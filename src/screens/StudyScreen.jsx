@@ -508,7 +508,25 @@ export default function StudyScreen({ onNavigate }) {
       setActivityMap(getDailyActivityMap());
     };
     window.addEventListener('sarvStudyUpdated', handleUpdate);
-    return () => window.removeEventListener('sarvStudyUpdated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('sarvStudyUpdated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
+
+  // شنونده سوییچ مستقیم به تب کارهای درسی هنگام انتقال از مهستان یا میانبر
+  useEffect(() => {
+    const handleOpenKanban = () => {
+      setActiveTab('kanban');
+      setTasks(getStudyTasks());
+    };
+    window.addEventListener('sarvOpenKanban', handleOpenKanban);
+    window.addEventListener('sarvDeepLink', handleOpenKanban);
+    return () => {
+      window.removeEventListener('sarvOpenKanban', handleOpenKanban);
+      window.removeEventListener('sarvDeepLink', handleOpenKanban);
+    };
   }, []);
 
   // بستن مودال‌ها هنگام دکمه بازگشت اندروید

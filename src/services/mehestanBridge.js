@@ -69,7 +69,7 @@ function importSingleTask(item, allCourses) {
     courseCode: matchedCourse?.code || rawCourseCode || null,
     color: matchedCourse ? getToneForCourse(matchedCourse) : item.color || getToneForCourse(finalCourseName),
     priority: item.priority || 'high',
-    status: existing ? existing.status : 'todo',
+    status: 'todo',
     dateStr,
     timeStr,
     source: 'mehestan',

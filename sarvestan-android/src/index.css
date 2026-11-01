@@ -452,6 +452,21 @@ html[data-anim-level="1"] {
 [datatheme="tehran"] .sarv-card,
 [data-theme="tehran"] .sarv-card {
   background: #ffffff !important;
-  border-color: rgba(0, 48, 73, 0.12) !important;
+  border-top-color: rgba(0, 48, 73, 0.12) !important;
+  border-bottom-color: rgba(0, 48, 73, 0.12) !important;
+  border-left-color: rgba(0, 48, 73, 0.12) !important;
   box-shadow: 0 4px 18px -4px rgba(0, 48, 73, 0.08) !important;
 }
+
+/* کارت‌های امضای سروستان با لبه گرد و نوار رنگی ۴ پیکسلی در سمت راست */
+.sarv-card.border-r-4,
+.border-r-4 {
+  border-right-width: 4px !important;
+}
+.sarv-card.border-r-primary,   .border-r-primary   { border-right-color: var(--theme-color-primary, #0066a4) !important; }
+.sarv-card.border-r-success,   .border-r-success   { border-right-color: var(--theme-color-success, #46c93a) !important; }
+.sarv-card.border-r-info,      .border-r-info      { border-right-color: var(--theme-color-info, #00a594) !important; }
+.sarv-card.border-r-secondary, .border-r-secondary { border-right-color: var(--theme-color-secondary, #d88f58) !important; }
+.sarv-card.border-r-accent,    .border-r-accent    { border-right-color: var(--theme-color-accent, #fe28a2) !important; }
+.sarv-card.border-r-warn,      .border-r-warn      { border-right-color: var(--theme-color-warn, #ffba00) !important; }
+.sarv-card.border-r-danger,    .border-r-danger    { border-right-color: var(--theme-color-danger, #ff4757) !important; }
