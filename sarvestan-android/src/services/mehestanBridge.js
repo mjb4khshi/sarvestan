@@ -30,6 +30,8 @@ function importSingleTask(item, allCourses) {
 
   let dateStr = item.dateStr;
   let timeStr = item.timeStr || null;
+  const now = new Date();
+  const todayIso = toLocalDateString(now);
 
   if (item.dueDate) {
     try {
@@ -37,12 +39,15 @@ function importSingleTask(item, allCourses) {
       if (!isNaN(d.getTime())) {
         dateStr = toLocalDateString(d);
         timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        if (d.getTime() < now.getTime()) {
+          dateStr = todayIso;
+        }
       }
     } catch {}
   }
 
   if (!dateStr) {
-    dateStr = toLocalDateString(new Date());
+    dateStr = todayIso;
   }
 
   const existingTasks = getStudyTasks();
@@ -77,14 +82,19 @@ function importSingleTask(item, allCourses) {
 function processIncomingSync(type, payload, allCourses) {
   if (!payload) return;
 
+  let importedCount = 0;
   if (type === 'single_task') {
-    importSingleTask(payload, allCourses);
+    const res = importSingleTask(payload, allCourses);
+    if (res) importedCount++;
   } else if (type === 'batch_tasks' && Array.isArray(payload)) {
-    payload.forEach((t) => importSingleTask(t, allCourses));
+    payload.forEach((t) => {
+      const res = importSingleTask(t, allCourses);
+      if (res) importedCount++;
+    });
   } else if (type === 'full_sync') {
     if (Array.isArray(payload.assignments)) {
       payload.assignments.forEach((a) => {
-        importSingleTask(
+        const res = importSingleTask(
           {
             id: a.id,
             externalId: a.id,
@@ -95,8 +105,18 @@ function processIncomingSync(type, payload, allCourses) {
           },
           allCourses
         );
+        if (res) importedCount++;
       });
     }
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('sarvShortcut', { detail: 'study' }));
+    window.dispatchEvent(new CustomEvent('sarvOpenKanban'));
+    const msg = importedCount > 0
+      ? `${importedCount} تکلیف از مهستان با موفقیت به برنامه درسی افزوده شد.`
+      : 'تکالیف مهستان قبلاً در برنامه درسی ثبت شده‌اند.';
+    window.dispatchEvent(new CustomEvent('sarvToast', { detail: msg }));
   }
 }
 
@@ -247,12 +267,12 @@ export function initMehestanBridge() {
       if (rawUri.includes('data=')) {
         const parts = rawUri.split('data=');
         if (parts.length > 1) {
-          rawData = parts[1].split('&')[0];
+          rawData = parts.slice(1).join('data=');
         }
       } else if (rawUri.includes('import_task=')) {
         const parts = rawUri.split('import_task=');
         if (parts.length > 1) {
-          rawData = parts[1].split('&')[0];
+          rawData = parts.slice(1).join('import_task=');
         }
       }
       if (rawData) {

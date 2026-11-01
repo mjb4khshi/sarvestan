@@ -113,7 +113,11 @@ public class MainActivity extends BridgeActivity {
                 target = host.trim();
             }
             if (!target.isEmpty()) {
-                final String finalTarget = target;
+                String normalizedTarget = target;
+                if (target.contains("task") || target.contains("import") || target.contains("study")) {
+                    normalizedTarget = "study";
+                }
+                final String finalTarget = normalizedTarget;
                 sPendingShortcut = finalTarget;
                 triggerShortcutInWebView(finalTarget, 400);
                 triggerShortcutInWebView(finalTarget, 1000);
@@ -129,11 +133,13 @@ public class MainActivity extends BridgeActivity {
     private void triggerDeepLinkInWebView(String fullUri, int delayMs) {
         if (getBridge() != null && getBridge().getWebView() != null) {
             getBridge().getWebView().postDelayed(() -> {
-                String safeUri = fullUri.replace("\\", "\\\\").replace("'", "\\'");
-                getBridge().getWebView().evaluateJavascript(
-                    "window.dispatchEvent(new CustomEvent('sarvDeepLink', { detail: '" + safeUri + "' }));",
-                    null
-                );
+                try {
+                    String base64Uri = android.util.Base64.encodeToString(fullUri.getBytes("UTF-8"), android.util.Base64.NO_WRAP);
+                    getBridge().getWebView().evaluateJavascript(
+                        "(function(){ try { var u = decodeURIComponent(escape(window.atob('" + base64Uri + "'))); window.dispatchEvent(new CustomEvent('sarvDeepLink', { detail: u })); } catch(e){} })();",
+                        null
+                    );
+                } catch (Exception ignored) {}
             }, delayMs);
         }
     }
