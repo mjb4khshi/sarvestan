@@ -22,28 +22,26 @@ function importSingleTask(item, allCourses) {
   const rawCourseCode = item.courseCode || '';
   const cleanRaw = cleanCourseName(rawCourseName);
 
-  const matchedCourse = allCourses.find((c) => {
+  const matchedCourse = (allCourses || []).find((c) => {
     if (!c) return false;
     const cClean = cleanCourseName(c.name || c.title || '');
     if (cleanRaw && cClean && (cleanRaw === cClean || cleanRaw.includes(cClean) || cClean.includes(cleanRaw))) return true;
-    if (rawCourseCode && c.code && (c.code.includes(rawCourseCode) || rawCourseCode.includes(c.code))) return true;
+    if (rawCourseCode && c.code && (String(c.code).includes(rawCourseCode) || rawCourseCode.includes(String(c.code)))) return true;
     return false;
   });
 
-  let dateStr = item.dateStr;
+  let dateStr = item.dateStr || null;
   let timeStr = item.timeStr || null;
   const now = new Date();
   const todayIso = toLocalDateString(now);
 
-  if (item.dueDate) {
+  const rawDue = item.dueTimestamp || item.dueDate;
+  if (rawDue) {
     try {
-      const d = new Date(item.dueDate);
+      const d = new Date(typeof rawDue === 'number' ? rawDue : rawDue);
       if (!isNaN(d.getTime())) {
         dateStr = toLocalDateString(d);
         timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-        if (d.getTime() < now.getTime()) {
-          dateStr = todayIso;
-        }
       }
     } catch {}
   }
@@ -56,7 +54,7 @@ function importSingleTask(item, allCourses) {
   const extId = item.externalId ? String(item.externalId) : item.id ? String(item.id) : null;
   const existing = existingTasks.find((t) => {
     if (extId && t.externalId === extId) return true;
-    if (t.title === itemTitle && t.dateStr === dateStr) return true;
+    if (t.title === itemTitle) return true;
     return false;
   });
 
@@ -71,7 +69,7 @@ function importSingleTask(item, allCourses) {
     courseCode: matchedCourse?.code || rawCourseCode || null,
     color: matchedCourse ? getToneForCourse(matchedCourse) : item.color || getToneForCourse(finalCourseName),
     priority: item.priority || 'high',
-    status: 'todo',
+    status: existing?.status || item.status || 'todo',
     dateStr,
     timeStr,
     source: 'mehestan',
