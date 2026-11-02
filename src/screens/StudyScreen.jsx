@@ -51,6 +51,7 @@ import {
   Bell,
   CalendarRange,
   Pencil,
+  Hourglass,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { getViewModel, getToneForCourse, getExamsView, jalaliToDate } from '../data/viewModel';
@@ -383,6 +384,7 @@ export default function StudyScreen({ onNavigate }) {
   });
   const [weekOffset, setWeekOffset] = useState(0);
   const [weekSlideDir, setWeekSlideDir] = useState(1);
+  const [weeklyHorizonMode, setWeeklyHorizonMode] = useState('rolling7'); // 'rolling7' | 'calendarWeek'
 
   const handlePrevWeek = () => {
     setWeekSlideDir(-1);
@@ -399,25 +401,43 @@ export default function StudyScreen({ onNavigate }) {
 
   const currentWeekDays = useMemo(() => {
     const d = new Date();
-    const dayFromSaturday = (d.getDay() + 1) % 7;
-    const saturday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - dayFromSaturday + (weekOffset * 7), 12, 0, 0);
-    const dayNames = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه'];
     const res = [];
-    for (let i = 0; i < 7; i++) {
-      const cur = new Date(saturday.getFullYear(), saturday.getMonth(), saturday.getDate() + i, 12, 0, 0);
-      const iso = toLocalDateString(cur);
-      const p = getPersianParts(cur);
-      res.push({
-        isoDate: iso,
-        dayName: dayNames[i],
-        dayNumber: p.day,
-        monthNumber: p.month,
-        isToday: iso === todayIso,
-        dateObj: cur,
-      });
+    if (weeklyHorizonMode === 'rolling7') {
+      const baseDate = new Date(d.getFullYear(), d.getMonth(), d.getDate() + (weekOffset * 7), 12, 0, 0);
+      const jsDayNames = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه', 'شنبه'];
+      for (let i = 0; i < 7; i++) {
+        const cur = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate() + i, 12, 0, 0);
+        const iso = toLocalDateString(cur);
+        const p = getPersianParts(cur);
+        res.push({
+          isoDate: iso,
+          dayName: jsDayNames[cur.getDay()],
+          dayNumber: p.day,
+          monthNumber: p.month,
+          isToday: iso === todayIso,
+          dateObj: cur,
+        });
+      }
+    } else {
+      const dayFromSaturday = (d.getDay() + 1) % 7;
+      const saturday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - dayFromSaturday + (weekOffset * 7), 12, 0, 0);
+      const dayNames = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه'];
+      for (let i = 0; i < 7; i++) {
+        const cur = new Date(saturday.getFullYear(), saturday.getMonth(), saturday.getDate() + i, 12, 0, 0);
+        const iso = toLocalDateString(cur);
+        const p = getPersianParts(cur);
+        res.push({
+          isoDate: iso,
+          dayName: dayNames[i],
+          dayNumber: p.day,
+          monthNumber: p.month,
+          isToday: iso === todayIso,
+          dateObj: cur,
+        });
+      }
     }
     return res;
-  }, [weekOffset, todayIso]);
+  }, [weekOffset, todayIso, weeklyHorizonMode]);
 
   const handleToggleTaskStatus = (task) => {
     triggerHaptic('light');
@@ -453,6 +473,7 @@ export default function StudyScreen({ onNavigate }) {
   const [newTaskDescription, setNewTaskDescription] = useState('');
   const [newTaskSubtasks, setNewTaskSubtasks] = useState([]);
   const [subtaskInputText, setSubtaskInputText] = useState('');
+  const [newTaskEstimatedMinutes, setNewTaskEstimatedMinutes] = useState('');
   const [newTaskReminder, setNewTaskReminder] = useState(false);
   const [taskDatePickerOpen, setTaskDatePickerOpen] = useState(false);
   const [taskTimePickerOpen, setTaskTimePickerOpen] = useState(false);
@@ -917,6 +938,7 @@ export default function StudyScreen({ onNavigate }) {
     setNewTaskDescription('');
     setNewTaskSubtasks([]);
     setSubtaskInputText('');
+    setNewTaskEstimatedMinutes('');
     setNewTaskReminder(false);
     setTaskModalOpen(true);
   };
@@ -933,6 +955,7 @@ export default function StudyScreen({ onNavigate }) {
     setNewTaskDescription(task.description || '');
     setNewTaskSubtasks(Array.isArray(task.subtasks) ? [...task.subtasks] : []);
     setSubtaskInputText('');
+    setNewTaskEstimatedMinutes(task.estimatedMinutes ? String(task.estimatedMinutes) : '');
     setNewTaskReminder(Boolean(task.reminderEnabled));
     setTaskModalOpen(true);
   };
@@ -964,6 +987,8 @@ export default function StudyScreen({ onNavigate }) {
     const matched = coursesList.find((c) => c.name === newTaskCourse);
     const taskDate = newTaskDate || selectedDate || todayIso;
 
+    const taskEstimatedMins = newTaskEstimatedMinutes ? parseInt(newTaskEstimatedMinutes, 10) || null : null;
+
     if (editingTaskId) {
       const updated = {
         id: editingTaskId,
@@ -978,6 +1003,7 @@ export default function StudyScreen({ onNavigate }) {
         scheduledTimeStr: newTaskScheduledTime || null,
         description: newTaskDescription.trim() || null,
         subtasks: newTaskSubtasks,
+        estimatedMinutes: taskEstimatedMins,
         reminderEnabled: Boolean(newTaskReminder && newTaskTime),
       };
       saveStudyTask(updated);
@@ -1001,6 +1027,7 @@ export default function StudyScreen({ onNavigate }) {
         scheduledTimeStr: newTaskScheduledTime || null,
         description: newTaskDescription.trim() || null,
         subtasks: newTaskSubtasks,
+        estimatedMinutes: taskEstimatedMins,
         reminderEnabled: Boolean(newTaskReminder && newTaskTime),
       });
       if (newTaskReminder && newTaskTime && created?.id) {
@@ -1016,6 +1043,7 @@ export default function StudyScreen({ onNavigate }) {
     setNewTaskDescription('');
     setNewTaskSubtasks([]);
     setSubtaskInputText('');
+    setNewTaskEstimatedMinutes('');
     setNewTaskReminder(false);
     setTaskModalOpen(false);
     setTimeout(() => setShareToast(''), 3000);
@@ -1096,12 +1124,15 @@ export default function StudyScreen({ onNavigate }) {
     setSelectedTaskId(task.id);
     setPomoMode('custom');
     setActiveTab('pomo');
+    const mins = Number(task.estimatedMinutes) > 0 ? Number(task.estimatedMinutes) : Math.round(customSecondsLeft / 60) || 30;
+    const totalSec = mins * 60;
+    setCustomSecondsLeft(totalSec);
     const now = Date.now();
-    const end = now + (customSecondsLeft * 1000);
+    const end = now + (totalSec * 1000);
     customTargetEndTimeRef.current = end;
     setCustomRunning(true);
     if (wakeLockEnabled) requestScreenWakeLock();
-    setShareToast(`تایمر برای تسک «${task.title}» آغاز شد`);
+    setShareToast(`تایمر ${toFaDigits(mins)} دقیقه‌ای برای «${task.title}» آغاز شد`);
     setTimeout(() => setShareToast(''), 3000);
   };
 
@@ -2023,7 +2054,11 @@ export default function StudyScreen({ onNavigate }) {
                         transition={{ duration: 0.16, ease: 'easeOut' }}
                       >
                         <span className="text-xs font-black text-base-content block">
-                          {weekOffset === 0
+                          {weeklyHorizonMode === 'rolling7'
+                            ? weekOffset === 0
+                              ? '۷ روز آینده (شناور)'
+                              : `${toFaDigits(Math.abs(weekOffset))} بازه ۷ روزه ${weekOffset > 0 ? 'بعد' : 'قبل'}`
+                            : weekOffset === 0
                             ? 'هفته جاری'
                             : weekOffset === 1
                             ? 'هفته آینده'
@@ -2032,7 +2067,7 @@ export default function StudyScreen({ onNavigate }) {
                             : `${toFaDigits(Math.abs(weekOffset))} هفته ${weekOffset > 0 ? 'بعد' : 'قبل'}`}
                         </span>
                         <span className="text-[10px] text-neutral font-mono">
-                          {toFaDigits(currentWeekDays[0].dayNumber)} تا {toFaDigits(currentWeekDays[6].dayNumber)} ماه
+                          {toFaDigits(currentWeekDays[0]?.dayNumber)} تا {toFaDigits(currentWeekDays[6]?.dayNumber)} ماه
                         </span>
                       </motion.div>
                     </AnimatePresence>
@@ -2055,6 +2090,34 @@ export default function StudyScreen({ onNavigate }) {
                       title="هفته بعد"
                     >
                       <ChevronLeft className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* سوییچر حالت شناور در برابر تقویم هفتگی شنبه تا جمعه */}
+                <div className="flex items-center justify-between gap-2 p-1.5 rounded-xl bg-base-500/15 border border-base-500/25">
+                  <div className="flex items-center gap-1 w-full">
+                    <button
+                      type="button"
+                      onClick={() => setWeeklyHorizonMode('rolling7')}
+                      className={`flex-1 px-2.5 py-1 rounded-lg text-[10.5px] font-bold transition cursor-pointer text-center ${
+                        weeklyHorizonMode === 'rolling7'
+                          ? 'bg-primary text-primary-content shadow-xs font-black'
+                          : 'text-neutral hover:text-base-content'
+                      }`}
+                    >
+                      ۷ روز آینده (شناور)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWeeklyHorizonMode('calendarWeek')}
+                      className={`flex-1 px-2.5 py-1 rounded-lg text-[10.5px] font-bold transition cursor-pointer text-center ${
+                        weeklyHorizonMode === 'calendarWeek'
+                          ? 'bg-primary text-primary-content shadow-xs font-black'
+                          : 'text-neutral hover:text-base-content'
+                      }`}
+                    >
+                      تقویم شنبه تا جمعه
                     </button>
                   </div>
                 </div>
@@ -2142,6 +2205,7 @@ export default function StudyScreen({ onNavigate }) {
                               const isDone = t.status === 'done';
                               const matched = coursesList.find((c) => c.name === t.courseName);
                               const tone = getCourseColor(matched || t.courseName);
+                              const priority = PRIORITY_CONFIG[t.priority] || PRIORITY_CONFIG.medium;
                               return (
                                 <div
                                   key={t.id}
@@ -2160,6 +2224,17 @@ export default function StudyScreen({ onNavigate }) {
                                         onChange={() => handleToggleTaskStatus(t)}
                                         variant="primary"
                                       />
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleCycleTaskPriority(t);
+                                        }}
+                                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded border cursor-pointer shrink-0 transition active:scale-95 ${priority.color}`}
+                                        title="تغییر اولویت"
+                                      >
+                                        {priority.shortLabel}
+                                      </button>
                                       <div className="min-w-0 flex-1 cursor-pointer" onClick={() => handleOpenEditTask(t)}>
                                         <p className={`text-xs font-bold truncate hover:text-primary transition ${isDone ? 'line-through text-neutral' : 'text-base-content'}`}>
                                           {t.title}
@@ -2195,6 +2270,12 @@ export default function StudyScreen({ onNavigate }) {
                                     </span>
 
                                     <div className="flex items-center gap-1.5 flex-wrap">
+                                      {t.estimatedMinutes > 0 && (
+                                        <span className="flex items-center gap-0.5 font-mono text-accent bg-accent/10 px-1.5 py-0.2 rounded-md font-bold" title="مدت زمان تخمینی">
+                                          <Hourglass className="w-3 h-3" />
+                                          <span>{toFaDigits(t.estimatedMinutes)}د</span>
+                                        </span>
+                                      )}
                                       {Array.isArray(t.subtasks) && t.subtasks.length > 0 && (
                                         <span className="flex items-center gap-0.5 text-primary font-mono font-bold">
                                           <ListChecks className="w-3 h-3" />
@@ -2531,6 +2612,12 @@ export default function StudyScreen({ onNavigate }) {
                                         {t.courseName || 'عمومی'}
                                       </span>
                                       <div className="flex items-center gap-1.5 flex-wrap">
+                                        {t.estimatedMinutes > 0 && (
+                                          <span className="flex items-center gap-0.5 font-mono text-accent bg-accent/10 px-1.5 py-0.2 rounded-md font-bold" title="مدت زمان تخمینی">
+                                            <Hourglass className="w-3 h-3" />
+                                            <span>{toFaDigits(t.estimatedMinutes)}د</span>
+                                          </span>
+                                        )}
                                         {t.scheduledDateStr && (
                                           <span className="px-1.5 py-0.2 rounded bg-primary-soft text-primary font-bold">
                                             برنامه: {formatTaskDateShort(t.scheduledDateStr)}
@@ -3812,7 +3899,7 @@ export default function StudyScreen({ onNavigate }) {
                   initial={{ scale: 0.95, opacity: 0, y: 10 }}
                   animate={{ scale: 1, opacity: 1, y: 0 }}
                   exit={{ scale: 0.95, opacity: 0, y: 10 }}
-                  className="w-full max-w-sm sarv-card p-5 border border-base-500/50 shadow-2xl space-y-4"
+                  className="w-full max-w-md max-h-[90vh] overflow-y-auto sarv-card p-4 sm:p-5 border border-base-500/50 shadow-2xl space-y-3.5"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center justify-between pb-2 border-b border-base-500/30">
@@ -3887,11 +3974,11 @@ export default function StudyScreen({ onNavigate }) {
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-0">
                         <button
                           type="button"
                           onClick={() => setTaskDatePickerOpen(true)}
-                          className="w-full p-2 rounded-xl bg-base border border-base-500/35 hover:border-primary/50 text-right flex items-center justify-between transition active:scale-98 cursor-pointer group"
+                          className="w-full min-w-0 p-2 rounded-xl bg-base border border-base-500/35 hover:border-primary/50 text-right flex items-center justify-between gap-1 transition active:scale-98 cursor-pointer group"
                         >
                           <span className="text-xs font-bold text-base-content truncate">
                             {formatTaskDateDisplay(newTaskDate)}
@@ -3901,15 +3988,15 @@ export default function StudyScreen({ onNavigate }) {
                           </span>
                         </button>
 
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 min-w-0">
                           <button
                             type="button"
                             onClick={() => setTaskTimePickerOpen(true)}
-                            className="flex-1 p-2 rounded-xl bg-base border border-base-500/35 text-xs font-bold text-base-content flex items-center justify-between hover:border-primary/50 transition cursor-pointer"
+                            className="flex-1 min-w-0 p-2 rounded-xl bg-base border border-base-500/35 text-xs font-bold text-base-content flex items-center justify-between gap-1 hover:border-primary/50 transition cursor-pointer"
                           >
-                            <span className="flex items-center gap-1.5 truncate">
+                            <span className="flex items-center gap-1 min-w-0 truncate">
                               <Clock className="w-3 h-3 text-primary shrink-0" />
-                              <span>{newTaskTime ? `ساعت ${toFaDigits(newTaskTime)}` : 'ساعت موعد (اختیاری)'}</span>
+                              <span className="truncate">{newTaskTime ? `ساعت ${toFaDigits(newTaskTime)}` : 'ساعت موعد (اختیاری)'}</span>
                             </span>
                             <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-primary-soft text-primary font-bold shrink-0">
                               {newTaskTime ? 'تغییر' : 'ساعت'}
@@ -3947,12 +4034,12 @@ export default function StudyScreen({ onNavigate }) {
                         اگر روز مشخصی برای کار کردن روی این تکلیف در نظر داری، اینجا انتخاب کن تا در لیست کار روزانه همان روز بنشیند.
                       </p>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <div className="flex items-center gap-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-0">
+                        <div className="flex items-center gap-1 min-w-0">
                           <button
                             type="button"
                             onClick={() => setTaskScheduledDatePickerOpen(true)}
-                            className="flex-1 p-2 rounded-xl bg-base border border-base-500/35 hover:border-primary/50 text-right flex items-center justify-between transition active:scale-98 cursor-pointer group"
+                            className="flex-1 min-w-0 p-2 rounded-xl bg-base border border-base-500/35 hover:border-primary/50 text-right flex items-center justify-between gap-1 transition active:scale-98 cursor-pointer group"
                           >
                             <span className="text-xs font-bold text-base-content truncate">
                               {newTaskScheduledDate ? formatTaskDateDisplay(newTaskScheduledDate) : 'انتخاب روز انجام'}
@@ -3977,15 +4064,15 @@ export default function StudyScreen({ onNavigate }) {
                         </div>
 
                         {newTaskScheduledDate && (
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 min-w-0">
                             <button
                               type="button"
                               onClick={() => setTaskScheduledTimePickerOpen(true)}
-                              className="flex-1 p-2 rounded-xl bg-base border border-base-500/35 text-xs font-bold text-base-content flex items-center justify-between hover:border-primary/50 transition cursor-pointer"
+                              className="flex-1 min-w-0 p-2 rounded-xl bg-base border border-base-500/35 text-xs font-bold text-base-content flex items-center justify-between gap-1 hover:border-primary/50 transition cursor-pointer"
                             >
-                              <span className="flex items-center gap-1.5 truncate">
+                              <span className="flex items-center gap-1 min-w-0 truncate">
                                 <Clock className="w-3 h-3 text-primary shrink-0" />
-                                <span>{newTaskScheduledTime ? `ساعت ${toFaDigits(newTaskScheduledTime)}` : 'ساعت کار (اختیاری)'}</span>
+                                <span className="truncate">{newTaskScheduledTime ? `ساعت ${toFaDigits(newTaskScheduledTime)}` : 'ساعت کار (اختیاری)'}</span>
                               </span>
                               <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-primary-soft text-primary font-bold shrink-0">
                                 {newTaskScheduledTime ? 'تغییر' : 'ساعت'}
@@ -4003,6 +4090,70 @@ export default function StudyScreen({ onNavigate }) {
                             )}
                           </div>
                         )}
+                      </div>
+                    </div>
+
+                    {/* فیلد ۳: مدت زمان تخمینی انجام کار */}
+                    <div className="p-3 rounded-2xl bg-base-500/10 border border-base-500/25 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-black text-base-content flex items-center gap-1.5">
+                          <Hourglass className="w-3.5 h-3.5 text-accent" />
+                          <span>مدت زمان تخمینی کار (اختیاری):</span>
+                        </label>
+                        {newTaskEstimatedMinutes && (
+                          <span className="text-[10px] font-bold text-accent font-mono bg-accent/10 px-2 py-0.5 rounded-full">
+                            {toFaDigits(newTaskEstimatedMinutes)} دقیقه
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-neutral leading-relaxed">
+                        با تعیین زمان تخمینی، تایمر تمرکز روی همین مقدار تنظیم شده و با اتمام کار در آمار مطالعه ثبت می‌شود.
+                      </p>
+
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="relative flex-1 min-w-0">
+                          <input
+                            type="number"
+                            min="5"
+                            max="600"
+                            step="5"
+                            value={newTaskEstimatedMinutes}
+                            onChange={(e) => setNewTaskEstimatedMinutes(e.target.value)}
+                            placeholder="مثلاً ۹۰"
+                            className="w-full p-2 pr-2 pl-12 rounded-xl bg-base border border-base-500/35 text-xs text-base-content font-mono outline-none focus:border-primary transition"
+                          />
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-neutral font-bold pointer-events-none">
+                            دقیقه
+                          </span>
+                        </div>
+
+                        {/* چیپ‌های میانبر سریع زمان */}
+                        <div className="flex items-center gap-1 shrink-0 flex-wrap">
+                          {[30, 45, 60, 90, 120].map((mins) => (
+                            <button
+                              key={mins}
+                              type="button"
+                              onClick={() => setNewTaskEstimatedMinutes(String(mins))}
+                              className={`px-2 py-1 rounded-lg text-[10px] font-bold font-mono transition cursor-pointer ${
+                                Number(newTaskEstimatedMinutes) === mins
+                                  ? 'bg-accent text-accent-content font-black shadow-xs'
+                                  : 'bg-base-500/20 text-neutral hover:text-base-content'
+                              }`}
+                            >
+                              {toFaDigits(mins)}د
+                            </button>
+                          ))}
+                          {newTaskEstimatedMinutes && (
+                            <button
+                              type="button"
+                              onClick={() => setNewTaskEstimatedMinutes('')}
+                              className="p-1 rounded-lg text-neutral hover:text-danger hover:bg-danger/10 transition cursor-pointer"
+                              title="حذف زمان تخمینی"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -4160,7 +4311,7 @@ export default function StudyScreen({ onNavigate }) {
                   initial={{ scale: 0.95, opacity: 0, y: 10 }}
                   animate={{ scale: 1, opacity: 1, y: 0 }}
                   exit={{ scale: 0.95, opacity: 0, y: 10 }}
-                  className="w-full max-w-sm sarv-card p-5 border border-base-500/50 shadow-2xl space-y-4"
+                  className="w-full max-w-md max-h-[90vh] overflow-y-auto sarv-card p-4 sm:p-5 border border-base-500/50 shadow-2xl space-y-3.5"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center justify-between pb-2 border-b border-base-500/30">

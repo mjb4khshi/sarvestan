@@ -23,6 +23,7 @@ import {
   Check,
   Bell,
   ListChecks,
+  Hourglass,
 } from 'lucide-react';
 import { getStudyTasks, updateTaskStatus } from '../services/studyPlanner';
 import { toLocalDateString } from '../services/calendarHelper';
@@ -887,6 +888,13 @@ export default function HomeScreen({ onNavigate }) {
                                 <span className="flex items-center gap-0.5 text-primary font-mono font-bold bg-primary-soft px-1.5 py-0.2 rounded-md">
                                   <ListChecks className="w-3 h-3" />
                                   <span>{toFaDigits(t.subtasks.filter((s) => s.completed).length)}/{toFaDigits(t.subtasks.length)}</span>
+                                </span>
+                              )}
+
+                              {t.estimatedMinutes > 0 && (
+                                <span className="flex items-center gap-0.5 font-mono text-[10px] text-accent bg-accent/10 px-1.5 py-0.2 rounded-md font-bold" title="مدت زمان تخمینی">
+                                  <Hourglass className="w-3 h-3" />
+                                  <span>{toFaDigits(t.estimatedMinutes)}د</span>
                                 </span>
                               )}
 
