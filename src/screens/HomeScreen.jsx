@@ -44,7 +44,7 @@ import DashboardCalendar from '../components/DashboardCalendar';
 import DashboardCustomizeModal from '../components/DashboardCustomizeModal';
 import { getDashboardWidgetsConfig } from '../services/dashboardWidgets';
 import BatmanMask from '../components/BatmanMask';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import FeedModal from '../components/FeedModal';
 import ChannelSubscribeModal from '../components/ChannelSubscribeModal';
 import { fetchFeed, getFeedState, subscribeFeed, markPostAsRead } from '../services/feedService';
@@ -1005,39 +1005,50 @@ export default function HomeScreen({ onNavigate }) {
                               <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${expandedHomeSubtasks.has(t.id) ? 'rotate-180 text-primary' : 'text-neutral'}`} />
                             </button>
 
-                            {expandedHomeSubtasks.has(t.id) && (
-                              <div className="space-y-1 pt-1 pr-1 border-r-2 border-base-500/25 mt-1">
-                                {t.subtasks.map((st) => (
-                                  <div
-                                    key={st.id}
-                                    onClick={() => {
-                                      triggerHaptic('light');
-                                      toggleSubtask(t.id, st.id);
-                                      setTasksVer((v) => v + 1);
-                                    }}
-                                    className="flex items-center gap-2 p-1 rounded-lg hover:bg-base-500/15 cursor-pointer transition select-none"
-                                  >
-                                    <SarvCheckbox
-                                      checked={st.completed}
-                                      onChange={() => {
-                                        triggerHaptic('light');
-                                        toggleSubtask(t.id, st.id);
-                                        setTasksVer((v) => v + 1);
-                                      }}
-                                      variant="primary"
-                                    />
-                                    <span className={`text-[10.5px] flex-1 min-w-0 truncate ${st.completed ? 'line-through text-neutral opacity-60' : 'text-base-content'}`}>
-                                      {st.title}
-                                    </span>
-                                    {st.dateStr && (
-                                      <span className="text-[9px] font-mono text-neutral bg-base-500/20 px-1 py-0.2 rounded font-bold shrink-0">
-                                        {formatTaskDateShort(st.dateStr)}
-                                      </span>
-                                    )}
+                            <AnimatePresence initial={false}>
+                              {expandedHomeSubtasks.has(t.id) && (
+                                <motion.div
+                                  key={`home-subtasks-${t.id}`}
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: 'auto', opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  transition={{ duration: 0.22, ease: 'easeInOut' }}
+                                  className="overflow-hidden"
+                                >
+                                  <div className="space-y-1 pt-1 pr-1 border-r-2 border-base-500/25 mt-1">
+                                    {t.subtasks.map((st) => (
+                                      <div
+                                        key={st.id}
+                                        onClick={() => {
+                                          triggerHaptic('light');
+                                          toggleSubtask(t.id, st.id);
+                                          setTasksVer((v) => v + 1);
+                                        }}
+                                        className="flex items-center gap-2 p-1 rounded-lg hover:bg-base-500/15 cursor-pointer transition select-none"
+                                      >
+                                        <SarvCheckbox
+                                          checked={st.completed}
+                                          onChange={() => {
+                                            triggerHaptic('light');
+                                            toggleSubtask(t.id, st.id);
+                                            setTasksVer((v) => v + 1);
+                                          }}
+                                          variant="primary"
+                                        />
+                                        <span className={`text-[10.5px] flex-1 min-w-0 truncate ${st.completed ? 'line-through text-neutral opacity-60' : 'text-base-content'}`}>
+                                          {st.title}
+                                        </span>
+                                        {st.dateStr && (
+                                          <span className="text-[9px] font-mono text-neutral bg-base-500/20 px-1 py-0.2 rounded font-bold shrink-0">
+                                            {formatTaskDateShort(st.dateStr)}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ))}
                                   </div>
-                                ))}
-                              </div>
-                            )}
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
                           </div>
                         )}
                       </div>

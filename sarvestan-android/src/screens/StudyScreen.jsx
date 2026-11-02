@@ -2312,31 +2312,42 @@ export default function StudyScreen({ onNavigate }) {
                                         <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${expandedSubtaskCards.has(t.id) ? 'rotate-180 text-primary' : 'text-neutral'}`} />
                                       </button>
 
-                                      {expandedSubtaskCards.has(t.id) && (
-                                        <div className="space-y-1 pt-1 pr-1 border-r-2 border-base-500/25">
-                                          {t.subtasks.map((st) => (
-                                            <div
-                                              key={st.id}
-                                              onClick={(e) => handleToggleCardSubtask(t.id, st.id, e)}
-                                              className="flex items-center gap-2 p-1 rounded-lg hover:bg-base-500/15 cursor-pointer transition select-none"
-                                            >
-                                              <SarvCheckbox
-                                                checked={st.completed}
-                                                onChange={() => handleToggleCardSubtask(t.id, st.id)}
-                                                variant="primary"
-                                              />
-                                              <span className={`text-[11px] flex-1 min-w-0 truncate ${st.completed ? 'line-through text-neutral opacity-60' : 'text-base-content'}`}>
-                                                {st.title}
-                                              </span>
-                                              {st.dateStr && (
-                                                <span className="text-[9.5px] font-mono text-neutral bg-base-500/25 px-1.5 py-0.2 rounded font-bold shrink-0">
-                                                  {formatTaskDateShort(st.dateStr)}
-                                                </span>
-                                              )}
+                                      <AnimatePresence initial={false}>
+                                        {expandedSubtaskCards.has(t.id) && (
+                                          <motion.div
+                                            key={`kanban-subtasks-${t.id}`}
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: 'auto', opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            transition={{ duration: 0.22, ease: 'easeInOut' }}
+                                            className="overflow-hidden"
+                                          >
+                                            <div className="space-y-1 pt-1 pr-1 border-r-2 border-base-500/25 mt-1">
+                                              {t.subtasks.map((st) => (
+                                                <div
+                                                  key={st.id}
+                                                  onClick={(e) => handleToggleCardSubtask(t.id, st.id, e)}
+                                                  className="flex items-center gap-2 p-1 rounded-lg hover:bg-base-500/15 cursor-pointer transition select-none"
+                                                >
+                                                  <SarvCheckbox
+                                                    checked={st.completed}
+                                                    onChange={() => handleToggleCardSubtask(t.id, st.id)}
+                                                    variant="primary"
+                                                  />
+                                                  <span className={`text-[11px] flex-1 min-w-0 truncate ${st.completed ? 'line-through text-neutral opacity-60' : 'text-base-content'}`}>
+                                                    {st.title}
+                                                  </span>
+                                                  {st.dateStr && (
+                                                    <span className="text-[9.5px] font-mono text-neutral bg-base-500/25 px-1.5 py-0.2 rounded font-bold shrink-0">
+                                                      {formatTaskDateShort(st.dateStr)}
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              ))}
                                             </div>
-                                          ))}
-                                        </div>
-                                      )}
+                                          </motion.div>
+                                        )}
+                                      </AnimatePresence>
                                     </div>
                                   )}
 
@@ -2694,31 +2705,42 @@ export default function StudyScreen({ onNavigate }) {
                                           <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${expandedSubtaskCards.has(t.id) ? 'rotate-180 text-primary' : 'text-neutral'}`} />
                                         </button>
 
-                                        {expandedSubtaskCards.has(t.id) && (
-                                          <div className="space-y-1 pt-1 pr-1 border-r-2 border-base-500/25">
-                                            {t.subtasks.map((st) => (
-                                              <div
-                                                key={st.id}
-                                                onClick={(e) => handleToggleCardSubtask(t.id, st.id, e)}
-                                                className="flex items-center gap-2 p-1 rounded-lg hover:bg-base-500/15 cursor-pointer transition select-none"
-                                              >
-                                                <SarvCheckbox
-                                                  checked={st.completed}
-                                                  onChange={() => handleToggleCardSubtask(t.id, st.id)}
-                                                  variant="primary"
-                                                />
-                                                <span className={`text-[11px] flex-1 min-w-0 truncate ${st.completed ? 'line-through text-neutral opacity-60' : 'text-base-content'}`}>
-                                                  {st.title}
-                                                </span>
-                                                {st.dateStr && (
-                                                  <span className="text-[9.5px] font-mono text-neutral bg-base-500/25 px-1.5 py-0.2 rounded font-bold shrink-0">
-                                                    {formatTaskDateShort(st.dateStr)}
-                                                  </span>
-                                                )}
+                                        <AnimatePresence initial={false}>
+                                          {expandedSubtaskCards.has(t.id) && (
+                                            <motion.div
+                                              key={`weekly-subtasks-${t.id}`}
+                                              initial={{ height: 0, opacity: 0 }}
+                                              animate={{ height: 'auto', opacity: 1 }}
+                                              exit={{ height: 0, opacity: 0 }}
+                                              transition={{ duration: 0.22, ease: 'easeInOut' }}
+                                              className="overflow-hidden"
+                                            >
+                                              <div className="space-y-1 pt-1 pr-1 border-r-2 border-base-500/25 mt-1">
+                                                {t.subtasks.map((st) => (
+                                                  <div
+                                                    key={st.id}
+                                                    onClick={(e) => handleToggleCardSubtask(t.id, st.id, e)}
+                                                    className="flex items-center gap-2 p-1 rounded-lg hover:bg-base-500/15 cursor-pointer transition select-none"
+                                                  >
+                                                    <SarvCheckbox
+                                                      checked={st.completed}
+                                                      onChange={() => handleToggleCardSubtask(t.id, st.id)}
+                                                      variant="primary"
+                                                    />
+                                                    <span className={`text-[11px] flex-1 min-w-0 truncate ${st.completed ? 'line-through text-neutral opacity-60' : 'text-base-content'}`}>
+                                                      {st.title}
+                                                    </span>
+                                                    {st.dateStr && (
+                                                      <span className="text-[9.5px] font-mono text-neutral bg-base-500/25 px-1.5 py-0.2 rounded font-bold shrink-0">
+                                                        {formatTaskDateShort(st.dateStr)}
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                ))}
                                               </div>
-                                            ))}
-                                          </div>
-                                        )}
+                                            </motion.div>
+                                          )}
+                                        </AnimatePresence>
                                       </div>
                                     )}
 
@@ -4349,64 +4371,72 @@ export default function StudyScreen({ onNavigate }) {
 
                       {newTaskSubtasks.length > 0 && (
                         <div className="space-y-1.5 pt-1">
-                          {newTaskSubtasks.map((st) => (
-                            <div
-                              key={st.id}
-                              className="p-2 rounded-xl bg-base border border-base-500/25 flex items-center justify-between gap-2"
-                            >
-                              <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <SarvCheckbox
-                                  checked={st.completed}
-                                  onChange={() => handleToggleModalSubtask(st.id)}
-                                  variant="primary"
-                                />
-                                <span className={`text-xs truncate ${st.completed ? 'line-through text-neutral' : 'text-base-content font-bold'}`}>
-                                  {st.title}
-                                </span>
-                              </div>
+                          <AnimatePresence initial={false}>
+                            {newTaskSubtasks.map((st) => (
+                              <motion.div
+                                key={st.id}
+                                initial={{ opacity: 0, height: 0, scale: 0.96 }}
+                                animate={{ opacity: 1, height: 'auto', scale: 1 }}
+                                exit={{ opacity: 0, height: 0, scale: 0.96 }}
+                                transition={{ duration: 0.18, ease: 'easeOut' }}
+                                className="overflow-hidden"
+                              >
+                                <div className="p-2 rounded-xl bg-base border border-base-500/25 flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                                    <SarvCheckbox
+                                      checked={st.completed}
+                                      onChange={() => handleToggleModalSubtask(st.id)}
+                                      variant="primary"
+                                    />
+                                    <span className={`text-xs truncate ${st.completed ? 'line-through text-neutral' : 'text-base-content font-bold'}`}>
+                                      {st.title}
+                                    </span>
+                                  </div>
 
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSubtaskDatePickerTargetId(st.id);
-                                    setSubtaskDatePickerOpen(true);
-                                  }}
-                                  className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold transition cursor-pointer flex items-center gap-1 ${
-                                    st.dateStr
-                                      ? 'bg-primary-soft text-primary border border-primary/25'
-                                      : 'bg-base-500/20 text-neutral hover:text-base-content'
-                                  }`}
-                                  title="تغییر تاریخ انجام خرده‌کار"
-                                >
-                                  <Clock className="w-2.5 h-2.5" />
-                                  <span>{st.dateStr ? formatTaskDateShort(st.dateStr) : '+ روز انجام'}</span>
-                                </button>
-                                {st.dateStr && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setNewTaskSubtasks((prev) =>
-                                        prev.map((s) => (s.id === st.id ? { ...s, dateStr: null } : s))
-                                      );
-                                    }}
-                                    className="p-0.5 text-neutral hover:text-danger cursor-pointer"
-                                    title="حذف تاریخ این خرده‌کار"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteModalSubtask(st.id)}
-                                  className="p-1 rounded-lg text-neutral hover:text-danger hover:bg-danger/10 transition cursor-pointer"
-                                  title="حذف این خرده‌کار"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSubtaskDatePickerTargetId(st.id);
+                                        setSubtaskDatePickerOpen(true);
+                                      }}
+                                      className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold transition cursor-pointer flex items-center gap-1 ${
+                                        st.dateStr
+                                          ? 'bg-primary-soft text-primary border border-primary/25'
+                                          : 'bg-base-500/20 text-neutral hover:text-base-content'
+                                      }`}
+                                      title="تغییر تاریخ انجام خرده‌کار"
+                                    >
+                                      <Clock className="w-2.5 h-2.5" />
+                                      <span>{st.dateStr ? formatTaskDateShort(st.dateStr) : '+ روز انجام'}</span>
+                                    </button>
+                                    {st.dateStr && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setNewTaskSubtasks((prev) =>
+                                            prev.map((s) => (s.id === st.id ? { ...s, dateStr: null } : s))
+                                          );
+                                        }}
+                                        className="p-0.5 text-neutral hover:text-danger cursor-pointer"
+                                        title="حذف تاریخ این خرده‌کار"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteModalSubtask(st.id)}
+                                      className="p-1 rounded-lg text-neutral hover:text-danger hover:bg-danger/10 transition cursor-pointer"
+                                      title="حذف این خرده‌کار"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            ))}
+                          </AnimatePresence>
                         </div>
                       )}
                     </div>
