@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Download,
@@ -173,7 +173,7 @@ export default function LandingPage() {
             <div className="flex items-center gap-2">
               <span className="font-black text-base tracking-tight text-slate-900">سروستان</span>
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#10b981]/15 text-[#10b981] border border-[#10b981]/30">
-                ۲.۱.۱ تهران
+                ۲.۱.۲ تهران
               </span>
             </div>
           </div>
@@ -182,6 +182,7 @@ export default function LandingPage() {
             <a href="#universities" className="hover:text-slate-900 transition-colors">دانشگاه‌های تحت پوشش</a>
             <a href="#features" className="hover:text-slate-900 transition-colors">امکانات</a>
             <a href="#extension-guide" className="hover:text-slate-900 transition-colors">افزونه و آموزش</a>
+            <a href="#mehestan" className="text-indigo-600 hover:text-indigo-700 transition-colors font-bold">مهستان (مودل)</a>
             <a href="#council" className="hover:text-slate-900 transition-colors">شورای هماهنگی</a>
             <a href="#download" className="hover:text-slate-900 transition-colors">دانلود</a>
           </nav>
@@ -232,7 +233,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto text-center space-y-6">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#10b981]/15 border border-[#10b981]/30 text-xs font-bold text-[#10b981]">
             <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" />
-            <span>سروستانی به گستره تهران • نگارش رسمی ۲.۱.۱ تهران هم‌اکنون در دسترس است</span>
+            <span>سروستانی به گستره تهران • نگارش رسمی ۲.۱.۲ تهران هم‌اکنون در دسترس است</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl md:text-6xl font-black text-slate-900 leading-tight sm:leading-tight tracking-tight">
@@ -311,7 +312,7 @@ export default function LandingPage() {
           <div className="text-center space-y-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#10b981]/15 text-[#10b981] text-xs font-bold border border-[#10b981]/30">
               <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" />
-              <span>پوشش یکپارچه دانشگاهی • نگارش ۲.۱.۱ تهران</span>
+              <span>پوشش یکپارچه دانشگاهی • نگارش ۲.۱.۲ تهران</span>
             </div>
             <h2 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
               سروستانی به گستره تهران
@@ -625,7 +626,7 @@ export default function LandingPage() {
                 </div>
                 <div>
                   <h3 className="text-base font-black text-slate-900">اپلیکیشن اندروید</h3>
-                  <p className="text-xs text-slate-500 mt-1">نسخه رسمی ۲.۱.۱ تهران</p>
+                  <p className="text-xs text-slate-500 mt-1">نسخه رسمی ۲.۱.۲ تهران</p>
                 </div>
                 <ul className="text-xs text-slate-600 space-y-1.5 pt-1">
                   <li className="flex items-center gap-1.5">
@@ -706,6 +707,66 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
+          {/* کارت ویژه اپلیکیشن مهستان (یار سامانه درس و مودل) */}
+          <div id="mehestan" className="mt-8 p-6 sm:p-8 rounded-3xl bg-linear-to-br from-slate-900 via-slate-850 to-indigo-950 text-white border border-indigo-500/30 shadow-xl shadow-indigo-950/40 relative overflow-hidden text-right">
+            <div className="absolute top-0 left-0 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-6 relative z-10">
+              <div className="space-y-3 max-w-2xl">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 font-mono">
+                    اکوسیستم سروستان • مودل دانشگاه
+                  </span>
+                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 font-mono">
+                    نگارش ۱.۰.۰ پایدار
+                  </span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+                  <span>اپلیکیشن همراه مهستان (Mehestan)</span>
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  سامانه همراه اختصاصی برای اتصال به سامانه درس و مودل دانشگاه خواجه نصیرالدین طوسی (KNTU LMS). مدیریت تکالیف، آزمون‌ها و دوره‌ها با همگام‌سازی بلادرنگ دوطرفه با سروستان.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-300 pt-1">
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <span>ورود مستقیم و بدون نیاز به فیلترشکن به مودل</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <span>انتقال تکالیف و ددلاین‌ها به پل برنامه‌ریزی سروستان</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <span>مشاهده فایل‌ها و پی‌دی‌اف تمرین‌ها درون برنامه</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <span>خروجی تقویم استاندارد (ICS) و امضای رسمی</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row lg:flex-col gap-2.5 w-full sm:w-auto lg:w-64 shrink-0">
+                <a
+                  href="https://github.com/mjb4khshi/Mehestan/releases/latest/download/mehestan.apk"
+                  className="w-full py-3.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition active:scale-95"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>دانلود مستقیم mehestan.apk</span>
+                  <span className="text-[10px] opacity-80 font-mono">({toFaDigits('4.9')} MB)</span>
+                </a>
+                <a
+                  href="https://github.com/mjb4khshi/Mehestan/releases/tag/v1.0.0"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 text-xs font-bold flex items-center justify-center gap-1.5 border border-white/10 transition active:scale-95"
+                >
+                  <GithubIcon className="w-3.5 h-3.5 text-indigo-300" />
+                  <span>مخزن و ریلیزهای مهستان</span>
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -738,7 +799,7 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-right">
           <div className="flex items-center gap-2.5">
             <img src="./sarv-logo.png" alt="لوگو" className="w-6 h-6 object-contain" />
-            <span className="font-medium text-slate-700">پروژه آزاد سروستان • نگارش ۲.۱.۱ تهران</span>
+            <span className="font-medium text-slate-700">پروژه آزاد سروستان • نگارش ۲.۱.۲ تهران</span>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-4">
