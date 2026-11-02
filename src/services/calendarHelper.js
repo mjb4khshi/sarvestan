@@ -13,6 +13,27 @@ export function toLocalDateString(d = new Date()) {
 /**
  * تبدیل تاریخ به اجزای تقویم هجری شمسی با Intl
  */
+/**
+ * قالب‌بندی کوتاه تاریخ کار به صورت شمسی (امروز، فردا، یا روز و ماه)
+ */
+export function formatTaskDateShort(isoStr) {
+  if (!isoStr) return 'امروز';
+  const today = toLocalDateString(new Date());
+  if (isoStr === today) return 'امروز';
+  const tomorrow = toLocalDateString(new Date(Date.now() + 86400000));
+  if (isoStr === tomorrow) return 'فردا';
+  const parts = String(isoStr).split('-');
+  const d = parts.length === 3 ? new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0) : new Date();
+  try {
+    return new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+      day: 'numeric',
+      month: 'short',
+    }).format(d);
+  } catch {
+    return toFaDigits(isoStr);
+  }
+}
+
 export function getPersianParts(d = new Date()) {
   try {
     const parts = new Intl.DateTimeFormat('en-US-u-ca-persian', {

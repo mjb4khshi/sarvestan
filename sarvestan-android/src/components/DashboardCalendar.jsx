@@ -340,16 +340,28 @@ export default function DashboardCalendar({ onNavigate, className = '' }) {
                   <span className="w-2" />
                 </div>
 
-                {/* لایه وسط: امضای بصری سررسید و تکالیف */}
+                {/* لایه وسط: امضای بصری سررسید و تکالیف (کپسول‌های چندرنگ تفکیک‌شده و جمع‌وجور) */}
                 {hasDayTasks ? (
-                  <div className="w-full px-1 flex items-center justify-center my-0.5">
-                    <div
-                      className={`w-full h-1.5 rounded-full ${isSelected ? 'bg-white' : (toneColors[taskTone]?.dot || 'bg-primary')} opacity-90 shadow-2xs`}
-                      title={`${toFaDigits(dayTasks.length)} کار/سررسید: ${dayTasks.map((t) => t.title).join('، ')}`}
-                    />
+                  <div
+                    className="flex items-center justify-center gap-1 my-0.5 max-w-[70%] w-full mx-auto"
+                    title={`${toFaDigits(dayTasks.length)} کار/سررسید: ${dayTasks.map((t) => t.title).join('، ')}`}
+                  >
+                    {dayTasks.slice(0, 3).map((t, ti) => {
+                      const tone = getCourseColor(t.courseName) || t.color || 'primary';
+                      const dotBg = isSelected ? 'bg-white' : (toneColors[tone]?.dot || 'bg-primary');
+                      return (
+                        <span
+                          key={t.id || ti}
+                          className={`h-1 flex-1 min-w-[5px] max-w-[12px] rounded-full ${dotBg} opacity-90 shadow-2xs`}
+                        />
+                      );
+                    })}
+                    {dayTasks.length > 3 && (
+                      <span className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white' : 'bg-base-content/60'} shrink-0`} />
+                    )}
                   </div>
                 ) : (
-                  <div className="h-1.5" />
+                  <div className="h-1 my-0.5" />
                 )}
 
                 {/* نقاط رویدادهای روز با رنگ‌های هماهنگ با دروس */}

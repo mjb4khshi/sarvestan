@@ -150,7 +150,14 @@ export function toggleSubtask(taskId, subtaskId) {
       task.updatedAt = Date.now();
       write(STORAGE_KEYS.TASKS, tasks);
       notifyUpdate();
-      return { task, allCompleted: task.subtasks.every((s) => s.completed) };
+
+      const allCompleted = task.subtasks.length > 0 && task.subtasks.every((s) => s.completed);
+      if (allCompleted && task.status !== 'done') {
+        updateTaskStatus(taskId, 'done');
+      } else if (!allCompleted && task.status === 'done') {
+        updateTaskStatus(taskId, 'in_progress', { logSession: false });
+      }
+      return { task, allCompleted };
     }
   }
   return null;

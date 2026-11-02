@@ -479,6 +479,26 @@ export default function StudyScreen({ onNavigate }) {
   const [taskTimePickerOpen, setTaskTimePickerOpen] = useState(false);
   const [taskScheduledDatePickerOpen, setTaskScheduledDatePickerOpen] = useState(false);
   const [taskScheduledTimePickerOpen, setTaskScheduledTimePickerOpen] = useState(false);
+  const [subtaskInputDate, setSubtaskInputDate] = useState('');
+  const [subtaskDatePickerOpen, setSubtaskDatePickerOpen] = useState(false);
+  const [subtaskDatePickerTargetId, setSubtaskDatePickerTargetId] = useState(null); // 'input' or subtaskId
+  const [expandedSubtaskCards, setExpandedSubtaskCards] = useState(new Set());
+
+  const toggleExpandSubtasks = (taskId, e) => {
+    e?.stopPropagation?.();
+    setExpandedSubtaskCards((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  };
+
+  const handleToggleCardSubtask = (taskId, subtaskId, e) => {
+    e?.stopPropagation?.();
+    triggerHaptic('light');
+    toggleSubtask(taskId, subtaskId);
+  };
 
   // وضعیت بازشو/تاشوی ستون انجام‌شده و بخش معوقه در کانبان
   const [isDoneColumnCollapsed, setIsDoneColumnCollapsed] = useState(true);
@@ -938,6 +958,7 @@ export default function StudyScreen({ onNavigate }) {
     setNewTaskDescription('');
     setNewTaskSubtasks([]);
     setSubtaskInputText('');
+    setSubtaskInputDate('');
     setNewTaskEstimatedMinutes('');
     setNewTaskReminder(false);
     setTaskModalOpen(true);
@@ -955,6 +976,7 @@ export default function StudyScreen({ onNavigate }) {
     setNewTaskDescription(task.description || '');
     setNewTaskSubtasks(Array.isArray(task.subtasks) ? [...task.subtasks] : []);
     setSubtaskInputText('');
+    setSubtaskInputDate('');
     setNewTaskEstimatedMinutes(task.estimatedMinutes ? String(task.estimatedMinutes) : '');
     setNewTaskReminder(Boolean(task.reminderEnabled));
     setTaskModalOpen(true);
@@ -966,9 +988,11 @@ export default function StudyScreen({ onNavigate }) {
       id: `st_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       title: subtaskInputText.trim(),
       completed: false,
+      dateStr: subtaskInputDate || null,
     };
     setNewTaskSubtasks((prev) => [...prev, newSt]);
     setSubtaskInputText('');
+    setSubtaskInputDate('');
   };
 
   const handleToggleModalSubtask = (stId) => {
@@ -2264,6 +2288,58 @@ export default function StudyScreen({ onNavigate }) {
                                     </div>
                                   </div>
 
+                                  {/* توضیحات و یادداشت‌های کار در نمای هفتگی */}
+                                  {t.description && (
+                                    <p className="text-[10.5px] text-neutral/85 bg-base-500/15 p-2 rounded-xl leading-relaxed border-r-2 border-primary/40 select-text">
+                                      {t.description}
+                                    </p>
+                                  )}
+
+                                  {/* خرده‌کارها با چک‌باکس تعاملی و حالت جمع‌شونده در نمای هفتگی */}
+                                  {Array.isArray(t.subtasks) && t.subtasks.length > 0 && (
+                                    <div className="pt-1 border-t border-base-500/15 space-y-1">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => toggleExpandSubtasks(t.id, e)}
+                                        className="flex items-center justify-between w-full py-0.5 text-[10.5px] font-bold text-neutral hover:text-base-content transition cursor-pointer select-none"
+                                      >
+                                        <span className="flex items-center gap-1.5">
+                                          <ListChecks className="w-3.5 h-3.5 text-primary" />
+                                          <span className="font-mono text-primary font-bold">
+                                            {toFaDigits(t.subtasks.filter((s) => s.completed).length)} از {toFaDigits(t.subtasks.length)} خرده‌کار
+                                          </span>
+                                        </span>
+                                        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${expandedSubtaskCards.has(t.id) ? 'rotate-180 text-primary' : 'text-neutral'}`} />
+                                      </button>
+
+                                      {expandedSubtaskCards.has(t.id) && (
+                                        <div className="space-y-1 pt-1 pr-1 border-r-2 border-base-500/25">
+                                          {t.subtasks.map((st) => (
+                                            <div
+                                              key={st.id}
+                                              onClick={(e) => handleToggleCardSubtask(t.id, st.id, e)}
+                                              className="flex items-center gap-2 p-1 rounded-lg hover:bg-base-500/15 cursor-pointer transition select-none"
+                                            >
+                                              <SarvCheckbox
+                                                checked={st.completed}
+                                                onChange={() => handleToggleCardSubtask(t.id, st.id)}
+                                                variant="primary"
+                                              />
+                                              <span className={`text-[11px] flex-1 min-w-0 truncate ${st.completed ? 'line-through text-neutral opacity-60' : 'text-base-content'}`}>
+                                                {st.title}
+                                              </span>
+                                              {st.dateStr && (
+                                                <span className="text-[9.5px] font-mono text-neutral bg-base-500/25 px-1.5 py-0.2 rounded font-bold shrink-0">
+                                                  {formatTaskDateShort(st.dateStr)}
+                                                </span>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
                                   <div className="flex items-center justify-between text-[10px] text-neutral pt-1 border-t border-base-500/20 gap-1 flex-wrap">
                                     <span className={`px-1.5 py-0.2 rounded font-bold ${toneClasses[tone] || 'bg-base-500/20 text-neutral'}`}>
                                       {t.courseName || 'عمومی'}
@@ -2594,15 +2670,54 @@ export default function StudyScreen({ onNavigate }) {
                                       </div>
                                     </div>
 
-                                    {/* خرده‌کارها (در صورت وجود) */}
+                                    {/* توضیحات و یادداشت‌های کار در کانبان */}
+                                    {t.description && (
+                                      <p className="text-[10.5px] text-neutral/85 bg-base-500/15 p-2 rounded-xl leading-relaxed border-r-2 border-primary/40 select-text">
+                                        {t.description}
+                                      </p>
+                                    )}
+
+                                    {/* خرده‌کارها با چک‌باکس تعاملی و حالت جمع‌شونده در کانبان */}
                                     {Array.isArray(t.subtasks) && t.subtasks.length > 0 && (
-                                      <div className="flex items-center gap-1.5 pt-1 border-t border-base-500/15 text-[10px] text-neutral">
-                                        <ListChecks className="w-3 h-3 text-primary" />
-                                        <span className="font-bold text-primary font-mono">
-                                          {toFaDigits(t.subtasks.filter((s) => s.completed).length)} از {toFaDigits(t.subtasks.length)} خرده‌کار
-                                        </span>
-                                        {t.description && (
-                                          <span className="truncate max-w-[150px] opacity-75">· {t.description}</span>
+                                      <div className="pt-1 border-t border-base-500/15 space-y-1">
+                                        <button
+                                          type="button"
+                                          onClick={(e) => toggleExpandSubtasks(t.id, e)}
+                                          className="flex items-center justify-between w-full py-0.5 text-[10.5px] font-bold text-neutral hover:text-base-content transition cursor-pointer select-none"
+                                        >
+                                          <span className="flex items-center gap-1.5">
+                                            <ListChecks className="w-3.5 h-3.5 text-primary" />
+                                            <span className="font-mono text-primary font-bold">
+                                              {toFaDigits(t.subtasks.filter((s) => s.completed).length)} از {toFaDigits(t.subtasks.length)} خرده‌کار
+                                            </span>
+                                          </span>
+                                          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${expandedSubtaskCards.has(t.id) ? 'rotate-180 text-primary' : 'text-neutral'}`} />
+                                        </button>
+
+                                        {expandedSubtaskCards.has(t.id) && (
+                                          <div className="space-y-1 pt-1 pr-1 border-r-2 border-base-500/25">
+                                            {t.subtasks.map((st) => (
+                                              <div
+                                                key={st.id}
+                                                onClick={(e) => handleToggleCardSubtask(t.id, st.id, e)}
+                                                className="flex items-center gap-2 p-1 rounded-lg hover:bg-base-500/15 cursor-pointer transition select-none"
+                                              >
+                                                <SarvCheckbox
+                                                  checked={st.completed}
+                                                  onChange={() => handleToggleCardSubtask(t.id, st.id)}
+                                                  variant="primary"
+                                                />
+                                                <span className={`text-[11px] flex-1 min-w-0 truncate ${st.completed ? 'line-through text-neutral opacity-60' : 'text-base-content'}`}>
+                                                  {st.title}
+                                                </span>
+                                                {st.dateStr && (
+                                                  <span className="text-[9.5px] font-mono text-neutral bg-base-500/25 px-1.5 py-0.2 rounded font-bold shrink-0">
+                                                    {formatTaskDateShort(st.dateStr)}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
                                         )}
                                       </div>
                                     )}
@@ -2945,16 +3060,28 @@ export default function StudyScreen({ onNavigate }) {
                             <span className="w-2" />
                           </div>
 
-                          {/* لایه وسط: امضای بصری سررسید و تکالیف */}
+                          {/* لایه وسط: امضای بصری سررسید و تکالیف (کپسول‌های چندرنگ تفکیک‌شده و جمع‌وجور) */}
                           {hasDayTasks ? (
-                            <div className="w-full px-1 flex items-center justify-center my-0.5">
-                              <div
-                                className={`w-full h-1.5 rounded-full ${isSelected ? 'bg-white' : (toneColors[taskTone]?.dot || 'bg-primary')} opacity-90 shadow-2xs`}
-                                title={`${toFaDigits(dayTasks.length)} کار/سررسید: ${dayTasks.map((t) => t.title).join('، ')}`}
-                              />
+                            <div
+                              className="flex items-center justify-center gap-1 my-0.5 max-w-[70%] w-full mx-auto"
+                              title={`${toFaDigits(dayTasks.length)} کار/سررسید: ${dayTasks.map((t) => t.title).join('، ')}`}
+                            >
+                              {dayTasks.slice(0, 3).map((t, ti) => {
+                                const tone = getCourseColor(t.courseName) || t.color || 'primary';
+                                const dotBg = isSelected ? 'bg-white' : (toneColors[tone]?.dot || 'bg-primary');
+                                return (
+                                  <span
+                                    key={t.id || ti}
+                                    className={`h-1 flex-1 min-w-[5px] max-w-[12px] rounded-full ${dotBg} opacity-90 shadow-2xs`}
+                                  />
+                                );
+                              })}
+                              {dayTasks.length > 3 && (
+                                <span className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white' : 'bg-base-content/60'} shrink-0`} />
+                              )}
                             </div>
                           ) : (
-                            <div className="h-1.5" />
+                            <div className="h-1 my-0.5" />
                           )}
 
                           {/* نشانگرهای تفکیک‌شده درس به درس با رنگ و نقطه ویژه */}
@@ -4034,7 +4161,7 @@ export default function StudyScreen({ onNavigate }) {
                         اگر روز مشخصی برای کار کردن روی این تکلیف در نظر داری، اینجا انتخاب کن تا در لیست کار روزانه همان روز بنشیند.
                       </p>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-0">
+                      <div className={`grid gap-2 min-w-0 ${newTaskScheduledDate ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
                         <div className="flex items-center gap-1 min-w-0">
                           <button
                             type="button"
@@ -4171,7 +4298,7 @@ export default function StudyScreen({ onNavigate }) {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
                         <input
                           type="text"
                           value={subtaskInputText}
@@ -4183,8 +4310,34 @@ export default function StudyScreen({ onNavigate }) {
                             }
                           }}
                           placeholder="مثال: حل سوال ۱ و ۲ یا تایپ گزارش..."
-                          className="flex-1 p-2 rounded-xl bg-base border border-base-500/35 text-xs text-base-content outline-none focus:border-primary transition"
+                          className="flex-1 min-w-[140px] p-2 rounded-xl bg-base border border-base-500/35 text-xs text-base-content outline-none focus:border-primary transition"
                         />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSubtaskDatePickerTargetId('input');
+                            setSubtaskDatePickerOpen(true);
+                          }}
+                          className={`px-2 py-2 rounded-xl border text-[10.5px] font-bold flex items-center gap-1 transition cursor-pointer shrink-0 ${
+                            subtaskInputDate
+                              ? 'bg-primary-soft text-primary border-primary/40 font-mono'
+                              : 'bg-base border-base-500/35 text-neutral hover:text-base-content'
+                          }`}
+                          title="تنظیم تاریخ برای این خرده‌کار"
+                        >
+                          <Calendar className="w-3.5 h-3.5 text-primary" />
+                          <span>{subtaskInputDate ? formatTaskDateShort(subtaskInputDate) : 'روز انجام'}</span>
+                        </button>
+                        {subtaskInputDate && (
+                          <button
+                            type="button"
+                            onClick={() => setSubtaskInputDate('')}
+                            className="p-1 rounded-lg text-neutral hover:text-danger cursor-pointer shrink-0"
+                            title="حذف تاریخ انتخابی"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={handleAddSubtask}
@@ -4211,14 +4364,47 @@ export default function StudyScreen({ onNavigate }) {
                                   {st.title}
                                 </span>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteModalSubtask(st.id)}
-                                className="p-1 rounded-lg text-neutral hover:text-danger hover:bg-danger/10 transition cursor-pointer"
-                                title="حذف این خرده‌کار"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
+
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSubtaskDatePickerTargetId(st.id);
+                                    setSubtaskDatePickerOpen(true);
+                                  }}
+                                  className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold transition cursor-pointer flex items-center gap-1 ${
+                                    st.dateStr
+                                      ? 'bg-primary-soft text-primary border border-primary/25'
+                                      : 'bg-base-500/20 text-neutral hover:text-base-content'
+                                  }`}
+                                  title="تغییر تاریخ انجام خرده‌کار"
+                                >
+                                  <Clock className="w-2.5 h-2.5" />
+                                  <span>{st.dateStr ? formatTaskDateShort(st.dateStr) : '+ روز انجام'}</span>
+                                </button>
+                                {st.dateStr && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setNewTaskSubtasks((prev) =>
+                                        prev.map((s) => (s.id === st.id ? { ...s, dateStr: null } : s))
+                                      );
+                                    }}
+                                    className="p-0.5 text-neutral hover:text-danger cursor-pointer"
+                                    title="حذف تاریخ این خرده‌کار"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteModalSubtask(st.id)}
+                                  className="p-1 rounded-lg text-neutral hover:text-danger hover:bg-danger/10 transition cursor-pointer"
+                                  title="حذف این خرده‌کار"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -4633,6 +4819,33 @@ export default function StudyScreen({ onNavigate }) {
           setTaskScheduledTimePickerOpen(false);
           setShareToast(`ساعت ${toFaDigits(newTime)} برای انجام کار ثبت شد`);
           setTimeout(() => setShareToast(''), 2500);
+        }}
+      />
+
+      {/* تقویم نیتیو برای انتخاب تاریخ خرده‌کارها */}
+      <SarvDatePickerModal
+        isOpen={subtaskDatePickerOpen}
+        initialDate={
+          subtaskDatePickerTargetId === 'input'
+            ? subtaskInputDate || todayIso
+            : (newTaskSubtasks.find((s) => s.id === subtaskDatePickerTargetId)?.dateStr || todayIso)
+        }
+        title="انتخاب تاریخ انجام خرده‌کار"
+        subtitle="برنامه‌ریزی مرحله‌ای کار"
+        mode="task"
+        onClose={() => setSubtaskDatePickerOpen(false)}
+        onConfirm={(_, jsDate) => {
+          if (jsDate) {
+            const iso = toLocalDateString(jsDate);
+            if (subtaskDatePickerTargetId === 'input') {
+              setSubtaskInputDate(iso);
+            } else if (subtaskDatePickerTargetId) {
+              setNewTaskSubtasks((prev) =>
+                prev.map((s) => (s.id === subtaskDatePickerTargetId ? { ...s, dateStr: iso } : s))
+              );
+            }
+          }
+          setSubtaskDatePickerOpen(false);
         }}
       />
 

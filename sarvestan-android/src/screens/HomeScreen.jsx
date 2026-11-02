@@ -24,9 +24,10 @@ import {
   Bell,
   ListChecks,
   Hourglass,
+  ChevronDown,
 } from 'lucide-react';
-import { getStudyTasks, updateTaskStatus } from '../services/studyPlanner';
-import { toLocalDateString } from '../services/calendarHelper';
+import { getStudyTasks, updateTaskStatus, toggleSubtask } from '../services/studyPlanner';
+import { toLocalDateString, formatTaskDateShort } from '../services/calendarHelper';
 import { triggerHaptic } from '../services/studyTimerEngine';
 import { cancelTaskReminder } from '../services/classAlarms';
 import { subscribeStore } from '../services/behestan';
@@ -98,6 +99,7 @@ export default function HomeScreen({ onNavigate }) {
   const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
   const [feedFilter, setFeedFilter] = useState('all');
   const [tasksVer, setTasksVer] = useState(0);
+  const [expandedHomeSubtasks, setExpandedHomeSubtasks] = useState(new Set());
 
   useEffect(() => {
     return subscribeStore(() => setTasksVer((v) => v + 1));
@@ -846,79 +848,139 @@ export default function HomeScreen({ onNavigate }) {
                     return (
                       <div
                         key={t.id}
-                        className={`sarv-card p-3 rounded-2xl border transition flex items-center justify-between gap-3 ${
+                        className={`sarv-card p-3 rounded-2xl border transition flex flex-col gap-2 ${
                           isDone
                             ? 'bg-base-500/10 border-base-500/20 opacity-60'
                             : 'border-base-500/40 hover:border-primary/50 shadow-xs'
                         }`}
                       >
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <SarvCheckbox
-                            checked={isDone}
-                            onChange={() => {
-                              triggerHaptic('light');
-                              const nextStatus = isDone ? 'todo' : 'done';
-                              updateTaskStatus(t.id, nextStatus);
-                              if (nextStatus === 'done') {
-                                cancelTaskReminder(t.id);
-                              }
-                              setTasksVer((v) => v + 1);
-                            }}
-                            variant="primary"
-                          />
+                        <div className="flex items-center justify-between gap-3 min-w-0 w-full">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <SarvCheckbox
+                              checked={isDone}
+                              onChange={() => {
+                                triggerHaptic('light');
+                                const nextStatus = isDone ? 'todo' : 'done';
+                                updateTaskStatus(t.id, nextStatus);
+                                if (nextStatus === 'done') {
+                                  cancelTaskReminder(t.id);
+                                }
+                                setTasksVer((v) => v + 1);
+                              }}
+                              variant="primary"
+                            />
 
-                          <div className="min-w-0 flex-1">
-                            <p
-                              className={`text-xs font-bold truncate ${
-                                isDone ? 'line-through text-neutral' : 'text-base-content'
-                              }`}
-                            >
-                              {t.title}
-                            </p>
-                            <div className="flex items-center gap-1.5 mt-1 text-[10px]">
-                              <span
-                                className={`px-1.5 py-0.2 rounded-md font-bold truncate max-w-[120px] ${
-                                  toneClasses[tone] || 'bg-base-500/20 text-neutral'
+                            <div className="min-w-0 flex-1">
+                              <p
+                                className={`text-xs font-bold truncate ${
+                                  isDone ? 'line-through text-neutral' : 'text-base-content'
                                 }`}
                               >
-                                {t.courseName || 'عمومی'}
-                              </span>
-
-                              {Array.isArray(t.subtasks) && t.subtasks.length > 0 && (
-                                <span className="flex items-center gap-0.5 text-primary font-mono font-bold bg-primary-soft px-1.5 py-0.2 rounded-md">
-                                  <ListChecks className="w-3 h-3" />
-                                  <span>{toFaDigits(t.subtasks.filter((s) => s.completed).length)}/{toFaDigits(t.subtasks.length)}</span>
+                                {t.title}
+                              </p>
+                              <div className="flex items-center gap-1.5 mt-1 text-[10px] flex-wrap">
+                                <span
+                                  className={`px-1.5 py-0.2 rounded-md font-bold truncate max-w-[120px] ${
+                                    toneClasses[tone] || 'bg-base-500/20 text-neutral'
+                                  }`}
+                                >
+                                  {t.courseName || 'عمومی'}
                                 </span>
-                              )}
 
-                              {t.estimatedMinutes > 0 && (
-                                <span className="flex items-center gap-0.5 font-mono text-[10px] text-accent bg-accent/10 px-1.5 py-0.2 rounded-md font-bold" title="مدت زمان تخمینی">
-                                  <Hourglass className="w-3 h-3" />
-                                  <span>{toFaDigits(t.estimatedMinutes)}د</span>
-                                </span>
-                              )}
+                                {t.estimatedMinutes > 0 && (
+                                  <span className="flex items-center gap-0.5 font-mono text-[10px] text-accent bg-accent/10 px-1.5 py-0.2 rounded-md font-bold" title="مدت زمان تخمینی">
+                                    <Hourglass className="w-3 h-3" />
+                                    <span>{toFaDigits(t.estimatedMinutes)}د</span>
+                                  </span>
+                                )}
 
-                              {t.timeStr && (
-                                <span className="flex items-center gap-1 font-mono text-[10px] text-primary bg-primary-soft px-1.5 py-0.2 rounded-md">
-                                  <Clock className="w-3 h-3" />
-                                  <span>{toFaDigits(t.timeStr)}</span>
-                                </span>
-                              )}
+                                {t.timeStr && (
+                                  <span className="flex items-center gap-1 font-mono text-[10px] text-primary bg-primary-soft px-1.5 py-0.2 rounded-md">
+                                    <Clock className="w-3 h-3" />
+                                    <span>{toFaDigits(t.timeStr)}</span>
+                                  </span>
+                                )}
 
-                              {t.reminderEnabled && (
-                                <span className="text-primary flex items-center" title="یادآوری فعال">
-                                  <Bell className="w-3 h-3" />
-                                </span>
-                              )}
+                                {t.reminderEnabled && (
+                                  <span className="text-primary flex items-center" title="یادآوری فعال">
+                                    <Bell className="w-3 h-3" />
+                                  </span>
+                                )}
 
-                              {t.priority && t.priority !== 'medium' && (
-                                <span className={`px-1.5 py-0.2 rounded-md font-bold border ${priority.color}`}>
-                                  {priority.shortLabel}
-                                </span>
-                              )}
+                                {t.priority && t.priority !== 'medium' && (
+                                  <span className={`px-1.5 py-0.2 rounded-md font-bold border ${priority.color}`}>
+                                    {priority.shortLabel}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
+
+                        {/* توضیحات در کارت صفحه اصلی */}
+                        {t.description && (
+                          <p className="text-[10px] text-neutral/85 bg-base-500/15 p-1.5 rounded-lg line-clamp-2 leading-relaxed border-r-2 border-primary/40 select-text">
+                            {t.description}
+                          </p>
+                        )}
+
+                        {/* خرده‌کارها با چک‌باکس تعاملی و حالت جمع‌شونده در صفحه اصلی */}
+                        {Array.isArray(t.subtasks) && t.subtasks.length > 0 && (
+                          <div className="w-full pt-1.5 border-t border-base-500/15">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setExpandedHomeSubtasks((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(t.id)) next.delete(t.id);
+                                  else next.add(t.id);
+                                  return next;
+                                });
+                              }}
+                              className="flex items-center justify-between w-full py-0.5 text-[10px] text-neutral hover:text-base-content transition cursor-pointer select-none"
+                            >
+                              <span className="flex items-center gap-1 font-mono text-primary font-bold">
+                                <ListChecks className="w-3 h-3" />
+                                <span>{toFaDigits(t.subtasks.filter((s) => s.completed).length)} از {toFaDigits(t.subtasks.length)} خرده‌کار</span>
+                              </span>
+                              <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${expandedHomeSubtasks.has(t.id) ? 'rotate-180 text-primary' : 'text-neutral'}`} />
+                            </button>
+
+                            {expandedHomeSubtasks.has(t.id) && (
+                              <div className="space-y-1 pt-1 pr-1 border-r-2 border-base-500/25 mt-1">
+                                {t.subtasks.map((st) => (
+                                  <div
+                                    key={st.id}
+                                    onClick={() => {
+                                      triggerHaptic('light');
+                                      toggleSubtask(t.id, st.id);
+                                      setTasksVer((v) => v + 1);
+                                    }}
+                                    className="flex items-center gap-2 p-1 rounded-lg hover:bg-base-500/15 cursor-pointer transition select-none"
+                                  >
+                                    <SarvCheckbox
+                                      checked={st.completed}
+                                      onChange={() => {
+                                        triggerHaptic('light');
+                                        toggleSubtask(t.id, st.id);
+                                        setTasksVer((v) => v + 1);
+                                      }}
+                                      variant="primary"
+                                    />
+                                    <span className={`text-[10.5px] flex-1 min-w-0 truncate ${st.completed ? 'line-through text-neutral opacity-60' : 'text-base-content'}`}>
+                                      {st.title}
+                                    </span>
+                                    {st.dateStr && (
+                                      <span className="text-[9px] font-mono text-neutral bg-base-500/20 px-1 py-0.2 rounded font-bold shrink-0">
+                                        {formatTaskDateShort(st.dateStr)}
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
