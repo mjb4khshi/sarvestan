@@ -134,6 +134,10 @@ function Shell() {
       const target = String(rawTarget || '').toLowerCase();
       if (target === 'schedule') {
         handleNavigate('schedule');
+      } else if (target === 'study' || target === 'tasks' || target === 'kanban') {
+        handleNavigate('study');
+      } else if (target === 'grades') {
+        handleNavigate('grades');
       } else if (target === 'behestan') {
         window.open(getUniversityOrigin() + '/', '_blank');
       } else if (target === 'vc') {

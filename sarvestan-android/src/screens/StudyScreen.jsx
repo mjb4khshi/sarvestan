@@ -228,7 +228,16 @@ export default function StudyScreen({ onNavigate }) {
   const [editingExam, setEditingExam] = useState(null);
   const [isExamModalOpen, setIsExamModalOpen] = useState(false);
 
-  const [activeTab, setActiveTab] = useState('pomo'); // 'pomo' | 'kanban' | 'calendar' | 'stats'
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const pending = sessionStorage.getItem('sarv_study_target_tab');
+      if (pending) {
+        sessionStorage.removeItem('sarv_study_target_tab');
+        return pending;
+      }
+    } catch {}
+    return 'pomo';
+  }); // 'pomo' | 'kanban' | 'calendar' | 'stats'
   const [monthSlideDir, setMonthSlideDir] = useState(1);
   const [tasks, setTasks] = useState(() => getStudyTasks());
   const [sessions, setSessions] = useState(() => getStudySessions());

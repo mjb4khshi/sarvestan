@@ -6,11 +6,13 @@ import { getSnapshot, getCurrentTermSchedule } from './behestan/store';
 import { detectCurrentTermId } from './behestan/parsers';
 import { getStudyTasks, saveStudyTask } from './studyPlanner';
 import { toLocalDateString } from './calendarHelper';
-import { getToneForCourse } from '../data/viewModel';
+import { getToneForCourse, cleanCourseName } from '../data/viewModel';
 
 const SYNC_CHANNEL = 'sarvestan_mehestan_channel';
 const LOCAL_STORAGE_DATA_KEY = 'mehestan_sarvestan_synced_data';
 const SYNC_QUEUE_KEY = 'sarvestan_mehestan_sync_queue';
+
+export { cleanCourseName };
 
 function importSingleTask(item, allCourses) {
   if (!item || !item.title) return null;
@@ -111,11 +113,15 @@ function processIncomingSync(type, payload, allCourses) {
   }
 
   if (typeof window !== 'undefined') {
+    try {
+      sessionStorage.setItem('sarv_study_target_tab', 'kanban');
+    } catch {}
     window.dispatchEvent(new CustomEvent('sarvShortcut', { detail: 'study' }));
     window.dispatchEvent(new CustomEvent('sarvOpenKanban'));
+    window.dispatchEvent(new CustomEvent('sarvStudyUpdated'));
     const msg = importedCount > 0
       ? `${importedCount} تکلیف از مهستان با موفقیت به برنامه درسی افزوده شد.`
-      : 'تکالیف مهستان قبلاً در برنامه درسی ثبت شده‌اند.';
+      : 'تکالیف مهستان در برنامه درسی به‌روزرسانی شدند.';
     window.dispatchEvent(new CustomEvent('sarvToast', { detail: msg }));
   }
 }

@@ -57,7 +57,7 @@ function cleanCourseCode(code) {
     .trim();
 }
 
-function cleanCourseName(name) {
+export function cleanCourseName(name) {
   if (!name) return '';
   return String(name)
     .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
