@@ -47,7 +47,7 @@ export function getPersianDayForOffset(offsetDays = 0) {
 
 export const COURSE_TONES = ['primary', 'info', 'success', 'secondary', 'accent', 'warn', 'danger'];
 
-function cleanCourseCode(code) {
+export function cleanCourseCode(code) {
   if (!code) return '';
   return String(code)
     .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))

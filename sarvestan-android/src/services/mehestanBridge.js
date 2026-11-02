@@ -6,13 +6,19 @@ import { getSnapshot, getCurrentTermSchedule } from './behestan/store';
 import { detectCurrentTermId } from './behestan/parsers';
 import { getStudyTasks, saveStudyTask } from './studyPlanner';
 import { toLocalDateString } from './calendarHelper';
-import { getToneForCourse, cleanCourseName } from '../data/viewModel';
+import { getViewModel, getToneForCourse, cleanCourseName, cleanCourseCode } from '../data/viewModel';
 
 const SYNC_CHANNEL = 'sarvestan_mehestan_channel';
 const LOCAL_STORAGE_DATA_KEY = 'mehestan_sarvestan_synced_data';
 const SYNC_QUEUE_KEY = 'sarvestan_mehestan_sync_queue';
 
-export { cleanCourseName };
+export { cleanCourseName, cleanCourseCode };
+
+function extractDigitsOnly(str) {
+  if (!str) return '';
+  const d = String(str).replace(/\D/g, '');
+  return d.length >= 3 ? d : '';
+}
 
 function importSingleTask(item, allCourses) {
   if (!item || !item.title) return null;
@@ -21,14 +27,49 @@ function importSingleTask(item, allCourses) {
   const rawCourseName = item.courseName || '';
   const rawCourseCode = item.courseCode || '';
   const cleanRaw = cleanCourseName(rawCourseName);
+  const rawCodeClean = cleanCourseCode(rawCourseCode);
+  const itemDigits = extractDigitsOnly(rawCourseCode) || extractDigitsOnly(rawCourseName);
 
-  const matchedCourse = (allCourses || []).find((c) => {
-    if (!c) return false;
-    const cClean = cleanCourseName(c.name || c.title || '');
-    if (cleanRaw && cClean && (cleanRaw === cClean || cleanRaw.includes(cClean) || cClean.includes(cleanRaw))) return true;
-    if (rawCourseCode && c.code && (String(c.code).includes(rawCourseCode) || rawCourseCode.includes(String(c.code)))) return true;
-    return false;
-  });
+  // دریافت لیست زنده و رسمی دروس ترم جاری از سروستان
+  let activeCourses = [];
+  try {
+    const vm = typeof getViewModel === 'function' ? getViewModel() : null;
+    if (Array.isArray(vm?.scheduleCourses) && vm.scheduleCourses.length > 0) {
+      activeCourses = vm.scheduleCourses;
+    }
+  } catch {}
+  if (!activeCourses.length && Array.isArray(allCourses) && allCourses.length > 0) {
+    activeCourses = allCourses;
+  }
+
+  // ۱. تطبیق بر اساس کد درس یا ارقام کد
+  let matchedCourse = null;
+  if (itemDigits) {
+    matchedCourse = activeCourses.find((c) => {
+      const cDigits = extractDigitsOnly(c.code || c.id || '');
+      return cDigits && (cDigits === itemDigits || cDigits.includes(itemDigits) || itemDigits.includes(cDigits));
+    });
+  }
+
+  // ۲. تطبیق بر اساس کد کامل پاکسازی شده
+  if (!matchedCourse && rawCodeClean) {
+    matchedCourse = activeCourses.find((c) => {
+      const cCode = cleanCourseCode(c.code || c.id || '');
+      return cCode && (cCode === rawCodeClean || cCode.includes(rawCodeClean) || rawCodeClean.includes(cCode));
+    });
+  }
+
+  // ۳. تطبیق بر اساس نام درس (برابری کامل، زیررشته یا کلمات کلیدی مشترک نظیر «استاتیک»)
+  if (!matchedCourse && cleanRaw) {
+    matchedCourse = activeCourses.find((c) => {
+      const cClean = cleanCourseName(c.name || c.title || c.course || '');
+      if (!cClean) return false;
+      if (cleanRaw === cClean || cleanRaw.includes(cClean) || cClean.includes(cleanRaw)) return true;
+      const sWords = cClean.split(/\s+/).filter((w) => w.length >= 4);
+      const mWords = cleanRaw.split(/\s+/).filter((w) => w.length >= 4);
+      return sWords.some((sw) => mWords.includes(sw));
+    });
+  }
 
   let dateStr = item.dateStr || null;
   let timeStr = item.timeStr || null;
