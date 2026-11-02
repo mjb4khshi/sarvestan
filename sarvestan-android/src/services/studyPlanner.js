@@ -109,16 +109,51 @@ export function deleteStudyTask(taskId) {
   return tasks;
 }
 
-export function updateTaskStatus(taskId, newStatus) {
+export function updateTaskStatus(taskId, newStatus, options = {}) {
   const tasks = getStudyTasks();
   const task = tasks.find((t) => t.id === taskId);
   if (task) {
+    const prevStatus = task.status;
     task.status = newStatus;
     task.updatedAt = Date.now();
     write(STORAGE_KEYS.TASKS, tasks);
+
+    // در صورت تکمیل تسک، ثبت خودکار زمان در آمار مطالعه (در صورتی که زمان مشخص باشد)
+    if (newStatus === 'done' && prevStatus !== 'done' && options.logSession !== false) {
+      const duration = options.durationMinutes || task.estimatedMinutes || (task.timeSpentSeconds ? Math.round(task.timeSpentSeconds / 60) : 0);
+      if (duration > 0) {
+        logStudySession({
+          courseCode: task.courseCode,
+          courseName: task.courseName,
+          taskId: task.id,
+          taskTitle: task.title,
+          durationMinutes: duration,
+          mode: 'task',
+          color: task.color || 'primary',
+          dateStr: task.dateStr || toLocalDateString(new Date()),
+        });
+      }
+    }
+
     notifyUpdate();
   }
   return task || null;
+}
+
+export function toggleSubtask(taskId, subtaskId) {
+  const tasks = getStudyTasks();
+  const task = tasks.find((t) => t.id === taskId);
+  if (task && Array.isArray(task.subtasks)) {
+    const st = task.subtasks.find((s) => s.id === subtaskId);
+    if (st) {
+      st.completed = !st.completed;
+      task.updatedAt = Date.now();
+      write(STORAGE_KEYS.TASKS, tasks);
+      notifyUpdate();
+      return { task, allCompleted: task.subtasks.every((s) => s.completed) };
+    }
+  }
+  return null;
 }
 
 export function addTimeSpentToTask(taskId, seconds) {

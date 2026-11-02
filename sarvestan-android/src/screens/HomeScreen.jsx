@@ -22,6 +22,7 @@ import {
   Plus,
   Check,
   Bell,
+  ListChecks,
 } from 'lucide-react';
 import { getStudyTasks, updateTaskStatus } from '../services/studyPlanner';
 import { toLocalDateString } from '../services/calendarHelper';
@@ -751,7 +752,7 @@ export default function HomeScreen({ onNavigate }) {
         const todayIso = toLocalDateString(new Date());
         const allTasks = getStudyTasks();
         const todayTasks = allTasks.filter((t) => {
-          const d = t.dateStr || toLocalDateString(new Date(t.createdAt || Date.now()));
+          const d = t.scheduledDateStr || t.dateStr || toLocalDateString(new Date(t.createdAt || Date.now()));
           return d === todayIso;
         });
         const todayPending = todayTasks.filter((t) => t.status !== 'done');
@@ -881,6 +882,13 @@ export default function HomeScreen({ onNavigate }) {
                               >
                                 {t.courseName || 'عمومی'}
                               </span>
+
+                              {Array.isArray(t.subtasks) && t.subtasks.length > 0 && (
+                                <span className="flex items-center gap-0.5 text-primary font-mono font-bold bg-primary-soft px-1.5 py-0.2 rounded-md">
+                                  <ListChecks className="w-3 h-3" />
+                                  <span>{toFaDigits(t.subtasks.filter((s) => s.completed).length)}/{toFaDigits(t.subtasks.length)}</span>
+                                </span>
+                              )}
 
                               {t.timeStr && (
                                 <span className="flex items-center gap-1 font-mono text-[10px] text-primary bg-primary-soft px-1.5 py-0.2 rounded-md">

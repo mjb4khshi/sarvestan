@@ -47,6 +47,7 @@ import {
   CheckSquare,
   ListTodo,
   CalendarCheck,
+  ListChecks,
   Bell,
   CalendarRange,
   Pencil,
@@ -59,6 +60,7 @@ import {
   saveStudyTask,
   deleteStudyTask,
   updateTaskStatus,
+  toggleSubtask,
   getStudySessions,
   logStudySession,
   updateStudySession,
@@ -444,11 +446,34 @@ export default function StudyScreen({ onNavigate }) {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskCourse, setNewTaskCourse] = useState(coursesList[0]?.name || 'عمومی');
   const [newTaskPriority, setNewTaskPriority] = useState('medium');
-  const [newTaskDate, setNewTaskDate] = useState(todayIso);
-  const [newTaskTime, setNewTaskTime] = useState('');
+  const [newTaskDate, setNewTaskDate] = useState(todayIso); // سررسید
+  const [newTaskTime, setNewTaskTime] = useState(''); // ساعت سررسید
+  const [newTaskScheduledDate, setNewTaskScheduledDate] = useState(''); // زمان انجام کار (اختیاری)
+  const [newTaskScheduledTime, setNewTaskScheduledTime] = useState(''); // ساعت انجام کار (اختیاری)
+  const [newTaskDescription, setNewTaskDescription] = useState('');
+  const [newTaskSubtasks, setNewTaskSubtasks] = useState([]);
+  const [subtaskInputText, setSubtaskInputText] = useState('');
   const [newTaskReminder, setNewTaskReminder] = useState(false);
   const [taskDatePickerOpen, setTaskDatePickerOpen] = useState(false);
   const [taskTimePickerOpen, setTaskTimePickerOpen] = useState(false);
+  const [taskScheduledDatePickerOpen, setTaskScheduledDatePickerOpen] = useState(false);
+  const [taskScheduledTimePickerOpen, setTaskScheduledTimePickerOpen] = useState(false);
+
+  // وضعیت بازشو/تاشوی ستون انجام‌شده و بخش معوقه در کانبان
+  const [isDoneColumnCollapsed, setIsDoneColumnCollapsed] = useState(true);
+  const [isOverdueSectionCollapsed, setIsOverdueSectionCollapsed] = useState(false);
+  const [kanbanTimeFilter, setKanbanTimeFilter] = useState('7days'); // '7days' | 'all'
+
+  // محاسبه افق ۷ روزه شناور
+  const next7DaysIso = useMemo(() => {
+    const list = [];
+    const now = new Date();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i, 12, 0, 0);
+      list.push(toLocalDateString(d));
+    }
+    return list;
+  }, [todayIso]);
 
   const tomorrowIso = useMemo(() => {
     const d = new Date();
@@ -887,6 +912,11 @@ export default function StudyScreen({ onNavigate }) {
     setNewTaskPriority('medium');
     setNewTaskDate(defaultDate);
     setNewTaskTime('');
+    setNewTaskScheduledDate('');
+    setNewTaskScheduledTime('');
+    setNewTaskDescription('');
+    setNewTaskSubtasks([]);
+    setSubtaskInputText('');
     setNewTaskReminder(false);
     setTaskModalOpen(true);
   };
@@ -898,8 +928,34 @@ export default function StudyScreen({ onNavigate }) {
     setNewTaskPriority(task.priority || 'medium');
     setNewTaskDate(task.dateStr || todayIso);
     setNewTaskTime(task.timeStr || '');
+    setNewTaskScheduledDate(task.scheduledDateStr || '');
+    setNewTaskScheduledTime(task.scheduledTimeStr || '');
+    setNewTaskDescription(task.description || '');
+    setNewTaskSubtasks(Array.isArray(task.subtasks) ? [...task.subtasks] : []);
+    setSubtaskInputText('');
     setNewTaskReminder(Boolean(task.reminderEnabled));
     setTaskModalOpen(true);
+  };
+
+  const handleAddSubtask = () => {
+    if (!subtaskInputText.trim()) return;
+    const newSt = {
+      id: `st_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      title: subtaskInputText.trim(),
+      completed: false,
+    };
+    setNewTaskSubtasks((prev) => [...prev, newSt]);
+    setSubtaskInputText('');
+  };
+
+  const handleToggleModalSubtask = (stId) => {
+    setNewTaskSubtasks((prev) =>
+      prev.map((s) => (s.id === stId ? { ...s, completed: !s.completed } : s))
+    );
+  };
+
+  const handleDeleteModalSubtask = (stId) => {
+    setNewTaskSubtasks((prev) => prev.filter((s) => s.id !== stId));
   };
 
   const handleSaveTask = (e) => {
@@ -918,6 +974,10 @@ export default function StudyScreen({ onNavigate }) {
         priority: newTaskPriority,
         dateStr: newTaskDate || todayIso,
         timeStr: newTaskTime || null,
+        scheduledDateStr: newTaskScheduledDate || null,
+        scheduledTimeStr: newTaskScheduledTime || null,
+        description: newTaskDescription.trim() || null,
+        subtasks: newTaskSubtasks,
         reminderEnabled: Boolean(newTaskReminder && newTaskTime),
       };
       saveStudyTask(updated);
@@ -937,6 +997,10 @@ export default function StudyScreen({ onNavigate }) {
         status: 'todo',
         dateStr: taskDate,
         timeStr: newTaskTime || null,
+        scheduledDateStr: newTaskScheduledDate || null,
+        scheduledTimeStr: newTaskScheduledTime || null,
+        description: newTaskDescription.trim() || null,
+        subtasks: newTaskSubtasks,
         reminderEnabled: Boolean(newTaskReminder && newTaskTime),
       });
       if (newTaskReminder && newTaskTime && created?.id) {
@@ -947,6 +1011,11 @@ export default function StudyScreen({ onNavigate }) {
     setEditingTaskId(null);
     setNewTaskTitle('');
     setNewTaskTime('');
+    setNewTaskScheduledDate('');
+    setNewTaskScheduledTime('');
+    setNewTaskDescription('');
+    setNewTaskSubtasks([]);
+    setSubtaskInputText('');
     setNewTaskReminder(false);
     setTaskModalOpen(false);
     setTimeout(() => setShareToast(''), 3000);
@@ -2003,10 +2072,11 @@ export default function StudyScreen({ onNavigate }) {
                     >
                   {currentWeekDays.map((day) => {
                     const dayTasks = tasks.filter((t) => {
-                      const d = t.dateStr || toLocalDateString(new Date(t.createdAt || Date.now()));
+                      const d = t.scheduledDateStr || t.dateStr || toLocalDateString(new Date(t.createdAt || Date.now()));
                       return d === day.isoDate;
                     });
                     const pending = dayTasks.filter((t) => t.status !== 'done');
+                    const dayClasses = getClassesForDate(new Date(day.isoDate));
 
                     return (
                       <div
@@ -2043,13 +2113,30 @@ export default function StudyScreen({ onNavigate }) {
                           </button>
                         </div>
 
-                        {/* لیست کارهای روز */}
+                        {/* نوار کپسولی شیک کلاس‌های این روز */}
+                        {dayClasses.length > 0 && (
+                          <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 mb-2 no-scrollbar border-b border-base-500/20">
+                            <span className="text-[9.5px] font-bold text-neutral shrink-0">کلاس‌ها:</span>
+                            {dayClasses.map((uc) => (
+                              <span
+                                key={uc.id}
+                                className={`text-[9.5px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 shrink-0 ${toneClasses[uc.color] || 'bg-base-500/20 text-neutral'}`}
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                                <span>{uc.name}</span>
+                                <span className="font-mono text-[9px] opacity-80">{toFaDigits(uc.time)}</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* لیست کارهای روز با استایل ارتقایافته استاندارد کانبان */}
                         {dayTasks.length === 0 ? (
                           <p className="text-[10.5px] text-neutral py-1.5 text-center opacity-70">
                             بدون برنامه
                           </p>
                         ) : (
-                          <div className="space-y-1.5">
+                          <div className="space-y-2">
                             {dayTasks.map((t) => {
                               const isDone = t.status === 'done';
                               const matched = coursesList.find((c) => c.name === t.courseName);
@@ -2057,44 +2144,79 @@ export default function StudyScreen({ onNavigate }) {
                               return (
                                 <div
                                   key={t.id}
-                                  className={`p-2 rounded-xl flex items-center justify-between gap-2 border ${
+                                  className={`p-2.5 rounded-xl border border-base-500/30 border-r-4 ${
+                                    toneClasses[tone] || 'border-r-primary'
+                                  } ${
                                     isDone
-                                      ? 'bg-base-500/10 border-base-500/20 opacity-60'
-                                      : 'bg-base border-base-500/30 hover:border-primary/40'
-                                  }`}
+                                      ? 'bg-base-500/10 opacity-60'
+                                      : 'bg-base hover:border-primary/40 shadow-xs'
+                                  } space-y-1.5 transition`}
                                 >
-                                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                    <SarvCheckbox
-                                      checked={isDone}
-                                      onChange={() => handleToggleTaskStatus(t)}
-                                      variant="primary"
-                                    />
-                                    <span className={`text-xs font-bold truncate ${isDone ? 'line-through text-neutral' : 'text-base-content'}`}>
-                                      {t.title}
-                                    </span>
-                                    <span className={`text-[9.5px] px-1 py-0.2 rounded font-bold truncate ${toneClasses[tone] || 'bg-base-500/20 text-neutral'}`}>
-                                      {t.courseName || 'عمومی'}
-                                    </span>
-                                  </div>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                      <SarvCheckbox
+                                        checked={isDone}
+                                        onChange={() => handleToggleTaskStatus(t)}
+                                        variant="primary"
+                                      />
+                                      <div className="min-w-0 flex-1 cursor-pointer" onClick={() => handleOpenEditTask(t)}>
+                                        <p className={`text-xs font-bold truncate hover:text-primary transition ${isDone ? 'line-through text-neutral' : 'text-base-content'}`}>
+                                          {t.title}
+                                        </p>
+                                      </div>
+                                    </div>
 
-                                  <div className="flex items-center gap-1 shrink-0">
-                                    {!isDone && (
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      {!isDone && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleStartTaskFocus(t)}
+                                          className="p-1 rounded-lg bg-primary-soft text-primary hover:bg-primary hover:text-primary-content transition cursor-pointer"
+                                          title="تمرکز"
+                                        >
+                                          <Play className="w-3 h-3 fill-current" />
+                                        </button>
+                                      )}
                                       <button
                                         type="button"
-                                        onClick={() => handleStartTaskFocus(t)}
-                                        className="p-1 rounded-lg bg-primary-soft text-primary hover:bg-primary hover:text-primary-content transition cursor-pointer"
-                                        title="تمرکز"
+                                        onClick={() => handleOpenEditTask(t)}
+                                        className="p-1 rounded-lg text-neutral hover:text-base-content transition cursor-pointer"
+                                        title="ویرایش"
                                       >
-                                        <Play className="w-3 h-3 fill-current" />
+                                        <Pencil className="w-3 h-3" />
                                       </button>
-                                    )}
-                                    <button
-                                      type="button"
-                                      onClick={() => handleOpenEditTask(t)}
-                                      className="p-1 rounded-lg text-neutral hover:text-base-content transition cursor-pointer"
-                                    >
-                                      <Pencil className="w-3 h-3" />
-                                    </button>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center justify-between text-[10px] text-neutral pt-1 border-t border-base-500/20 gap-1 flex-wrap">
+                                    <span className={`px-1.5 py-0.2 rounded font-bold ${toneClasses[tone] || 'bg-base-500/20 text-neutral'}`}>
+                                      {t.courseName || 'عمومی'}
+                                    </span>
+
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      {Array.isArray(t.subtasks) && t.subtasks.length > 0 && (
+                                        <span className="flex items-center gap-0.5 text-primary font-mono font-bold">
+                                          <ListChecks className="w-3 h-3" />
+                                          {toFaDigits(t.subtasks.filter((s) => s.completed).length)}/{toFaDigits(t.subtasks.length)}
+                                        </span>
+                                      )}
+                                      {t.scheduledDateStr && (
+                                        <span className="px-1.5 py-0.2 rounded bg-primary-soft text-primary font-bold">
+                                          برنامه: {formatTaskDateShort(t.scheduledDateStr)}
+                                        </span>
+                                      )}
+                                      {t.timeStr && (
+                                        <span className="flex items-center gap-0.5 font-mono text-primary font-bold">
+                                          <Clock className="w-3 h-3" />
+                                          {toFaDigits(t.timeStr)}
+                                        </span>
+                                      )}
+                                      {t.dateStr && (
+                                        <span className="font-mono text-danger font-bold">
+                                          سررسید: {formatTaskDateShort(t.dateStr)}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               );
@@ -2148,43 +2270,151 @@ export default function StudyScreen({ onNavigate }) {
                   </div>
 
                   {/* فیلتر اولویت */}
-                  <div className="flex items-center gap-1.5 text-xs pt-0.5">
-                    <span className="text-[11px] font-bold text-neutral pl-1 shrink-0">اولویت:</span>
-                    <button
-                      type="button"
-                      onClick={() => setKanbanFilterPriority('all')}
-                      className={`px-2.5 py-0.5 rounded-lg text-[10.5px] font-bold transition cursor-pointer ${
-                        kanbanFilterPriority === 'all'
-                          ? 'bg-base-500/40 text-base-content border border-base-500/60'
-                          : 'text-neutral hover:text-base-content'
-                      }`}
-                    >
-                      همه
-                    </button>
-                    {Object.entries(PRIORITY_CONFIG).map(([k, p]) => (
+                  <div className="flex items-center justify-between text-xs pt-0.5 flex-wrap gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-bold text-neutral pl-1 shrink-0">اولویت:</span>
                       <button
-                        key={k}
                         type="button"
-                        onClick={() => setKanbanFilterPriority(k)}
-                        className={`px-2.5 py-0.5 rounded-lg text-[10.5px] font-bold border transition cursor-pointer ${
-                          kanbanFilterPriority === k
-                            ? `${p.color} font-black shadow-xs`
-                            : 'bg-base-500/10 text-neutral border-transparent hover:bg-base-500/20'
+                        onClick={() => setKanbanFilterPriority('all')}
+                        className={`px-2.5 py-0.5 rounded-lg text-[10.5px] font-bold transition cursor-pointer ${
+                          kanbanFilterPriority === 'all'
+                            ? 'bg-base-500/40 text-base-content border border-base-500/60'
+                            : 'text-neutral hover:text-base-content'
                         }`}
                       >
-                        {p.label}
+                        همه
                       </button>
-                    ))}
+                      {Object.entries(PRIORITY_CONFIG).map(([k, p]) => (
+                        <button
+                          key={k}
+                          type="button"
+                          onClick={() => setKanbanFilterPriority(k)}
+                          className={`px-2.5 py-0.5 rounded-lg text-[10.5px] font-bold border transition cursor-pointer ${
+                            kanbanFilterPriority === k
+                              ? `${p.color} font-black shadow-xs`
+                              : 'bg-base-500/10 text-neutral border-transparent hover:bg-base-500/20'
+                          }`}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* فیلتر افق ۷ روز شناور یا همه کارهای ترم */}
+                    <div className="flex items-center gap-1 bg-base-500/15 p-0.5 rounded-xl border border-base-500/25">
+                      <button
+                        type="button"
+                        onClick={() => setKanbanTimeFilter('7days')}
+                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition cursor-pointer ${
+                          kanbanTimeFilter === '7days'
+                            ? 'bg-primary text-primary-content shadow-xs font-black'
+                            : 'text-neutral hover:text-base-content'
+                        }`}
+                      >
+                        ۷ روز آینده
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setKanbanTimeFilter('all')}
+                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition cursor-pointer ${
+                          kanbanTimeFilter === 'all'
+                            ? 'bg-primary text-primary-content shadow-xs font-black'
+                            : 'text-neutral hover:text-base-content'
+                        }`}
+                      >
+                        کل ترم
+                      </button>
+                    </div>
                   </div>
                 </div>
+
+                {/* هشدار تاشوی کارهای معوقه در بالای کانبان */}
+                {overdueTasks.length > 0 && (
+                  <div className="sarv-card p-3 border border-warn/40 bg-warn/10 space-y-2">
+                    <div
+                      onClick={() => setIsOverdueSectionCollapsed(!isOverdueSectionCollapsed)}
+                      className="flex items-center justify-between cursor-pointer select-none"
+                    >
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-warn" />
+                        <span className="text-xs font-black text-base-content">
+                          کارهای معوقه و موعد گذشته ({toFaDigits(overdueTasks.length)})
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRescheduleOverdueToToday(overdueTasks);
+                          }}
+                          className="text-[10px] px-2 py-0.5 rounded-lg bg-warn text-white font-bold cursor-pointer hover:bg-warn/90 active:scale-95 transition"
+                        >
+                          انتقال همه به امروز
+                        </button>
+                        <ChevronDown className={`w-4 h-4 text-neutral transition-transform duration-200 ${isOverdueSectionCollapsed ? '-rotate-90' : ''}`} />
+                      </div>
+                    </div>
+                    {!isOverdueSectionCollapsed && (
+                      <div className="space-y-1.5 pt-1">
+                        {overdueTasks.map((t) => {
+                          const matched = coursesList.find((c) => c.name === t.courseName);
+                          const tone = getCourseColor(matched || t.courseName);
+                          return (
+                            <div
+                              key={t.id}
+                              className="p-2.5 rounded-xl bg-base border border-base-500/30 flex items-center justify-between gap-2"
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                <SarvCheckbox
+                                  checked={false}
+                                  onChange={() => handleToggleTaskStatus(t)}
+                                  variant="warn"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-bold text-base-content truncate cursor-pointer hover:text-primary transition-colors" onClick={() => handleOpenEditTask(t)}>
+                                    {t.title}
+                                  </p>
+                                  <div className="flex items-center gap-1.5 mt-0.5 text-[10px]">
+                                    <span className={`px-1.5 py-0.2 rounded font-bold ${toneClasses[tone] || 'bg-base-500/20 text-neutral'}`}>
+                                      {t.courseName || 'عمومی'}
+                                    </span>
+                                    <span className="text-warn font-mono">
+                                      سررسید: {formatTaskDateShort(t.dateStr)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => saveStudyTask({ ...t, dateStr: todayIso })}
+                                className="text-[10px] px-2 py-1 rounded-lg bg-base-500/20 text-neutral hover:text-base-content transition cursor-pointer"
+                              >
+                                امروز
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* ستون‌های سه‌گانه کانبان (در انتظار انجام، در حال انجام، تکمیل‌شده) */}
                 <div className="space-y-3">
                   {TASK_COLUMNS.map((col) => {
+                    const isDoneCol = col.id === 'done';
                     const colTasks = tasks
                       .filter((t) => t.status === col.id)
                       .filter((t) => kanbanFilterCourse === 'all' || t.courseName === kanbanFilterCourse)
                       .filter((t) => kanbanFilterPriority === 'all' || t.priority === kanbanFilterPriority)
+                      .filter((t) => {
+                        if (kanbanTimeFilter === 'all') return true;
+                        const d = t.scheduledDateStr || t.dateStr;
+                        if (!d) return true;
+                        if (t.status !== 'done' && d < todayIso) return true;
+                        return next7DaysIso.includes(d);
+                      })
                       .sort((a, b) => {
                         const wa = PRIORITY_CONFIG[a.priority]?.weight || 2;
                         const wb = PRIORITY_CONFIG[b.priority]?.weight || 2;
@@ -2193,7 +2423,10 @@ export default function StudyScreen({ onNavigate }) {
 
                     return (
                       <div key={col.id} className="sarv-card p-3 border border-base-500/40 space-y-2.5">
-                        <div className="flex items-center justify-between">
+                        <div
+                          className={`flex items-center justify-between ${isDoneCol ? 'cursor-pointer select-none' : ''}`}
+                          onClick={isDoneCol ? () => setIsDoneColumnCollapsed(!isDoneColumnCollapsed) : undefined}
+                        >
                           <div className="flex items-center gap-2">
                             <span className={`w-2 h-2 rounded-full ${col.id === 'done' ? 'bg-success' : col.id === 'in_progress' ? 'bg-primary' : 'bg-neutral'}`} />
                             <h4 className="text-xs font-black text-base-content">{col.title}</h4>
@@ -2202,95 +2435,121 @@ export default function StudyScreen({ onNavigate }) {
                             </span>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => handleOpenCreateTask()}
-                            className="p-1 rounded-lg text-neutral hover:text-primary transition cursor-pointer"
-                            title="افزودن تکلیف جدید"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            {!isDoneCol && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenCreateTask()}
+                                className="p-1 rounded-lg text-neutral hover:text-primary transition cursor-pointer"
+                                title="افزودن تکلیف جدید"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            {isDoneCol && (
+                              <ChevronDown className={`w-4 h-4 text-neutral transition-transform duration-200 ${isDoneColumnCollapsed ? '-rotate-90' : ''}`} />
+                            )}
+                          </div>
                         </div>
 
-                        {colTasks.length === 0 ? (
-                          <div className="py-4 text-center rounded-xl border border-dashed border-base-500/30 text-[11px] text-neutral">
-                            هیچ تکلیفی در این ستون نیست
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            {colTasks.map((t) => {
-                              const matched = coursesList.find((c) => c.name === t.courseName);
-                              const tone = getCourseColor(matched || t.courseName);
-                              const priority = PRIORITY_CONFIG[t.priority] || PRIORITY_CONFIG.medium;
-                              return (
-                                <div
-                                  key={t.id}
-                                  className="p-3 rounded-xl bg-base border border-base-500/30 hover:border-primary/40 shadow-xs space-y-2 transition"
-                                >
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleCycleTaskPriority(t)}
-                                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded border cursor-pointer ${priority.color}`}
-                                        title="تغییر اولویت"
-                                      >
-                                        {priority.shortLabel}
-                                      </button>
-                                      <p className="text-xs font-bold text-base-content truncate cursor-pointer hover:text-primary transition-colors" onClick={() => handleOpenEditTask(t)}>{t.title}</p>
+                        {(!isDoneCol || !isDoneColumnCollapsed) && (
+                          colTasks.length === 0 ? (
+                            <div className="py-4 text-center rounded-xl border border-dashed border-base-500/30 text-[11px] text-neutral">
+                              هیچ تکلیفی در این ستون نیست
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {colTasks.map((t) => {
+                                const matched = coursesList.find((c) => c.name === t.courseName);
+                                const tone = getCourseColor(matched || t.courseName);
+                                const priority = PRIORITY_CONFIG[t.priority] || PRIORITY_CONFIG.medium;
+                                return (
+                                  <div
+                                    key={t.id}
+                                    className="p-3 rounded-xl bg-base border border-base-500/30 hover:border-primary/40 shadow-xs space-y-2 transition"
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleCycleTaskPriority(t)}
+                                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded border cursor-pointer ${priority.color}`}
+                                          title="تغییر اولویت"
+                                        >
+                                          {priority.shortLabel}
+                                        </button>
+                                        <p className="text-xs font-bold text-base-content truncate cursor-pointer hover:text-primary transition-colors" onClick={() => handleOpenEditTask(t)}>{t.title}</p>
+                                      </div>
+
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleStartTaskFocus(t)}
+                                          className="p-1 rounded-lg bg-primary-soft text-primary hover:bg-primary hover:text-primary-content transition cursor-pointer"
+                                          title="شروع تمرکز"
+                                        >
+                                          <Play className="w-3 h-3 fill-current" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleOpenEditTask(t)}
+                                          className="p-1 rounded-lg text-neutral hover:text-base-content transition cursor-pointer"
+                                          title="ویرایش"
+                                        >
+                                          <Pencil className="w-3 h-3" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e?.stopPropagation?.();
+                                            setTaskToDelete(t);
+                                          }}
+                                          className="p-1 rounded-lg text-neutral hover:text-danger transition cursor-pointer"
+                                          title="حذف"
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                        </button>
+                                      </div>
                                     </div>
 
-                                    <div className="flex items-center gap-1 shrink-0">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleStartTaskFocus(t)}
-                                        className="p-1 rounded-lg bg-primary-soft text-primary hover:bg-primary hover:text-primary-content transition cursor-pointer"
-                                        title="شروع تمرکز"
-                                      >
-                                        <Play className="w-3 h-3 fill-current" />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleOpenEditTask(t)}
-                                        className="p-1 rounded-lg text-neutral hover:text-base-content transition cursor-pointer"
-                                        title="ویرایش"
-                                      >
-                                        <Pencil className="w-3 h-3" />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e?.stopPropagation?.();
-                                          setTaskToDelete(t);
-                                        }}
-                                        className="p-1 rounded-lg text-neutral hover:text-danger transition cursor-pointer"
-                                        title="حذف"
-                                      >
-                                        <Trash2 className="w-3 h-3" />
-                                      </button>
-                                    </div>
-                                  </div>
-
-                                  <div className="flex items-center justify-between text-[10px] text-neutral pt-1 border-t border-base-500/20">
-                                    <span className={`px-1.5 py-0.2 rounded font-bold ${toneClasses[tone] || 'bg-base-500/20 text-neutral'}`}>
-                                      {t.courseName || 'عمومی'}
-                                    </span>
-                                    <div className="flex items-center gap-1.5">
-                                      {t.timeStr && (
-                                        <span className="flex items-center gap-0.5 font-mono text-primary">
-                                          <Clock className="w-3 h-3" />
-                                          {toFaDigits(t.timeStr)}
+                                    {/* خرده‌کارها (در صورت وجود) */}
+                                    {Array.isArray(t.subtasks) && t.subtasks.length > 0 && (
+                                      <div className="flex items-center gap-1.5 pt-1 border-t border-base-500/15 text-[10px] text-neutral">
+                                        <ListChecks className="w-3 h-3 text-primary" />
+                                        <span className="font-bold text-primary font-mono">
+                                          {toFaDigits(t.subtasks.filter((s) => s.completed).length)} از {toFaDigits(t.subtasks.length)} خرده‌کار
                                         </span>
-                                      )}
-                                      {t.reminderEnabled && (
-                                        <Bell className="w-3 h-3 text-primary" title="یادآوری فعال" />
-                                      )}
-                                      <span className="font-mono">{formatTaskDateShort(t.dateStr)}</span>
-                                    </div>
-                                  </div>
+                                        {t.description && (
+                                          <span className="truncate max-w-[150px] opacity-75">· {t.description}</span>
+                                        )}
+                                      </div>
+                                    )}
 
-                                  {/* دکمه‌های جابجایی بین ستون‌ها */}
-                                  <div className="flex items-center gap-1 pt-1 justify-end">
+                                    <div className="flex items-center justify-between text-[10px] text-neutral pt-1 border-t border-base-500/20 gap-1 flex-wrap">
+                                      <span className={`px-1.5 py-0.2 rounded font-bold ${toneClasses[tone] || 'bg-base-500/20 text-neutral'}`}>
+                                        {t.courseName || 'عمومی'}
+                                      </span>
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        {t.scheduledDateStr && (
+                                          <span className="px-1.5 py-0.2 rounded bg-primary-soft text-primary font-bold">
+                                            برنامه: {formatTaskDateShort(t.scheduledDateStr)}
+                                          </span>
+                                        )}
+                                        {t.timeStr && (
+                                          <span className="flex items-center gap-0.5 font-mono text-primary font-bold">
+                                            <Clock className="w-3 h-3" />
+                                            {toFaDigits(t.timeStr)}
+                                          </span>
+                                        )}
+                                        {t.reminderEnabled && (
+                                          <Bell className="w-3 h-3 text-primary" title="یادآوری فعال" />
+                                        )}
+                                        <span className="font-mono text-danger font-bold">سررسید: {formatTaskDateShort(t.dateStr)}</span>
+                                      </div>
+                                    </div>
+
+                                    {/* دکمه‌های جابجایی بین ستون‌ها */}
+                                    <div className="flex items-center gap-1 pt-1 justify-end">
                                     {col.id !== 'todo' && (
                                       <button
                                         type="button"
@@ -2324,9 +2583,10 @@ export default function StudyScreen({ onNavigate }) {
                               );
                             })}
                           </div>
-                        )}
-                      </div>
-                    );
+                        )
+                      )}
+                    </div>
+                  );
                   })}
                 </div>
               </div>
@@ -2533,7 +2793,12 @@ export default function StudyScreen({ onNavigate }) {
                       const isToday = d.isoDate === todayIso;
                       const isSelected = d.isoDate === selectedDate;
 
-                      // گردآوری نشانگرهای رنگی دروس برای این روز (امتحان + کلاس دانشگاه + مطالعه)
+                      const dayTasks = tasks.filter((t) => (t.dateStr || t.scheduledDateStr) === d.isoDate);
+                      const hasDayTasks = dayTasks.length > 0;
+                      const urgentTask = dayTasks.find((t) => t.status !== 'done') || dayTasks[0];
+                      const taskTone = urgentTask ? (getCourseColor(urgentTask.courseName) || urgentTask.color || 'primary') : 'primary';
+
+                      // گردآوری نشانگرهای رنگی فقط برای امتحانات و کلاس‌های دانشگاه
                       const dayDots = [];
                       const seenCourses = new Set();
                       for (const ex of dayExams) {
@@ -2552,19 +2817,6 @@ export default function StudyScreen({ onNavigate }) {
                         if (!seenCourses.has(key)) {
                           seenCourses.add(key);
                           dayDots.push({ name: uc.name, tone: getCourseColor(uc), isUni: true });
-                        }
-                      }
-                      if (act && Array.isArray(act.sessions)) {
-                        for (const s of act.sessions) {
-                          const key = `s:${s.courseName}`;
-                          if (!seenCourses.has(key)) {
-                            seenCourses.add(key);
-                            dayDots.push({
-                              name: s.courseName,
-                              tone: getCourseColor(s.courseName) || s.color,
-                              isUni: false,
-                            });
-                          }
                         }
                       }
 
@@ -2604,6 +2856,18 @@ export default function StudyScreen({ onNavigate }) {
                             </span>
                             <span className="w-2" />
                           </div>
+
+                          {/* لایه وسط: امضای بصری سررسید و تکالیف */}
+                          {hasDayTasks ? (
+                            <div className="w-full px-1 flex items-center justify-center my-0.5">
+                              <div
+                                className={`w-full h-1.5 rounded-full ${isSelected ? 'bg-white' : (toneColors[taskTone]?.dot || 'bg-primary')} opacity-90 shadow-2xs`}
+                                title={`${toFaDigits(dayTasks.length)} کار/سررسید: ${dayTasks.map((t) => t.title).join('، ')}`}
+                              />
+                            </div>
+                          ) : (
+                            <div className="h-1.5" />
+                          )}
 
                           {/* نشانگرهای تفکیک‌شده درس به درس با رنگ و نقطه ویژه */}
                           <div className="flex items-center justify-center gap-0.5 mt-0.5 min-h-[8px] max-w-full px-0.5 overflow-hidden">
@@ -3610,55 +3874,215 @@ export default function StudyScreen({ onNavigate }) {
                       </div>
                     </div>
 
-                    <div>
-                      <label className="text-[11px] font-bold text-neutral block mb-1">تاریخ انجام کار:</label>
-                      <button
-                        type="button"
-                        onClick={() => setTaskDatePickerOpen(true)}
-                        className="w-full p-2.5 rounded-xl bg-base-500/20 border border-base-500/40 hover:border-primary/50 text-right flex items-center justify-between transition active:scale-98 cursor-pointer group"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <CalendarDays className="w-4 h-4 text-primary shrink-0" />
+                    {/* فیلد ۱: سررسید و موعد نهایی تحویل */}
+                    <div className="p-3 rounded-2xl bg-base-500/10 border border-base-500/25 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-black text-base-content flex items-center gap-1.5">
+                          <CalendarDays className="w-3.5 h-3.5 text-danger" />
+                          <span>سررسید (موعد تحویل نهایی):</span>
+                        </label>
+                        <span className="text-[9.5px] font-bold text-danger bg-danger/10 px-2 py-0.2 rounded-full">
+                          الزامی
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setTaskDatePickerOpen(true)}
+                          className="w-full p-2 rounded-xl bg-base border border-base-500/35 hover:border-primary/50 text-right flex items-center justify-between transition active:scale-98 cursor-pointer group"
+                        >
                           <span className="text-xs font-bold text-base-content truncate">
                             {formatTaskDateDisplay(newTaskDate)}
                           </span>
-                        </div>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-primary-soft text-primary group-hover:bg-primary/20 transition shrink-0">
-                          تقویم شمسی
-                        </span>
-                      </button>
-                    </div>
-
-                    <div>
-                      <label className="text-[11px] font-bold text-neutral block mb-1">ساعت انجام کار (اختیاری):</label>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setTaskTimePickerOpen(true)}
-                          className="flex-1 p-2.5 rounded-xl bg-base-500/20 border border-base-500/40 text-xs font-bold text-base-content flex items-center justify-between hover:border-primary/50 transition cursor-pointer"
-                        >
-                          <span className="flex items-center gap-2">
-                            <Clock className="w-3.5 h-3.5 text-primary" />
-                            <span>{newTaskTime ? `ساعت ${toFaDigits(newTaskTime)}` : 'بدون ساعت مشخص (در طول روز)'}</span>
-                          </span>
-                          <span className="text-[10.5px] px-2 py-0.5 rounded-lg bg-primary-soft text-primary font-bold">
-                            {newTaskTime ? 'تغییر' : 'تعیین ساعت'}
+                          <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-primary-soft text-primary shrink-0">
+                            تقویم
                           </span>
                         </button>
-                        {newTaskTime && (
+
+                        <div className="flex items-center gap-1">
                           <button
                             type="button"
-                            onClick={() => {
-                              setNewTaskTime('');
-                              setNewTaskReminder(false);
-                            }}
-                            className="w-9 h-9 rounded-xl bg-base-500/20 text-neutral hover:text-danger hover:bg-danger/10 grid place-items-center transition cursor-pointer"
-                            title="حذف ساعت"
+                            onClick={() => setTaskTimePickerOpen(true)}
+                            className="flex-1 p-2 rounded-xl bg-base border border-base-500/35 text-xs font-bold text-base-content flex items-center justify-between hover:border-primary/50 transition cursor-pointer"
                           >
-                            <X className="w-4 h-4" />
+                            <span className="flex items-center gap-1.5 truncate">
+                              <Clock className="w-3 h-3 text-primary shrink-0" />
+                              <span>{newTaskTime ? `ساعت ${toFaDigits(newTaskTime)}` : 'ساعت موعد (اختیاری)'}</span>
+                            </span>
+                            <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-primary-soft text-primary font-bold shrink-0">
+                              {newTaskTime ? 'تغییر' : 'ساعت'}
+                            </span>
                           </button>
+                          {newTaskTime && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNewTaskTime('');
+                                setNewTaskReminder(false);
+                              }}
+                              className="w-8 h-8 rounded-xl bg-base-500/20 text-neutral hover:text-danger hover:bg-danger/10 grid place-items-center transition cursor-pointer shrink-0"
+                              title="حذف ساعت سررسید"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* فیلد ۲: زمان‌بندی برای انجام کار (اختیاری) */}
+                    <div className="p-3 rounded-2xl bg-base-500/10 border border-base-500/25 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-black text-base-content flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-primary" />
+                          <span>زمان‌بندی انجام کار (اختیاری):</span>
+                        </label>
+                        <span className="text-[9.5px] font-bold text-neutral">
+                          {newTaskScheduledDate ? 'فعال' : 'خالی = فقط سررسید'}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-neutral leading-relaxed">
+                        اگر روز مشخصی برای کار کردن روی این تکلیف در نظر داری، اینجا انتخاب کن تا در لیست کار روزانه همان روز بنشیند.
+                      </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setTaskScheduledDatePickerOpen(true)}
+                            className="flex-1 p-2 rounded-xl bg-base border border-base-500/35 hover:border-primary/50 text-right flex items-center justify-between transition active:scale-98 cursor-pointer group"
+                          >
+                            <span className="text-xs font-bold text-base-content truncate">
+                              {newTaskScheduledDate ? formatTaskDateDisplay(newTaskScheduledDate) : 'انتخاب روز انجام'}
+                            </span>
+                            <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-primary-soft text-primary shrink-0">
+                              تقویم
+                            </span>
+                          </button>
+                          {newTaskScheduledDate && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNewTaskScheduledDate('');
+                                setNewTaskScheduledTime('');
+                              }}
+                              className="w-8 h-8 rounded-xl bg-base-500/20 text-neutral hover:text-danger hover:bg-danger/10 grid place-items-center transition cursor-pointer shrink-0"
+                              title="حذف زمان‌بندی کار"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+
+                        {newTaskScheduledDate && (
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setTaskScheduledTimePickerOpen(true)}
+                              className="flex-1 p-2 rounded-xl bg-base border border-base-500/35 text-xs font-bold text-base-content flex items-center justify-between hover:border-primary/50 transition cursor-pointer"
+                            >
+                              <span className="flex items-center gap-1.5 truncate">
+                                <Clock className="w-3 h-3 text-primary shrink-0" />
+                                <span>{newTaskScheduledTime ? `ساعت ${toFaDigits(newTaskScheduledTime)}` : 'ساعت کار (اختیاری)'}</span>
+                              </span>
+                              <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-primary-soft text-primary font-bold shrink-0">
+                                {newTaskScheduledTime ? 'تغییر' : 'ساعت'}
+                              </span>
+                            </button>
+                            {newTaskScheduledTime && (
+                              <button
+                                type="button"
+                                onClick={() => setNewTaskScheduledTime('')}
+                                className="w-8 h-8 rounded-xl bg-base-500/20 text-neutral hover:text-danger hover:bg-danger/10 grid place-items-center transition cursor-pointer shrink-0"
+                                title="حذف ساعت کار"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
+                    </div>
+
+                    {/* خرده‌کارها (چک‌لیست مراحل کار) */}
+                    <div className="p-3 rounded-2xl bg-base-500/10 border border-base-500/25 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-black text-base-content flex items-center gap-1.5">
+                          <ListChecks className="w-3.5 h-3.5 text-primary" />
+                          <span>خرده‌کارها (مراحل انجام کار):</span>
+                        </label>
+                        {newTaskSubtasks.length > 0 && (
+                          <span className="text-[10px] font-mono font-bold text-primary">
+                            {toFaDigits(newTaskSubtasks.filter((s) => s.completed).length)} از {toFaDigits(newTaskSubtasks.length)}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          value={subtaskInputText}
+                          onChange={(e) => setSubtaskInputText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddSubtask();
+                            }
+                          }}
+                          placeholder="مثال: حل سوال ۱ و ۲ یا تایپ گزارش..."
+                          className="flex-1 p-2 rounded-xl bg-base border border-base-500/35 text-xs text-base-content outline-none focus:border-primary transition"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddSubtask}
+                          className="px-3 py-2 rounded-xl bg-primary text-primary-content text-xs font-bold shrink-0 cursor-pointer hover:brightness-110 active:scale-95 transition"
+                        >
+                          + افزودن
+                        </button>
+                      </div>
+
+                      {newTaskSubtasks.length > 0 && (
+                        <div className="space-y-1.5 pt-1">
+                          {newTaskSubtasks.map((st) => (
+                            <div
+                              key={st.id}
+                              className="p-2 rounded-xl bg-base border border-base-500/25 flex items-center justify-between gap-2"
+                            >
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <SarvCheckbox
+                                  checked={st.completed}
+                                  onChange={() => handleToggleModalSubtask(st.id)}
+                                  variant="primary"
+                                />
+                                <span className={`text-xs truncate ${st.completed ? 'line-through text-neutral' : 'text-base-content font-bold'}`}>
+                                  {st.title}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteModalSubtask(st.id)}
+                                className="p-1 rounded-lg text-neutral hover:text-danger hover:bg-danger/10 transition cursor-pointer"
+                                title="حذف این خرده‌کار"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* توضیحات و یادداشت‌های شخصی */}
+                    <div>
+                      <label className="text-[11px] font-bold text-neutral block mb-1">توضیحات و یادداشت‌ها (اختیاری):</label>
+                      <textarea
+                        rows={2}
+                        value={newTaskDescription}
+                        onChange={(e) => setNewTaskDescription(e.target.value)}
+                        placeholder="نکات استاد، توضیحات صورت تمرین، لینک منابع یا هم‌گروهی‌ها..."
+                        className="w-full p-2.5 rounded-xl bg-base-500/20 border border-base-500/40 text-xs text-base-content outline-none focus:border-primary transition-colors resize-none"
+                      />
                     </div>
 
                     {newTaskTime && (
@@ -3668,7 +4092,7 @@ export default function StudyScreen({ onNavigate }) {
                             <Bell className="w-3.5 h-3.5" />
                           </div>
                           <div>
-                            <span className="text-xs font-bold text-base-content block">اعلان یادآوری کار</span>
+                            <span className="text-xs font-bold text-base-content block">اعلان یادآوری سررسید</span>
                             <span className="text-[10px] text-neutral">ارسال اعلان در ساعت مشخص‌شده</span>
                           </div>
                         </div>
@@ -3999,11 +4423,11 @@ export default function StudyScreen({ onNavigate }) {
         onDelete={handleDeleteExam}
       />
 
-      {/* تقویم نیتیو و شمسی سرو برای انتخاب تاریخ انجام کار */}
+      {/* تقویم نیتیو و شمسی سرو برای انتخاب تاریخ سررسید */}
       <SarvDatePickerModal
         isOpen={taskDatePickerOpen}
         initialDate={newTaskDate}
-        title="انتخاب تاریخ انجام کار"
+        title="انتخاب تاریخ سررسید"
         subtitle="تقویم هوشمند برنامه‌ریزی مطالعه"
         mode="task"
         onClose={() => setTaskDatePickerOpen(false)}
@@ -4015,17 +4439,47 @@ export default function StudyScreen({ onNavigate }) {
         }}
       />
 
-      {/* مودال چرخشی تنظیم ساعت انجام کار */}
+      {/* مودال چرخشی تنظیم ساعت سررسید */}
       <SarvTimePickerModal
         isOpen={taskTimePickerOpen}
-        initialTime={newTaskTime || '10:00'}
-        title="تنظیم ساعت انجام کار"
+        initialTime={newTaskTime || '23:59'}
+        title="تنظیم ساعت سررسید"
         onClose={() => setTaskTimePickerOpen(false)}
         onConfirm={(newTime) => {
           setNewTaskTime(newTime);
           setNewTaskReminder(true);
           setTaskTimePickerOpen(false);
-          setShareToast(`ساعت ${toFaDigits(newTime)} برای این کار انتخاب شد`);
+          setShareToast(`ساعت ${toFaDigits(newTime)} برای سررسید انتخاب شد`);
+          setTimeout(() => setShareToast(''), 2500);
+        }}
+      />
+
+      {/* تقویم نیتیو برای انتخاب تاریخ زمان‌بندی انجام کار */}
+      <SarvDatePickerModal
+        isOpen={taskScheduledDatePickerOpen}
+        initialDate={newTaskScheduledDate || todayIso}
+        title="انتخاب تاریخ انجام کار"
+        subtitle="برنامه‌ریزی کار روی تکلیف"
+        mode="task"
+        onClose={() => setTaskScheduledDatePickerOpen(false)}
+        onConfirm={(_, jsDate) => {
+          if (jsDate) {
+            setNewTaskScheduledDate(toLocalDateString(jsDate));
+          }
+          setTaskScheduledDatePickerOpen(false);
+        }}
+      />
+
+      {/* مودال چرخشی تنظیم ساعت زمان‌بندی انجام کار */}
+      <SarvTimePickerModal
+        isOpen={taskScheduledTimePickerOpen}
+        initialTime={newTaskScheduledTime || '17:00'}
+        title="تنظیم ساعت انجام کار"
+        onClose={() => setTaskScheduledTimePickerOpen(false)}
+        onConfirm={(newTime) => {
+          setNewTaskScheduledTime(newTime);
+          setTaskScheduledTimePickerOpen(false);
+          setShareToast(`ساعت ${toFaDigits(newTime)} برای انجام کار ثبت شد`);
           setTimeout(() => setShareToast(''), 2500);
         }}
       />

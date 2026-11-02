@@ -270,8 +270,12 @@ export default function DashboardCalendar({ onNavigate, className = '' }) {
             const dayClasses = getClassesForDate(d.date);
             const dayExams = getExamsForDate(d.isoDate, monthGrid.year, monthGrid.month, d.dayNumber);
             const hasExam = dayExams.length > 0;
+            const dayTasks = tasks.filter((t) => (t.dateStr || t.scheduledDateStr) === d.isoDate);
+            const hasDayTasks = dayTasks.length > 0;
+            const urgentTask = dayTasks.find((t) => t.status !== 'done') || dayTasks[0];
+            const taskTone = urgentTask ? (getCourseColor(urgentTask.courseName) || urgentTask.color || 'primary') : 'primary';
 
-            // جمع‌آوری نقاط رویدادهای چندگانه روز دقیقاً مشابه تقویم پلنر مطالعه
+            // جمع‌آوری نقاط رویدادهای دانشگاه فقط برای کلاس‌ها و امتحانات
             const dayDots = [];
             const seenCourses = new Set();
 
@@ -296,20 +300,6 @@ export default function DashboardCalendar({ onNavigate, className = '' }) {
                   tone: uc.color || getCourseColor(uc),
                   isUni: true,
                 });
-              }
-            }
-
-            if (dayActivity && Array.isArray(dayActivity.sessions)) {
-              for (const s of dayActivity.sessions) {
-                const key = `s:${s.courseName}`;
-                if (!seenCourses.has(key)) {
-                  seenCourses.add(key);
-                  dayDots.push({
-                    name: s.courseName,
-                    tone: getCourseColor(s.courseName) || s.color,
-                    isUni: false,
-                  });
-                }
               }
             }
 
@@ -349,6 +339,18 @@ export default function DashboardCalendar({ onNavigate, className = '' }) {
                   </span>
                   <span className="w-2" />
                 </div>
+
+                {/* لایه وسط: امضای بصری سررسید و تکالیف */}
+                {hasDayTasks ? (
+                  <div className="w-full px-1 flex items-center justify-center my-0.5">
+                    <div
+                      className={`w-full h-1.5 rounded-full ${isSelected ? 'bg-white' : (toneColors[taskTone]?.dot || 'bg-primary')} opacity-90 shadow-2xs`}
+                      title={`${toFaDigits(dayTasks.length)} کار/سررسید: ${dayTasks.map((t) => t.title).join('، ')}`}
+                    />
+                  </div>
+                ) : (
+                  <div className="h-1.5" />
+                )}
 
                 {/* نقاط رویدادهای روز با رنگ‌های هماهنگ با دروس */}
                 <div className="flex items-center justify-center gap-0.5 mt-0.5 min-h-[8px] max-w-full px-0.5 overflow-hidden">
