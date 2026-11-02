@@ -1234,6 +1234,7 @@ export default function StudyScreen({ onNavigate }) {
         };
       });
   };
+  const getClassesForDate = getUniversityClassesForDate;
 
   // محاسبات تقویم ماهانه
   const monthGrid = getPersianMonthGrid(calendarMonthRefDate);
@@ -2076,7 +2077,7 @@ export default function StudyScreen({ onNavigate }) {
                       return d === day.isoDate;
                     });
                     const pending = dayTasks.filter((t) => t.status !== 'done');
-                    const dayClasses = getClassesForDate(new Date(day.isoDate));
+                    const dayClasses = getUniversityClassesForDate(new Date(day.isoDate));
 
                     return (
                       <div
