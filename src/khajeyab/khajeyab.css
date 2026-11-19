@@ -1,0 +1,264 @@
+@import "leaflet/dist/leaflet.css";
+
+/* Sarv UI Design System Tokens for Khajeyab */
+:root,
+[data-theme="persian-light"] {
+  --sarv-primary: #0066a4;
+  --sarv-primary-hover: #005589;
+  --sarv-primary-content: #ffffff;
+  --sarv-secondary: #d88f58;
+  --sarv-emerald: #10b981;
+  --sarv-info: #00a594;
+  --sarv-warn: #d97706;
+  --sarv-warn-soft: #fffbeb;
+  --sarv-warn-border: #fde68a;
+  --sarv-warn-text: #92400e;
+
+  --sarv-base: #f8fafc;
+  --sarv-surface: #ffffff;
+  --sarv-surface-subtle: #f1f5f9;
+  --sarv-border: #e2e8f0;
+  --sarv-border-strong: #cbd5e1;
+
+  --sarv-text: #0f172a;
+  --sarv-text-muted: #475569;
+  --sarv-text-subtle: #64748b;
+
+  --sarv-map-bg: #eef2f6;
+  --sarv-map-tile-filter: saturate(0.95) contrast(1.04) brightness(1);
+  --sarv-map-label-color: #1e293b;
+  --sarv-map-label-halo: rgba(255, 255, 255, 0.92);
+  --sarv-map-street-color: #475569;
+
+  --sarv-radius-card: 1.15rem;
+  --sarv-radius-btn: 0.85rem;
+  --sarv-radius-input: 0.85rem;
+  --sarv-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+[data-theme="emerald"] {
+  --sarv-primary: #10b981;
+  --sarv-primary-hover: #059669;
+  --sarv-primary-content: #03150e;
+  --sarv-secondary: #34d399;
+  --sarv-emerald: #10b981;
+  --sarv-info: #14b8a6;
+  --sarv-warn: #f59e0b;
+  --sarv-warn-soft: rgba(245, 158, 11, 0.14);
+  --sarv-warn-border: rgba(245, 158, 11, 0.35);
+  --sarv-warn-text: #fde68a;
+
+  --sarv-base: #061510;
+  --sarv-surface: #0b221a;
+  --sarv-surface-subtle: #113026;
+  --sarv-border: #1b4335;
+  --sarv-border-strong: #265c49;
+
+  --sarv-text: #ecfdf5;
+  --sarv-text-muted: #a7f3d0;
+  --sarv-text-subtle: #6ee7b7;
+
+  --sarv-map-bg: #04120d;
+  --sarv-map-tile-filter: sepia(0.55) hue-rotate(108deg) saturate(1.45) brightness(0.94) contrast(1.08);
+  --sarv-map-label-color: #ecfdf5;
+  --sarv-map-label-halo: rgba(6, 21, 16, 0.9);
+  --sarv-map-street-color: #a7f3d0;
+
+  --sarv-radius-card: 1.15rem;
+  --sarv-radius-btn: 0.85rem;
+  --sarv-radius-input: 0.85rem;
+  --sarv-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="persian-dark"] {
+  --sarv-primary: #38bdf8;
+  --sarv-primary-hover: #0ea5e9;
+  --sarv-primary-content: #082f49;
+  --sarv-secondary: #d88f58;
+  --sarv-emerald: #10b981;
+  --sarv-info: #14b8a6;
+  --sarv-warn: #fbbf24;
+  --sarv-warn-soft: rgba(251, 191, 36, 0.12);
+  --sarv-warn-border: rgba(251, 191, 36, 0.32);
+  --sarv-warn-text: #fde68a;
+
+  --sarv-base: #0a0c10;
+  --sarv-surface: #12161f;
+  --sarv-surface-subtle: #1a202e;
+  --sarv-border: #262f40;
+  --sarv-border-strong: #374151;
+
+  --sarv-text: #f8fafc;
+  --sarv-text-muted: #cbd5e1;
+  --sarv-text-subtle: #94a3b8;
+
+  --sarv-map-bg: #0b0f17;
+  --sarv-map-tile-filter: contrast(1.08) brightness(0.95) saturate(1.05);
+  --sarv-map-label-color: #f8fafc;
+  --sarv-map-label-halo: rgba(10, 12, 16, 0.92);
+  --sarv-map-street-color: #cbd5e1;
+
+  --sarv-radius-card: 1.15rem;
+  --sarv-radius-btn: 0.85rem;
+  --sarv-radius-input: 0.85rem;
+  --sarv-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="tehran"] {
+  --sarv-primary: #c1121f;
+  --sarv-primary-hover: #9b0f19;
+  --sarv-primary-content: #ffffff;
+  --sarv-secondary: #003049;
+  --sarv-emerald: #15803d;
+  --sarv-info: #0284c7;
+  --sarv-warn: #b45309;
+  --sarv-warn-soft: #fef3c7;
+  --sarv-warn-border: #f59e0b;
+  --sarv-warn-text: #78350f;
+
+  --sarv-base: #faf4e8;
+  --sarv-surface: #fffdf8;
+  --sarv-surface-subtle: #f3e8d2;
+  --sarv-border: #e2d1b3;
+  --sarv-border-strong: #c9b28a;
+
+  --sarv-text: #003049;
+  --sarv-text-muted: #335266;
+  --sarv-text-subtle: #5c7080;
+
+  --sarv-map-bg: #f4ebd8;
+  --sarv-map-tile-filter: sepia(0.32) saturate(0.95) contrast(1.04) brightness(0.99);
+  --sarv-map-label-color: #003049;
+  --sarv-map-label-halo: rgba(255, 253, 248, 0.94);
+  --sarv-map-street-color: #335266;
+
+  --sarv-radius-card: 1.15rem;
+  --sarv-radius-btn: 0.85rem;
+  --sarv-radius-input: 0.85rem;
+  --sarv-shadow: 0 1px 3px rgba(0, 48, 73, 0.08);
+}
+
+/* Leaflet & OpenStreetMap overrides */
+.sarv-leaflet-container,
+.sarv-leaflet-container .leaflet-control,
+.sarv-leaflet-container .leaflet-popup-content,
+.sarv-leaflet-container .leaflet-tooltip {
+  font-family: 'Arad', sans-serif !important;
+  font-variation-settings: 'DSTY' 2;
+}
+
+.sarv-leaflet-container {
+  background-color: var(--sarv-map-bg, #eef2f6) !important;
+}
+
+.sarv-leaflet-container .sarv-map-tiles {
+  filter: var(--sarv-map-tile-filter, none);
+  transition: filter 220ms ease;
+}
+
+.sarv-leaflet-container .leaflet-control-attribution {
+  background: color-mix(in oklab, var(--sarv-surface, #fff) 85%, transparent) !important;
+  color: var(--sarv-text-subtle, #64748b) !important;
+  font-size: 10px !important;
+  padding: 2px 8px !important;
+  border-top-right-radius: 8px;
+  backdrop-filter: blur(6px);
+}
+
+.sarv-leaflet-container .leaflet-control-attribution a {
+  color: var(--sarv-primary, #0066a4) !important;
+}
+
+.sarv-leaflet-container .leaflet-control-zoom {
+  border: 1px solid var(--sarv-border, #e2e8f0) !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  box-shadow: var(--sarv-shadow, 0 1px 2px rgba(0,0,0,0.05)) !important;
+}
+
+.sarv-leaflet-container .leaflet-control-zoom a {
+  background-color: var(--sarv-surface, #fff) !important;
+  color: var(--sarv-text, #0f172a) !important;
+  border-bottom-color: var(--sarv-border, #e2e8f0) !important;
+  width: 34px !important;
+  height: 34px !important;
+  line-height: 34px !important;
+  font-weight: 700 !important;
+}
+
+.sarv-leaflet-container .leaflet-control-zoom a:hover {
+  background-color: var(--sarv-surface-subtle, #f1f5f9) !important;
+  color: var(--sarv-primary, #0066a4) !important;
+}
+
+.sarv-map-place-label {
+  font-family: 'Arad', sans-serif;
+  color: var(--sarv-map-label-color, #1e293b);
+  text-shadow:
+    0 1px 0 var(--sarv-map-label-halo, #fff),
+    0 -1px 0 var(--sarv-map-label-halo, #fff),
+    1px 0 0 var(--sarv-map-label-halo, #fff),
+    -1px 0 0 var(--sarv-map-label-halo, #fff),
+    0 0 6px var(--sarv-map-label-halo, #fff);
+  pointer-events: none;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.sarv-map-street-label {
+  font-family: 'Arad', sans-serif;
+  color: var(--sarv-map-street-color, #475569);
+  background: color-mix(in oklab, var(--sarv-surface, #fff) 78%, transparent);
+  border: 1px solid color-mix(in oklab, var(--sarv-border, #e2e8f0) 65%, transparent);
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.sarv-surface {
+  background-color: var(--sarv-surface, #fff);
+  border: 1px solid var(--sarv-border, #e2e8f0);
+  border-radius: var(--sarv-radius-card, 1.15rem);
+  box-shadow: var(--sarv-shadow, 0 1px 2px rgba(0,0,0,0.05));
+}
+
+.sarv-btn-primary {
+  background-color: var(--sarv-primary, #0066a4);
+  color: var(--sarv-primary-content, #fff);
+  border-radius: var(--sarv-radius-btn, 0.85rem);
+  transition: background-color 150ms ease, transform 150ms ease;
+}
+
+.sarv-btn-primary:hover {
+  background-color: var(--sarv-primary-hover, #005589);
+}
+
+.sarv-btn-secondary {
+  background-color: var(--sarv-surface-subtle, #f1f5f9);
+  color: var(--sarv-text, #0f172a);
+  border: 1px solid var(--sarv-border, #e2e8f0);
+  border-radius: var(--sarv-radius-btn, 0.85rem);
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.sarv-btn-secondary:hover {
+  border-color: var(--sarv-border-strong, #cbd5e1);
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #khajeyab-print-poster,
+  #khajeyab-print-poster * {
+    visibility: visible;
+  }
+  #khajeyab-print-poster {
+    position: fixed;
+    inset: 0;
+    margin: 0 auto;
+    box-shadow: none !important;
+    border: none !important;
+  }
+}

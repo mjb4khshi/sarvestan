@@ -457,7 +457,7 @@ export default function App() {
       return <LandingPage />;
     }
 
-    const forceApp = qs.has('app') || qs.has('android') || isLocalhost;
+    const forceApp = qs.has('app') || qs.has('android');
     const isAndroidMode = isNative || forceApp;
 
     // در مرورگر وب لندینگ پیج اختصاصی نمایش داده می‌شود

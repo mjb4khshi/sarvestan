@@ -13,9 +13,13 @@ import {
   QrCode,
   Puzzle,
   Terminal,
+  MapPin,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { toFaDigits } from '../utils/faDigits';
 import ExtensionArchiveGuide from './ExtensionArchiveGuide';
+import KhajeyabApp from '../khajeyab/App';
 
 function GithubIcon({ className = "w-4 h-4" }) {
   return (
@@ -146,6 +150,7 @@ const UNIVERSITIES = [
 
 export default function LandingPage() {
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
+  const [isKhajeyabExpanded, setIsKhajeyabExpanded] = useState(false);
 
   useEffect(() => {
     document.title = 'سروستان | دستیار هوشمند آموزش دانشگاهی';
@@ -277,6 +282,16 @@ export default function LandingPage() {
               </span>
             </a>
             <a
+              href="#khajeyab"
+              className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100/90 border border-emerald-300 text-emerald-800 text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm"
+            >
+              <MapPin className="w-4 h-4 text-emerald-600" />
+              <span>خواجه‌یاب (نقشه پردیس‌ها)</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-600 text-white font-bold">
+                جدید
+              </span>
+            </a>
+            <a
               href="https://t.me/s4rvest4n"
               target="_blank"
               rel="noreferrer"
@@ -371,6 +386,52 @@ export default function LandingPage() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* بخش اختصاصی خواجه‌یاب (نقشه و مسیریابی هوشمند پردیس‌های خواجه نصیر) */}
+      <section id="khajeyab" className="py-16 sm:py-24 px-3 sm:px-6 border-t border-slate-200 bg-gradient-to-b from-emerald-500/5 via-white to-slate-50/70 relative">
+        <div className="max-w-6xl mx-auto space-y-8">
+          {/* هدر بخش خواجه‌یاب */}
+          <div className="text-center space-y-3">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/15 text-emerald-700 text-xs font-bold border border-emerald-500/30">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>اکوسیستم سروستان • نقشه و مسیریابی هوشمند پردیس‌ها</span>
+            </div>
+            <div className="flex items-center justify-center gap-3">
+              <img
+                src="./sarv-logo.png"
+                alt="سروستان"
+                className="w-10 h-10 object-contain drop-shadow-sm"
+              />
+              <h2 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
+                خواجه‌یاب؛ نقشه و راهنمای تعاملی پردیس‌ها
+              </h2>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-600 max-w-2xl mx-auto leading-relaxed font-medium">
+              سامانه مکان‌یابی و مسیریابی اختصاصی دانشگاه خواجه نصیر یکپارچه‌شده با پلتفرم سروستان. تفکیک هوشمند دانشکده‌ها، ایستگاه‌های مترو و BRT تهران، مسیریاب دقیق بین‌پردیسی و استودیوی تولید پوستر رسمی با کیو‌آر‌کد اختصاصی.
+            </p>
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-2 text-xs font-bold text-slate-600">
+              <span className="px-3 py-1 rounded-xl bg-slate-100 border border-slate-200">
+                🌿 همگام با برنامه هفتگی و اتاق‌های بهستان سروستان
+              </span>
+              <span className="px-3 py-1 rounded-xl bg-slate-100 border border-slate-200">
+                🚇 خطوط ۱، ۲، ۳ و ۷ مترو تهران
+              </span>
+              <span className="px-3 py-1 rounded-xl bg-slate-100 border border-slate-200">
+                🖨️ استودیو تولید پوستر با کیو‌آر کد گیتهاب پیجز
+              </span>
+            </div>
+          </div>
+
+          {/* ویجت تعاملی خواجه‌یاب */}
+          <div className="rounded-3xl border border-slate-200/90 shadow-2xl overflow-hidden bg-white">
+            <KhajeyabApp
+              embedded={true}
+              isExpanded={false}
+              onExpand={() => setIsKhajeyabExpanded(true)}
+            />
           </div>
         </div>
       </section>
@@ -873,6 +934,20 @@ export default function LandingPage() {
 
               <ExtensionArchiveGuide />
             </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* مودال تمام‌صفحه خواجه‌یاب */}
+      <AnimatePresence>
+        {isKhajeyabExpanded && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm p-2 sm:p-4 flex flex-col">
+            <div className="relative flex-1 bg-white rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col">
+              <KhajeyabApp
+                embedded={false}
+                isExpanded={true}
+                onExpand={() => setIsKhajeyabExpanded(false)}
+              />
+            </div>
           </div>
         )}
       </AnimatePresence>

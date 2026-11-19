@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "sarv-ui/sarv.css";
 @import "./sarv-themes.css";
+@import "./khajeyab/khajeyab.css";
 @plugin "sarv-ui";
 
 @font-face {
