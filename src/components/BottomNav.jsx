@@ -82,27 +82,29 @@ export default function BottomNav({ active, onChange }) {
       <div className="relative mx-auto max-w-[420px] px-3 pb-2.5 pt-0 pointer-events-auto">
         <div
           dir="rtl"
-          className="relative rounded-[22px] bg-base/95 border border-base-500/70 shadow-[0_8px_20px_-4px_rgba(0,0,0,0.35)] px-2 py-1 grid grid-cols-5 gap-1 items-center"
+          className="relative rounded-[22px] bg-base/95 backdrop-blur-md border border-base-500/70 shadow-[0_8px_20px_-4px_rgba(0,0,0,0.35)] px-2 py-1"
           style={{
-            backgroundColor: 'color-mix(in oklab, var(--theme-color-base, #0a0a0c) 96%, transparent)',
+            backgroundColor: 'color-mix(in oklab, var(--theme-color-base, #0a0a0c) 95%, transparent)',
             borderColor: 'color-mix(in oklab, var(--theme-color-base-500, #222222) 70%, transparent)',
           }}
         >
-          {/* نشانگر متحرک افقی خالص روی GPU — بدون پرش عمودی هنگام اسکرول */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute top-1 bottom-1 right-2 z-0 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
-            style={{
-              width: 'calc((100% - 16px) / 5)',
-              transform: `translate3d(-${activeIdx * 100}%, 0, 0)`,
-            }}
-          >
-            <div className="w-full h-full rounded-2xl bg-base-500/35 border border-base-500/50 shadow-sm" />
-          </div>
+          <div className="relative grid grid-cols-5 items-center">
+            {/* نشانگر متحرک افقی خالص — هم‌عرض دقیق هر ستون (۲۰٪) بدون پرش عمودی */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 right-0 z-0 p-1 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
+              style={{
+                width: '20%',
+                transform: `translate3d(-${activeIdx * 100}%, 0, 0)`,
+              }}
+            >
+              <div className="w-full h-full rounded-2xl bg-base-500/35 border border-base-500/50 shadow-sm" />
+            </div>
 
-          {ALL_TABS.map((t) => (
-            <NavTabItem key={t.id} {...t} active={active} onChange={onChange} />
-          ))}
+            {ALL_TABS.map((t) => (
+              <NavTabItem key={t.id} {...t} active={active} onChange={onChange} />
+            ))}
+          </div>
         </div>
       </div>
     </nav>

@@ -194,16 +194,6 @@ export default function TopBar({ title, onBack }) {
               </button>
             )}
 
-            {/* جستجوی سراسری (CommandPalette) */}
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new CustomEvent('sarvOpenCommandPalette'))}
-              className="w-8 h-8 rounded-xl bg-base-500/30 hover:bg-base-500/50 border border-base-500/40 grid place-items-center text-neutral hover:text-base-content active:scale-95 transition-all outline-none cursor-pointer"
-              title="جستجوی سریع (Ctrl+K)"
-            >
-              <Search className="w-3.5 h-3.5" />
-            </button>
-
             {/* حالت حریم خصوصی سراسری */}
             <button
               type="button"
