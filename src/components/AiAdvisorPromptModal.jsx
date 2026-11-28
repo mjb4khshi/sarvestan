@@ -19,8 +19,11 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { getViewModel, getExamsView } from '../data/viewModel';
-import { getCurrentTermSchedule } from '../services/behestan/store';
+import { getCurrentTermSchedule, getSnapshot } from '../services/behestan/store';
 import { getSelectedUniversity, getUniversityName } from '../services/behestan/session';
+import { getStudyTasks } from '../services/studyPlanner';
+import { buildCurriculumState } from '../services/curriculumEngine';
+import { getExamCategoryLabel } from '../services/classAlarms';
 import { toFaDigits } from '../utils/faDigits';
 import SarvCheckbox from './SarvCheckbox';
 
@@ -114,23 +117,35 @@ export default function AiAdvisorPromptModal({ isOpen, onClose }) {
     const seenCodes = new Set();
     (currentSchedule || []).forEach((c) => {
       const title = c.name || c.title || c.course || '';
+      const isTa = c.classType === 'ta' || c.category === 'ta' || title.includes('حل تمرین');
       const code = c.code ? String(c.code).replace(/\D/g, '') : title;
       if (!title) return;
-      const key = code ? `${code}-${title}` : title;
+      const key = `${isTa ? 'ta' : 'lec'}:${code || title}:${title}`;
       if (seenCodes.has(key)) return;
       seenCodes.add(key);
 
-      const u = Number(c.units ?? c.unit) || (c.isProject ? 3 : 0);
+      const u = isTa ? 0 : (Number(c.units ?? c.unit) || (c.isProject ? 3 : 0));
       const prof = c.professor && c.professor !== 'ـ' ? c.professor : 'نامشخص';
-      const timeStr = c.time || c.classTimeRaw ? `${toFaDigits(c.time || c.classTimeRaw)}` : '';
+      let scheduleStr = '';
+      if (Array.isArray(c.daySlots) && c.daySlots.length > 0) {
+        scheduleStr = c.daySlots
+          .map((s) => `${s.day || ''} ${s.time ? toFaDigits(s.time) : ''}`.trim())
+          .filter(Boolean)
+          .join('، ');
+      } else {
+        const daysStr = Array.isArray(c.days) && c.days.length ? c.days.join(' و ') : (c.day || '');
+        const rawT = c.time || c.classTimeRaw ? toFaDigits(c.time || c.classTimeRaw) : '';
+        scheduleStr = [daysStr, rawT].filter(Boolean).join(' ');
+      }
       const roomStr = c.hall && c.hall !== 'ـ' ? ` (مکان: ${c.hall})` : '';
 
       currentTermCourses.push({
         title,
         units: u,
         prof,
-        timeStr,
+        timeStr: scheduleStr,
         roomStr,
+        isTa,
       });
     });
 
@@ -172,18 +187,20 @@ ${hidePrivacyInfo ? '- هویت: دانشجو (نام و شماره دانشجو
 ### ۳. دروس ترم جاری (${vm.termLabel || 'نیمسال جاری'})
 مجموع واحدهای اخذشده: ${toFaDigits(currentTermUnits)} واحد\n`;
       currentTermCourses.forEach((c, idx) => {
-        const scheduleInfo = c.timeStr ? ` | ساعت کلاس: ${c.timeStr}` : '';
-        p += `${toFaDigits(idx + 1)}. ${c.title} (${toFaDigits(c.units)} واحد) - استاد: ${c.prof}${scheduleInfo}${c.roomStr}\n`;
+        const scheduleInfo = c.timeStr ? ` | زمان کلاس: ${c.timeStr}` : '';
+        const typeTag = c.isTa ? ' [حل تمرین]' : '';
+        p += `${toFaDigits(idx + 1)}. ${c.title}${typeTag} (${toFaDigits(c.units)} واحد) - استاد: ${c.prof}${scheduleInfo}${c.roomStr}\n`;
       });
     }
 
-    // تقویم امتحانات پایان‌ترم
+    // تقویم امتحانات و کوییزها
     if (includeExams && exams.length > 0) {
       p += `\n---
 
-### ۴. تقویم امتحانات پایان‌ترم (به ترتیب برگزاری)
+### ۴. تقویم امتحانات و کوییزها (به ترتیب برگزاری)
 `;
       exams.forEach((ex, idx) => {
+        const catLabel = getExamCategoryLabel(ex.category || ex.examType);
         const dLeft =
           ex.daysLeft > 0
             ? `${toFaDigits(ex.daysLeft)} روز باقیمانده`
@@ -194,7 +211,7 @@ ${hidePrivacyInfo ? '- هویت: دانشجو (نام و شماره دانشجو
         const dateStr = ex.examDate && ex.examDate !== 'ـ' ? toFaDigits(ex.examDate) : 'تاریخ نامشخص';
         const dayStr = ex.day ? ` (${ex.day})` : '';
         const profStr = ex.instructor && ex.instructor !== 'ـ' ? ` | استاد: ${ex.instructor}` : '';
-        p += `${toFaDigits(idx + 1)}. امتحان ${ex.course} (${toFaDigits(ex.unit || 0)} واحد): ${dateStr}${dayStr}${timeStr} [${dLeft}]${profStr}\n`;
+        p += `${toFaDigits(idx + 1)}. ${catLabel} ${ex.course} (${toFaDigits(ex.unit || 0)} واحد): ${dateStr}${dayStr}${timeStr} [${dLeft}]${profStr}\n`;
       });
     }
 
@@ -238,6 +255,7 @@ ${hidePrivacyInfo ? '- هویت: دانشجو (نام و شماره دانشجو
 
       // تفکیک دقیق دروس: افتاده، نیازمند توجه، ممتاز، و دروس در حال گذراندن (بدون نمره)
       const failedGrades = [];
+      const droppedGrades = [];
       const borderlineGrades = [];
       const highGrades = [];
 
@@ -265,24 +283,30 @@ ${hidePrivacyInfo ? '- هویت: دانشجو (نام و شماره دانشجو
           // درس‌های جاری یا بدون نمره ثبت‌شده به هیچ‌وجه مردود حساب نمی‌شوند
           if (isPending || c.status === 'در حال' || c.status === 'در حال ثبت نمرات' || c.displayScore === '—') {
             return;
+          } else if (isDropped) {
+            droppedGrades.push(`${cName} (${toFaDigits(c.unit || 0)} واحد)`);
           } else if (isExplicitFailed || (hasNumericScore && numScore < 10 && !isExplicitPassed)) {
             const scoreLabel = hasNumericScore ? `نمره ${toFaDigits(c.displayScore || numScore)}` : 'مردود';
             failedGrades.push(`${cName} (${toFaDigits(c.unit || 0)} واحد - ${scoreLabel})`);
-          } else if (isDropped) {
-            failedGrades.push(`${cName} (${toFaDigits(c.unit || 0)} واحد - حذف اضطراری)`);
           } else if (hasNumericScore && numScore >= 10 && numScore < 12) {
             borderlineGrades.push(`${cName} (${toFaDigits(c.unit || 0)} واحد - نمره ${toFaDigits(c.displayScore || numScore)})`);
-          } else if (isExplicitPassed || (hasNumericScore && numScore >= 17)) {
-            const scoreLabel = hasNumericScore ? `نمره ${toFaDigits(c.displayScore || numScore)}` : 'قبول';
-            highGrades.push(`${cName} (${toFaDigits(c.unit || 0)} واحد - ${scoreLabel})`);
+          } else if (hasNumericScore && numScore >= 17) {
+            highGrades.push(`${cName} (${toFaDigits(c.unit || 0)} واحد - نمره ${toFaDigits(c.displayScore || numScore)})`);
           }
         });
       });
 
       if (failedGrades.length > 0) {
-        p += `\n⚠️ دروس افتاده یا حذف‌شده (نیازمند اخذ مجدد یا ترمیم):\n`;
+        p += `\n⚠️ دروس افتاده (نیازمند اخذ مجدد):\n`;
         failedGrades.forEach((fg) => {
           p += `- ${fg}\n`;
+        });
+      }
+
+      if (droppedGrades.length > 0) {
+        p += `\n📌 دروس حذف اضطراری / پزشکی (بدون اثر منفی در معدل):\n`;
+        droppedGrades.forEach((dg) => {
+          p += `- ${dg}\n`;
         });
       }
 
@@ -300,6 +324,26 @@ ${hidePrivacyInfo ? '- هویت: دانشجو (نام و شماره دانشجو
         });
       }
     }
+
+    // تسک‌های باز پلنر و وضعیت چارت (در صورت موجود بودن)
+    try {
+      const openTasks = (getStudyTasks() || []).filter((t) => t && t.status !== 'done').slice(0, 10);
+      const snap = getSnapshot();
+      const curState = buildCurriculumState(snap?.curriculumReport, snap?.courses || [], snap?.profile || {});
+      if (openTasks.length > 0 || curState?.totalUnits > 0) {
+        p += `\n---\n\n### ۶. وضعیت تکالیف پلنر و پیشرفت چارت\n`;
+        if (curState?.totalUnits > 0) {
+          p += `- وضعیت چارت: ${toFaDigits(curState.passedUnits || 0)} واحد گذرانده‌شده از ${toFaDigits(curState.totalUnits)} واحد (باقیمانده: ${toFaDigits(Math.max(0, (curState.totalUnits || 0) - (curState.passedUnits || 0)))} واحد)\n`;
+        }
+        if (openTasks.length > 0) {
+          p += `- کارهای باز برنامه‌ریزی (${toFaDigits(openTasks.length)} مورد اخیر):\n`;
+          openTasks.forEach((t) => {
+            const due = t.dateStr ? ` (سررسید: ${toFaDigits(t.dateStr)})` : '';
+            p += `  • ${t.title}${t.courseName ? ` [${t.courseName}]` : ''}${due}\n`;
+          });
+        }
+      }
+    } catch {}
 
     // درخواست و سوال دانشجو از هوش مصنوعی
     p += `\n---

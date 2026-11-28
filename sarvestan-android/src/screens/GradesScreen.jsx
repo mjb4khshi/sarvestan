@@ -68,6 +68,7 @@ export default function GradesScreen({ onNavigate }) {
   // درسی که هم‌اکنون نمره آن به صورت دستی در حال تایپ است
   const [editingCourseId, setEditingCourseId] = useState(null);
   const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [targetGpa, setTargetGpa] = useState('17.00');
 
   // وضعیت دروس شبیه‌سازی‌شده فقط برای آخرین ترم (نمره پیش‌فرض ۲۰ بر اساس درخواست کاربر)
   const [simCourses, setSimCourses] = useState(() => {
@@ -169,13 +170,14 @@ export default function GradesScreen({ onNavigate }) {
     });
   };
 
-  // ریست کردن شبیه‌ساز به نمرات اولیه آخرین ترم (با پیش‌فرض ۲۰)
+  // ریست کردن شبیه‌ساز به نمرات اولیه آخرین ترم (بدون لحاظ کردن دروس حذف‌شده/در انتظار)
   const resetSimulator = () => {
     const init = {};
     (TERMS[0]?.courses || []).forEach((c) => {
+      const isExcluded = c.isDropped || c.regStatus === 'dropped' || c.regStatus === 'waitlist';
       init[c.id] = {
-        included: c.includeInGpa !== false,
-        score: c.score ?? 20.0,
+        included: isExcluded ? false : (c.includeInGpa !== false),
+        score: isExcluded ? null : (c.score ?? 20.0),
       };
     });
     setSimCourses(init);
@@ -196,7 +198,7 @@ export default function GradesScreen({ onNavigate }) {
 
     if (totalUnits === 0) return '۰٫۰۰';
     return (totalPoints / totalUnits).toFixed(2);
-  }, [simCourses]);
+  }, [simCourses, TERMS]);
 
   // محاسبه زنده تعداد واحدهای لحاظ‌شده
   const calculatedUnits = useMemo(() => {
@@ -206,35 +208,49 @@ export default function GradesScreen({ onNavigate }) {
       if (sim.included) units += c.unit;
     });
     return units;
-  }, [simCourses]);
+  }, [simCourses, TERMS]);
 
   // تخمین معدل کل بر اساس میانگین وزنی آخرین ترم شبیه‌سازی‌شده و ترم‌های قطعی گذشته
-  const calculatedCumulativeGPA = useMemo(() => {
-    let totalPoints = 0;
-    let totalUnits = 0;
+  const cumStats = useMemo(() => {
+    let currPoints = 0;
+    let currUnits = 0;
 
     // آخرین ترم شبیه‌سازی‌شده
     (TERMS[0]?.courses || []).forEach((c) => {
       const sim = simCourses[c.id] || { included: true, score: c.score ?? 17 };
       if (sim.included && sim.score !== null && !isNaN(sim.score)) {
-        totalPoints += sim.score * c.unit;
-        totalUnits += c.unit;
+        currPoints += sim.score * c.unit;
+        currUnits += c.unit;
       }
     });
+
+    let prevPoints = 0;
+    let prevUnits = 0;
 
     // سایر ترم‌های گذشته (نمرات قطعی)
     for (let i = 1; i < TERMS.length; i++) {
       TERMS[i].courses.forEach((c) => {
         if (c.score !== null && !isNaN(c.score)) {
-          totalPoints += c.score * c.unit;
-          totalUnits += c.unit;
+          prevPoints += c.score * c.unit;
+          prevUnits += c.unit;
         }
       });
     }
 
-    if (totalUnits === 0) return vm.summary?.gpa || 'ـ';
-    return (totalPoints / totalUnits).toFixed(2);
-  }, [simCourses]);
+    const totalPoints = currPoints + prevPoints;
+    const totalUnits = currUnits + prevUnits;
+    const gpa = totalUnits === 0 ? (vm.summary?.gpa || 'ـ') : (totalPoints / totalUnits).toFixed(2);
+    return { currPoints, currUnits, prevPoints, prevUnits, totalUnits, gpa };
+  }, [simCourses, TERMS, vm.summary?.gpa]);
+
+  const calculatedCumulativeGPA = cumStats.gpa;
+
+  const requiredTermGpa = useMemo(() => {
+    const parsedTarget = parseFloat(String(targetGpa || '').replace(/[^\d.]/g, ''));
+    if (isNaN(parsedTarget) || cumStats.currUnits <= 0) return null;
+    const needed = (parsedTarget * cumStats.totalUnits - cumStats.prevPoints) / cumStats.currUnits;
+    return { target: parsedTarget, needed };
+  }, [targetGpa, cumStats]);
 
   return (
     <div className="px-4 pt-4 space-y-4 mobile-pad-bottom">
@@ -283,7 +299,7 @@ export default function GradesScreen({ onNavigate }) {
                   )}
                   <span className="relative z-10 block whitespace-nowrap">
                     <p className="text-[11.5px] leading-tight font-black">{toFaDigits(t.shortName)}</p>
-                    <p className="text-[10px] font-mono mt-0.5 opacity-90">معدل: {toFaDigits(t.gpa)}</p>
+                    <p className="text-[10px] font-mono mt-0.5 opacity-90 sarv-privacy">معدل: {toFaDigits(t.gpa)}</p>
                   </span>
                 </button>
               );
@@ -312,7 +328,7 @@ export default function GradesScreen({ onNavigate }) {
           <div>
             <p className="text-[11px] text-neutral font-bold">معدل کارنامه ترم</p>
             {/* انیمیشن کیلومترشمار آنالوگ مکانیکی برای معدل */}
-            <div className="mt-1 flex items-center gap-1">
+            <div className="mt-1 flex items-center gap-1 sarv-privacy">
               <OdometerNumber value={activeTerm.gpa} height={38} className="text-[36px] text-primary" />
             </div>
             <p
@@ -430,13 +446,13 @@ export default function GradesScreen({ onNavigate }) {
                 <div className="mt-3 pt-3 border-t border-base-500/30 grid grid-cols-3 gap-2 text-center">
                   <div className="rounded-xl p-2 bg-primary-soft border border-primary-soft">
                     <p className="text-[10px] text-primary font-bold">معدل شبیه‌ساز ترم</p>
-                    <div className="mt-0.5 flex justify-center">
+                    <div className="mt-0.5 flex justify-center sarv-privacy">
                       <OdometerNumber value={calculatedTermGPA} height={20} className="text-[17px] text-primary" />
                     </div>
                   </div>
                   <div className="rounded-xl p-2 bg-info-soft border border-info-soft">
                     <p className="text-[10px] text-info font-bold">معدل کل پیش‌بینی</p>
-                    <div className="mt-0.5 flex justify-center">
+                    <div className="mt-0.5 flex justify-center sarv-privacy">
                       <OdometerNumber value={calculatedCumulativeGPA} height={20} className="text-[17px] text-info" />
                     </div>
                   </div>
@@ -449,9 +465,41 @@ export default function GradesScreen({ onNavigate }) {
                   </div>
                 </div>
 
+                {/* محاسبه‌گر معدل هدف (Target GPA) */}
+                <div className="mt-2.5 p-2.5 rounded-xl bg-base-500/15 border border-base-500/30 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-base-content">هدف معدل کل:</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={targetGpa}
+                      onChange={(e) => setTargetGpa(e.target.value)}
+                      className="w-16 px-2 py-1 rounded-lg bg-base border border-base-500/50 text-center text-[12px] font-mono font-bold text-primary outline-none focus:border-primary"
+                      placeholder="17.00"
+                    />
+                  </div>
+                  {requiredTermGpa && (
+                    <div className="text-[11px] font-bold text-left sarv-privacy">
+                      {requiredTermGpa.needed > 20 ? (
+                        <span className="text-danger">
+                          نیازمند معدل {toFaDigits(requiredTermGpa.needed.toFixed(2))} در این ترم (بیش از ۲۰)
+                        </span>
+                      ) : requiredTermGpa.needed <= 0 ? (
+                        <span className="text-success">هدف با نمره فعلی قابل دستیابی است</span>
+                      ) : (
+                        <span className="text-info">
+                          معدل ترم لازم: <span className="font-mono font-black">{toFaDigits(requiredTermGpa.needed.toFixed(2))}</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {/* فهرست دروس با سوئیچ حذف/لحاظ و تنظیم نمره */}
                 <div className="space-y-2 mt-3">
-                  {(TERMS[0]?.courses || []).map((c) => {
+                  {(TERMS[0]?.courses || [])
+                    .filter((c) => c && c.classType !== 'ta' && c.category !== 'ta' && !/حل\s*تمرین|\bTA\b|تی[\s]*ای/i.test(String(c.course || c.name || '')))
+                    .map((c) => {
                     const sim = simCourses[c.id] || {
                       included: true,
                       score: c.score ?? 20.0,
@@ -487,6 +535,11 @@ export default function GradesScreen({ onNavigate }) {
                             </p>
                             <p className="text-[10px] text-neutral">
                               {toFaDigits(c.unit)} واحد {isIncluded ? '· موثر در معدل' : '· حذف‌شده از محاسبه'}
+                              {isIncluded && cumStats.totalUnits > 0 ? (
+                                <span className="text-info font-mono mr-1.5">
+                                  (۱ نمره ≈ +{toFaDigits((c.unit / cumStats.totalUnits).toFixed(3))})
+                                </span>
+                              ) : null}
                             </p>
                           </div>
                         </div>
@@ -623,7 +676,7 @@ export default function GradesScreen({ onNavigate }) {
             {/* جعبه نمره سالید */}
             <div className="text-left shrink-0">
               <div
-                className={`min-w-[56px] px-2.5 py-1 rounded-xl border text-center font-mono text-[15px] ${scoreColor(
+                className={`min-w-[56px] px-2.5 py-1 rounded-xl border text-center font-mono text-[15px] sarv-privacy ${scoreColor(
                   g.score,
                   g.status
                 )}`}

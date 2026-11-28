@@ -165,6 +165,16 @@ export const SARV_THEMES = [
     base: '#f8f8f8',
     accent: '#71717a',
   },
+  {
+    id: 'gta6-arak',
+    name: 'Grand Theft Arak',
+    persianName: 'دزدی بزرگ اراک',
+    icon: '🌴',
+    mode: 'dark',
+    primary: '#ff2e97',
+    base: '#13081c',
+    accent: '#ff9636',
+  },
 ];
 
 const ThemeContext = createContext();
@@ -189,12 +199,26 @@ export function ThemeProvider({ children }) {
     document.documentElement.setAttribute('data-theme-mode', mode);
     try {
       localStorage.setItem('sarvestan_theme', currentTheme);
+      window.dispatchEvent(new CustomEvent('sarvThemeChanged', { detail: { theme: currentTheme } }));
       const metaThemeColor = document.querySelector('meta[name="theme-color"]');
       if (metaThemeColor) {
         metaThemeColor.setAttribute('content', mode === 'dark' ? '#000000' : '#ffffff');
       }
     } catch {}
   }, [currentTheme]);
+
+  useEffect(() => {
+    const onRestored = () => {
+      try {
+        const saved = localStorage.getItem('sarvestan_theme');
+        if (saved && saved !== 'laboo' && SARV_THEMES.some((t) => t.id === saved)) {
+          setCurrentTheme(saved);
+        }
+      } catch {}
+    };
+    window.addEventListener('sarvestan_data_restored', onRestored);
+    return () => window.removeEventListener('sarvestan_data_restored', onRestored);
+  }, []);
 
   // واکنش خودکار به تغییر تم/حالت شب و روز در تنظیمات گوشی (Mobile Settings)
   useEffect(() => {

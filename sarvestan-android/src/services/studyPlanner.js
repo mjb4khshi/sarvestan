@@ -69,7 +69,8 @@ export function saveStudyTask(task) {
   const tasks = getStudyTasks();
   const now = Date.now();
   const todayStr = toLocalDateString(new Date());
-  const taskDateStr = task.dateStr || todayStr;
+  // پشتیبانی صریح از تسک‌های بی‌تاریخ (Inbox): اگر dateStr === null باشد تاریخ نگذار
+  const taskDateStr = task.dateStr === null ? null : (task.dateStr || (task.isInbox ? null : todayStr));
   let savedTask = null;
   if (task.id) {
     const idx = tasks.findIndex((t) => t.id === task.id);
@@ -77,7 +78,7 @@ export function saveStudyTask(task) {
       savedTask = {
         ...tasks[idx],
         ...task,
-        dateStr: task.dateStr !== undefined ? task.dateStr : (tasks[idx].dateStr || todayStr),
+        dateStr: task.dateStr !== undefined ? task.dateStr : tasks[idx].dateStr,
         updatedAt: now,
       };
       tasks[idx] = savedTask;
@@ -91,6 +92,8 @@ export function saveStudyTask(task) {
       id: `task_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       status: task.status || 'todo',
       dateStr: taskDateStr,
+      scheduledDateStr: task.scheduledDateStr !== undefined ? task.scheduledDateStr : null,
+      recurrence: task.recurrence || 'none',
       timeSpentSeconds: task.timeSpentSeconds || 0,
       createdAt: now,
       updatedAt: now,
@@ -102,11 +105,33 @@ export function saveStudyTask(task) {
   return savedTask;
 }
 
+export function restoreStudyTask(taskSnapshot) {
+  if (!taskSnapshot || !taskSnapshot.id) return null;
+  const tasks = getStudyTasks();
+  const idx = tasks.findIndex((t) => t.id === taskSnapshot.id);
+  if (idx >= 0) {
+    tasks[idx] = taskSnapshot;
+  } else {
+    tasks.unshift(taskSnapshot);
+  }
+  write(STORAGE_KEYS.TASKS, tasks);
+  notifyUpdate();
+  return taskSnapshot;
+}
+
 export function deleteStudyTask(taskId) {
   const tasks = getStudyTasks().filter((t) => t.id !== taskId);
   write(STORAGE_KEYS.TASKS, tasks);
   notifyUpdate();
   return tasks;
+}
+
+function addDaysIso(isoStr, days) {
+  if (!isoStr) return null;
+  const parts = String(isoStr).split('-').map(Number);
+  if (parts.length !== 3 || parts.some(isNaN)) return null;
+  const d = new Date(parts[0], parts[1] - 1, parts[2] + days);
+  return toLocalDateString(d);
 }
 
 export function updateTaskStatus(taskId, newStatus, options = {}) {
@@ -116,6 +141,26 @@ export function updateTaskStatus(taskId, newStatus, options = {}) {
     const prevStatus = task.status;
     task.status = newStatus;
     task.updatedAt = Date.now();
+
+    // اگر تسک تکراری هفتگی تکمیل شد، نمونه هفته بعد را بساز (بدون تکرار)
+    if (newStatus === 'done' && prevStatus !== 'done' && task.recurrence === 'weekly' && !task.spawnedNextId) {
+      const nextDate = addDaysIso(task.dateStr || toLocalDateString(new Date()), 7);
+      const nextSched = task.scheduledDateStr ? addDaysIso(task.scheduledDateStr, 7) : null;
+      const nextId = `task_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      task.spawnedNextId = nextId;
+      tasks.unshift({
+        ...task,
+        id: nextId,
+        status: 'todo',
+        dateStr: nextDate,
+        scheduledDateStr: nextSched,
+        spawnedNextId: undefined,
+        timeSpentSeconds: 0,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+    }
+
     write(STORAGE_KEYS.TASKS, tasks);
 
     // در صورت تکمیل تسک، ثبت خودکار زمان در آمار مطالعه (در صورتی که زمان مشخص باشد)

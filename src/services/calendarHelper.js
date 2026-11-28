@@ -210,3 +210,61 @@ export function formatMinutesHuman(totalMinutes = 0) {
   }
   return `${toFaDigits(m)} دقیقه`;
 }
+
+/**
+ * تخمین شناسه ترم جاری بهستان بر اساس سال و ماه شمسی
+ * - مهر تا دی (۷..۱۰) سال Y -> Y1
+ * - بهمن و اسفند (۱۱..۱۲) سال Y -> Y2
+ * - فروردین تا خرداد (۱..۳) سال Y -> (Y-1)2
+ * - تیر و مرداد (۴..۵) سال Y -> (Y-1)3
+ * - شهریور (۶) سال Y -> Y1
+ */
+export function estimateCurrentBehestanTermId(input = new Date()) {
+  const parts =
+    input && typeof input === 'object' && !(input instanceof Date) && input.year && input.month
+      ? input
+      : getPersianParts(input instanceof Date ? input : new Date());
+  const jy = Number(parts?.year) || 1405;
+  const jm = Number(parts?.month) || 7;
+
+  if (jm >= 7 && jm <= 10) return String((jy % 1000) * 10 + 1);
+  if (jm === 11 || jm === 12) return String((jy % 1000) * 10 + 2);
+  if (jm >= 1 && jm <= 3) return String(((jy - 1) % 1000) * 10 + 2);
+  if (jm === 4 || jm === 5) return String(((jy - 1) % 1000) * 10 + 3);
+  return String((jy % 1000) * 10 + 1); // شهریور (۶)
+}
+
+/**
+ * لیست کاندیدای ترم‌های محتمل برای همگام‌سازی fallback در صورت نبود داده قبلی
+ */
+export function getFallbackTermCandidates(input = new Date()) {
+  const parts =
+    input && typeof input === 'object' && !(input instanceof Date) && input.year && input.month
+      ? input
+      : getPersianParts(input instanceof Date ? input : new Date());
+  const jy = Number(parts?.year) || 1405;
+  const jm = Number(parts?.month) || 7;
+
+  const y1 = String((jy % 1000) * 10 + 1);
+  const y2 = String((jy % 1000) * 10 + 2);
+  const prev1 = String(((jy - 1) % 1000) * 10 + 1);
+  const prev2 = String(((jy - 1) % 1000) * 10 + 2);
+  const prev3 = String(((jy - 1) % 1000) * 10 + 3);
+
+  let raw;
+  if (jm === 4 || jm === 5) raw = [prev3, y1, prev2];
+  else if (jm === 6) raw = [y1, prev2, prev3];
+  else if (jm >= 7 && jm <= 10) raw = [y1, prev2, prev1];
+  else if (jm === 11 || jm === 12) raw = [y2, y1, prev2];
+  else raw = [prev2, prev1, y1];
+
+  return [...new Set(raw)];
+}
+
+/**
+ * تاریخ امروز شمسی با فرمت YYYY/MM/DD
+ */
+export function getTodayJalaliSlash(date = new Date()) {
+  const p = getPersianParts(date);
+  return `${p.year}/${String(p.month).padStart(2, '0')}/${String(p.day).padStart(2, '0')}`;
+}

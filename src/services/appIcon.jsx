@@ -135,6 +135,17 @@ export const APP_ICONS = [
     isDark: true,
     isBatman: true,
   },
+  {
+    id: 'gta6',
+    name: 'دزدی بزرگ اراک (GTA VI)',
+    badge: 'جدید',
+    desc: 'گرادینت غروب وایس‌سیتی با نشان سرو سفید',
+    leaf: '#FFFFFF',
+    bg: '#5468FF',
+    bgGradient: 'linear-gradient(145deg, #5468ff 0%, #ff2e97 52%, #ff9636 86%, #ffc23c 100%)',
+    border: '#FF2E9766',
+    isDark: true,
+  },
 ];
 
 const STORAGE_KEY = 'sarvestan_app_icon';
@@ -256,7 +267,7 @@ export function SarvIconSvg({
         width: size,
         height: size,
         borderRadius: rounded ? Math.round(size * 0.24) : 0,
-        backgroundColor: meta.bg,
+        background: meta.bgGradient || meta.bg,
         boxShadow: shadow
           ? `0 ${Math.max(2, Math.round(size * 0.06))}px ${Math.max(4, Math.round(size * 0.16))}px rgba(0,0,0,0.18)`
           : 'none',

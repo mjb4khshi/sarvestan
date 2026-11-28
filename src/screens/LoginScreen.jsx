@@ -50,6 +50,7 @@ import {
   setLoginRemember,
   commitCredsOnSuccess,
   loadSavedCreds,
+  loadSavedCredsAsync,
   clearSavedCreds,
 } from '../services/loginFlow';
 
@@ -234,11 +235,15 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
 
   // پر کردن نام کاربری/رمز ذخیره‌شده — ورود دوم بدون تایپ
   useEffect(() => {
-    const saved = loadSavedCreds();
-    if (saved) {
+    let active = true;
+    loadSavedCredsAsync().then((saved) => {
+      if (!active || !saved) return;
       if (!getLoginSnapshot().username) setLoginUsername(saved.username);
       if (!getLoginSnapshot().password) setLoginPassword(saved.password);
-    }
+    });
+    return () => {
+      active = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -430,8 +435,8 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
           const failMsg = authErrorMessage(j);
           if (j?.code === 'bad-credentials' && !/کپچا|کد امنیتی/.test(failMsg)) {
             try {
-              const saved = loadSavedCreds();
-              if (saved && saved.username === u) clearSavedCreds();
+              const saved = await loadSavedCredsAsync();
+              if (saved && saved.username === u) await clearSavedCreds();
             } catch {}
           }
           failLoginFlow(-1, failMsg);

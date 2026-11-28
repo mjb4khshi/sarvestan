@@ -4,6 +4,7 @@ import { X, ExternalLink, AlertCircle, Search } from 'lucide-react';
 import SarvButton from './sarv/SarvButton';
 import SarvBadge from './sarv/SarvBadge';
 import { toFaDigits } from '../utils/faDigits';
+import { getUniversityOrigin } from '../services/behestan/session';
 
 /**
  * مودال: گزارش/فرآیند هنوز در سروستان پیاده نشده
@@ -12,7 +13,7 @@ export default function NotAvailableModal({ item, onClose }) {
   if (!item) return null;
 
   const openBehestan = () => {
-    window.open('https://behestan.kntu.ac.ir/', '_blank');
+    window.open(getUniversityOrigin() + '/', '_blank');
     onClose();
   };
 

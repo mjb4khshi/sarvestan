@@ -1,6 +1,7 @@
 import { getAppPlatformBadge } from '../utils/platformBadge';
 import { motion, LayoutGroup } from 'framer-motion';
-import { CalendarDays, Award, Timer, LayoutGrid, LayoutDashboard, Palette, Bell, X, QrCode } from 'lucide-react';
+import { CalendarDays, Award, Timer, LayoutGrid, LayoutDashboard, Palette, Bell, X, QrCode, Search, Eye, EyeOff } from 'lucide-react';
+import { usePrivacyMode } from '../services/privacyMode';
 import { useSarvestanData } from '../hooks/useSarvestanData';
 import { getLocalNotes } from '../services/behestan/store';
 import { toFaDigits } from '../utils/faDigits';
@@ -117,6 +118,24 @@ export default function SideNav({ active, onChange }) {
             </button>
 
             <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('sarvOpenCommandPalette'))}
+                className="w-8 h-8 rounded-xl bg-base-500/30 hover:bg-base-500/50 border border-base-500/40 grid place-items-center text-neutral hover:text-base-content active:scale-95 transition-all outline-none cursor-pointer"
+                title="جستجوی سریع (Ctrl+K)"
+              >
+                <Search className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('sarvTogglePrivacyShortcut'))}
+                className="w-8 h-8 rounded-xl bg-base-500/30 hover:bg-base-500/50 border border-base-500/40 grid place-items-center text-neutral hover:text-base-content active:scale-95 transition-all outline-none cursor-pointer"
+                title="حالت حریم خصوصی (Ctrl+Shift+P)"
+              >
+                <Eye className="w-3.5 h-3.5" />
+              </button>
+
               <button
                 type="button"
                 onClick={() => window.dispatchEvent(new Event('sarvestan-sidebar-theme'))}

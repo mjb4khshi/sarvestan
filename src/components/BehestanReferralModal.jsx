@@ -6,6 +6,7 @@ import SarvBadge from './sarv/SarvBadge';
 import liveSync from '../services/behestanLiveSync';
 import { BEHESTAN_PROFILE } from '../services/behestanData';
 import { toFaDigits } from '../utils/faDigits';
+import { getUniversityOrigin, getUniversityShortName } from '../services/behestan/session';
 
 export default function BehestanReferralModal({ type, onClose }) {
   if (!type) return null;
@@ -27,7 +28,7 @@ export default function BehestanReferralModal({ type, onClose }) {
     if (liveSync?.openBehestanLogin) {
       liveSync.openBehestanLogin();
     } else {
-      window.open('https://behestan.kntu.ac.ir/', '_blank');
+      window.open(getUniversityOrigin() + '/', '_blank');
     }
     onClose();
   };
@@ -77,7 +78,7 @@ export default function BehestanReferralModal({ type, onClose }) {
           <div className="p-3.5 rounded-xl bg-base-500/25 border border-base-500/40 flex items-start gap-2.5 text-xs text-base-content leading-relaxed">
             <ShieldCheck className="w-4 h-4 text-info shrink-0 mt-0.5" />
             <span>
-              به دلیل الزامات حقوقی و امنیتی دانشگاه خواجه نصیر، ثبت، امضای دیجیتال و صدور این فرم‌ها مستقیماً در درگاه اصلی بهستان انجام می‌گیرد.
+              به دلیل الزامات حقوقی و امنیتی {getUniversityShortName()}، ثبت، امضای دیجیتال و صدور این فرم‌ها مستقیماً در درگاه اصلی بهستان انجام می‌گیرد.
             </span>
           </div>
 

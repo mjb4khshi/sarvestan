@@ -78,11 +78,11 @@ export default function WebConnectGate({ onDataLoaded }) {
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="w-full max-w-md rounded-3xl bg-white dark:bg-base border border-base-500/40 p-6 sm:p-7 shadow-2xl text-right my-auto space-y-4"
+        className="w-full max-w-md rounded-3xl bg-base border border-base-500/40 p-6 sm:p-7 shadow-2xl text-right my-auto space-y-4"
       >
         {/* Brand Icon & Heading */}
         <div className="flex flex-col items-center text-center">
-          <div className="w-16 h-16 rounded-3xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 shadow-md flex items-center justify-center mb-3.5 p-2.5">
+          <div className="w-16 h-16 rounded-3xl bg-base-500/15 border border-base-500/40 shadow-md flex items-center justify-center mb-3.5 p-2.5">
             <img src="./sarv-logo.png" alt="سروستان" className="w-10 h-10 object-contain" />
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-base-content">
@@ -145,7 +145,7 @@ export default function WebConnectGate({ onDataLoaded }) {
             className="w-full p-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm flex items-center justify-between shadow-lg shadow-emerald-600/20 transition-all cursor-pointer group"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center group-hover:scale-105 transition-transform">
+              <div className="w-10 h-10 rounded-xl bg-base-content/15 flex items-center justify-center group-hover:scale-105 transition-transform">
                 <QrCode className="w-5 h-5 text-white" />
               </div>
               <div className="text-right">
@@ -153,7 +153,7 @@ export default function WebConnectGate({ onDataLoaded }) {
                 <div className="text-[11px] opacity-90 font-medium">از روی افزونه یا گوشی اندروید</div>
               </div>
             </div>
-            <span className="text-xs px-2.5 py-1 rounded-full bg-white/20 font-mono font-bold">
+            <span className="text-xs px-2.5 py-1 rounded-full bg-base-content/15 font-mono font-bold">
               دوربین
             </span>
           </button>

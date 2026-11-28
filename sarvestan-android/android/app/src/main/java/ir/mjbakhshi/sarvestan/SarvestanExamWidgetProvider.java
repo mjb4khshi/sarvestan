@@ -37,9 +37,11 @@ public class SarvestanExamWidgetProvider extends AppWidgetProvider {
         SharedPreferences sp = context.getSharedPreferences(SarvestanWidgetProvider.PREFS, Context.MODE_PRIVATE);
 
         String examTitle = sp.getString(SarvestanWidgetProvider.KEY_EXAM_TITLE, "");
+        String examCategory = sp.getString("exam_category", "");
         int examDays = sp.getInt(SarvestanWidgetProvider.KEY_EXAM_DAYS, -1);
         String examDate = sp.getString(SarvestanWidgetProvider.KEY_EXAM_DATE, "");
         String secondExamTitle = sp.getString("second_exam_title", "");
+        String secondExamCategory = sp.getString("second_exam_category", "");
         int secondExamDays = sp.getInt("second_exam_days", -1);
         String theme = sp.getString(SarvestanWidgetProvider.KEY_THEME, "auto");
 
@@ -67,7 +69,8 @@ public class SarvestanExamWidgetProvider extends AppWidgetProvider {
         Bitmap bBadge = WidgetTypographyHelper.renderText(context, badgeStr, 10f, colorBadge, WidgetTypographyHelper.getBold(context), android.graphics.Paint.Align.LEFT);
         if (bBadge != null) rv.setImageViewBitmap(R.id.w_exam_badge, bBadge);
 
-        String mainTitle = (examTitle == null || examTitle.isEmpty() || examDays < 0) ? "امتحانی نزدیک نیست" : examTitle;
+        String catPrefix = "quiz".equals(examCategory) ? "کوییز " : "midterm".equals(examCategory) ? "میانترم " : "";
+        String mainTitle = (examTitle == null || examTitle.isEmpty() || examDays < 0) ? "امتحانی نزدیک نیست" : (catPrefix + examTitle);
         Bitmap bCourse = WidgetTypographyHelper.renderText(context, mainTitle, 13f, colorTitle, WidgetTypographyHelper.getBold(context), android.graphics.Paint.Align.RIGHT);
         if (bCourse != null) rv.setImageViewBitmap(R.id.w_exam_course_title, bCourse);
 
@@ -76,7 +79,8 @@ public class SarvestanExamWidgetProvider extends AppWidgetProvider {
         if (bMeta != null) rv.setImageViewBitmap(R.id.w_exam_course_meta, bMeta);
 
         if (secondExamTitle != null && !secondExamTitle.isEmpty()) {
-            Bitmap bSec = WidgetTypographyHelper.renderText(context, "امتحان بعدی: " + secondExamTitle, 10f, colorMeta, WidgetTypographyHelper.getRegular(context), android.graphics.Paint.Align.RIGHT);
+            String secPrefix = "quiz".equals(secondExamCategory) ? "کوییز بعدی: " : "midterm".equals(secondExamCategory) ? "میانترم بعدی: " : "امتحان بعدی: ";
+            Bitmap bSec = WidgetTypographyHelper.renderText(context, secPrefix + secondExamTitle, 10f, colorMeta, WidgetTypographyHelper.getRegular(context), android.graphics.Paint.Align.RIGHT);
             if (bSec != null) rv.setImageViewBitmap(R.id.w_exam_second_info, bSec);
 
             if (secondExamDays >= 0) {

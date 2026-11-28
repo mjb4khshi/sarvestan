@@ -37,6 +37,7 @@ public class SarvestanSlimExamWidgetProvider extends AppWidgetProvider {
         SharedPreferences sp = context.getSharedPreferences(SarvestanWidgetProvider.PREFS, Context.MODE_PRIVATE);
 
         String title = sp.getString(SarvestanWidgetProvider.KEY_EXAM_TITLE, "");
+        String examCategory = sp.getString("exam_category", "");
         int examDays = sp.getInt(SarvestanWidgetProvider.KEY_EXAM_DAYS, -1);
         String examDate = sp.getString(SarvestanWidgetProvider.KEY_EXAM_DATE, "");
         String theme = sp.getString(SarvestanWidgetProvider.KEY_THEME, "auto");
@@ -56,7 +57,8 @@ public class SarvestanSlimExamWidgetProvider extends AppWidgetProvider {
         int colorMeta = isNight ? Color.parseColor("#94A3B8") : Color.parseColor("#64748B");
         int colorBadge = isNight ? Color.parseColor("#FB7185") : Color.parseColor("#E11D48");
 
-        String displayTitle = (title != null && !title.isEmpty()) ? title : "امتحانی در هفته جاری نیست";
+        String catPrefix = "quiz".equals(examCategory) ? "کوییز " : "midterm".equals(examCategory) ? "میانترم " : "";
+        String displayTitle = (title != null && !title.isEmpty()) ? (catPrefix + title) : "امتحانی در هفته جاری نیست";
         Bitmap bTitle = WidgetTypographyHelper.renderTextRight(context, displayTitle, 12f, colorTitle, WidgetTypographyHelper.getBold(context));
         if (bTitle != null) rv.setImageViewBitmap(R.id.w_slim_exam_title, bTitle);
 

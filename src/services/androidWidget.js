@@ -1,5 +1,6 @@
 import { calculateStudyStats, getStudyTasks } from './studyPlanner';
 import { getViewModel } from '../data/viewModel';
+import { SARV_THEMES } from '../context/ThemeContext';
 
 let _syncDebounce = null;
 
@@ -51,7 +52,7 @@ export async function updateAndroidWidget(vm = null) {
       studyStats = calculateStudyStats() || {};
     } catch {}
 
-    const studyMins = Math.round((studyStats.todaySeconds || 0) / 60);
+    const studyMins = Math.round(studyStats.todayMinutes ?? ((studyStats.todaySeconds || 0) / 60));
     const studyStreak = studyStats.streak || studyStats.currentStreak || 0;
 
     let tasksDoneCount = 0;
@@ -74,8 +75,12 @@ export async function updateAndroidWidget(vm = null) {
     let themeMode = 'auto';
     try {
       const activeId = localStorage.getItem('sarvestan_theme');
-      if (activeId) {
-        themeMode = activeId.includes('light') ? 'light' : activeId.includes('dark') ? 'dark' : 'auto';
+      const matched = activeId ? SARV_THEMES.find((t) => t.id === activeId) : null;
+      if (matched?.mode) {
+        themeMode = matched.mode;
+      } else if (typeof document !== 'undefined') {
+        const attr = document.documentElement.getAttribute('data-theme-mode');
+        if (attr === 'light' || attr === 'dark') themeMode = attr;
       }
     } catch {}
 
@@ -84,16 +89,18 @@ export async function updateAndroidWidget(vm = null) {
       nextTime: next?.isUpcomingDay ? `${next.dayLabel} ${next.time}` : next?.time || '',
       nextRoom: next?.room || '',
       examTitle: exam?.course || '',
+      examCategory: exam?.category || '',
       examDays: exam?.daysLeft ?? -1,
       examDate: exam?.examDate || '',
       secondExamTitle: secondExam?.course || '',
+      secondExamCategory: secondExam?.category || '',
       secondExamDays: secondExam?.daysLeft ?? -1,
       gpa: effectiveVm?.summary?.gpa || '',
       unitsPassed: effectiveVm?.summary?.unitsPassed ? String(effectiveVm.summary.unitsPassed) : '',
       termGpa: effectiveVm?.summary?.termGpa ? String(effectiveVm.summary.termGpa) : '',
       studyMinutes: studyMins,
       studyStreak: studyStreak,
-      studySubject: studyStats.topCourse || 'مطالعه و پلنر',
+      studySubject: studyStats.byCourse?.[0]?.name || studyStats.topCourse || 'مطالعه و پلنر',
       tasksDoneCount,
       tasksTotalCount,
       topTaskTitle,

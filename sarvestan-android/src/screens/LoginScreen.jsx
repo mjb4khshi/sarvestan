@@ -24,6 +24,7 @@ import {
   UNIVERSITIES,
   getSelectedUniversity,
   setSelectedUniversity,
+  getAssetUrl,
 } from '../services/behestan/session';
 import {
   fetchDirectCaptcha,
@@ -46,6 +47,7 @@ import {
   setLoginRemember,
   commitCredsOnSuccess,
   loadSavedCreds,
+  loadSavedCredsAsync,
   clearSavedCreds,
 } from '../services/loginFlow';
 
@@ -228,11 +230,15 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
 
   // پر کردن نام کاربری/رمز ذخیره‌شده — ورود دوم بدون تایپ
   useEffect(() => {
-    const saved = loadSavedCreds();
-    if (saved) {
+    let active = true;
+    loadSavedCredsAsync().then((saved) => {
+      if (!active || !saved) return;
       if (!getLoginSnapshot().username) setLoginUsername(saved.username);
       if (!getLoginSnapshot().password) setLoginPassword(saved.password);
-    }
+    });
+    return () => {
+      active = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -424,8 +430,8 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
           const failMsg = authErrorMessage(j);
           if (j?.code === 'bad-credentials' && !/کپچا|کد امنیتی/.test(failMsg)) {
             try {
-              const saved = loadSavedCreds();
-              if (saved && saved.username === u) clearSavedCreds();
+              const saved = await loadSavedCredsAsync();
+              if (saved && saved.username === u) await clearSavedCreds();
             } catch {}
           }
           failLoginFlow(-1, failMsg);
@@ -530,7 +536,7 @@ export default function LoginScreen({ onSuccess, asModal = false }) {
       )}
       <div className="flex flex-col items-center gap-2">
         <img
-          src="/sarv-icon.svg"
+          src={getAssetUrl('sarv-icon.svg')}
           alt="سروستان"
           className="w-16 h-16 rounded-3xl object-contain shadow-lg ring-2 ring-primary/30 bg-base"
         />

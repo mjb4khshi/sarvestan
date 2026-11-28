@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Wallet,
@@ -13,7 +14,30 @@ import { getViewModel } from '../data/viewModel';
 import { toFaDigits } from '../utils/faDigits';
 import { getUniversityOrigin } from '../services/behestan/session';
 
+const FINANCE_CURRENCY_KEY = 'sarvestan_finance_currency';
+
 export default function FinanceScreen({ onNavigate }) {
+  const [currencyMode, setCurrencyMode] = useState(() => {
+    try {
+      return localStorage.getItem(FINANCE_CURRENCY_KEY) || 'toman';
+    } catch {
+      return 'toman';
+    }
+  });
+  const handleCurrencyChange = (mode) => {
+    setCurrencyMode(mode);
+    try {
+      localStorage.setItem(FINANCE_CURRENCY_KEY, mode);
+    } catch {}
+  };
+  const isRial = currencyMode === 'rial';
+  const formatMoney = (tomanVal, rialVal = null) => {
+    const num = isRial
+      ? (rialVal != null ? Number(rialVal) : Number(tomanVal || 0) * 10)
+      : (tomanVal != null ? Number(tomanVal) : Math.round(Number(rialVal || 0) / 10));
+    return Number.isFinite(num) ? num.toLocaleString('fa-IR') : '۰';
+  };
+  const currencyLabel = isRial ? 'ریال' : 'تومان';
   const vm = getViewModel();
   const FINANCE = vm?.finance || {
     isPaid: true,
@@ -59,10 +83,74 @@ export default function FinanceScreen({ onNavigate }) {
 
   return (
     <div className="px-4 pt-4 space-y-4 mobile-pad-bottom">
-      {/* ۱. چاپگر و رسید رسمی مالی سرو — در بالاترین موقعیت با انیمیشن چاپ */}
+      {/* ۱. هرم معکوس: کارت وضعیت حساب، مانده کل و سوییچ واحد پول در بالاترین نقطه */}
       <motion.section
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
+        className={`sarv-card p-5 relative overflow-hidden border ${statusTone.cardBorder}`}
+      >
+        <div className="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-base-500/25">
+          <div className="flex items-center gap-2">
+            <span className={`text-[11px] font-black px-2.5 py-1 rounded-xl border ${statusTone.badge}`}>
+              {statusTone.badgeText}
+            </span>
+            <span className="text-[11.5px] font-bold text-neutral">{statusTone.label}</span>
+          </div>
+          <div className="sarv-seg !p-0.5 text-[10.5px]">
+            <button
+              type="button"
+              onClick={() => handleCurrencyChange('toman')}
+              className={`px-2.5 py-1 rounded-lg font-bold cursor-pointer transition ${
+                !isRial ? 'bg-primary text-primary-content' : 'text-neutral'
+              }`}
+            >
+              تومان
+            </button>
+            <button
+              type="button"
+              onClick={() => handleCurrencyChange('rial')}
+              className={`px-2.5 py-1 rounded-lg font-bold cursor-pointer transition ${
+                isRial ? 'bg-primary text-primary-content' : 'text-neutral'
+              }`}
+            >
+              ریال
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-[11px] text-neutral block">مانده / تراز قابل پرداخت</span>
+            <p className={`text-2xl font-black font-mono mt-0.5 sarv-privacy ${statusTone.text}`}>
+              {formatMoney(FINANCE.debtToman)} <span className="text-xs font-bold">{currencyLabel}</span>
+            </p>
+          </div>
+          <div className={`w-11 h-11 rounded-2xl grid place-items-center ${statusTone.iconBg}`}>
+            {isDebtor ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5 mt-4 pt-3 border-t border-base-500/25 text-xs">
+          <div className="p-2.5 rounded-xl bg-base-500/15">
+            <span className="text-[10.5px] text-neutral block">کل بدهی / شهریه</span>
+            <span className="font-black font-mono text-base-content sarv-privacy">
+              {formatMoney(null, FINANCE.totalBillRial)} {currencyLabel}
+            </span>
+          </div>
+          <div className="p-2.5 rounded-xl bg-base-500/15">
+            <span className="text-[10.5px] text-neutral block">کل پرداخت‌شده</span>
+            <span className="font-black font-mono text-success sarv-privacy">
+              {formatMoney(null, FINANCE.totalPaidRial)} {currencyLabel}
+            </span>
+          </div>
+        </div>
+      </motion.section>
+
+      {/* ۲. چاپگر و رسید رسمی مالی سرو */}
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.06 }}
         className="sarv-card p-4 flex flex-col items-center border border-primary/20"
       >
         <div className="w-full flex items-center justify-between pb-3 mb-2 border-b border-base-500/30">
@@ -89,50 +177,15 @@ export default function FinanceScreen({ onNavigate }) {
         />
       </motion.section>
 
-      {/* ۲. کارت وضعیت حساب و بدهی دانشجویی */}
+      {/* ۳. دکمه پرداخت و جزئیات اقلام */}
       <motion.section
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.08 }}
-        className={`sarv-card p-5 relative overflow-hidden border ${statusTone.cardBorder}`}
+        transition={{ delay: 0.1 }}
+        className="sarv-card p-4 space-y-3 border border-base-500/30"
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className={`w-11 h-11 rounded-2xl ${statusTone.iconBg} grid place-items-center shadow-md`}>
-              <Wallet className="w-5 h-5" />
-            </span>
-            <div>
-              <p className={`text-[11.5px] font-bold ${statusTone.text}`}>{statusTone.label}</p>
-              <h2 className="text-[26px] font-black text-base-content mt-0.5 font-mono">
-                {FINANCE.balance}{' '}
-                <span className="text-[12px] text-neutral font-sans font-bold">{FINANCE.currency}</span>
-              </h2>
-            </div>
-          </div>
-
-          <span className={`text-[10.5px] font-black px-2.5 py-1 rounded-xl border ${statusTone.badge}`}>
-            {statusTone.badgeText}
-          </span>
-        </div>
-
-        {/* اطلاعات تفکیکی مالی */}
-        <div className="mt-4 grid grid-cols-2 gap-2.5">
-          <div className="rounded-2xl bg-base-500/30 border border-base-500/50 p-3 text-center">
-            <p className="text-[10.5px] text-neutral font-bold">کل صورت‌حساب (ریال)</p>
-            <p className="text-[14px] font-black text-base-content mt-1 font-mono">
-              {faNum(FINANCE.totalBillRial)}
-            </p>
-          </div>
-          <div className="rounded-2xl bg-success-soft border border-success-soft p-3 text-center">
-            <p className="text-[10.5px] text-success font-bold">مجموع واریزی</p>
-            <p className="text-[14px] font-black text-success mt-1 font-mono">
-              {faNum(FINANCE.totalPaidRial)}
-            </p>
-          </div>
-        </div>
-
         {/* دکمه پرداخت الکترونیک بهستان */}
-        <div className="mt-4">
+        <div>
           <button
             type="button"
             onClick={() => window.open(getUniversityOrigin() + '/', '_blank')}

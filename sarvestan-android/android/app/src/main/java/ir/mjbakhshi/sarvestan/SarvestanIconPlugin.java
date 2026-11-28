@@ -56,6 +56,7 @@ public class SarvestanIconPlugin extends Plugin {
         ALIAS_MAP.put("nordic", "ir.mjbakhshi.sarvestan.MainActivityNordic");
         ALIAS_MAP.put("stealth", "ir.mjbakhshi.sarvestan.MainActivityStealth");
         ALIAS_MAP.put("batman", "ir.mjbakhshi.sarvestan.MainActivityBatman");
+        ALIAS_MAP.put("gta6", "ir.mjbakhshi.sarvestan.MainActivityGta6");
 
         COLOR_MAP.put("default", "#0D9275");
         COLOR_MAP.put("dark", "#10B981");
@@ -70,6 +71,7 @@ public class SarvestanIconPlugin extends Plugin {
         COLOR_MAP.put("nordic", "#0284C7");
         COLOR_MAP.put("stealth", "#64748B");
         COLOR_MAP.put("batman", "#F7DD30");
+        COLOR_MAP.put("gta6", "#FF2E97");
     }
 
     public static ComponentName getActiveLauncherComponent(Context context) {

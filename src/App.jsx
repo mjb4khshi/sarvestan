@@ -27,13 +27,13 @@ import {
   closeLoginModal,
   isLoginModalOpen,
 } from './services/loginFlow';
-import { getUniversityOrigin } from './services/behestan/session';
-import { isSessionAlive } from './services/behestan/session';
+import { getUniversityOrigin, getUniversityLmsUrl, isSessionAlive } from './services/behestan/session';
 import { hasLiveData } from './services/behestan/store';
 import UpdateModal from './components/UpdateModal';
 import BatBackground from './components/BatBackground';
 import { checkForUpdate, hasDismissedUpdate, dismissUpdate } from './services/updater';
 import { isBatNotifEnabled, scheduleBatNightNotification, initBatWebTimer } from './services/batMode';
+import { rearmIfEnabled } from './services/classAlarms';
 import { initExtensionBridge, isBehestanOverlay } from './services/extensionBridge';
 import { initMehestanBridge } from './services/mehestanBridge';
 import { isExtensionRuntime } from './services/extensionRuntime';
@@ -41,6 +41,9 @@ import ExtensionConnectGate from './components/ExtensionConnectGate';
 import WebConnectGate from './components/WebConnectGate';
 import AnimatedQrExportModal from './components/AnimatedQrExportModal';
 import LandingPage from './components/LandingPage';
+import CommandPalette from './components/CommandPalette';
+import CelebrationBanner from './components/CelebrationBanner';
+import { togglePrivacyMode, usePrivacyMode } from './services/privacyMode';
 
 const TITLES = {
   schedule: 'برنامه هفتگی',
@@ -111,9 +114,12 @@ function Shell() {
   }, []);
 
   const [tab, setTab] = useState('home');
+  const [visitedTabs, setVisitedTabs] = useState(() => new Set(['home']));
   const [scheduleDefaultView, setScheduleDefaultView] = useState('cards');
   const [chartModalOpen, setChartModalOpen] = useState(false);
   const [financeModalOpen, setFinanceModalOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  usePrivacyMode();
   const [exitToast, setExitToast] = useState(false);
   const lastBackPressRef = useRef(0);
   const [slideDir, setSlideDir] = useState(0);
@@ -141,7 +147,7 @@ function Shell() {
       } else if (target === 'behestan') {
         window.open(getUniversityOrigin() + '/', '_blank');
       } else if (target === 'vc') {
-        window.open('https://vc.kntu.ac.ir/', '_blank');
+        window.open(getUniversityLmsUrl(), '_blank');
       }
     };
 
@@ -169,11 +175,31 @@ function Shell() {
   useEffect(() => {
     initExtensionBridge();
     const cleanupMehestan = initMehestanBridge();
+    const onOpenPalette = () => setPaletteOpen(true);
+    const onTogglePrivacy = () => togglePrivacyMode();
+    const onKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key?.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen((prev) => !prev);
+      } else if (e.ctrlKey && e.shiftKey && e.key?.toLowerCase() === 'p') {
+        e.preventDefault();
+        togglePrivacyMode();
+      }
+    };
+    window.addEventListener('sarvOpenCommandPalette', onOpenPalette);
+    window.addEventListener('sarvTogglePrivacyShortcut', onTogglePrivacy);
+    window.addEventListener('keydown', onKeyDown);
     if (isBatNotifEnabled()) {
       scheduleBatNightNotification().catch(() => {});
       initBatWebTimer();
     }
-    return () => cleanupMehestan?.();
+    rearmIfEnabled();
+    return () => {
+      cleanupMehestan?.();
+      window.removeEventListener('sarvOpenCommandPalette', onOpenPalette);
+      window.removeEventListener('sarvTogglePrivacyShortcut', onTogglePrivacy);
+      window.removeEventListener('keydown', onKeyDown);
+    };
   }, []);
 
   // مدیریت رویداد دکمه فیزیکی یا ژست بازگشت (Back) اندروید
@@ -240,6 +266,7 @@ function Shell() {
       const dir = nextIndex > currentIndex ? 1 : -1;
       setSlideDir(dir);
     }
+    setVisitedTabs((prev) => (prev.has(targetTab) ? prev : new Set([...prev, targetTab])));
     setTab(targetTab);
   };
 
@@ -323,34 +350,53 @@ function Shell() {
         />
 
         <div
-          className="flex-1 flex flex-col min-w-0 overflow-x-hidden touch-pan-y select-none"
+          className="flex-1 flex flex-col min-w-0 overflow-x-clip touch-pan-y select-none"
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerCancel}
         >
-          <AnimatePresence mode="wait" custom={slideDir}>
-            <motion.main
-              key={tab}
-              custom={slideDir}
-              variants={animLevel === 0 ? { enter: () => ({ opacity: 1, x: 0 }), center: { opacity: 1, x: 0, transition: { duration: 0 } }, exit: () => ({ opacity: 1, x: 0, transition: { duration: 0 } }) } : pageVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              className="flex-1 min-w-0"
-            >
-              {tab === 'home' && <HomeScreen onNavigate={handleNavigate} />}
-              {tab === 'schedule' && (
-                <ScheduleScreen
-                  initialView={scheduleDefaultView}
-                  onViewChange={setScheduleDefaultView}
-                />
-              )}
-              {tab === 'grades' && <GradesScreen onNavigate={handleNavigate} />}
-              {tab === 'study' && <StudyScreen onNavigate={handleNavigate} />}
-              {tab === 'more' && <MoreScreen onNavigate={handleNavigate} />}
-              {tab === 'widgets' && <WidgetPreviewScreen onBack={() => changeTabWithDirection('more')} />}
-            </motion.main>
-          </AnimatePresence>
+          <main className="flex-1 min-w-0">
+            {(() => {
+              const tabAnim = animLevel === 0 ? '' : slideDir > 0 ? 'sarv-tab-in-next' : 'sarv-tab-in-prev';
+              return (
+                <>
+                  {visitedTabs.has('home') && (
+                    <div className={tab === 'home' ? `block ${tabAnim}` : 'hidden'}>
+                      <HomeScreen onNavigate={handleNavigate} />
+                    </div>
+                  )}
+                  {visitedTabs.has('schedule') && (
+                    <div className={tab === 'schedule' ? `block ${tabAnim}` : 'hidden'}>
+                      <ScheduleScreen
+                        initialView={scheduleDefaultView}
+                        onViewChange={setScheduleDefaultView}
+                      />
+                    </div>
+                  )}
+                  {visitedTabs.has('grades') && (
+                    <div className={tab === 'grades' ? `block ${tabAnim}` : 'hidden'}>
+                      <GradesScreen onNavigate={handleNavigate} />
+                    </div>
+                  )}
+                  {visitedTabs.has('study') && (
+                    <div className={tab === 'study' ? `block ${tabAnim}` : 'hidden'}>
+                      <StudyScreen onNavigate={handleNavigate} />
+                    </div>
+                  )}
+                  {visitedTabs.has('more') && (
+                    <div className={tab === 'more' ? `block ${tabAnim}` : 'hidden'}>
+                      <MoreScreen onNavigate={handleNavigate} />
+                    </div>
+                  )}
+                  {tab === 'widgets' && (
+                    <div className={tabAnim}>
+                      <WidgetPreviewScreen onBack={() => changeTabWithDirection('more')} />
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </main>
         </div>
 
         {/* مودال چارت تحصیلی در سطح سراسری برنامه */}
@@ -367,6 +413,15 @@ function Shell() {
           onClose={() => setFinanceModalOpen(false)}
           onNavigate={handleNavigate}
         />
+
+        {/* پالت جستجوی سریع سراسری */}
+        <CommandPalette
+          isOpen={paletteOpen}
+          onClose={() => setPaletteOpen(false)}
+          onNavigate={handleNavigate}
+        />
+
+        <CelebrationBanner />
 
         {/* توست تأیید خروج هنگام دکمه بازگشت */}
         <AnimatePresence>

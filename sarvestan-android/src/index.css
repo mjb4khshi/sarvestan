@@ -118,6 +118,7 @@
     transition: background-color 0.3s ease, color 0.3s ease;
     letter-spacing: -0.015em;
     overscroll-behavior-y: none;
+    overflow-x: clip;
   }
 
   ::-webkit-scrollbar {
@@ -133,11 +134,6 @@
     border-radius: var(--radius-card, 1.25rem);
     color: var(--theme-color-base-content);
     transition: border-color 0.25s ease, box-shadow 0.25s ease;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
-    will-change: transform;
   }
 
   /* حتی در تم‌های پرشین (غیر شارپ) کارت گرد باشد — مثل دسکتاپ */
@@ -148,6 +144,12 @@
 
   [datatheme*="sharp"] .sarv-card {
     border-radius: 0 !important;
+  }
+
+  [data-privacy="true"] .sarv-privacy {
+    filter: blur(6px);
+    user-select: none;
+    transition: filter 0.2s ease;
   }
 
   .sarv-card-hover:hover {
@@ -229,12 +231,8 @@
   }
 
   .glass-nav {
-    background: color-mix(in oklab, var(--theme-color-base, #000) 94%, transparent);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    background: color-mix(in oklab, var(--theme-color-base, #000) 97%, transparent);
     border-top: 1px solid color-mix(in oklab, var(--theme-color-base-500, #222) 55%, transparent);
-    will-change: transform;
-    transform: translateZ(0);
   }
 
   .content-visibility-auto {
@@ -470,3 +468,14 @@ html[data-anim-level="1"] {
 .sarv-card.border-r-accent,    .border-r-accent    { border-right-color: var(--theme-color-accent, #fe28a2) !important; }
 .sarv-card.border-r-warn,      .border-r-warn      { border-right-color: var(--theme-color-warn, #ffba00) !important; }
 .sarv-card.border-r-danger,    .border-r-danger    { border-right-color: var(--theme-color-danger, #ff4757) !important; }
+
+@keyframes sarvTabInNext {
+  from { opacity: 0.4; transform: translate3d(-18px, 0, 0); }
+  to   { opacity: 1;   transform: translate3d(0, 0, 0); }
+}
+@keyframes sarvTabInPrev {
+  from { opacity: 0.4; transform: translate3d(18px, 0, 0); }
+  to   { opacity: 1;   transform: translate3d(0, 0, 0); }
+}
+.sarv-tab-in-next { animation: sarvTabInNext 0.17s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.sarv-tab-in-prev { animation: sarvTabInPrev 0.17s cubic-bezier(0.22, 1, 0.36, 1) both; }

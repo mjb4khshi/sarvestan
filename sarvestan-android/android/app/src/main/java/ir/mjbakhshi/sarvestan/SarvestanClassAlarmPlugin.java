@@ -56,9 +56,13 @@ import java.util.List;
 public class SarvestanClassAlarmPlugin extends Plugin {
 
     private static final int REQ_BASE = 17000;
+    private static final int LEGACY_RANGE_END = 17600;
+    private static final int SAMAD_ID = 19999;
+    private static final long SEVEN_DAYS_MS = 7L * 24L * 60L * 60L * 1000L;
     // زمان‌بندی‌ها روی دیسک می‌مانند تا بعد از ریبوت یا آپدیت APK دوباره ثبت شوند
     private static final String ALARM_PREFS = "sarvestan_alarms";
     private static final String ALARM_ITEMS_KEY = "items";
+    private static final String LEGACY_CLEANED_KEY = "legacy_17k_cleaned_v1";
     private PluginCall pendingPermissionCall;
 
     @PluginMethod
@@ -123,12 +127,16 @@ public class SarvestanClassAlarmPlugin extends Plugin {
         return null;
     }
 
-    private static PendingIntent reminderPi(Context ctx, int id, String title, String body, String url, String dndMode) {
+    private static PendingIntent reminderPi(Context ctx, int id, String title, String body, String url, String dndMode, long triggerAtMs, String kind) {
         Intent i = new Intent(ctx, ClassReminderReceiver.class);
         i.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         i.putExtra(ClassReminderReceiver.EXTRA_TITLE, title);
         i.putExtra(ClassReminderReceiver.EXTRA_BODY, body);
         i.putExtra(ClassReminderReceiver.EXTRA_NOTIF_ID, id);
+        i.putExtra(ClassReminderReceiver.EXTRA_TRIGGER_AT, triggerAtMs);
+        if (kind != null && !kind.trim().isEmpty()) {
+            i.putExtra(ClassReminderReceiver.EXTRA_KIND, kind);
+        }
         if (url != null && !url.trim().isEmpty()) {
             i.putExtra(ClassReminderReceiver.EXTRA_URL, url);
         }
@@ -137,6 +145,127 @@ public class SarvestanClassAlarmPlugin extends Plugin {
         }
         int flags = PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE;
         return PendingIntent.getBroadcast(ctx, id, i, flags);
+    }
+
+    private static PendingIntent showAppPi(Context ctx, int id) {
+        Intent launch = ctx.getPackageManager().getLaunchIntentForPackage(ctx.getPackageName());
+        if (launch == null) {
+            launch = new Intent(ctx, MainActivity.class);
+        }
+        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        return PendingIntent.getActivity(
+                ctx,
+                id,
+                launch,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+
+    private static void scheduleSingleAlarm(
+            Context ctx,
+            AlarmManager am,
+            int id,
+            String title,
+            String body,
+            String url,
+            String dndMode,
+            long at,
+            String kind
+    ) {
+        PendingIntent pi = reminderPi(ctx, id, title, body, url, dndMode, at, kind);
+        long now = System.currentTimeMillis();
+        boolean isNearTerm = (at - now) <= SEVEN_DAYS_MS;
+        boolean isClassOrSamad = !"exam".equals(kind) && !"task".equals(kind);
+
+        // برای یادآورهای نزدیک (تا ۷ روز) در اندروید ۵+ از setAlarmClock استفاده می‌کنیم تا Deep Doze شیائومی/سامسونگ آن‌ها را به تعویق نیندازد
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP && isNearTerm && isClassOrSamad) {
+            try {
+                AlarmManager.AlarmClockInfo info = new AlarmManager.AlarmClockInfo(at, showAppPi(ctx, id));
+                am.setAlarmClock(info, pi);
+                return;
+            } catch (Exception e) {
+                Log.w("SarvestanClassAlarms", "setAlarmClock fallback for id=" + id + ": " + e.getMessage());
+            }
+        }
+
+        if (canExact(am)) {
+            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
+        } else {
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
+        }
+    }
+
+    /** پاک‌سازی کامل رنج قدیمی (۱۷۰۰۰ تا ۱۷۶۰۰) و آلارم‌های روحی قبلی در اولین اجرا */
+    private static synchronized void cleanupLegacyClassAlarmsIfNeeded(Context ctx, AlarmManager am) {
+        try {
+            SharedPreferences sp = ctx.getSharedPreferences(ALARM_PREFS, Context.MODE_PRIVATE);
+            if (sp.getBoolean(LEGACY_CLEANED_KEY, false)) return;
+
+            for (int id = REQ_BASE; id <= LEGACY_RANGE_END; id++) {
+                try {
+                    Intent probe = new Intent(ctx, ClassReminderReceiver.class);
+                    PendingIntent existing = PendingIntent.getBroadcast(
+                            ctx, id, probe, PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE);
+                    if (existing != null) {
+                        if (am != null) am.cancel(existing);
+                        existing.cancel();
+                    }
+                } catch (Exception ignore) {}
+            }
+
+            JSONObject map = new JSONObject(sp.getString(ALARM_ITEMS_KEY, "{}"));
+            JSONObject keep = new JSONObject();
+            Iterator<String> keys = map.keys();
+            while (keys.hasNext()) {
+                String k = keys.next();
+                JSONObject o = map.optJSONObject(k);
+                int id = o != null ? o.optInt("id", 0) : 0;
+                if (id >= REQ_BASE && id < 30000 && id != SAMAD_ID) {
+                    if (am != null) {
+                        am.cancel(reminderPi(ctx, id, "", "", null, null, 0L, null));
+                    }
+                    continue;
+                }
+                if (o != null) keep.put(k, o);
+            }
+            sp.edit()
+                    .putString(ALARM_ITEMS_KEY, keep.toString())
+                    .putBoolean(LEGACY_CLEANED_KEY, true)
+                    .apply();
+            Log.i("SarvestanClassAlarms", "Legacy 17000..17600 alarms cleaned");
+        } catch (Exception e) {
+            Log.e("SarvestanClassAlarms", "cleanupLegacyClassAlarmsIfNeeded failed", e);
+        }
+    }
+
+    private static synchronized void clearScopeFromStoreAndAlarmManager(Context ctx, AlarmManager am, String replaceScope) {
+        if (!"classes".equals(replaceScope)) return;
+        try {
+            SharedPreferences sp = ctx.getSharedPreferences(ALARM_PREFS, Context.MODE_PRIVATE);
+            JSONObject map = new JSONObject(sp.getString(ALARM_ITEMS_KEY, "{}"));
+            JSONObject keep = new JSONObject();
+            Iterator<String> keys = map.keys();
+            while (keys.hasNext()) {
+                String k = keys.next();
+                JSONObject o = map.optJSONObject(k);
+                if (o == null) continue;
+                int id = o.optInt("id", 0);
+                String kind = o.optString("kind", "");
+                boolean isClassScope =
+                        "pre".equals(kind) || "start".equals(kind) || "dnd_start".equals(kind)
+                                || "dnd_end".equals(kind) || "class".equals(kind)
+                                || (id >= REQ_BASE && id < 30000 && id != SAMAD_ID);
+                if (isClassScope) {
+                    if (am != null && id > 0) {
+                        am.cancel(reminderPi(ctx, id, "", "", null, null, 0L, null));
+                    }
+                } else {
+                    keep.put(k, o);
+                }
+            }
+            sp.edit().putString(ALARM_ITEMS_KEY, keep.toString()).apply();
+        } catch (Exception e) {
+            Log.e("SarvestanClassAlarms", "clearScope failed", e);
+        }
     }
 
     private static final String[] KNOWN_CLOCK_PACKAGES = {
@@ -254,7 +383,7 @@ public class SarvestanClassAlarmPlugin extends Plugin {
             JSONObject map = new JSONObject(sp.getString(ALARM_ITEMS_KEY, "{}"));
             AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
             if (am == null) return;
-            boolean exact = canExact(am);
+            cleanupLegacyClassAlarmsIfNeeded(ctx, am);
             long now = System.currentTimeMillis();
             JSONObject keep = new JSONObject();
             Iterator<String> keys = map.keys();
@@ -267,13 +396,18 @@ public class SarvestanClassAlarmPlugin extends Plugin {
                 int id = o.optInt("id", 0);
                 String url = o.isNull("url") ? null : o.optString("url", null);
                 String dndMode = o.isNull("dndMode") ? null : o.optString("dndMode", null);
-                PendingIntent pi = reminderPi(ctx, id, o.optString("title", "یادآوری کلاس"),
-                        o.optString("body", ""), url, dndMode);
-                if (exact) {
-                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
-                } else {
-                    am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
-                }
+                String kind = o.isNull("kind") ? null : o.optString("kind", null);
+                scheduleSingleAlarm(
+                        ctx,
+                        am,
+                        id,
+                        o.optString("title", "یادآوری کلاس"),
+                        o.optString("body", ""),
+                        url,
+                        dndMode,
+                        at,
+                        kind
+                );
                 keep.put(key, o);
             }
             sp.edit().putString(ALARM_ITEMS_KEY, keep.toString()).apply();
@@ -287,6 +421,7 @@ public class SarvestanClassAlarmPlugin extends Plugin {
     public void scheduleReminders(PluginCall call) {
         Context ctx = getContext();
         JSArray items = call.getArray("items");
+        String replaceScope = call.getString("replaceScope", "");
         if (items == null || items.length() == 0) {
             call.reject("آیتمی برای یادآوری نیست");
             return;
@@ -296,6 +431,11 @@ public class SarvestanClassAlarmPlugin extends Plugin {
         if (am == null) {
             call.reject("AlarmManager در دسترس نیست");
             return;
+        }
+
+        cleanupLegacyClassAlarmsIfNeeded(ctx, am);
+        if (replaceScope != null && !replaceScope.isEmpty()) {
+            clearScopeFromStoreAndAlarmManager(ctx, am, replaceScope);
         }
 
         int scheduled = 0;
@@ -311,17 +451,13 @@ public class SarvestanClassAlarmPlugin extends Plugin {
                 // optString روی مقدار JSON null رشتهٔ "null" برمی‌گرداند، نه null
                 String url = o.isNull("url") ? null : o.optString("url", null);
                 String dndMode = o.isNull("dndMode") ? null : o.optString("dndMode", null);
+                String kind = o.isNull("kind") ? null : o.optString("kind", null);
                 long at = o.optLong("triggerAtMs", 0);
                 if (at <= now) {
                     skipped++;
                     continue;
                 }
-                PendingIntent pi = reminderPi(ctx, id, title, body, url, dndMode);
-                if (canExact(am)) {
-                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
-                } else {
-                    am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
-                }
+                scheduleSingleAlarm(ctx, am, id, title, body, url, dndMode, at, kind);
                 scheduled++;
             }
             persistScheduled(ctx, items);
@@ -347,7 +483,7 @@ public class SarvestanClassAlarmPlugin extends Plugin {
             try {
                 for (int i = 0; i < ids.length(); i++) {
                     int id = ids.getInt(i);
-                    am.cancel(reminderPi(ctx, id, "", "", null, null));
+                    am.cancel(reminderPi(ctx, id, "", "", null, null, 0L, null));
                     cancelled++;
                 }
             } catch (Exception ignore) {}

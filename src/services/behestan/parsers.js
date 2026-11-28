@@ -3,6 +3,8 @@
  * بدون وابستگی به chrome / window اضافه
  */
 import { simplifyRoomName } from '../../utils/roomUtils.js';
+import { estimateCurrentBehestanTermId } from '../calendarHelper.js';
+import { getUniversityLmsUrl } from './session.js';
 
 export function parseBehestanXmlGrid(xmlStr) {
   if (!xmlStr || typeof xmlStr !== 'string') return [];
@@ -129,7 +131,7 @@ export function parseReport77(outpar, termHint) {
     const rawC2 = String(row.C2 || '');
     const elearnMatch = (rawC2 + ' ' + String(row.C1 || '')).match(/href=["'](https?:\/\/[^"']+)["']/i);
     const hasVirtual = /فضای\s*مجازی|elearning|vc\.ut\.ac\.ir/i.test(rawC2 + ' ' + String(row.C1 || ''));
-    const virtualUrl = elearnMatch ? elearnMatch[1].replace(/\\/g, '').replace(/&amp;/g, '&') : (hasVirtual ? 'https://elearning.ut.ac.ir/' : undefined);
+    const virtualUrl = elearnMatch ? elearnMatch[1].replace(/\\/g, '').replace(/&amp;/g, '&') : (hasVirtual ? getUniversityLmsUrl() : undefined);
     const name = normalizeCourseName(cleanHtml(rawC2));
     if (!name) continue;
 
@@ -195,7 +197,7 @@ export function parseReport77(outpar, termHint) {
       statusRaw,
       phaseRaw,
       hasVirtualClass: hasVirtual,
-      virtualUrl: virtualUrl || 'https://elearning.ut.ac.ir/',
+      virtualUrl: virtualUrl || getUniversityLmsUrl(),
     });
   }
 
@@ -381,7 +383,7 @@ export function parseReport78Schedule(outpar, termHint) {
     const initialSlot = day && normTime ? [{ day, time: normTime, hall: normHall }] : [];
     const elearnMatch = String(title + ' ' + (textHint || '')).match(/href=["'](https?:\/\/[^"']+)["']/i);
     const hasVirtual = /فضای\s*مجازی|elearning|vc\.ut\.ac\.ir/i.test(title + ' ' + (textHint || ''));
-    const virtualUrl = elearnMatch ? elearnMatch[1].replace(/\\/g, '').replace(/&amp;/g, '&') : (hasVirtual ? 'https://elearning.ut.ac.ir/' : undefined);
+    const virtualUrl = elearnMatch ? elearnMatch[1].replace(/\\/g, '').replace(/&amp;/g, '&') : (hasVirtual ? getUniversityLmsUrl() : undefined);
 
     if (!courseMap.has(key)) {
       courseMap.set(key, {
@@ -403,7 +405,7 @@ export function parseReport78Schedule(outpar, termHint) {
         daySlots: initialSlot,
         isLive: true,
         hasVirtualClass: hasVirtual,
-        virtualUrl: virtualUrl || 'https://elearning.ut.ac.ir/',
+        virtualUrl: virtualUrl || getUniversityLmsUrl(),
       });
     } else {
       const cur = courseMap.get(key);
@@ -481,7 +483,7 @@ export function parseReport78Schedule(outpar, termHint) {
 export function parseReport88Registration(outpar, termHint) {
   const bmT = String(outpar?.BMt || '');
   if (!bmT || bmT.indexOf('<row') === -1) {
-    return { termId: termHint || '4051', courses: [] };
+    return { termId: termHint || estimateCurrentBehestanTermId(), courses: [] };
   }
 
   const dayCols = {
@@ -494,7 +496,7 @@ export function parseReport88Registration(outpar, termHint) {
     C12: 'جمعه',
   };
 
-  const termId = termHint || mapTermFromTitle(String(outpar?.BMs || '')) || '4051';
+  const termId = termHint || mapTermFromTitle(String(outpar?.BMs || '')) || estimateCurrentBehestanTermId();
   const rows = parseBehestanXmlGrid(bmT);
   const courses = rows.map((row) => {
     const codeGroup = cleanHtml(row.C1 || '');
@@ -586,7 +588,7 @@ export function parseReport428Exams(outpar, termHint) {
     })
     .filter((e) => e.name);
 
-  return { termId: termHint || mapTermFromTitle(outpar?.BMs || '') || '4051', exams };
+  return { termId: termHint || mapTermFromTitle(outpar?.BMs || '') || estimateCurrentBehestanTermId(), exams };
 }
 
 /** متادیتای دانشجو از گزارش ۸۸ — B1=شناسه AUW، B2=نام، B3=کد دانشکده، B4=دانشکده، B5=ترم، B6=مقطع */
@@ -634,7 +636,7 @@ export function examsFromRegistration(courses, termId) {
       hall: c.hall || 'ـ',
       isLive: true,
     }));
-  return { termId: termId || '4051', exams };
+  return { termId: termId || estimateCurrentBehestanTermId(), exams };
 }
 
 /** برچسب فارسی ترم از شناسهٔ عددی — 4051 → نیمسال اول ۱۴۰۵–۱۴۰۶؛ 4052/4053 تابستان */
@@ -657,7 +659,7 @@ export function detectCurrentTermId(courses) {
   const ids = (courses || [])
     .map((c) => String(c?.termId || '').trim())
     .filter((t) => /^\d{4}$/.test(t));
-  if (!ids.length) return '4051';
+  if (!ids.length) return estimateCurrentBehestanTermId();
   return ids.sort().reverse()[0];
 }
 

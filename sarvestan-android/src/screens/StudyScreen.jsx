@@ -52,13 +52,20 @@ import {
   CalendarRange,
   Pencil,
   Hourglass,
+  Inbox,
+  Layers,
+  Headphones,
+  Repeat,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { getViewModel, getToneForCourse, getExamsView, jalaliToDate } from '../data/viewModel';
 import { toFaDigits } from '../utils/faDigits';
+import { getTodayJalaliSlash } from '../services/calendarHelper';
+import { getCalendarSpecialDay } from '../data/iranCalendarEvents';
 import {
   getStudyTasks,
   saveStudyTask,
+  restoreStudyTask,
   deleteStudyTask,
   updateTaskStatus,
   toggleSubtask,
@@ -112,6 +119,8 @@ import {
 import { exportExamToCalendar, startNativeLiveTimer, stopNativeLiveTimer, scheduleTaskReminder, cancelTaskReminder } from '../services/classAlarms';
 import SarvTimePickerModal from '../components/SarvTimePickerModal';
 import SarvSwitch from '../components/SarvSwitch';
+import TaskRow from '../components/TaskRow';
+import { startAmbientSound, stopAmbientSound } from '../services/ambientAudio';
 import SarvCheckbox from '../components/SarvCheckbox';
 
 const STUDY_MAIN_TABS = [
@@ -377,11 +386,89 @@ export default function StudyScreen({ onNavigate }) {
   const [kanbanFilterDate, setKanbanFilterDate] = useState('all'); // 'all' | 'today' | 'selected'
   const [taskViewMode, setTaskViewMode] = useState(() => {
     try {
-      return localStorage.getItem('sarv_task_view_mode_v1') || 'daily';
+      const saved = localStorage.getItem('sarv_task_view_mode_v1');
+      return saved && saved !== 'by_course' ? saved : 'daily';
     } catch {
       return 'daily';
     }
   });
+  const [ambientMode, setAmbientMode] = useState('off');
+  const [focusCollapsed, setFocusCollapsed] = useState(false);
+  const [quickTitle, setQuickTitle] = useState('');
+  const [quickDateChip, setQuickDateChip] = useState('inbox');
+  const [quickCustomDate, setQuickCustomDate] = useState(null);
+  const [quickDatePickerOpen, setQuickDatePickerOpen] = useState(false);
+  const [quickCourse, setQuickCourse] = useState('');
+  const [quickPriority, setQuickPriority] = useState('medium');
+  const [quickWeekly, setQuickWeekly] = useState(false);
+  const [quickCourseOpen, setQuickCourseOpen] = useState(false);
+  const [quickPriorityOpen, setQuickPriorityOpen] = useState(false);
+  const quickDropdownRef = useRef(null);
+  const [undoBanner, setUndoBanner] = useState(null);
+  const undoTimerRef = useRef(null);
+
+  useEffect(() => {
+    const onDocDown = (e) => {
+      if (quickDropdownRef.current && !quickDropdownRef.current.contains(e.target)) {
+        setQuickCourseOpen(false);
+        setQuickPriorityOpen(false);
+      }
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        setQuickCourseOpen(false);
+        setQuickPriorityOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      stopAmbientSound();
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    };
+  }, []);
+
+  const showUndoToast = (message, onUndo) => {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setUndoBanner({ message, onUndo });
+    undoTimerRef.current = setTimeout(() => {
+      setUndoBanner(null);
+    }, 4000);
+  };
+
+  const handleAmbientChange = (mode) => {
+    setAmbientMode(mode);
+    if (mode === 'off') stopAmbientSound();
+    else startAmbientSound(mode);
+  };
+
+  const handleQuickAddSubmit = (e) => {
+    e?.preventDefault?.();
+    const title = quickTitle.trim();
+    if (!title) return;
+    triggerHaptic('light');
+    const targetDate = quickDateChip === 'inbox' || !quickCustomDate ? null : quickCustomDate;
+    const matchedCourse = coursesList.find((c) => c.name === quickCourse);
+    saveStudyTask({
+      title,
+      courseName: quickCourse || 'عمومی',
+      courseCode: matchedCourse?.code || null,
+      color: matchedCourse?.color || 'primary',
+      priority: quickPriority,
+      dateStr: targetDate,
+      scheduledDateStr: targetDate,
+      recurrence: quickWeekly ? 'weekly' : 'none',
+      isInbox: quickDateChip === 'inbox' || !quickCustomDate,
+    });
+    setQuickTitle('');
+  };
   const [weekOffset, setWeekOffset] = useState(0);
   const [weekSlideDir, setWeekSlideDir] = useState(1);
   const [weeklyHorizonMode, setWeeklyHorizonMode] = useState('rolling7'); // 'rolling7' | 'calendarWeek'
@@ -441,12 +528,14 @@ export default function StudyScreen({ onNavigate }) {
 
   const handleToggleTaskStatus = (task) => {
     triggerHaptic('light');
-    const nextStatus = task.status === 'done' ? 'todo' : 'done';
+    const prevStatus = task.status;
+    const nextStatus = prevStatus === 'done' ? 'todo' : 'done';
     updateTaskStatus(task.id, nextStatus);
     if (nextStatus === 'done') {
       cancelTaskReminder(task.id);
-      setShareToast(`کار «${task.title}» تکمیل شد!`);
-      setTimeout(() => setShareToast(''), 2500);
+      showUndoToast(`کار «${task.title}» تکمیل شد`, () => {
+        updateTaskStatus(task.id, prevStatus, { logSession: false });
+      });
     }
   };
 
@@ -1085,8 +1174,11 @@ export default function StudyScreen({ onNavigate }) {
     if (selectedTaskId === taskId) {
       setSelectedTaskId(null);
     }
-    setShareToast(target?.title ? `کار «${target.title}» با موفقیت حذف شد` : 'کار با موفقیت حذف شد');
-    setTimeout(() => setShareToast(''), 3000);
+    if (target) {
+      showUndoToast(`کار «${target.title}» حذف شد`, () => {
+        restoreStudyTask(target);
+      });
+    }
   };
 
   const handleOpenManualLog = (defaultDate = selectedDate || todayIso) => {
@@ -1370,7 +1462,7 @@ export default function StudyScreen({ onNavigate }) {
       prefilledDate ||
       (p
         ? `${p.year}/${String(p.month).padStart(2, '0')}/${String(p.day).padStart(2, '0')}`
-        : '1404/03/20');
+        : getTodayJalaliSlash());
     setEditingExam({
       id: null,
       course: coursesList[0]?.name || '',
@@ -1391,7 +1483,7 @@ export default function StudyScreen({ onNavigate }) {
   const handleSaveExam = (examData) => {
     const currentTerm = resolveCurrentTermId();
     if (editingExam && (editingExam.id || editingExam.code)) {
-      updateExamInStore(currentTerm, editingExam.id || editingExam.code, examData);
+      updateExamInStore(currentTerm, editingExam.id || editingExam, examData);
       setShareToast(`امتحان «${examData.course}» به‌روزرسانی شد`);
     } else {
       addExamToStore(currentTerm, examData);
@@ -1438,6 +1530,7 @@ export default function StudyScreen({ onNavigate }) {
   return (
     <div className="px-4 pt-3.5 space-y-4 mobile-pad-bottom">
       {/* هدر ۴ تایی تب‌های بخش مطالعه با انیمیشن روان و بدون بریدگی گوشه‌ها */}
+      {!(timerRunning && focusCollapsed) && (
       <section className="sarv-seg w-full relative" dir="rtl">
         {STUDY_MAIN_TABS.map((tab) => {
           const isActive = activeTab === tab.id;
@@ -1464,7 +1557,8 @@ export default function StudyScreen({ onNavigate }) {
                 <motion.div
                   layoutId="studyMainTabIndicator"
                   className="absolute inset-0 bg-primary rounded-xl shadow-xs -z-10"
-                  transition={{ type: 'spring', bounce: 0.15, duration: 0.25 }}
+                  layout="position"
+                    transition={{ type: 'tween', duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
                 />
               )}
               <tab.Icon className="w-3.5 h-3.5 shrink-0 relative z-10" />
@@ -1473,23 +1567,42 @@ export default function StudyScreen({ onNavigate }) {
           );
         })}
       </section>
+      )}
 
-      {/* ۱. تب تایمر و تمرکز مطالعه با قابلیت تایمر دلخواه و کرنومتر آزاد */}
-      {activeTab === 'pomo' && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+      {/* ۱. تب تایمر و تمرکز مطالعه (در دسکتاپ دو ستونه در کنار لیست تسک‌ها) */}
+      {(activeTab === 'pomo' || activeTab === 'kanban') && (
+      <div className="lg:grid lg:grid-cols-12 lg:gap-4 lg:items-start space-y-4 lg:space-y-0">
+      {(activeTab === 'pomo' || true) && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`space-y-4 ${activeTab === 'pomo' ? 'block' : 'hidden lg:block'} ${timerRunning && focusCollapsed ? 'lg:col-span-12' : 'lg:col-span-5'}`}
+        >
           <div className="sarv-card p-5 border border-base-500/40 flex flex-col items-center text-center relative overflow-hidden">
-            {/* جعبه‌ابزار هوشمند تمرکز (حالت تمرکز تمام‌صفحه، صفحه روشن و زنگ هشدار) */}
+            {/* جعبه‌ابزار هوشمند تمرکز (حالت تمرکز تمام‌صفحه، جمع‌کردن کارت‌های اطراف، صفحه روشن و زنگ هشدار) */}
             <div className="w-full max-w-xs mb-3 flex items-center justify-between gap-1 p-1.5 rounded-2xl bg-base-500/20 border border-base-500/30 text-xs">
-              {/* حالت تمرکز تمام‌صفحه */}
-              <button
-                type="button"
-                onClick={() => setZenModeOpen(true)}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-base-500/30 hover:bg-base-500/50 text-base-content font-bold transition active:scale-95 cursor-pointer"
-                title="حالت تمرکز تمام‌صفحه"
-              >
-                <Maximize2 className="w-3.5 h-3.5 text-primary" />
-                <span className="text-[11px]">حالت تمرکز</span>
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setZenModeOpen(true)}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-base-500/30 hover:bg-base-500/50 text-base-content font-bold transition active:scale-95 cursor-pointer"
+                  title="حالت تمرکز تمام‌صفحه"
+                >
+                  <Maximize2 className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-[11px]">تمام‌صفحه</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFocusCollapsed((v) => !v)}
+                  className={`flex items-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-bold transition active:scale-95 cursor-pointer ${
+                    focusCollapsed ? 'bg-primary text-primary-content' : 'bg-base-500/30 text-neutral hover:text-base-content'
+                  }`}
+                  title="جمع کردن کارت‌های اطراف حین اجرا"
+                >
+                  <Minimize2 className="w-3.5 h-3.5" />
+                  <span>{focusCollapsed ? 'عادی' : 'جمع‌وجور'}</span>
+                </button>
+              </div>
 
               <div className="flex items-center gap-1">
                 {/* روشن ماندن صفحه */}
@@ -1527,7 +1640,8 @@ export default function StudyScreen({ onNavigate }) {
               </div>
             </div>
 
-            {/* انتخاب حالت تایمر: فقط تایمر دلخواه و کرنومتر آزاد با انیمیشن روان مستطیل */}
+            {/* انتخاب حالت تایمر */}
+            {!(timerRunning && focusCollapsed) && (
             <div className="sarv-seg w-full max-w-xs mb-4 relative" dir="rtl">
               {Object.values(POMO_MODES).map((m) => {
                 const isSelected = pomoMode === m.id;
@@ -1546,7 +1660,8 @@ export default function StudyScreen({ onNavigate }) {
                       <motion.div
                         layoutId="pomoModeIndicator"
                         className="absolute inset-0 bg-primary rounded-xl shadow-xs -z-10"
-                        transition={{ type: 'spring', bounce: 0.15, duration: 0.25 }}
+                        layout="position"
+                    transition={{ type: 'tween', duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
                       />
                     )}
                     <span className="relative z-10">{m.label}</span>
@@ -1554,9 +1669,10 @@ export default function StudyScreen({ onNavigate }) {
                 );
               })}
             </div>
+            )}
 
             {/* کنترلر تنظیم تایم دلخواه */}
-            {pomoMode === 'custom' && (
+            {pomoMode === 'custom' && !(timerRunning && focusCollapsed) && (
               <div className="w-full max-w-xs mb-4 p-3 rounded-2xl bg-base-500/20 border border-base-500/35 flex flex-col items-center gap-2">
                 <span className="text-[11px] font-bold text-neutral">تنظیم مدت زمان تایمر دلخواه:</span>
                 <div className="flex items-center gap-3">
@@ -1600,33 +1716,91 @@ export default function StudyScreen({ onNavigate }) {
               </div>
             )}
 
-            {/* حلقه و شمارنده مرکزی تایمر (لمس‌پذیر جهت شروع و توقف سریع با اعداد انیمیشنی آنالوگ) */}
-            <div
-              onClick={handleToggleTimer}
-              className="relative w-56 h-56 flex flex-col items-center justify-center my-2 cursor-pointer group select-none active:scale-95 transition-transform"
-              title="برای شروع یا توقف کلیک کنید"
-            >
-              <div className="absolute inset-0 rounded-full border-4 border-base-500/20" />
-              <div
-                className={`absolute inset-0 rounded-full border-4 border-primary transition-all duration-1000 ${
-                  timerRunning ? 'scale-105 border-primary animate-pulse shadow-[0_0_25px_rgba(var(--primary-rgb),0.25)]' : ''
-                }`}
-              />
-              <OdometerNumber
-                value={formatTimer(currentSeconds)}
-                height={52}
-                className="text-5xl font-black font-mono tracking-wider text-base-content select-none tabular-nums"
-              />
-              <span className="text-xs text-neutral mt-2 font-medium flex items-center gap-1">
-                {timerRunning ? (
-                  <>
-                    <Sparkles className="w-3.5 h-3.5 text-primary" />
-                    <span>در حال تمرکز عمیق</span>
-                  </>
-                ) : (
-                  <span>برای شروع ضربه بزنید</span>
-                )}
+            {/* حلقه SVG پیشرفت روان و شمارنده مرکزی تایمر */}
+            {(() => {
+              const radius = 100;
+              const circumference = 2 * Math.PI * radius;
+              const totalSec = Math.max(1, customMinutes * 60);
+              const progress =
+                pomoMode === 'custom'
+                  ? Math.max(0, Math.min(1, currentSeconds / totalSec))
+                  : ((currentSeconds % 60) / 60);
+              const dashOffset = circumference * (1 - progress);
+              return (
+                <div
+                  onClick={handleToggleTimer}
+                  className="relative w-56 h-56 flex flex-col items-center justify-center my-2 cursor-pointer group select-none active:scale-95 transition-transform"
+                  title="برای شروع یا توقف کلیک کنید"
+                >
+                  <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 224 224">
+                    <circle
+                      cx="112"
+                      cy="112"
+                      r={radius}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="6"
+                      className="text-base-500/25"
+                    />
+                    <circle
+                      cx="112"
+                      cy="112"
+                      r={radius}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="6"
+                      strokeLinecap="round"
+                      strokeDasharray={circumference}
+                      strokeDashoffset={dashOffset}
+                      className={`text-primary transition-all duration-700 ${timerRunning ? 'drop-shadow-[0_0_8px_rgba(var(--primary-rgb),0.4)]' : ''}`}
+                    />
+                  </svg>
+                  <OdometerNumber
+                    value={formatTimer(currentSeconds)}
+                    height={52}
+                    className="text-5xl font-black font-mono tracking-wider text-base-content select-none tabular-nums relative z-10"
+                  />
+                  <span className="text-xs text-neutral mt-2 font-medium flex items-center gap-1 relative z-10">
+                    {timerRunning ? (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5 text-primary" />
+                        <span>در حال تمرکز عمیق</span>
+                      </>
+                    ) : (
+                      <span>برای شروع ضربه بزنید</span>
+                    )}
+                  </span>
+                </div>
+              );
+            })()}
+
+            {/* صدای محیطی آفلاین (Web Audio API) */}
+            <div className="w-full max-w-xs mt-2 p-2 rounded-2xl bg-base-500/15 border border-base-500/25 flex items-center justify-between gap-1.5">
+              <span className="text-[10.5px] font-bold text-neutral flex items-center gap-1 shrink-0 px-1">
+                <Headphones className="w-3.5 h-3.5 text-primary" />
+                صدا:
               </span>
+              <div className="flex items-center gap-1 flex-1 justify-end">
+                {[
+                  { id: 'off', label: 'خاموش' },
+                  { id: 'rain', label: 'باران' },
+                  { id: 'brown', label: 'قهوه‌ای' },
+                  { id: 'white', label: 'سفید' },
+                ].map((snd) => (
+                  <button
+                    key={snd.id}
+                    type="button"
+                    onClick={() => handleAmbientChange(snd.id)}
+                    className={`px-2 py-1 rounded-xl text-[10px] font-bold transition cursor-pointer ${
+                      ambientMode === snd.id
+                        ? 'bg-primary text-primary-content shadow-xs'
+                        : 'bg-base-500/20 text-neutral hover:text-base-content'
+                    }`}
+                  >
+                    {snd.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* انتخاب درس متصل از بهستان — پورتال‌شده و بدون ماسک شدن */}
@@ -1698,27 +1872,31 @@ export default function StudyScreen({ onNavigate }) {
         </motion.div>
       )}
 
-      {/* ۲. تب کانبان و بورد هوشمند تسک‌ها با اولویت‌بندی پیشرفته */}
-            {/* ۲. تب تسک‌ها — سه‌نمای هوشمند روزانه، هفتگی و کانبان (مشابه تیک‌تیک) */}
-      {activeTab === 'kanban' && (() => {
+      {/* ۲. تب تسک‌ها — نمای روزانه، هفتگی، بر اساس درس، Inbox و کانبان */}
+      {(activeTab === 'kanban' || (activeTab === 'pomo' && !(timerRunning && focusCollapsed))) && (() => {
         const todayTasks = tasks.filter((t) => {
-          const d = t.dateStr || toLocalDateString(new Date(t.createdAt || Date.now()));
+          const d = t.scheduledDateStr || t.dateStr;
           return d === todayIso;
         });
         const todayPending = todayTasks.filter((t) => t.status !== 'done');
         const todayDone = todayTasks.filter((t) => t.status === 'done');
+        const inboxTasks = tasks.filter((t) => !t.dateStr && !t.scheduledDateStr);
 
         const overdueTasks = tasks.filter((t) => {
           if (t.status === 'done') return false;
-          const d = t.dateStr || toLocalDateString(new Date(t.createdAt || Date.now()));
-          return d < todayIso;
+          const d = t.dateStr;
+          return Boolean(d && d < todayIso);
         });
 
         const allPendingTasks = tasks.filter((t) => t.status !== 'done');
         const allDoneTasks = tasks.filter((t) => t.status === 'done');
 
         return (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-3.5">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`space-y-3.5 ${activeTab === 'kanban' ? 'block' : 'hidden lg:block'} lg:col-span-7`}
+          >
             {/* هدر بخش تسک‌ها و دکمه تسک جدید */}
             <div className="flex items-center justify-between">
               <div>
@@ -1741,15 +1919,169 @@ export default function StudyScreen({ onNavigate }) {
               </button>
             </div>
 
-            {/* سوییچر ۳ حالته نما: روزانه (تیک‌تیک) · هفتگی · کانبان با انیمیشن روان مستطیل */}
-            <div className="sarv-seg w-full relative" dir="rtl">
+            {/* نوار افزودن سریع تسک (Quick-Add Bar) */}
+            <form onSubmit={handleQuickAddSubmit} className="sarv-card p-3 border border-base-500/40 space-y-2 relative z-30">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={quickTitle}
+                  onChange={(e) => setQuickTitle(e.target.value)}
+                  placeholder="افزودن سریع کار یا تکلیف (Enter برای ثبت)..."
+                  className="flex-1 bg-base-500/15 border border-base-500/30 rounded-xl px-3 py-2 text-[12px] text-base-content placeholder:text-neutral focus:border-primary outline-none"
+                />
+                <button
+                  type="submit"
+                  className="px-3 py-2 rounded-xl bg-primary text-primary-content text-xs font-bold shrink-0 cursor-pointer hover:brightness-110 active:scale-95 transition"
+                >
+                  ثبت
+                </button>
+              </div>
+              <div ref={quickDropdownRef} className="flex items-center gap-1.5 flex-wrap text-[10.5px]">
+                <button
+                  type="button"
+                  onClick={() => setQuickDatePickerOpen(true)}
+                  className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 transition cursor-pointer ${
+                    quickDateChip !== 'inbox' && quickCustomDate
+                      ? 'bg-primary text-primary-content'
+                      : 'bg-base-500/20 text-neutral hover:text-base-content'
+                  }`}
+                >
+                  <Calendar className="w-3 h-3" />
+                  <span>
+                    {quickDateChip === 'inbox' || !quickCustomDate
+                      ? 'بی‌تاریخ'
+                      : quickCustomDate === todayIso
+                      ? 'امروز'
+                      : formatTaskDateDisplay(quickCustomDate)}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickWeekly((v) => !v)}
+                  className={`px-2 py-1 rounded-lg font-bold flex items-center gap-1 transition cursor-pointer ${
+                    quickWeekly ? 'bg-info text-info-content' : 'bg-base-500/20 text-neutral hover:text-base-content'
+                  }`}
+                >
+                  <Repeat className="w-3 h-3" />
+                  <span>هفتگی</span>
+                </button>
+
+                {/* دراپ‌داون اختصاصی انتخاب درس */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuickCourseOpen((v) => !v);
+                      setQuickPriorityOpen(false);
+                    }}
+                    className="bg-base border border-base-500/40 text-base-content rounded-xl px-2.5 py-1 text-[10.5px] font-bold flex items-center gap-1.5 hover:border-primary/50 transition cursor-pointer max-w-[145px]"
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${
+                        quickCourse
+                          ? `bg-${getToneForCourse(coursesList.find((c) => c.name === quickCourse) || quickCourse, coursesList)}`
+                          : 'bg-neutral'
+                      }`}
+                    />
+                    <span className="truncate">{quickCourse || 'درس: عمومی'}</span>
+                    <ChevronDown className={`w-3 h-3 text-neutral shrink-0 transition-transform ${quickCourseOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {quickCourseOpen && (
+                    <div className="absolute left-0 top-full mt-1.5 z-[200] w-48 max-w-[calc(100vw-3rem)] max-h-56 overflow-y-auto rounded-2xl bg-base border border-base-500/40 shadow-xl p-1.5 space-y-0.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setQuickCourse('');
+                          setQuickCourseOpen(false);
+                        }}
+                        className={`w-full text-right px-2.5 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-2 transition cursor-pointer ${
+                          !quickCourse ? 'bg-primary-soft text-primary' : 'text-base-content hover:bg-base-500/20'
+                        }`}
+                      >
+                        <span className="w-2 h-2 rounded-full bg-neutral shrink-0" />
+                        <span className="truncate">درس: عمومی</span>
+                      </button>
+                      {coursesList.map((c) => {
+                        const tone = c.color || getToneForCourse(c, coursesList);
+                        const active = quickCourse === c.name;
+                        return (
+                          <button
+                            key={c.code || c.name}
+                            type="button"
+                            onClick={() => {
+                              setQuickCourse(c.name);
+                              setQuickCourseOpen(false);
+                            }}
+                            className={`w-full text-right px-2.5 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-2 transition cursor-pointer ${
+                              active ? 'bg-primary-soft text-primary' : 'text-base-content hover:bg-base-500/20'
+                            }`}
+                          >
+                            <span className={`w-2 h-2 rounded-full shrink-0 bg-${tone}`} />
+                            <span className="truncate">{c.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* دراپ‌داون اختصاصی انتخاب اولویت */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuickPriorityOpen((v) => !v);
+                      setQuickCourseOpen(false);
+                    }}
+                    className={`px-2.5 py-1 rounded-xl font-bold flex items-center gap-1 border border-base-500/40 transition cursor-pointer ${
+                      quickPriority === 'high'
+                        ? 'bg-danger-soft text-danger'
+                        : quickPriority === 'medium'
+                        ? 'bg-warn-soft text-warn'
+                        : 'bg-base text-neutral'
+                    }`}
+                  >
+                    <span>اولویت: {quickPriority === 'high' ? 'فوری' : quickPriority === 'medium' ? 'متوسط' : 'عادی'}</span>
+                    <ChevronDown className={`w-3 h-3 shrink-0 transition-transform ${quickPriorityOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {quickPriorityOpen && (
+                    <div className="absolute right-0 top-full mt-1.5 z-[200] w-36 max-w-[calc(100vw-3rem)] rounded-2xl bg-base border border-base-500/40 shadow-xl p-1.5 space-y-0.5">
+                      {[
+                        { id: 'high', label: 'فوری', cls: 'text-danger' },
+                        { id: 'medium', label: 'متوسط', cls: 'text-warn' },
+                        { id: 'low', label: 'عادی', cls: 'text-neutral' },
+                      ].map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            setQuickPriority(p.id);
+                            setQuickPriorityOpen(false);
+                          }}
+                          className={`w-full text-right px-2.5 py-1.5 rounded-xl text-[11px] font-bold flex items-center justify-between transition cursor-pointer ${
+                            quickPriority === p.id ? 'bg-primary-soft text-primary' : `${p.cls} hover:bg-base-500/20`
+                          }`}
+                        >
+                          <span>{p.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </form>
+
+            {/* سوییچر نماها: روزانه · هفتگی · بر اساس درس · بی‌تاریخ · کانبان */}
+            <div className="sarv-seg w-full relative overflow-x-auto no-scrollbar" data-no-swipe dir="rtl">
               <button
                 type="button"
                 onClick={() => {
                   setTaskViewMode('daily');
                   try { localStorage.setItem('sarv_task_view_mode_v1', 'daily'); } catch {}
                 }}
-                className={`relative flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer outline-none select-none z-10 ${
+                className={`relative shrink-0 whitespace-nowrap py-2 px-3 rounded-xl text-[11px] font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer outline-none select-none z-10 ${
                   taskViewMode === 'daily'
                     ? 'text-primary-content font-black'
                     : 'text-neutral hover:text-base-content'
@@ -1759,11 +2091,12 @@ export default function StudyScreen({ onNavigate }) {
                   <motion.div
                     layoutId="taskViewModeIndicator"
                     className="absolute inset-0 bg-primary rounded-xl shadow-xs -z-10"
-                    transition={{ type: 'spring', bounce: 0.15, duration: 0.25 }}
+                    layout="position"
+                    transition={{ type: 'tween', duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
                   />
                 )}
-                <CalendarDays className="w-3.5 h-3.5 relative z-10" />
-                <span className="relative z-10">نمای روزانه</span>
+                <CalendarDays className="w-3.5 h-3.5 relative z-10 shrink-0" />
+                <span className="relative z-10">روزانه</span>
                 {todayPending.length > 0 && (
                   <span className={`relative z-10 text-[9.5px] px-1.5 py-0.2 rounded-full font-bold ${
                     taskViewMode === 'daily' ? 'bg-white/20 text-white' : 'bg-primary-soft text-primary'
@@ -1779,7 +2112,7 @@ export default function StudyScreen({ onNavigate }) {
                   setTaskViewMode('weekly');
                   try { localStorage.setItem('sarv_task_view_mode_v1', 'weekly'); } catch {}
                 }}
-                className={`relative flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer outline-none select-none z-10 ${
+                className={`relative shrink-0 whitespace-nowrap py-2 px-3 rounded-xl text-[11px] font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer outline-none select-none z-10 ${
                   taskViewMode === 'weekly'
                     ? 'text-primary-content font-black'
                     : 'text-neutral hover:text-base-content'
@@ -1789,11 +2122,43 @@ export default function StudyScreen({ onNavigate }) {
                   <motion.div
                     layoutId="taskViewModeIndicator"
                     className="absolute inset-0 bg-primary rounded-xl shadow-xs -z-10"
-                    transition={{ type: 'spring', bounce: 0.15, duration: 0.25 }}
+                    layout="position"
+                    transition={{ type: 'tween', duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
                   />
                 )}
-                <CalendarRange className="w-3.5 h-3.5 relative z-10" />
-                <span className="relative z-10">نمای هفتگی</span>
+                <CalendarRange className="w-3.5 h-3.5 relative z-10 shrink-0" />
+                <span className="relative z-10">هفتگی</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTaskViewMode('inbox');
+                  try { localStorage.setItem('sarv_task_view_mode_v1', 'inbox'); } catch {}
+                }}
+                className={`relative shrink-0 whitespace-nowrap py-2 px-3 rounded-xl text-[11px] font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer outline-none select-none z-10 ${
+                  taskViewMode === 'inbox'
+                    ? 'text-primary-content font-black'
+                    : 'text-neutral hover:text-base-content'
+                }`}
+              >
+                {taskViewMode === 'inbox' && (
+                  <motion.div
+                    layoutId="taskViewModeIndicator"
+                    className="absolute inset-0 bg-primary rounded-xl shadow-xs -z-10"
+                    layout="position"
+                    transition={{ type: 'tween', duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                  />
+                )}
+                <Inbox className="w-3.5 h-3.5 relative z-10 shrink-0" />
+                <span className="relative z-10">بی‌تاریخ</span>
+                {inboxTasks.filter((t) => t.status !== 'done').length > 0 && (
+                  <span className={`relative z-10 text-[9.5px] px-1.5 py-0.2 rounded-full font-bold ${
+                    taskViewMode === 'inbox' ? 'bg-white/20 text-white' : 'bg-primary-soft text-primary'
+                  }`}>
+                    {toFaDigits(inboxTasks.filter((t) => t.status !== 'done').length)}
+                  </span>
+                )}
               </button>
 
               <button
@@ -1802,7 +2167,7 @@ export default function StudyScreen({ onNavigate }) {
                   setTaskViewMode('kanban');
                   try { localStorage.setItem('sarv_task_view_mode_v1', 'kanban'); } catch {}
                 }}
-                className={`relative flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer outline-none select-none z-10 ${
+                className={`relative shrink-0 whitespace-nowrap py-2 px-3 rounded-xl text-[11px] font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer outline-none select-none z-10 ${
                   taskViewMode === 'kanban'
                     ? 'text-primary-content font-black'
                     : 'text-neutral hover:text-base-content'
@@ -1812,13 +2177,46 @@ export default function StudyScreen({ onNavigate }) {
                   <motion.div
                     layoutId="taskViewModeIndicator"
                     className="absolute inset-0 bg-primary rounded-xl shadow-xs -z-10"
-                    transition={{ type: 'spring', bounce: 0.15, duration: 0.25 }}
+                    layout="position"
+                    transition={{ type: 'tween', duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
                   />
                 )}
-                <Columns3 className="w-3.5 h-3.5 relative z-10" />
-                <span className="relative z-10">بورد کانبان</span>
+                <Columns3 className="w-3.5 h-3.5 relative z-10 shrink-0" />
+                <span className="relative z-10">کانبان</span>
               </button>
             </div>
+
+            {/* ── ۱b. نمای صندوق ورودی / بی‌تاریخ‌ها (Inbox) ── */}
+            {taskViewMode === 'inbox' && (
+              <div className="space-y-2.5">
+                <div className="sarv-card p-3.5 border border-base-500/40 flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-bold text-base-content">صندوق ورودی (تسک‌های بی‌تاریخ)</h4>
+                    <p className="text-[10.5px] text-neutral">کارهایی که هنوز زمان انجام یا ددلاین مشخصی ندارند</p>
+                  </div>
+                  <span className="text-xs font-black text-primary font-mono">{toFaDigits(inboxTasks.length)}</span>
+                </div>
+                {inboxTasks.length > 0 ? (
+                  inboxTasks.map((t) => (
+                    <TaskRow
+                      key={t.id}
+                      task={t}
+                      onToggleDone={handleToggleTaskStatus}
+                      onDelete={(item) => handleDeleteTask(item.id)}
+                      onOpen={(item) => handleOpenEditTask?.(item)}
+                      onStartTimer={(item) => {
+                        setSelectedCourse(item.courseName || 'عمومی');
+                        setActiveTab('pomo');
+                      }}
+                    />
+                  ))
+                ) : (
+                  <div className="sarv-card p-6 text-center text-xs text-neutral">
+                    صندوق ورودی خالی است. کارهای بدون تاریخ اینجا نمایش داده می‌شوند.
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ── ۱. نمای روزانه (DAILY TICKTICK STYLE) ── */}
             {taskViewMode === 'daily' && (
@@ -2819,6 +3217,8 @@ export default function StudyScreen({ onNavigate }) {
           </motion.div>
         );
       })()}
+      </div>
+      )}
 
 
       {/* ۳. تب تقویم و تایم‌لاین هوشمند (به همراه کلاس‌های رسمی دانشگاه و تقویم شمسی دقیق) */}
@@ -2847,7 +3247,8 @@ export default function StudyScreen({ onNavigate }) {
                     <motion.div
                       layoutId="calendarSubViewIndicator"
                       className="absolute inset-0 bg-primary rounded-xl shadow-xs -z-10"
-                      transition={{ type: 'spring', bounce: 0.15, duration: 0.25 }}
+                      layout="position"
+                    transition={{ type: 'tween', duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
                     />
                   )}
                   <v.Icon className="w-3.5 h-3.5 shrink-0 relative z-10" />
@@ -3015,8 +3416,12 @@ export default function StudyScreen({ onNavigate }) {
                       const uniClasses = getUniversityClassesForDate(d.date);
                       const dayExams = getExamsForDay(d.isoDate, monthGrid.year, monthGrid.month, d.dayNumber);
                       const hasExam = dayExams.length > 0;
+                      const examTone = hasExam ? (getCourseColor(dayExams[0].course) || dayExams[0].color || 'primary') : 'primary';
+                      const isExamHex = String(examTone).startsWith('#') || String(examTone).startsWith('rgb');
+                      const examToneMeta = toneColors[examTone] || toneColors.primary;
                       const isToday = d.isoDate === todayIso;
                       const isSelected = d.isoDate === selectedDate;
+                      const special = getCalendarSpecialDay(d.date);
 
                       const dayTasks = tasks.filter((t) => (t.dateStr || t.scheduledDateStr) === d.isoDate);
                       const hasDayTasks = dayTasks.length > 0;
@@ -3050,33 +3455,71 @@ export default function StudyScreen({ onNavigate }) {
                           key={d.isoDate}
                           type="button"
                           onClick={() => setSelectedDate(d.isoDate)}
+                          style={!isSelected && hasExam && isExamHex ? { borderColor: examTone, backgroundColor: `${examTone}22` } : undefined}
                           className={`h-12 rounded-xl flex flex-col items-center justify-between py-1 transition-all active:scale-95 cursor-pointer relative ${
                             isSelected
                               ? 'bg-primary text-primary-content font-black shadow-sm ring-2 ring-primary/40'
                               : hasExam
-                              ? 'bg-danger-soft/25 hover:bg-danger-soft/45 text-base-content font-black border border-danger/40 ring-1 ring-danger/30'
+                              ? `${isExamHex ? '' : `${examToneMeta.bg} ${examToneMeta.border}`} text-base-content font-black border`
+                              : special.isStudentDay || special.isBirthday
+                              ? 'bg-accent-soft/40 hover:bg-accent-soft/60 text-accent font-black border border-accent/40'
                               : isToday
                               ? 'bg-primary-soft text-primary font-bold border border-primary/40'
+                              : special.isHoliday
+                              ? 'bg-danger-soft/20 hover:bg-danger-soft/35 text-danger font-black border border-danger/25'
                               : hasStudy
                               ? 'bg-base-500/25 hover:bg-base-500/40 text-base-content font-bold'
                               : 'bg-base-500/10 hover:bg-base-500/20 text-neutral'
                           }`}
-                          title={hasExam ? `امتحان: ${dayExams.map((e) => e.course).join('، ')}` : undefined}
+                          title={
+                            hasExam
+                              ? `امتحان: ${dayExams.map((e) => e.course).join('، ')}`
+                              : special.specialEvents.length > 0
+                              ? special.specialEvents.map((ev) => ev.title).join(' · ')
+                              : special.isHoliday
+                              ? 'تعطیل'
+                              : undefined
+                          }
                         >
                           <div className="w-full flex items-center justify-between px-1">
                             {hasExam ? (
-                              <span
-                                className={`w-3.5 h-3.5 rounded-full flex items-center justify-center shrink-0 ${
-                                  isSelected ? 'bg-white text-danger' : 'bg-danger text-white shadow-xs'
-                                }`}
+                              <div
+                                className="flex items-center -space-x-1 space-x-reverse shrink-0"
                                 title={`موعد امتحان: ${dayExams.map((e) => e.course).join('، ')}`}
                               >
-                                <GraduationCap className="w-2.5 h-2.5" />
+                                {dayExams.slice(0, 2).map((ex, ei) => {
+                                  const exTone = getCourseColor(ex.course) || ex.color || 'primary';
+                                  const isExHex = String(exTone).startsWith('#') || String(exTone).startsWith('rgb');
+                                  const exMeta = toneColors[exTone] || toneColors.primary;
+                                  return (
+                                    <span
+                                      key={ex.id || ei}
+                                      style={!isSelected && isExHex ? { backgroundColor: exTone } : undefined}
+                                      className={`w-3.5 h-3.5 rounded-full flex items-center justify-center shrink-0 ring-1 ring-base ${
+                                        isSelected
+                                          ? `bg-white ${exMeta.text}`
+                                          : isExHex
+                                          ? 'text-white shadow-xs'
+                                          : `${exMeta.dot} text-white shadow-xs`
+                                      }`}
+                                    >
+                                      <GraduationCap className="w-2.5 h-2.5" />
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            ) : special.isBirthday || special.isStudentDay ? (
+                              <span className="text-[10px] leading-none shrink-0">
+                                {special.isBirthday ? '🎂' : '🎓'}
                               </span>
                             ) : (
                               <span className="w-2" />
                             )}
-                            <span className="text-[12px] font-mono leading-none">
+                            <span
+                              className={`text-[12px] font-mono leading-none ${
+                                special.isOfficialHoliday && !isSelected ? 'underline decoration-danger/60 decoration-2 underline-offset-4' : ''
+                              }`}
+                            >
                               {toFaDigits(d.dayNumber)}
                             </span>
                             <span className="w-2" />
@@ -3471,6 +3914,28 @@ export default function StudyScreen({ onNavigate }) {
                 )}
               </div>
             </div>
+
+            {(() => {
+              const selSpecial = getCalendarSpecialDay(selectedDayDateObj);
+              if (!selSpecial.isHoliday && selSpecial.specialEvents.length === 0) return null;
+              return (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {selSpecial.isHoliday && (
+                    <span className="text-[10.5px] font-bold px-2.5 py-0.5 rounded-full bg-danger-soft text-danger border border-danger/25">
+                      تعطیل
+                    </span>
+                  )}
+                  {selSpecial.specialEvents.map((ev) => (
+                    <span
+                      key={ev.type}
+                      className="text-[10.5px] font-bold px-2.5 py-0.5 rounded-full bg-accent-soft text-accent border border-accent/25"
+                    >
+                      {ev.icon} {ev.title}
+                    </span>
+                  ))}
+                </div>
+              );
+            })()}
 
             {/* بخش ۰: موعدهای آزمون و امتحان در این روز */}
             {selectedDayExams.length > 0 && (
@@ -4791,7 +5256,27 @@ export default function StudyScreen({ onNavigate }) {
         onDelete={handleDeleteExam}
       />
 
-      {/* تقویم نیتیو و شمسی سرو برای انتخاب تاریخ سررسید */}
+      {/* تقویم نیتیو و شمسی سرو برای انتخاب تاریخ افزودن سریع */}
+      <SarvDatePickerModal
+        isOpen={quickDatePickerOpen}
+        initialDate={quickCustomDate || todayIso}
+        subtitle="انتخاب تاریخ افزودن سریع کار"
+        mode="task"
+        onClose={() => setQuickDatePickerOpen(false)}
+        onClear={() => {
+          setQuickCustomDate(null);
+          setQuickDateChip('inbox');
+          setQuickDatePickerOpen(false);
+        }}
+        onConfirm={(_, jsDate) => {
+          if (jsDate) {
+            setQuickCustomDate(toLocalDateString(jsDate));
+            setQuickDateChip('date');
+          }
+          setQuickDatePickerOpen(false);
+        }}
+      />
+
       <SarvDatePickerModal
         isOpen={taskDatePickerOpen}
         initialDate={newTaskDate}
@@ -5006,6 +5491,31 @@ export default function StudyScreen({ onNavigate }) {
           </AnimatePresence>,
           document.body
         )}
+
+      {/* نوار بازگردانی ۴ ثانیه‌ای (Undo Toast) */}
+      <AnimatePresence>
+        {undoBanner && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[120] px-4 py-2.5 rounded-2xl bg-base border border-primary/40 shadow-2xl flex items-center gap-3 text-xs"
+          >
+            <span className="font-bold text-base-content">{undoBanner.message}</span>
+            <button
+              type="button"
+              onClick={() => {
+                undoBanner.onUndo?.();
+                setUndoBanner(null);
+                if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+              }}
+              className="px-2.5 py-1 rounded-xl bg-primary text-primary-content font-black cursor-pointer hover:brightness-110"
+            >
+              بازگردانی
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

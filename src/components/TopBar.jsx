@@ -11,7 +11,11 @@ import {
   Megaphone,
   Sparkles,
   RefreshCw,
+  Search,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
+import { usePrivacyMode } from '../services/privacyMode';
 import { useTheme } from '../context/ThemeContext';
 import { useSarvestanData } from '../hooks/useSarvestanData';
 import { toFaDigits } from '../utils/faDigits';
@@ -28,6 +32,7 @@ export default function TopBar({ title, onBack }) {
   const { isBatMode } = useBatMode();
   const [themeSheetOpen, setThemeSheetOpen] = useState(false);
   const [notifySheetOpen, setNotifySheetOpen] = useState(false);
+  const [privacyEnabled, , togglePrivacy] = usePrivacyMode();
   const [batmanHoldProgress, setBatmanHoldProgress] = useState(0);
   const batmanTimerRef = useRef(null);
   const batmanIntervalRef = useRef(null);
@@ -107,15 +112,14 @@ export default function TopBar({ title, onBack }) {
   return (
     <>
       <header
-        className="sticky top-0 z-40 w-full backdrop-blur-md bg-base/92 border-b border-base-500/40 transition-colors will-change-transform lg:hidden"
+        className="sticky top-0 z-40 w-full bg-base/95 border-b border-base-500/40 transition-colors lg:hidden"
         style={{
           paddingTop: 'env(safe-area-inset-top, 0px)',
-          transform: 'translateZ(0)',
         }}
       >
         <div className="mx-auto max-w-[430px] h-14 flex items-center justify-between gap-2 px-3">
           {/* سمت راست: هویت ثابت سروستان و دکمه بازگشت بدون پرش هدر */}
-          <div className="flex items-center gap-2.5 shrink-0 min-w-0">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0">
               {onBack ? (
                 <button
@@ -176,7 +180,7 @@ export default function TopBar({ title, onBack }) {
           </div>
 
           {/* سمت چپ: ابزارهای سریع (تم و اعلانات) */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             {/* دکمه بازگشت به نمای اصلی بهستان در صورت اجرای اورلی */}
             {isBehestanOverlay() && (
               <button
@@ -189,6 +193,30 @@ export default function TopBar({ title, onBack }) {
                 <span className="hidden xs:inline">بازگشت به بهستان</span>
               </button>
             )}
+
+            {/* جستجوی سراسری (CommandPalette) */}
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('sarvOpenCommandPalette'))}
+              className="w-8 h-8 rounded-xl bg-base-500/30 hover:bg-base-500/50 border border-base-500/40 grid place-items-center text-neutral hover:text-base-content active:scale-95 transition-all outline-none cursor-pointer"
+              title="جستجوی سریع (Ctrl+K)"
+            >
+              <Search className="w-3.5 h-3.5" />
+            </button>
+
+            {/* حالت حریم خصوصی سراسری */}
+            <button
+              type="button"
+              onClick={() => togglePrivacy()}
+              className={`w-8 h-8 rounded-xl border grid place-items-center active:scale-95 transition-all outline-none cursor-pointer ${
+                privacyEnabled
+                  ? 'bg-primary text-primary-content border-primary'
+                  : 'bg-base-500/30 hover:bg-base-500/50 border-base-500/40 text-neutral hover:text-base-content'
+              }`}
+              title={privacyEnabled ? 'نمایش نمرات و مبالغ (Ctrl+Shift+P)' : 'مخفی‌سازی حریم خصوصی (Ctrl+Shift+P)'}
+            >
+              {privacyEnabled ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+            </button>
 
             {/* انتخابگر تم مدرن سرو */}
             <button

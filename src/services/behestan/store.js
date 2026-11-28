@@ -6,6 +6,7 @@ import devDataset from '../../data/devDatasetLoader.js';
 import devCurriculumReport from '../../data/devCurriculumLoader.js';
 import { saveManualSession } from './session.js';
 import { isProjectCourse, isInternshipCourse } from './parsers.js';
+import { estimateCurrentBehestanTermId } from '../calendarHelper.js';
 
 const KEYS = {
   PROFILE: 'sarvestan_live_profile',
@@ -79,7 +80,7 @@ export function asTermMap(raw) {
   if (Array.isArray(raw)) {
     const map = {};
     for (const item of raw) {
-      const tid = String(item?.termId || '4051');
+      const tid = String(item?.termId || estimateCurrentBehestanTermId());
       if (!Array.isArray(map[tid])) map[tid] = [];
       map[tid].push(item);
     }
@@ -88,9 +89,108 @@ export function asTermMap(raw) {
   return {};
 }
 
-function buildCacheFromStorage() {  const schedule = asTermMap(read(KEYS.SCHEDULE, {}));
+function migrateLegacyTaAndExams(cacheObj) {
+  let scheduleChanged = false;
+  let coursesChanged = false;
+  let examsChanged = false;
+
+  const isTaItem = (c) =>
+    Boolean(
+      c &&
+        (c.classType === 'ta' ||
+          c.category === 'ta' ||
+          String(c.name || c.title || '').includes('حل تمرین')),
+    );
+
+  const getExamCat = (e) =>
+    e?.category ||
+    e?.examType ||
+    (String(e?.name || e?.course || '').includes('کوییز')
+      ? 'quiz'
+      : String(e?.name || e?.course || '').includes('میان')
+      ? 'midterm'
+      : 'final');
+
+  if (cacheObj.schedule && typeof cacheObj.schedule === 'object') {
+    for (const termId of Object.keys(cacheObj.schedule)) {
+      const list = cacheObj.schedule[termId];
+      if (!Array.isArray(list)) continue;
+      for (const c of list) {
+        if (!c || !isTaItem(c)) continue;
+        if (c.code) {
+          c.parentCourseCode = c.parentCourseCode || String(c.code);
+          c.code = '';
+          scheduleChanged = true;
+        }
+        if (c.classType !== 'ta' || c.category !== 'ta' || c.units !== 0 || c.includeInGpa !== false) {
+          c.classType = 'ta';
+          c.category = 'ta';
+          c.units = 0;
+          c.includeInGpa = false;
+          scheduleChanged = true;
+        }
+        if (!c.id || (c.parentCourseCode && String(c.id) === String(c.parentCourseCode))) {
+          c.id = `ta_${c.parentCourseCode || 'cls'}_${Math.random().toString(36).slice(2, 6)}`;
+          scheduleChanged = true;
+        }
+      }
+    }
+  }
+
+  if (Array.isArray(cacheObj.courses)) {
+    const cleaned = [];
+    for (const cc of cacheObj.courses) {
+      if (!cc) continue;
+      const idStr = String(cc.id || '');
+      const nameStr = String(cc.name || cc.title || '');
+      if (isTaItem(cc)) {
+        if (idStr.startsWith('ta_') || idStr.startsWith('custom_c_') || nameStr.includes('حل تمرین')) {
+          coursesChanged = true;
+          continue; // حذف کلاس حل تمرین از لیست دروس کارنامه/شبیه‌ساز
+        }
+        // اگر درس اصلی بر اثر باگ قبلی برچسب TA گرفته، بازگردانی به حالت عادی
+        cc.classType = 'lecture';
+        cc.category = 'lecture';
+        cc.includeInGpa = true;
+        coursesChanged = true;
+      }
+      cleaned.push(cc);
+    }
+    if (coursesChanged) cacheObj.courses = cleaned;
+  }
+
+  if (cacheObj.exams && typeof cacheObj.exams === 'object') {
+    for (const termId of Object.keys(cacheObj.exams)) {
+      const list = cacheObj.exams[termId];
+      if (!Array.isArray(list)) continue;
+      for (const e of list) {
+        if (!e) continue;
+        const cat = getExamCat(e);
+        if (cat !== 'final' && e.code) {
+          e.courseCode = e.courseCode || String(e.code);
+          e.code = '';
+          examsChanged = true;
+        }
+      }
+    }
+  }
+
+  try {
+    if (scheduleChanged) localStorage.setItem(KEYS.SCHEDULE, JSON.stringify(cacheObj.schedule));
+    if (coursesChanged) localStorage.setItem(KEYS.COURSES, JSON.stringify(cacheObj.courses));
+    if (examsChanged) localStorage.setItem(KEYS.EXAMS, JSON.stringify(cacheObj.exams));
+    if (localStorage.getItem('sarvestan_migrated_ta_exam_v1') !== '1') {
+      localStorage.setItem('sarvestan_migrated_ta_exam_v1', '1');
+    }
+  } catch {}
+
+  return cacheObj;
+}
+
+function buildCacheFromStorage() {
+  const schedule = asTermMap(read(KEYS.SCHEDULE, {}));
   const exams = asTermMap(read(KEYS.EXAMS, {}));
-  return {
+  return migrateLegacyTaAndExams({
     profile: read(KEYS.PROFILE, null),
     schedule,
     exams,
@@ -104,7 +204,7 @@ function buildCacheFromStorage() {  const schedule = asTermMap(read(KEYS.SCHEDUL
     syncMeta: read(KEYS.SYNC_META, { lastSyncAt: null, sources: [], status: 'idle' }),
     localNotes: read(KEYS.LOCAL_NOTES, []),
     reg77: read(KEYS.REG77, null),
-  };
+  });
 }
 
 let cache = buildCacheFromStorage();
@@ -153,6 +253,9 @@ if (typeof window !== 'undefined') {
     if (e.key && e.key.startsWith('sarvestan_')) {
       reloadStoreFromStorage();
     }
+  });
+  window.addEventListener('sarvestan_data_restored', () => {
+    reloadStoreFromStorage();
   });
 }
 
@@ -228,8 +331,44 @@ export function normalizeNameForMatch(name) {
     .trim();
 }
 
+export function isTaClass(c) {
+  return Boolean(
+    c &&
+      (c.classType === 'ta' ||
+        c.category === 'ta' ||
+        String(c.name || c.title || '').includes('حل تمرین')),
+  );
+}
+
+export function getExamCategory(e) {
+  return (
+    e?.category ||
+    e?.examType ||
+    (String(e?.name || e?.course || '').includes('کوییز')
+      ? 'quiz'
+      : String(e?.name || e?.course || '').includes('میان')
+      ? 'midterm'
+      : 'final')
+  );
+}
+
+export function examsMatch(a, b) {
+  if (!a || !b) return false;
+  if (a.id && b.id && String(a.id) === String(b.id)) return true;
+  if (getExamCategory(a) !== getExamCategory(b)) return false;
+  if (a.id && b.id && (a.customAdded || b.customAdded) && String(a.id) !== String(b.id)) {
+    return false;
+  }
+  if (a.code && b.code && String(a.code) === String(b.code)) return true;
+  const nameA = normalizeNameForMatch(a.name || a.course);
+  const nameB = normalizeNameForMatch(b.name || b.course);
+  if (nameA && nameB && nameA === nameB) return true;
+  return false;
+}
+
 export function coursesMatch(a, b) {
   if (!a || !b) return false;
+  if (isTaClass(a) !== isTaClass(b)) return false;
   if (a.id && b.id && String(a.id) === String(b.id)) return true;
   const codeA = normalizeCourseCode(a.code || a.id);
   const codeB = normalizeCourseCode(b.code || b.id);
@@ -672,9 +811,12 @@ export function setScheduleForTerm(termId, courses, source = '') {
 
     const isDeleted = (c) => {
       if (!c) return false;
+      const cTa = isTaClass(c);
       return deletedList.some((d) => {
-        if (c.id && d.id && c.id === d.id) return true;
-        if (c.code && d.code && String(c.code) === String(d.code)) return true;
+        if (!d) return false;
+        if (c.id && d.id && String(c.id) === String(d.id)) return true;
+        if (isTaClass(d) !== cTa) return false;
+        if (!cTa && c.code && d.code && String(c.code) === String(d.code)) return true;
         if (c.name && d.name && c.name === d.name) return true;
         return false;
       });
@@ -683,19 +825,25 @@ export function setScheduleForTerm(termId, courses, source = '') {
     const mergedFromBehestan = enrichedCourses
       .filter((c) => !isDeleted(c))
       .map((bc) => {
+        const bcTa = isTaClass(bc);
         const userEdited = currentList.find(
           (uc) =>
             uc &&
             uc.customEdited &&
-            ((uc.id && bc.id && uc.id === bc.id) ||
-              (uc.code && bc.code && String(uc.code) === String(bc.code)) ||
+            isTaClass(uc) === bcTa &&
+            ((uc.id && bc.id && String(uc.id) === String(bc.id)) ||
+              (!bcTa && uc.code && bc.code && String(uc.code) === String(bc.code)) ||
               (uc.name && bc.name && uc.name === bc.name))
         );
         return userEdited ? { ...bc, ...userEdited } : bc;
       });
 
     const customAddedCourses = currentList.filter(
-      (c) => c && (c.customAdded || String(c.id || '').startsWith('custom_c_'))
+      (c) =>
+        c &&
+        (c.customAdded ||
+          String(c.id || '').startsWith('custom_c_') ||
+          String(c.id || '').startsWith('ta_'))
     );
 
     finalCourses = [...mergedFromBehestan, ...customAddedCourses];
@@ -730,30 +878,24 @@ export function setExamsForTerm(termId, exams) {
 
     const isDeleted = (e) => {
       if (!e) return false;
-      return deletedList.some((d) => {
-        if (e.id && d.id && e.id === d.id) return true;
-        if (e.code && d.code && String(e.code) === String(d.code)) return true;
-        if ((e.name || e.course) && (d.name || d.course) && (e.name || e.course) === (d.name || d.course)) return true;
-        return false;
-      });
+      return deletedList.some((d) => examsMatch(e, d));
     };
 
     const mergedFromBehestan = exams
       .filter((e) => !isDeleted(e))
       .map((be) => {
         const userEdited = currentList.find(
-          (ue) =>
-            ue &&
-            ue.customEdited &&
-            ((ue.id && be.id && ue.id === be.id) ||
-              (ue.code && be.code && String(ue.code) === String(be.code)) ||
-              ((ue.name || ue.course) && (be.name || be.course) && (ue.name || ue.course) === (be.name || be.course)))
+          (ue) => ue && ue.customEdited && examsMatch(ue, be)
         );
         return userEdited ? { ...be, ...userEdited } : be;
       });
 
     const customAddedExams = currentList.filter(
-      (e) => e && (e.customAdded || String(e.id || '').startsWith('custom_ex_'))
+      (e) =>
+        e &&
+        (e.customAdded ||
+          String(e.id || '').startsWith('custom_ex_') ||
+          String(e.id || '').startsWith('custom_exam_'))
     );
 
     finalExams = [...mergedFromBehestan, ...customAddedExams];
@@ -794,7 +936,7 @@ export function resolveCurrentTermId() {
   const courses = cache.courses || [];
   const cKeys = [...new Set(courses.map((c) => String(c?.termId || '').trim()).filter(Boolean))].sort();
   if (cKeys.length) return cKeys[cKeys.length - 1];
-  return '4051';
+  return estimateCurrentBehestanTermId();
 }
 
 export function updateScheduleCourse(termId, courseIdentifier, updatedCourse) {
@@ -823,18 +965,16 @@ export function updateScheduleCourse(termId, courseIdentifier, updatedCourse) {
       ? (courseIdentifier.name || courseIdentifier.title)
       : updatedCourse?.name;
 
+  const isTa = isTaClass(updatedCourse);
+
   let idx = list.findIndex((c) => {
     if (!c) return false;
     if (idTarget && c.id && String(c.id) === String(idTarget)) return true;
+    if (isTaClass(c) !== isTa) return false;
     if (nameTarget && (c.name || c.title) && norm(c.name || c.title) === norm(nameTarget)) return true;
-    if (!nameTarget && codeTarget && c.code && norm(c.code) === norm(codeTarget)) return true;
+    if (!isTa && !nameTarget && codeTarget && c.code && norm(c.code) === norm(codeTarget)) return true;
     return false;
   });
-
-  const isTa =
-    updatedCourse.classType === 'ta' ||
-    updatedCourse.category === 'ta' ||
-    String(updatedCourse.name || updatedCourse.title || '').includes('حل تمرین');
 
   const resolvedUnits = isTa ? 0 : (Number(updatedCourse.units) || 0);
   const resolvedIncludeInGpa = isTa ? false : (updatedCourse.includeInGpa !== false);
@@ -842,11 +982,15 @@ export function updateScheduleCourse(termId, courseIdentifier, updatedCourse) {
   const merged = {
     ...(idx >= 0 ? list[idx] : {}),
     ...updatedCourse,
+    code: isTa ? '' : (updatedCourse.code ?? (idx >= 0 ? list[idx].code : '')),
+    parentCourseCode: isTa
+      ? (updatedCourse.parentCourseCode || (idx >= 0 ? list[idx].parentCourseCode : '') || updatedCourse.code || '')
+      : (updatedCourse.parentCourseCode ?? (idx >= 0 ? list[idx].parentCourseCode : undefined)),
     units: resolvedUnits,
     includeInGpa: resolvedIncludeInGpa,
     classType: isTa ? 'ta' : (updatedCourse.classType || 'lecture'),
     category: isTa ? 'ta' : (updatedCourse.category || 'lecture'),
-    id: (idx >= 0 ? list[idx].id : null) || updatedCourse.id || `course_${Date.now()}`,
+    id: (idx >= 0 ? list[idx].id : null) || updatedCourse.id || (isTa ? `ta_${Date.now()}` : `course_${Date.now()}`),
     customEdited: true,
   };
 
@@ -861,10 +1005,10 @@ export function updateScheduleCourse(termId, courseIdentifier, updatedCourse) {
     localStorage.setItem(KEYS.SCHEDULE_CUSTOMIZED, 'true');
   } catch {}
 
-  // همگام‌سازی با کش courses برای دسترسی بدون معطلی شبیه‌ساز معدل
-  if (Array.isArray(cache.courses)) {
+  // همگام‌سازی با کش courses برای دسترسی بدون معطلی شبیه‌ساز معدل (فقط دروس اصلی؛ نه کلاس حل تمرین)
+  if (!isTa && Array.isArray(cache.courses)) {
     const cIdx = cache.courses.findIndex((cc) => {
-      if (!cc) return false;
+      if (!cc || isTaClass(cc)) return false;
       if (idTarget && cc.id && String(cc.id) === String(idTarget)) return true;
       if (nameTarget && (cc.name || cc.title) && norm(cc.name || cc.title) === norm(nameTarget)) return true;
       if (!nameTarget && codeTarget && cc.code && norm(cc.code) === norm(codeTarget)) return true;
@@ -876,8 +1020,8 @@ export function updateScheduleCourse(termId, courseIdentifier, updatedCourse) {
         ...updatedCourse,
         units: resolvedUnits,
         includeInGpa: resolvedIncludeInGpa,
-        classType: isTa ? 'ta' : 'lecture',
-        category: isTa ? 'ta' : 'lecture',
+        classType: 'lecture',
+        category: 'lecture',
         color: updatedCourse.color || cache.courses[cIdx].color,
       };
     }
@@ -893,28 +1037,29 @@ export function addScheduleCourse(termId, newCourse) {
   const schedule = { ...(cache.schedule || {}) };
   const list = [...(schedule[targetTerm] || [])];
 
-  const isTa =
-    newCourse.classType === 'ta' ||
-    newCourse.category === 'ta' ||
-    String(newCourse.name || newCourse.title || '').includes('حل تمرین');
+  const isTa = isTaClass(newCourse);
 
   const resolvedUnits = isTa ? 0 : (newCourse.units != null ? Number(newCourse.units) : 3);
   const resolvedIncludeInGpa = isTa ? false : (newCourse.includeInGpa !== false);
 
   const courseWithId = {
     ...newCourse,
+    code: isTa ? '' : (newCourse.code || ''),
+    parentCourseCode: isTa ? (newCourse.parentCourseCode || newCourse.code || '') : newCourse.parentCourseCode,
     units: resolvedUnits,
     includeInGpa: resolvedIncludeInGpa,
     classType: isTa ? 'ta' : (newCourse.classType || 'lecture'),
     category: isTa ? 'ta' : (newCourse.category || 'lecture'),
-    id: newCourse.id || `custom_c_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    id:
+      newCourse.id ||
+      `${isTa ? 'ta' : 'custom_c'}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
     customAdded: true,
   };
   list.push(courseWithId);
   schedule[targetTerm] = list;
 
-  // افزودن به کش courses برای دیده‌شدن در شبیه‌ساز معدل
-  if (Array.isArray(cache.courses)) {
+  // افزودن به کش courses برای دیده‌شدن در شبیه‌ساز معدل (فقط دروس اصلی؛ نه کلاس حل تمرین)
+  if (!isTa && Array.isArray(cache.courses)) {
     cache.courses.push({
       id: courseWithId.id,
       code: courseWithId.code || '',
@@ -925,8 +1070,8 @@ export function addScheduleCourse(termId, newCourse) {
       includeInGpa: resolvedIncludeInGpa,
       grade: null,
       status: 'در حال',
-      classType: isTa ? 'ta' : 'lecture',
-      category: isTa ? 'ta' : 'lecture',
+      classType: 'lecture',
+      category: 'lecture',
     });
   }
 
@@ -965,10 +1110,24 @@ export function deleteScheduleCourse(termId, courseIdentifier) {
     }
 
     if (match) {
-      deletedEntries.push({ id: c.id, code: c.code, name: c.name || c.title });
+      const cTa = isTaClass(c);
+      deletedEntries.push({
+        id: c.id,
+        code: cTa ? '' : c.code,
+        parentCourseCode: cTa ? (c.parentCourseCode || c.code) : undefined,
+        name: c.name || c.title,
+        classType: cTa ? 'ta' : 'lecture',
+        isTa: cTa,
+      });
       try {
         const deleted = read(KEYS.DELETED_COURSES, []) || [];
-        deleted.push({ id: c.id, code: c.code, name: c.name || c.title });
+        deleted.push({
+          id: c.id,
+          code: cTa ? '' : c.code,
+          parentCourseCode: cTa ? (c.parentCourseCode || c.code) : undefined,
+          name: c.name || c.title,
+          classType: cTa ? 'ta' : 'lecture',
+        });
         persist(KEYS.DELETED_COURSES, deleted);
       } catch {}
       return false;
@@ -978,11 +1137,13 @@ export function deleteScheduleCourse(termId, courseIdentifier) {
 
   schedule[targetTerm] = filtered;
 
-  // همچنین حذف کامل درس از کش courses (جهت خروج قطعی از شبیه‌ساز معدل و کارنامه)
-  if (Array.isArray(cache.courses)) {
+  // همچنین حذف کامل درس از کش courses (فقط برای دروس اصلی، نه کلاس حل تمرین)
+  const hasNonTaDeleted = deletedEntries.some((d) => !d.isTa);
+  if (hasNonTaDeleted && Array.isArray(cache.courses)) {
     cache.courses = cache.courses.filter((c) => {
+      if (isTaClass(c)) return true;
       if (courseIdentifier && typeof courseIdentifier === 'object') {
-        if (courseIdentifier.id && c.id && c.id === courseIdentifier.id) return false;
+        if (courseIdentifier.id && c.id && String(c.id) === String(courseIdentifier.id)) return false;
         if (
           (courseIdentifier.name || courseIdentifier.title) &&
           (c.name || c.title) === (courseIdentifier.name || courseIdentifier.title)
@@ -990,7 +1151,7 @@ export function deleteScheduleCourse(termId, courseIdentifier) {
           return false;
         }
       } else if (courseIdentifier) {
-        if (c.id && c.id === courseIdentifier) return false;
+        if (c.id && String(c.id) === String(courseIdentifier)) return false;
         if ((c.name || c.title) === courseIdentifier) return false;
       }
       return true;
@@ -1011,17 +1172,28 @@ export function updateExamInStore(termId, examIdentifier, updatedExam) {
   const examsMap = { ...(cache.exams || {}) };
   const list = [...(examsMap[targetTerm] || [])];
 
-  const idx = list.findIndex((e, i) => {
+  const targetCat = getExamCategory(updatedExam);
+  let idx = list.findIndex((e) => {
     if (!e) return false;
     if (examIdentifier && typeof examIdentifier === 'object') {
-      if (examIdentifier.id && e.id && e.id === examIdentifier.id) return true;
-      if (examIdentifier.code && e.code && String(e.code) === String(examIdentifier.code)) return true;
+      if (examIdentifier.id && e.id && String(e.id) === String(examIdentifier.id)) return true;
+      return false;
     }
-    if (e.id && e.id === examIdentifier) return true;
-    if (e.code && String(e.code) === String(examIdentifier)) return true;
-    if (i === examIdentifier) return true;
-    return false;
+    return Boolean(e.id && String(e.id) === String(examIdentifier));
   });
+  if (idx < 0) {
+    idx = list.findIndex((e, i) => {
+      if (!e) return false;
+      if (getExamCategory(e) !== targetCat) return false;
+      if (examIdentifier && typeof examIdentifier === 'object') {
+        if (examIdentifier.code && e.code && String(e.code) === String(examIdentifier.code)) return true;
+        return false;
+      }
+      if (e.code && String(e.code) === String(examIdentifier)) return true;
+      if (i === examIdentifier) return true;
+      return false;
+    });
+  }
 
   if (idx >= 0) {
     list[idx] = {
@@ -1071,17 +1243,34 @@ export function deleteExamFromStore(termId, examIdentifier) {
     if (!e) return false;
     let match = false;
     if (examIdentifier && typeof examIdentifier === 'object') {
-      if (examIdentifier.id && e.id && e.id === examIdentifier.id) match = true;
-      if (examIdentifier.code && e.code && String(e.code) === String(examIdentifier.code)) match = true;
+      if (examIdentifier.id && e.id && String(e.id) === String(examIdentifier.id)) {
+        match = true;
+      } else if (
+        examIdentifier.code &&
+        e.code &&
+        String(e.code) === String(examIdentifier.code) &&
+        (!examIdentifier.category || getExamCategory(e) === getExamCategory(examIdentifier))
+      ) {
+        match = true;
+      }
+    } else if (e.id && String(e.id) === String(examIdentifier)) {
+      match = true;
+    } else if (e.code && String(e.code) === String(examIdentifier) && getExamCategory(e) === 'final') {
+      match = true;
+    } else if (i === examIdentifier) {
+      match = true;
     }
-    if (e.id && e.id === examIdentifier) match = true;
-    if (e.code && String(e.code) === String(examIdentifier)) match = true;
-    if (i === examIdentifier) match = true;
 
     if (match) {
       try {
         const deleted = read(KEYS.DELETED_EXAMS, []) || [];
-        deleted.push({ id: e.id, code: e.code, name: e.name || e.course });
+        deleted.push({
+          id: e.id,
+          code: e.code,
+          courseCode: e.courseCode,
+          name: e.name || e.course,
+          category: getExamCategory(e),
+        });
         persist(KEYS.DELETED_EXAMS, deleted);
       } catch {}
       return false;
@@ -1190,8 +1379,11 @@ export function enrichScheduleFromCourses(courses) {
     // حذف قطعی دروس حذف‌شده و در انتظار از برنامه هفتگی — فقط برای همان ترم جاری
     const filtered = list.filter((course) => {
       if (!course) return false;
-      const key = `${currentTermKey}|${String(course.code).trim()}`;
-      const hit = byTermAndCode[key];
+      const lookupCode = isTaClass(course)
+        ? String(course.parentCourseCode || course.code || '').trim()
+        : String(course.code || '').trim();
+      const key = `${currentTermKey}|${lookupCode}`;
+      const hit = lookupCode ? byTermAndCode[key] : null;
       const reg = hit?.regStatus || course.regStatus;
       const st = hit?.status || course.status;
       if (reg === 'dropped' || reg === 'waitlist') return false;
@@ -1205,7 +1397,7 @@ export function enrichScheduleFromCourses(courses) {
     }
 
     for (const course of schedule[termId]) {
-      if (!course || !course.code || course.customEdited) continue;
+      if (!course || !course.code || course.customEdited || isTaClass(course)) continue;
       const key = `${currentTermKey}|${String(course.code).trim()}`;
       const hit = byTermAndCode[key];
       if (!hit) continue;
@@ -1308,7 +1500,7 @@ export function loadDevDataset() {
 }
 
 // ابزارهای selector برای UI
-export function getCurrentTermSchedule(termId = '4051') {
+export function getCurrentTermSchedule(termId = estimateCurrentBehestanTermId()) {
   const s = cache.schedule || {};
   if (Array.isArray(s[termId]) && s[termId].length) return s[termId];
   const keys = Object.keys(s).filter((k) => Array.isArray(s[k]) && s[k].length);
@@ -1398,7 +1590,7 @@ export function getSummary() {
   const termIds = [
     ...new Set(courses.map((c) => String(c?.termId || '').trim()).filter(Boolean)),
   ].sort();
-  const currentTerm = termIds.length ? termIds[termIds.length - 1] : '4051';
+  const currentTerm = termIds.length ? termIds[termIds.length - 1] : estimateCurrentBehestanTermId();
   const scheduleCourses = getCurrentTermSchedule(currentTerm);
   const scheduleUnits = scheduleCourses.reduce((s, c) => {
     const isTa =
@@ -1453,7 +1645,7 @@ export function getSummary() {
       finance?.termsSummary?.[0]?.totalBillRial ||
       0,
     paidRial:
-      finance?.termsSummary?.find((t) => t.termId === '4051')?.totalPaidRial ||
+      finance?.termsSummary?.find((t) => t.termId === currentTerm)?.totalPaidRial ||
       finance?.termsSummary?.[0]?.totalPaidRial ||
       0,
   };

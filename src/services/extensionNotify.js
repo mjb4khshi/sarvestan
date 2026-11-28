@@ -36,6 +36,15 @@ export async function ensureNotificationPermission() {
 const MAX_SCHEDULE_ITEMS = 120;
 
 export async function scheduleExtensionReminders(items = []) {
+  return sendNotifBatch('SARVESTAN_SCHEDULE_NOTIFS', items);
+}
+
+/** افزودن یا به‌روزرسانی یادآور تکی (امتحان/تسک) بدون پاک کردن یادآورهای کلاس و سماد */
+export async function upsertExtensionReminders(items = []) {
+  return sendNotifBatch('SARVESTAN_UPSERT_NOTIFS', items);
+}
+
+async function sendNotifBatch(action, items = []) {
   if (!supportsExtensionReminders()) {
     return { ok: false, error: 'بستر افزونه در دسترس نیست' };
   }
@@ -49,7 +58,7 @@ export async function scheduleExtensionReminders(items = []) {
     try {
       chrome.runtime.sendMessage(
         {
-          action: 'SARVESTAN_SCHEDULE_NOTIFS',
+          action,
           items: future.map((i) => ({
             id: String(i.id),
             triggerAtMs: i.triggerAtMs,

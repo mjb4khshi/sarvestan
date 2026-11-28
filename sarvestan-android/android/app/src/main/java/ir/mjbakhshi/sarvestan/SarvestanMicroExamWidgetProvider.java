@@ -38,6 +38,7 @@ public class SarvestanMicroExamWidgetProvider extends AppWidgetProvider {
 
         int examDays = sp.getInt(SarvestanWidgetProvider.KEY_EXAM_DAYS, -1);
         String examTitle = sp.getString(SarvestanWidgetProvider.KEY_EXAM_TITLE, "");
+        String examCategory = sp.getString("exam_category", "");
         String theme = sp.getString(SarvestanWidgetProvider.KEY_THEME, "auto");
 
         boolean isNight;
@@ -55,7 +56,8 @@ public class SarvestanMicroExamWidgetProvider extends AppWidgetProvider {
         int colorValue = isNight ? Color.parseColor("#FB7185") : Color.parseColor("#BE123C");
         int colorMeta = isNight ? Color.parseColor("#94A3B8") : Color.parseColor("#64748B");
 
-        Bitmap bTag = WidgetTypographyHelper.renderTextCenter(context, "امتحان", 8.5f, colorBrand, WidgetTypographyHelper.getBold(context));
+        String catTag = "quiz".equals(examCategory) ? "کوییز" : "midterm".equals(examCategory) ? "میانترم" : "امتحان";
+        Bitmap bTag = WidgetTypographyHelper.renderTextCenter(context, catTag, 8.5f, colorBrand, WidgetTypographyHelper.getBold(context));
         if (bTag != null) rv.setImageViewBitmap(R.id.w_micro_exam_tag, bTag);
 
         String valStr;

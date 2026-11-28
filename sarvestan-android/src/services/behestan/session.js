@@ -2,6 +2,7 @@
  * نشست بهستان — sid / ticket / studentId
  * مهم‌ترین منبع: کش دستی (applySession)
  */
+import { LIVE_DATA_KEYS, CUSTOM_SCHEDULE_KEYS } from '../../constants/storageKeys';
 
 const MANUAL_KEY = 'sarvestan_mobile_session';
 
@@ -58,18 +59,11 @@ export function clearSession() {
 export function clearAllLive() {
   clearSession();
   try {
-    const keys = [
-      'sarvestan_live_profile',
-      'sarvestan_live_schedule',
-      'sarvestan_live_exams',
-      'sarvestan_live_transcripts',
-      'sarvestan_live_finance',
-      'sarvestan_live_courses',
-      'sarvestan_live_workflows',
-      'sarvestan_live_announcements',
-      'sarvestan_live_curriculum_stats',
-      'sarvestan_live_sync_meta',
-    ];
+    const keys = new Set([
+      ...LIVE_DATA_KEYS,
+      ...CUSTOM_SCHEDULE_KEYS,
+      'sarvestan_auth_status',
+    ]);
     keys.forEach((k) => localStorage.removeItem(k));
   } catch {}
 }
@@ -177,6 +171,7 @@ export const UNIVERSITIES = [
     name: 'دانشگاه صنعتی خواجه نصیرالدین طوسی',
     shortName: 'خواجه نصیر',
     origin: 'https://behestan.kntu.ac.ir',
+    lmsUrl: 'https://vc.kntu.ac.ir/',
     authMethod: 'sso',
     logo: getAssetUrl('kntu-logo.svg'),
     systemName: 'سامانه بهستان',
@@ -186,6 +181,7 @@ export const UNIVERSITIES = [
     name: 'دانشگاه صنعتی امیرکبیر (پلی‌تکنیک تهران)',
     shortName: 'امیرکبیر',
     origin: 'https://portal.aut.ac.ir',
+    lmsUrl: 'https://lms.aut.ac.ir/',
     authMethod: 'sso',
     logo: getAssetUrl('aut-logo.png'),
     systemName: 'سامانه بهستان امیرکبیر',
@@ -195,6 +191,7 @@ export const UNIVERSITIES = [
     name: 'دانشگاه شهید بهشتی',
     shortName: 'شهید بهشتی',
     origin: 'https://ems.sbu.ac.ir',
+    lmsUrl: 'https://lms.sbu.ac.ir/',
     authMethod: 'direct_captcha',
     logo: getAssetUrl('sbu-logo.svg'),
     systemName: 'سامانه آموزشی بهستان',
@@ -204,6 +201,7 @@ export const UNIVERSITIES = [
     name: 'دانشگاه تهران',
     shortName: 'دانشگاه تهران',
     origin: 'https://ems2.ut.ac.ir',
+    lmsUrl: 'https://elearning.ut.ac.ir/',
     authMethod: 'sso',
     logo: getAssetUrl('ut-logo.svg'),
     systemName: 'سامانه گلستان / بهستان ۲',
@@ -213,6 +211,7 @@ export const UNIVERSITIES = [
     name: 'دانشگاه علم و صنعت ایران',
     shortName: 'علم و صنعت',
     origin: 'https://golestan.iust.ac.ir',
+    lmsUrl: 'https://lms.iust.ac.ir/',
     authMethod: 'direct_captcha',
     logo: getAssetUrl('iust-logo.png'),
     systemName: 'سامانه گلستان (به‌زودی)',
@@ -264,6 +263,16 @@ export function getUniversityName(uniId = getSelectedUniversity()) {
 export function getUniversityShortName(uniId = getSelectedUniversity()) {
   const found = UNIVERSITIES.find((u) => u.id === uniId);
   return found?.shortName || found?.name || 'خواجه نصیر';
+}
+
+export function getUniversityLmsUrl(uniId = getSelectedUniversity()) {
+  const found = UNIVERSITIES.find((u) => u.id === uniId);
+  return found?.lmsUrl || 'https://vc.kntu.ac.ir/';
+}
+
+export function getUniversitySystemName(uniId = getSelectedUniversity()) {
+  const found = UNIVERSITIES.find((u) => u.id === uniId);
+  return found?.systemName || 'سامانه بهستان';
 }
 
 export const BEHESTAN_ORIGIN = 'https://behestan.kntu.ac.ir';

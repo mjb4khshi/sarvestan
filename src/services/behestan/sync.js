@@ -14,6 +14,7 @@ import {
 } from './client';
 import { markSyncStatus, getSnapshot, addLocalNote } from './store';
 import { detectCurrentTermId, termIdToLabel } from './parsers';
+import { estimateCurrentBehestanTermId, getFallbackTermCandidates } from '../calendarHelper';
 import {
   isSessionAlive,
   saveManualSession,
@@ -51,7 +52,10 @@ function clearDeadServerSession() {
 
 export function getPrecedingTerms(term, count = 5) {
   const m = String(term || '').match(/^(\d{3})(\d)$/);
-  if (!m) return ['4042', '4041', '4032', '4031'];
+  if (!m) {
+    const est = estimateCurrentBehestanTermId();
+    return getPrecedingTerms(est, count);
+  }
   let year = parseInt(m[1], 10);
   let sem = parseInt(m[2], 10);
   const terms = [];
@@ -162,14 +166,11 @@ export async function runFullSync({ force = false } = {}) {
       // ابتدا بدون فیلتر ترم (term=null) تا بهستان ترم فعال جاری دانشجو را برگرداند
       r88 = await fetchRegistration88(null);
       if (!r88?.meta?.fullName && !r88?.courses?.length) {
-        // فال‌بک با ترم ۴۰۵۱ و سپس ۴۰۴۲
-        const r88_4051 = await fetchRegistration88('4051');
-        if (r88_4051?.meta?.fullName || r88_4051?.courses?.length) {
-          r88 = r88_4051;
-        } else {
-          const r88_4042 = await fetchRegistration88('4042');
-          if (r88_4042?.meta?.fullName || r88_4042?.courses?.length) {
-            r88 = r88_4042;
+        for (const fallbackTerm of getFallbackTermCandidates()) {
+          const r88Fb = await fetchRegistration88(fallbackTerm);
+          if (r88Fb?.meta?.fullName || r88Fb?.courses?.length) {
+            r88 = r88Fb;
+            break;
           }
         }
       }
@@ -195,10 +196,12 @@ export async function runFullSync({ force = false } = {}) {
     }
 
     // تشخیص ترم جاری از گزارش ۸۸ یا دروس موجود
-    let currentTerm = r88?.termId || detectCurrentTermId(getSnapshot()?.courses || []) || '4051';
+    const estTerm = estimateCurrentBehestanTermId();
+    let currentTerm = r88?.termId || detectCurrentTermId(getSnapshot()?.courses || []) || estTerm;
+    const prevTerms = getPrecedingTerms(currentTerm, 1);
 
     // ── گام دوم: برنامه هفتگی (گزارش ۷۸) ──
-    for (const t of [currentTerm, '4042']) {
+    for (const t of [...new Set([currentTerm, ...prevTerms])]) {
       try {
         const p78 = await fetchViewReport('78', t);
         if (p78?.error && isSessionError(p78.error)) {

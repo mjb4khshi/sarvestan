@@ -10,6 +10,7 @@ import {
   loadDevDataset,
 } from '../services/behestan/store';
 import { detectCurrentTermId } from '../services/behestan/parsers';
+import { estimateCurrentBehestanTermId } from '../services/calendarHelper';
 import {
   isSessionAlive,
   getSessionSnapshot,
@@ -69,7 +70,7 @@ export function useSarvestanData() {
 
   const scheduleCourses = useMemo(() => {
     if (!hasLiveData()) return [];
-    const term = detectCurrentTermId(getSnapshot()?.courses || []) || '4051';
+    const term = detectCurrentTermId(getSnapshot()?.courses || []) || estimateCurrentBehestanTermId();
     return getCurrentTermSchedule(term);
   }, [data]);
 

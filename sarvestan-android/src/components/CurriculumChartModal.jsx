@@ -36,7 +36,7 @@ import {
   renderCurriculumPoster,
   shareCanvas,
   canvasToDataUrl,
-  downloadBlob,
+  saveCanvasImage,
   copyCanvasToClipboard,
 } from '../services/shareImages';
 
@@ -195,24 +195,30 @@ export default function CurriculumChartModal({
   const handleSharePoster = async () => {
     if (!posterPreview?.canvas) return;
     try {
-      const res = await shareCanvas(
-        posterPreview.canvas,
-        `چارت تحصیلی ${student?.fullName || ''} — سروستان`,
-        'sarvestan-curriculum.png'
-      );
-      if (!res.shared) {
-        setPosterMsg(res.reason || 'امکان اشتراک مستقیم نیست؛ لطفاً دانلود کنید.');
+      const res = await shareCanvas(posterPreview.canvas, {
+        filename: 'sarvestan-curriculum.png',
+        title: `چارت تحصیلی ${student?.fullName || ''} — سروستان`,
+      });
+      if (res === 'downloaded') {
+        setPosterMsg('تصویر با موفقیت ذخیره شد ✓');
+        setTimeout(() => setPosterMsg(''), 3000);
+      } else if (res !== 'shared' && res !== 'cancelled') {
+        setPosterMsg('امکان اشتراک مستقیم نیست؛ لطفاً دانلود کنید.');
       }
     } catch (e) {
       setPosterMsg('خطا در اشتراک‌گذاری: ' + String(e?.message || e));
     }
   };
 
-  const handleDownloadPoster = () => {
+  const handleDownloadPoster = async () => {
     if (!posterPreview?.canvas) return;
-    downloadBlob(posterPreview.canvas, 'sarvestan-curriculum-chart.png');
-    setPosterMsg('تصویر با موفقیت ذخیره شد ✓');
-    setTimeout(() => setPosterMsg(''), 3000);
+    try {
+      await saveCanvasImage(posterPreview.canvas, 'sarvestan-curriculum-chart.png');
+      setPosterMsg('تصویر با موفقیت ذخیره شد ✓');
+      setTimeout(() => setPosterMsg(''), 3000);
+    } catch (e) {
+      setPosterMsg('خطا در ذخیره تصویر: ' + String(e?.message || e));
+    }
   };
 
   const handleCopyPoster = async () => {

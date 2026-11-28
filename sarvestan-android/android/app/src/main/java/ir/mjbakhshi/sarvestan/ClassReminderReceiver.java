@@ -6,11 +6,14 @@ import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Build;
 import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
+
+import org.json.JSONObject;
 
 /** نمایش نوتیف یادآوری کلاس و سامانه‌ها — ۱۰ دقیقه قبل، لحظه شروع یا یادآور رزرو غذای سماد */
 public class ClassReminderReceiver extends BroadcastReceiver {
@@ -21,6 +24,26 @@ public class ClassReminderReceiver extends BroadcastReceiver {
     public static final String EXTRA_NOTIF_ID = "notifId";
     public static final String EXTRA_URL = "url";
     public static final String EXTRA_DND_MODE = "dnd_mode";
+    public static final String EXTRA_TRIGGER_AT = "triggerAtMs";
+    public static final String EXTRA_KIND = "kind";
+
+    private static final String ALARM_PREFS = "sarvestan_alarms";
+    private static final String ALARM_ITEMS_KEY = "items";
+    private static final long STALE_CLASS_MS = 20L * 60_000L;
+    private static final long STALE_EXAM_SAMAD_MS = 120L * 60_000L;
+
+    private static void removeFiredFromPrefs(Context ctx, int notifId) {
+        if (ctx == null || notifId == 0) return;
+        try {
+            SharedPreferences sp = ctx.getSharedPreferences(ALARM_PREFS, Context.MODE_PRIVATE);
+            JSONObject map = new JSONObject(sp.getString(ALARM_ITEMS_KEY, "{}"));
+            String key = String.valueOf(notifId);
+            if (map.has(key)) {
+                map.remove(key);
+                sp.edit().putString(ALARM_ITEMS_KEY, map.toString()).apply();
+            }
+        } catch (Exception ignore) {}
+    }
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -31,22 +54,39 @@ public class ClassReminderReceiver extends BroadcastReceiver {
         int notifId = intent.getIntExtra(EXTRA_NOTIF_ID, 0);
         String url = intent.getStringExtra(EXTRA_URL);
         String dndMode = intent.getStringExtra(EXTRA_DND_MODE);
+        long triggerAtMs = intent.getLongExtra(EXTRA_TRIGGER_AT, 0L);
+        String kind = intent.getStringExtra(EXTRA_KIND);
+
+        // پاک کردن آیتم شلیک‌شده از SharedPreferences
+        removeFiredFromPrefs(context, notifId);
+
+        long maxStaleMs = ("exam".equals(kind) || "samad".equals(kind))
+                ? STALE_EXAM_SAMAD_MS
+                : STALE_CLASS_MS;
+        boolean isStale = triggerAtMs > 0L && (System.currentTimeMillis() - triggerAtMs) > maxStaleMs;
 
         NotificationManager nm =
                 (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm == null) return;
 
-        // اعمال حالت مزاحم نشوید (سایلنت خودکار) در صورت درخواست
+        // اعمال حالت مزاحم نشوید:
+        // - برای پایان کلاس (end) حتی اگر آلارم منقضی شده باشد حتماً سایلنت را خاموش کن تا گوشی قفل نشود
+        // - برای شروع کلاس (start) اگر منقضی شده بود اعمال نکن
         if (dndMode != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             try {
                 if (nm.isNotificationPolicyAccessGranted()) {
-                    if ("start".equalsIgnoreCase(dndMode)) {
-                        nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY);
-                    } else if ("end".equalsIgnoreCase(dndMode)) {
+                    if ("end".equalsIgnoreCase(dndMode)) {
                         nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
+                    } else if ("start".equalsIgnoreCase(dndMode) && !isStale) {
+                        nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY);
                     }
                 }
             } catch (Exception ignore) {}
+        }
+
+        if (isStale) {
+            Log.i("SarvestanClassAlarms", "Skipped stale reminder id=" + notifId + " kind=" + kind);
+            return;
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

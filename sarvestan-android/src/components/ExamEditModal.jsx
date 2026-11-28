@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { toFaDigits } from '../utils/faDigits';
 import { getToneForCourse } from '../data/viewModel';
+import { scheduleExamReminder, cancelExamReminder } from '../services/classAlarms';
+import { getTodayJalaliSlash } from '../services/calendarHelper';
 import SarvDatePickerModal from './SarvDatePickerModal';
 import SarvTimePickerModal from './SarvTimePickerModal';
 import SarvSwitch from './SarvSwitch';
@@ -47,9 +49,11 @@ export default function ExamEditModal({
   const [color, setColor] = useState('primary');
   const [courseName, setCourseName] = useState('');
   const [code, setCode] = useState('');
+  const [courseCode, setCourseCode] = useState('');
   const [professor, setProfessor] = useState('');
   const [units, setUnits] = useState(3);
-  const [examDate, setExamDate] = useState('1404/03/20');
+  const defaultExamDate = getTodayJalaliSlash();
+  const [examDate, setExamDate] = useState(defaultExamDate);
   const [examTime, setExamTime] = useState('08:30-10:30');
   const [room, setRoom] = useState('');
   const [seat, setSeat] = useState('—');
@@ -69,30 +73,35 @@ export default function ExamEditModal({
       setCategoryDropdownOpen(false);
       setErrorMsg('');
       if (actualExam) {
-        setCategory(actualExam.category || actualExam.examType || 'final');
+        const resolvedCat = actualExam.category || actualExam.examType || 'final';
+        setCategory(resolvedCat);
         setColor(actualExam.color || 'primary');
         setCourseName(actualExam.course || actualExam.name || '');
-        setCode(actualExam.code || '');
+        setCode(resolvedCat === 'final' ? (actualExam.code || '') : '');
+        setCourseCode(actualExam.courseCode || actualExam.code || '');
         setProfessor(actualExam.instructor || actualExam.professor || '');
         setUnits(actualExam.unit || actualExam.units || 3);
-        setExamDate(actualExam.examDate && actualExam.examDate !== 'ـ' ? actualExam.examDate : '1404/03/20');
+        setExamDate(actualExam.examDate && actualExam.examDate !== 'ـ' ? actualExam.examDate : getTodayJalaliSlash());
         setExamTime(actualExam.examTime && actualExam.examTime !== 'ـ' ? actualExam.examTime : '08:30-10:30');
         setRoom(actualExam.room || actualExam.hall || '');
-        setSeat(actualExam.seat || '—');
+        setSeat(actualExam.seat || actualExam.chairNumber || actualExam.seatNumber || '—');
+        setExamReminder(actualExam.reminderEnabled !== false);
       } else {
         setCategory('final');
         setColor('primary');
         setCourseName('');
         setCode('');
+        setCourseCode('');
         setProfessor('');
         setUnits(3);
-        setExamDate('1404/03/20');
+        setExamDate(getTodayJalaliSlash());
         setExamTime('08:30-10:30');
         setRoom('');
         setSeat('—');
+        setExamReminder(true);
       }
     }
-  }, [isOpen, exam]);
+  }, [isOpen, exam, initialExam]);
 
   const handleSelectCourse = (selectedCourseName, selectedCourseObj) => {
     if (!selectedCourseName) return;
@@ -101,7 +110,8 @@ export default function ExamEditModal({
       selectedCourseObj ||
       courses.find((c) => (c.name || c.title || c.course) === selectedCourseName);
     if (found) {
-      setCode(found.code || '');
+      setCourseCode(found.code || '');
+      setCode(category === 'final' ? (found.code || '') : '');
       setProfessor(found.professor || found.instructor || '');
       setUnits(found.units != null ? found.units : (found.unit != null ? found.unit : 3));
       const tone = found.color || getToneForCourse(found, courses) || 'primary';
@@ -120,12 +130,15 @@ export default function ExamEditModal({
       return;
     }
 
+    const cleanSeat = seat.trim() || '—';
+    const seatVal = cleanSeat !== '—' && cleanSeat !== 'ـ' ? cleanSeat : '';
     const resultExam = {
       ...(actualExam || {}),
-      id: actualExam?.id || `custom_exam_${Date.now()}`,
+      id: actualExam?.id || `custom_ex_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       course: courseName.trim(),
       name: courseName.trim(),
-      code: code.trim(),
+      code: category === 'final' ? code.trim() : '',
+      courseCode: (courseCode || code).trim(),
       professor: professor.trim(),
       instructor: professor.trim(),
       unit: Number(units) || 0,
@@ -134,9 +147,12 @@ export default function ExamEditModal({
       examTime: examTime.trim(),
       room: room.trim() || 'ـ',
       hall: room.trim() || 'ـ',
-      seat: seat.trim() || '—',
+      seat: cleanSeat,
+      chairNumber: seatVal,
+      seatNumber: seatVal,
       category,
       color,
+      reminderEnabled: Boolean(examReminder),
     };
 
     try {

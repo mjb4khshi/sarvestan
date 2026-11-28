@@ -10,6 +10,7 @@ import {
   loadDevDataset,
 } from '../services/behestan/store';
 import { detectCurrentTermId } from '../services/behestan/parsers';
+import { estimateCurrentBehestanTermId } from '../services/calendarHelper';
 import {
   isSessionAlive,
   getSessionSnapshot,
@@ -38,8 +39,23 @@ export function useSarvestanData() {
   }, [data?.syncMeta?.status]);
 
   useEffect(() => {
-    const id = setInterval(() => setSessionTick((t) => t + 1), 3000);
-    return () => clearInterval(id);
+    // تیک به‌روزرسانی وضعیت‌های زمانی («کلاس درحال برگزاری» و…)
+    // ۱۵ ثانیه + توقف هنگام پنهان بودن صفحه برای جلوگیری از ریرندر بی‌رویه
+    let id = null;
+    const start = () => {
+      if (id) clearInterval(id);
+      id = setInterval(() => {
+        if (!document.hidden) setSessionTick((t) => t + 1);
+      }, 15000);
+    };
+    const onVis = () => start();
+    setSessionTick((t) => t + 1);
+    start();
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, []);
 
   const session = useMemo(() => {
@@ -54,7 +70,7 @@ export function useSarvestanData() {
 
   const scheduleCourses = useMemo(() => {
     if (!hasLiveData()) return [];
-    const term = detectCurrentTermId(getSnapshot()?.courses || []) || '4051';
+    const term = detectCurrentTermId(getSnapshot()?.courses || []) || estimateCurrentBehestanTermId();
     return getCurrentTermSchedule(term);
   }, [data]);
 

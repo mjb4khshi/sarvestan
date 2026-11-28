@@ -34,6 +34,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SarvestanSharePlugin.class);
         registerPlugin(SarvestanIconPlugin.class);
         registerPlugin(SarvestanInstallerPlugin.class);
+        registerPlugin(SarvestanSecureStoragePlugin.class);
         super.onCreate(savedInstanceState);
         if (getBridge() != null && getBridge().getWebView() != null) {
             WebView webView = getBridge().getWebView();

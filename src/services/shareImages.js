@@ -1040,9 +1040,9 @@ export async function renderScheduleImage({ theme, view } = {}) {
   const headerH = 44;
   const timeColW = 148;
   const gap = 8;
-  // 5 ستون روز + 1 ستون زمان = 6 ستون (5 فاصله بینابینی)
-  // (1848 - 148 - 5*8) / 5 = (1848 - 148 - 40) / 5 = 1660 / 5 = 332 پیکسل دقیق
-  const dayColW = 332;
+  // پشتیبانی داینامیک از ۵ تا ۷ روز (شنبه تا پنجشنبه/جمعه) بدون سرریز افقی
+  const dayCount = Math.max(5, Array.isArray(days) ? days.length : 5);
+  const dayColW = Math.floor((gridW - timeColW - dayCount * gap) / dayCount);
   const timeX = gridLeft + gridW - timeColW; // 36 + 1848 - 148 = 1736
 
   // سرستون ستون ساعت (سمت راست جدول در RTL: از 1736 تا 1884)
@@ -1236,16 +1236,19 @@ export async function renderScheduleImage({ theme, view } = {}) {
         ctx.lineWidth = p.isLight ? 0.8 : 1;
         ctx.stroke();
 
-        // بج «حضوری» در گوشه چپ بالا
-        const badgeW = isCompact ? 46 : 54;
-        const badgeH = isCompact ? 20 : 24;
+        // بج نوع برگزاری (حضوری / حل تمرین / مجازی) در گوشه بالا-چپ کارت
+        const isTaCell = cell.classType === 'ta' || cell.category === 'ta' || String(cell.title || '').includes('حل تمرین');
+        const isVirtualCell = Boolean(cell.isVirtual || cell.virtualUrl || /مجازی|الکترونیک/i.test(String(cell.room || '')));
+        const typeLabel = isTaCell ? 'حل تمرین' : isVirtualCell ? 'مجازی' : 'حضوری';
+        const badgeW = isTaCell ? (isCompact ? 46 : 54) : (isCompact ? 40 : 48);
+        const badgeH = isCompact ? 18 : 22;
         ctx.fillStyle = hexToRgba(tone, 0.22);
         roundRect(ctx, cardX + 12, cy + (isCompact ? 8 : 12), badgeW, badgeH, 6);
         ctx.fill();
         ctx.fillStyle = tone;
         ctx.font = `bold ${isCompact ? 10 : 11}px Arad, "Arad", sans-serif`;
         ctx.textAlign = 'center';
-        ctx.fillText('حضوری', cardX + 12 + badgeW / 2, cy + (isCompact ? 22 : 28));
+        ctx.fillText(typeLabel, cardX + 12 + badgeW / 2, cy + (isCompact ? 22 : 28));
 
         // عنوان درس با فونت آراد بولد و اندازه متناسب
         ctx.direction = 'rtl';
@@ -1324,7 +1327,10 @@ export async function renderScheduleImage({ theme, view } = {}) {
           ctx.textAlign = 'right';
           ctx.fillStyle = p.content;
           ctx.font = 'bold 13.5px Arad, "Arad", sans-serif';
-          const title = (cell.title || '').slice(0, 26);
+          const isTaMulti = cell.classType === 'ta' || cell.category === 'ta' || String(cell.title || '').includes('حل تمرین');
+          const isVirtMulti = Boolean(cell.isVirtual || cell.virtualUrl || /مجازی|الکترونیک/i.test(String(cell.room || '')));
+          const multiTag = isTaMulti ? ' [TA]' : isVirtMulti ? ' [مجازی]' : '';
+          const title = (cell.title || '').slice(0, multiTag ? 21 : 26) + multiTag;
           ctx.fillText(title, cardX + cardW - 10, cy + 20);
 
           const botY = cy + cardH - 10;
@@ -1465,7 +1471,7 @@ export async function renderGpaStoryImage({ theme } = {}) {
   const latestGraded = gradedTerms[0] || terms[0];
   const overallGpa = vm?.summary?.gpa && vm.summary.gpa !== 'ـ' && vm.summary.gpa !== '-'
     ? vm.summary.gpa
-    : latestGraded?.gpa || '۱۸.۴۵';
+    : latestGraded?.gpa || '—';
 
   const numOverallGpa = parseFloat(String(overallGpa).replace(/[^\d.]/g, '')) || 0;
   const isHonor = numOverallGpa >= 17;
@@ -1853,7 +1859,7 @@ export async function renderStudyStoryImage({ stats, student, theme }) {
   const metrics = [
     {
       title: 'پیوستگی فعال',
-      value: `${toFaDigits(stats?.streak || 1)} روز پیاپی`,
+      value: `${toFaDigits(stats?.streak ?? 0)} روز پیاپی`,
       sub: 'پیوستگی مداوم در مطالعه',
       tone: pal.accent,
       icon: '🔥',
@@ -2091,7 +2097,10 @@ export async function renderCurriculumPoster({ theme, curriculumState, student }
 
   ctx.fillStyle = pal.muted;
   ctx.font = '12px Arad, "Arad", sans-serif';
-  ctx.fillText('چارت مصوب دوره کارشناسی پیوسته', MARGIN + 26, headerY + 58);
+  const degreeLabel = curriculumState?.degreeLevel
+    ? `چارت مصوب دوره ${curriculumState.degreeLevel}`
+    : (student?.degree || 'برنامه درسی مصوب رشته');
+  ctx.fillText(degreeLabel, MARGIN + 26, headerY + 58);
 
   // ۳. نوار آمار و پیشرفت تحصیلی (کاملاً پویا بدون هاردکد)
   const statsY = headerY + headerH + 14;

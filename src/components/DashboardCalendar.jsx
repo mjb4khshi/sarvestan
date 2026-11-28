@@ -22,7 +22,9 @@ import {
 import { getDailyActivityMap, getStudyTasks } from '../services/studyPlanner';
 import { getViewModel, getToneForCourse, getExamsView } from '../data/viewModel';
 import { subscribeStore } from '../services/behestan';
+import { getExamCategoryLabel } from '../services/classAlarms';
 import { toFaDigits } from '../utils/faDigits';
+import { getCalendarSpecialDay } from '../data/iranCalendarEvents';
 
 const WEEKDAYS = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];
 
@@ -63,10 +65,12 @@ export default function DashboardCalendar({ onNavigate, className = '' }) {
       setTasks(getStudyTasks());
     };
     window.addEventListener('sarvStudyUpdated', handleStudyUpdate);
+    window.addEventListener('sarvBirthdayUpdated', handleStudyUpdate);
     const unsub = subscribeStore(() => setStoreVer((v) => v + 1));
 
     return () => {
       window.removeEventListener('sarvStudyUpdated', handleStudyUpdate);
+      window.removeEventListener('sarvBirthdayUpdated', handleStudyUpdate);
       unsub();
     };
   }, []);
@@ -265,11 +269,15 @@ export default function DashboardCalendar({ onNavigate, className = '' }) {
 
             const isToday = d.isoDate === todayIso;
             const isSelected = d.isoDate === selectedDate;
+            const special = getCalendarSpecialDay(d.date);
             const dayActivity = activityMap[d.isoDate];
             const hasStudy = dayActivity && dayActivity.totalMinutes > 0;
             const dayClasses = getClassesForDate(d.date);
             const dayExams = getExamsForDate(d.isoDate, monthGrid.year, monthGrid.month, d.dayNumber);
             const hasExam = dayExams.length > 0;
+            const examTone = hasExam ? (getCourseColor(dayExams[0].course) || dayExams[0].color || 'primary') : 'primary';
+            const isExamHex = String(examTone).startsWith('#') || String(examTone).startsWith('rgb');
+            const examToneMeta = toneColors[examTone] || toneColors.primary;
             const dayTasks = tasks.filter((t) => (t.dateStr || t.scheduledDateStr) === d.isoDate);
             const hasDayTasks = dayTasks.length > 0;
             const urgentTask = dayTasks.find((t) => t.status !== 'done') || dayTasks[0];
@@ -280,11 +288,13 @@ export default function DashboardCalendar({ onNavigate, className = '' }) {
             const seenCourses = new Set();
 
             for (const ex of dayExams) {
-              const key = `e:${ex.course}`;
+              const catLabel = getExamCategoryLabel(ex.category || ex.examType);
+              const key = `e:${ex.id || `${ex.category || 'final'}:${ex.course}`}`;
               if (!seenCourses.has(key)) {
                 seenCourses.add(key);
                 dayDots.push({
-                  name: `امتحان ${ex.course}`,
+                  name: `${catLabel} ${ex.course}`,
+                  categoryLabel: catLabel,
                   tone: getCourseColor(ex.course) || ex.color || 'danger',
                   isExam: true,
                 });
@@ -308,33 +318,72 @@ export default function DashboardCalendar({ onNavigate, className = '' }) {
                 key={d.isoDate}
                 type="button"
                 onClick={() => setSelectedDate(d.isoDate)}
+                style={!isSelected && hasExam && isExamHex ? { borderColor: examTone, backgroundColor: `${examTone}22` } : undefined}
                 className={`h-12 rounded-xl flex flex-col items-center justify-between py-1 transition-all active:scale-95 cursor-pointer relative ${
                   isSelected
                     ? 'bg-primary text-primary-content font-black shadow-sm ring-2 ring-primary/40'
                     : hasExam
-                    ? 'bg-danger-soft/25 hover:bg-danger-soft/40 text-base-content font-black border border-danger/40 ring-1 ring-danger/30'
+                    ? `${isExamHex ? '' : `${examToneMeta.bg} ${examToneMeta.border}`} text-base-content font-black border`
+                    : special.isStudentDay || special.isBirthday
+                    ? 'bg-accent-soft/40 hover:bg-accent-soft/60 text-accent font-black border border-accent/40'
                     : isToday
                     ? 'bg-primary-soft text-primary font-black border border-primary/40'
+                    : special.isHoliday
+                    ? 'bg-danger-soft/20 hover:bg-danger-soft/35 text-danger font-black border border-danger/25'
                     : hasStudy
                     ? 'bg-base-500/25 hover:bg-base-500/40 text-base-content font-bold'
                     : 'bg-base-500/10 hover:bg-base-500/20 text-neutral'
                 }`}
+                title={
+                  special.specialEvents.length > 0
+                    ? special.specialEvents.map((ev) => ev.title).join(' · ')
+                    : special.isHoliday
+                    ? 'تعطیل'
+                    : undefined
+                }
               >
-                {/* شماره روز و نشانگر امتحان */}
+                {/* شماره روز و نشانگر امتحان / مناسبت */}
                 <div className="w-full flex items-center justify-between px-1">
                   {hasExam ? (
-                    <span
-                      className={`w-3.5 h-3.5 rounded-full flex items-center justify-center shrink-0 ${
-                        isSelected ? 'bg-white text-danger' : 'bg-danger text-white shadow-xs'
-                      }`}
-                      title={`موعد امتحان: ${dayExams.map((e) => e.course).join('، ')}`}
+                    <div
+                      className="flex items-center -space-x-1 space-x-reverse shrink-0"
+                      title={`موعد آزمون: ${dayExams
+                        .map((e) => `${getExamCategoryLabel(e.category || e.examType)} ${e.course}`)
+                        .join('، ')}`}
                     >
-                      <GraduationCap className="w-2.5 h-2.5" />
+                      {dayExams.slice(0, 2).map((ex, ei) => {
+                        const exTone = getCourseColor(ex.course) || ex.color || 'primary';
+                        const isExHex = String(exTone).startsWith('#') || String(exTone).startsWith('rgb');
+                        const exMeta = toneColors[exTone] || toneColors.primary;
+                        return (
+                          <span
+                            key={ex.id || ei}
+                            style={!isSelected && isExHex ? { backgroundColor: exTone } : undefined}
+                            className={`w-3.5 h-3.5 rounded-full flex items-center justify-center shrink-0 ring-1 ring-base ${
+                              isSelected
+                                ? `bg-white ${exMeta.text}`
+                                : isExHex
+                                ? 'text-white shadow-xs'
+                                : `${exMeta.dot} text-white shadow-xs`
+                            }`}
+                          >
+                            <GraduationCap className="w-2.5 h-2.5" />
+                          </span>
+                        );
+                      })}
+                    </div>
+                  ) : special.isBirthday || special.isStudentDay ? (
+                    <span className="text-[10px] leading-none shrink-0">
+                      {special.isBirthday ? '🎂' : '🎓'}
                     </span>
                   ) : (
                     <span className="w-2" />
                   )}
-                  <span className="text-[12px] font-mono leading-none">
+                  <span
+                    className={`text-[12px] font-mono leading-none ${
+                      special.isOfficialHoliday && !isSelected ? 'underline decoration-danger/60 decoration-2 underline-offset-4' : ''
+                    }`}
+                  >
                     {toFaDigits(d.dayNumber)}
                   </span>
                   <span className="w-2" />
@@ -374,12 +423,10 @@ export default function DashboardCalendar({ onNavigate, className = '' }) {
                         className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                           isSelected
                             ? 'bg-white shadow-xs'
-                            : dotItem.isExam
-                            ? 'bg-danger ring-1 ring-danger/60 shadow-xs'
                             : `${cMeta.dot} ring-1 ring-black/20 shadow-xs`
                         }`}
                         title={`${dotItem.name} (${
-                          dotItem.isExam ? 'امتحان' : dotItem.isUni ? 'کلاس دانشگاه' : 'مطالعه'
+                          dotItem.isExam ? (dotItem.categoryLabel || 'امتحان') : dotItem.isUni ? 'کلاس دانشگاه' : 'مطالعه'
                         })`}
                       />
                     );
@@ -399,6 +446,28 @@ export default function DashboardCalendar({ onNavigate, className = '' }) {
           })}
         </motion.div>
       </AnimatePresence>
+
+      {(() => {
+        const selSpecial = getCalendarSpecialDay(selectedDateObj);
+        if (!selSpecial.isHoliday && selSpecial.specialEvents.length === 0) return null;
+        return (
+          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-base-500/25">
+            {selSpecial.isHoliday && (
+              <span className="text-[10.5px] font-bold px-2.5 py-0.5 rounded-full bg-danger-soft text-danger border border-danger/25">
+                تعطیل
+              </span>
+            )}
+            {selSpecial.specialEvents.map((ev) => (
+              <span
+                key={ev.type}
+                className="text-[10.5px] font-bold px-2.5 py-0.5 rounded-full bg-accent-soft text-accent border border-accent/25"
+              >
+                {ev.icon} {ev.title}
+              </span>
+            ))}
+          </div>
+        );
+      })()}
     </section>
   );
 }

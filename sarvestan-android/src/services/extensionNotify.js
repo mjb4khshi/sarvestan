@@ -15,6 +15,10 @@ export async function scheduleExtensionReminders() {
   return { ok: false };
 }
 
+export async function upsertExtensionReminders() {
+  return { ok: false };
+}
+
 export async function cancelExtensionReminders() {
   return { ok: true };
 }

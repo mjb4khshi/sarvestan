@@ -11,7 +11,7 @@
   --theme-color-warn: #ffba00;
   --theme-color-info: #00a594;
   --theme-color-danger: #ff4757;
-  --theme-color-neutral: #6b7280;
+  --theme-color-neutral: #4b5563;
   --theme-color-neutral-dark: #cbd5e1;
   --theme-color-neutral-darker: #e2e8f0;
 
@@ -79,7 +79,7 @@ html[data-theme="persian-light"],
   --theme-color-warn: #ffba00;
   --theme-color-info: #00a594;
   --theme-color-danger: #ff4757;
-  --theme-color-neutral: #6b7280;
+  --theme-color-neutral: #4b5563;
   --theme-color-neutral-dark: #cbd5e1;
   --theme-color-neutral-darker: #e2e8f0;
   --theme-color-base: #ffffff;
@@ -143,7 +143,7 @@ html[data-theme="persian-light"],
   --theme-color-warn: #ffba00;
   --theme-color-info: #00a594;
   --theme-color-danger: #ff4757;
-  --theme-color-neutral: #6b7280;
+  --theme-color-neutral: #4b5563;
   --theme-color-neutral-dark: #404040;
   --theme-color-neutral-darker: #1e1e1e;
   --theme-color-base: #ffffff;
@@ -176,7 +176,7 @@ html[data-theme="persian-light"],
   --theme-color-warn: #ffaa00;
   --theme-color-danger: #ff2a6d;
   --theme-color-info: #05d9e8;
-  --theme-color-neutral: #718096;
+  --theme-color-neutral: #94a3b8;
   --theme-color-base: #08090d;
   --theme-color-base-500: #1a1d28;
   --theme-color-base-900: #2d3748;
@@ -238,7 +238,7 @@ html[data-theme="persian-light"],
   --theme-color-warn: #f59e0b;
   --theme-color-danger: #f43f5e;
   --theme-color-info: #3b82f6;
-  --theme-color-neutral: #64748b;
+  --theme-color-neutral: #94a3b8;
   --theme-color-base: #030712;
   --theme-color-base-500: #0f172a;
   --theme-color-base-900: #1e293b;
@@ -364,7 +364,7 @@ html[data-theme="persian-light"],
   --theme-color-warn: #b45309;
   --theme-color-danger: #dc2626;
   --theme-color-info: #0284c7;
-  --theme-color-neutral: #78716c;
+  --theme-color-neutral: #57534e;
   --theme-color-base: #fffbf7;
   --theme-color-base-500: #f5ebe1;
   --theme-color-base-900: #d6c5b4;
@@ -395,7 +395,7 @@ html[data-theme="persian-light"],
   --theme-color-warn: #b45309;
   --theme-color-danger: #e11d48;
   --theme-color-info: #0284c7;
-  --theme-color-neutral: #78716c;
+  --theme-color-neutral: #57534e;
   --theme-color-base: #f7f9f4;
   --theme-color-base-500: #e2e8db;
   --theme-color-base-900: #c5d2bc;
@@ -426,7 +426,7 @@ html[data-theme="persian-light"],
   --theme-color-warn: #b45309;
   --theme-color-danger: #e11d48;
   --theme-color-info: #2563eb;
-  --theme-color-neutral: #64748b;
+  --theme-color-neutral: #475569;
   --theme-color-base: #f8fafc;
   --theme-color-base-500: #e2e8f0;
   --theme-color-base-900: #94a3b8;
@@ -552,7 +552,7 @@ html[data-theme="persian-light"],
   --theme-color-warn: #52525b;
   --theme-color-danger: #ef4444;
   --theme-color-info: #27272a;
-  --theme-color-neutral: #71717a;
+  --theme-color-neutral: #52525b;
   --theme-color-neutral-dark: #cbd5e1;
   --theme-color-neutral-darker: #e2e8f0;
   --theme-color-base: #ffffff;
@@ -638,6 +638,36 @@ html[data-theme="tehran"],
   --theme-color-neutral-content: #ffffff;
   --theme-color-base-content: #fefae0;
   --theme-shadow-color: 40, 54, 24;
+  --theme-radius-card: 1.15rem;
+  --theme-radius-button: 0.85rem;
+  --theme-radius-input: 0.85rem;
+}
+
+[datatheme="gta6-arak"],
+[data-theme="gta6-arak"] {
+  --theme-color-primary: #ff2e97;
+  --theme-color-secondary: #ff9636;
+  --theme-color-accent: #5468ff;
+  --theme-color-success: #34d399;
+  --theme-color-warn: #ffc23c;
+  --theme-color-info: #4cc9f0;
+  --theme-color-danger: #ff476f;
+  --theme-color-neutral: #c7a8dc;
+  --theme-color-neutral-dark: #43245e;
+  --theme-color-neutral-darker: #1e0e2d;
+  --theme-color-base: #13081c;
+  --theme-color-base-500: #2c1640;
+  --theme-color-base-900: #7c5699;
+  --theme-color-primary-content: #ffffff;
+  --theme-color-secondary-content: #13081c;
+  --theme-color-accent-content: #ffffff;
+  --theme-color-success-content: #13081c;
+  --theme-color-warn-content: #13081c;
+  --theme-color-danger-content: #ffffff;
+  --theme-color-info-content: #13081c;
+  --theme-color-neutral-content: #13081c;
+  --theme-color-base-content: #fff5fb;
+  --theme-shadow-color: 10, 2, 18;
   --theme-radius-card: 1.15rem;
   --theme-radius-button: 0.85rem;
   --theme-radius-input: 0.85rem;

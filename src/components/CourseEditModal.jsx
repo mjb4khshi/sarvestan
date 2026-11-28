@@ -20,7 +20,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { toFaDigits } from '../utils/faDigits';
-import { getSelectedUniversity } from '../services/behestan/session';
+import { getSelectedUniversity, getUniversityLmsUrl } from '../services/behestan/session';
 import { getToneForCourse } from '../data/viewModel';
 import SarvTimePickerModal from './SarvTimePickerModal';
 import OdometerNumber from './OdometerNumber';
@@ -61,6 +61,7 @@ export default function CourseEditModal({
   const [classType, setClassType] = useState('lecture'); // 'lecture' | 'ta'
   const [classTypeDropdownOpen, setClassTypeDropdownOpen] = useState(false);
   const [parentCourseName, setParentCourseName] = useState('');
+  const [parentCourseCode, setParentCourseCode] = useState('');
   const [notes, setNotes] = useState('');
   const [name, setName] = useState('');
   const [professor, setProfessor] = useState('');
@@ -89,6 +90,7 @@ export default function CourseEditModal({
       setDeleteConfirmModalOpen(false);
       setClassTypeDropdownOpen(false);
       setParentCourseName('');
+      setParentCourseCode('');
       setErrorMsg('');
       if (course) {
         const detectedType =
@@ -101,7 +103,8 @@ export default function CourseEditModal({
         setProfessor(course.professor || (detectedType === 'ta' ? 'دستیار آموزشی / TA' : ''));
         setHall(course.hall || course.room || course.daySlots?.[0]?.hall || '');
         setUnits(detectedType === 'ta' ? 0 : (course.units != null ? course.units : 3));
-        setCode(course.code || '');
+        setParentCourseCode(course.parentCourseCode || (detectedType === 'ta' ? (course.code || '') : ''));
+        setCode(detectedType === 'ta' ? '' : (course.code || ''));
         setGroup(course.group || '01');
         setIncludeInGpa(detectedType === 'ta' ? false : (course.includeInGpa !== false));
         setColor(course.color || 'primary');
@@ -169,7 +172,8 @@ export default function CourseEditModal({
       const parentTone =
         parent.color || getToneForCourse(parent, existingCourses) || 'secondary';
       setColor(parentTone);
-      if (parent.code) setCode(parent.code);
+      setParentCourseCode(parent.code || '');
+      setCode('');
       setUnits(0);
       setIncludeInGpa(false);
       if (parent.professor && !professor) {
@@ -266,7 +270,8 @@ export default function CourseEditModal({
       hall: userHall || 'ـ',
       room: userHall || 'ـ',
       units: isTaClass ? 0 : (Number(units) || 0),
-      code: code.trim(),
+      code: isTaClass ? '' : code.trim(),
+      parentCourseCode: isTaClass ? (parentCourseCode || '').trim() : (course?.parentCourseCode || undefined),
       group: group.trim(),
       days: combinedDays,
       day: combinedDays[0] || 'شنبه',
@@ -363,7 +368,7 @@ export default function CourseEditModal({
                     </div>
                     <button
                       type="button"
-                      onClick={() => window.open(course?.virtualUrl || 'https://elearning.ut.ac.ir/', '_blank')}
+                      onClick={() => window.open(course?.virtualUrl || getUniversityLmsUrl(), '_blank')}
                       className="px-2.5 py-1 rounded-lg bg-primary text-primary-content text-[11px] font-bold hover:brightness-110 active:scale-95 transition flex items-center gap-1 shadow-xs cursor-pointer"
                     >
                       <Globe className="w-3 h-3" />

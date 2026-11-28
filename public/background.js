@@ -46,8 +46,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
   if (msg.action === 'SARVESTAN_SCHEDULE_NOTIFS') {
-    handleScheduleNotifs(msg.items).then(sendResponse);
+    handleScheduleNotifs(msg.items, { clearExisting: true }).then(sendResponse);
     return true; // پاسخ async
+  }
+  if (msg.action === 'SARVESTAN_UPSERT_NOTIFS') {
+    handleScheduleNotifs(msg.items, { clearExisting: false }).then(sendResponse);
+    return true;
   }
   if (msg.action === 'SARVESTAN_CANCEL_NOTIFS') {
     handleCancelNotifs(msg.ids).then(sendResponse);
@@ -72,13 +76,20 @@ function clearAlarm(name) {
   return new Promise((resolve) => chrome.alarms.clear(name, () => resolve()));
 }
 
-/** فهرست زنگ‌ها را دو باره می‌سازد؛ همچنین متای منقضی را پاک می‌کند */
-async function clearSarvAlarms() {
+/** پاک‌سازی زنگ‌های کلاس/سماد (بدون دست زدن به یادآورهای امتحان و تسک که با UPSERT ثبت شده‌اند) */
+async function clearSarvAlarms({ preserveUpserted = true } = {}) {
   const alarms = await getAllAlarms();
+  const meta = preserveUpserted ? await getNotifMeta() : {};
   for (const a of alarms) {
-    if (String(a.name).startsWith(ALARM_PREFIX + '-')) {
-      await clearAlarm(a.name);
+    if (!String(a.name).startsWith(ALARM_PREFIX + '-')) continue;
+    const rawId = String(a.name).slice(ALARM_PREFIX.length + 1);
+    const numId = Number(rawId);
+    const isUpsertedRange = Number.isFinite(numId) && numId >= 30000 && numId < 50000;
+    const isUpsertedMeta = Boolean(meta?.[a.name]?.upsertOnly);
+    if (preserveUpserted && (isUpsertedRange || isUpsertedMeta)) {
+      continue;
     }
+    await clearAlarm(a.name);
   }
 }
 
@@ -94,7 +105,7 @@ function setNotifMeta(meta) {
   return new Promise((resolve) => chrome.storage.local.set({ [NOTIF_META_KEY]: meta }, () => resolve()));
 }
 
-async function handleScheduleNotifs(items) {
+async function handleScheduleNotifs(items, { clearExisting = true } = {}) {
   try {
     const now = Date.now();
     const norm = (items || [])
@@ -107,13 +118,14 @@ async function handleScheduleNotifs(items) {
         body: String(i.body || ''),
       }));
 
-    await clearSarvAlarms();
+    if (clearExisting) {
+      await clearSarvAlarms({ preserveUpserted: true });
+    }
     if (!norm.length) {
       return { ok: true, scheduled: 0, ids: [] };
     }
 
     const prevMeta = await getNotifMeta();
-    // متای قدیمی را دور بریز — همهٔ زنگ‌های قبلی تازه پاک‌سازی شدند
     const meta = { ...prevMeta };
     for (const name of Object.keys(meta)) {
       const info = meta[name];
@@ -122,7 +134,12 @@ async function handleScheduleNotifs(items) {
     for (const i of norm) {
       const name = alarmNameFor(i.id);
       chrome.alarms.create(name, { when: i.triggerAtMs });
-      meta[name] = { title: i.title, body: i.body, when: i.triggerAtMs };
+      meta[name] = {
+        title: i.title,
+        body: i.body,
+        when: i.triggerAtMs,
+        upsertOnly: !clearExisting,
+      };
     }
 
     await setNotifMeta(meta);
@@ -135,12 +152,39 @@ async function handleScheduleNotifs(items) {
 async function handleCancelNotifs(ids) {
   try {
     const alarms = await getAllAlarms();
+    const idSet = Array.isArray(ids) ? new Set(ids.map((x) => String(x))) : null;
+    const meta = await getNotifMeta();
+    let metaChanged = false;
+
     for (const a of alarms) {
       if (!String(a.name).startsWith(ALARM_PREFIX + '-')) continue;
-      if (!ids || (Array.isArray(ids) && ids.length)) {
-        if (!Array.isArray(ids)) await clearAlarm(a.name); // بدون فهرست = همه
-        else if (ids.includes(a.name.slice(ALARM_PREFIX.length + 1))) await clearAlarm(a.name);
+      const rawId = String(a.name).slice(ALARM_PREFIX.length + 1);
+      if (!idSet) {
+        await clearAlarm(a.name); // بدون فهرست = همه
+        if (meta[a.name]) {
+          delete meta[a.name];
+          metaChanged = true;
+        }
+      } else if (idSet.has(rawId)) {
+        await clearAlarm(a.name);
+        if (meta[a.name]) {
+          delete meta[a.name];
+          metaChanged = true;
+        }
       }
+    }
+
+    if (idSet) {
+      for (const idStr of idSet) {
+        const name = alarmNameFor(idStr);
+        if (meta[name]) {
+          delete meta[name];
+          metaChanged = true;
+        }
+      }
+    }
+    if (metaChanged) {
+      await setNotifMeta(meta);
     }
     return { ok: true };
   } catch (e) {

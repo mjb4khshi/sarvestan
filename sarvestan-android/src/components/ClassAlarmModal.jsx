@@ -184,7 +184,7 @@ export default function ClassAlarmModal({ isOpen, onClose }) {
       });
 
       const res = await scheduleClassReminders({
-        daysAhead: 84,
+        daysAhead: 7,
         leadMinutes,
         notifyAtStart,
         dndDuringClass: dndEnabled,

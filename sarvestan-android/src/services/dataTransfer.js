@@ -6,51 +6,51 @@
  * 100% Client-Side, Zero Server, Zero MITM
  */
 
-const STORAGE_KEYS = [
-  'sarvestan_live_profile',
-  'sarvestan_live_schedule',
-  'sarvestan_live_exams',
-  'sarvestan_live_transcripts',
-  'sarvestan_live_courses',
-  'sarvestan_live_finance',
-  'sarvestan_live_workflows',
-  'sarvestan_live_curriculum_stats',
-  'sarvestan_live_curriculum_report',
-  'sarvestan_manual_equivalences',
-  'sarvestan_live_announcements',
-  'sarvestan_live_reg77',
-  'sarvestan_app_icon',
-  'sarvestan_selected_university',
-  'sarvestan_auth_status',
-  'sarvestan_theme',
-  'sarvestan_local_notes',
-  'sarvestan_schedule_customized',
-  'sarvestan_schedule_deleted_courses',
-  'sarvestan_schedule_deleted_exams',
-  'sarvestan_raw_behestan_schedule',
-  'sarvestan_raw_behestan_exams',
-  'sarvestan_bat_mode',
-  'sarv_schedule_subview',
-  'sarv_matrix_transposed',
-  'sarv_study_sound_v1',
-  'sarv_study_wakelock_v1',
-  'sarv_study_tasks_v1',
-  'sarv_study_sessions_v1',
-  'sarv_study_settings_v1',
-  'sarvestan_class_reminders_settings',
-  'sarvestan_samad_reminder_settings',
-  'sarvestan_dnd_during_class',
-];
+import {
+  BACKUP_STORAGE_KEYS,
+  LIVE_DATA_KEYS,
+  CUSTOM_SCHEDULE_KEYS,
+} from '../constants/storageKeys';
+import { applyAnimationLevel, getAnimationLevel } from './animationSettings';
+import { requestWidgetSync } from './androidWidget';
+import { rearmIfEnabled } from './classAlarms';
+
+const STORAGE_KEYS = BACKUP_STORAGE_KEYS;
 
 const PROTOCOL_HEADER = 'SRV1';
 const CHUNK_SIZE = 480; // High-readability density: produces large, sharp QR blocks for instant camera locking
+
+function shrinkCoursesForQr(courses) {
+  if (!Array.isArray(courses)) return courses;
+  return courses.map((c) => ({
+    id: c.id,
+    code: c.code,
+    name: c.name,
+    group: c.group,
+    units: c.units,
+    grade: c.grade,
+    gradeMode: c.gradeMode,
+    status: c.status,
+    regStatus: c.regStatus,
+    type: c.type,
+    professor: c.professor,
+    instructor: c.instructor,
+    includeInGpa: c.includeInGpa,
+    color: c.color,
+    classType: c.classType,
+    category: c.category,
+    termId: c.termId,
+    isRegistration: c.isRegistration,
+    isDropped: c.isDropped,
+  }));
+}
 
 /**
  * Creates a clean snapshot of all stored student data
  */
 export function exportSnapshotBundle({ shrinkPhoto = false } = {}) {
   const bundle = {
-    version: '2.0.1',
+    version: '2.1.2',
     exportedAt: new Date().toISOString(),
     data: {},
   };
@@ -79,18 +79,9 @@ export function exportSnapshotBundle({ shrinkPhoto = false } = {}) {
     // Delete bulky server-side workflows (not needed for schedule/grades/dashboard)
     delete bundle.data.sarvestan_live_workflows;
 
-    // Clean courses if present to keep only essential fields
+    // Preserve essential course fields for grades, GPA simulator, colors, and TA/status accuracy
     if (Array.isArray(bundle.data.sarvestan_live_courses)) {
-      bundle.data.sarvestan_live_courses = bundle.data.sarvestan_live_courses.map((c) => ({
-        code: c.code,
-        name: c.name,
-        group: c.group,
-        units: c.units,
-        grade: c.grade,
-        status: c.status,
-        termId: c.termId,
-        instructor: c.instructor,
-      }));
+      bundle.data.sarvestan_live_courses = shrinkCoursesForQr(bundle.data.sarvestan_live_courses);
     }
   }
 
@@ -164,18 +155,9 @@ export async function exportSnapshotBundleAsync({ shrinkPhoto = false } = {}) {
     // Delete bulky server-side workflows (not needed for schedule/grades/dashboard)
     delete bundle.data.sarvestan_live_workflows;
 
-    // Clean courses if present to keep only essential fields
+    // Preserve essential course fields for grades, GPA simulator, colors, and TA/status accuracy
     if (Array.isArray(bundle.data.sarvestan_live_courses)) {
-      bundle.data.sarvestan_live_courses = bundle.data.sarvestan_live_courses.map((c) => ({
-        code: c.code,
-        name: c.name,
-        group: c.group,
-        units: c.units,
-        grade: c.grade,
-        status: c.status,
-        termId: c.termId,
-        instructor: c.instructor,
-      }));
+      bundle.data.sarvestan_live_courses = shrinkCoursesForQr(bundle.data.sarvestan_live_courses);
     }
   }
   return bundle;
@@ -348,7 +330,42 @@ export async function applyBundleToStorage(bundle) {
   const { data } = bundle;
   let itemsApplied = 0;
 
+  const TRANSIENT_OR_EXCLUDED = new Set([
+    'sarvestan_feed_cache',
+    'sarvestan_bat_scheduled_ids',
+    'sarv_active_study_timer_v2',
+    'sarvestan_class_reminders_ids',
+    'sarvestan_saved_creds',
+  ]);
+
+  // پاک‌سازی کلیدهای تداخلی و قدیمی دستگاه مقصد پیش از نوشتن داده‌های بکاپ
+  const keysToClear = new Set(CUSTOM_SCHEDULE_KEYS);
+  const bundleHasLiveData = LIVE_DATA_KEYS.some((k) => data[k] !== undefined);
+  if (bundleHasLiveData) {
+    LIVE_DATA_KEYS.forEach((k) => keysToClear.add(k));
+  }
+  const removedKeys = [];
+  for (const k of keysToClear) {
+    if (data[k] === undefined) {
+      try {
+        localStorage.removeItem(k);
+        removedKeys.push(k);
+      } catch {}
+    }
+  }
+
+  // مهاجرت کلید منسوخ sarvestan_dnd_during_class از بکاپ‌های قدیمی
+  if (data.sarvestan_dnd_during_class !== undefined && data.sarvestan_class_reminders_settings && typeof data.sarvestan_class_reminders_settings === 'object') {
+    data.sarvestan_class_reminders_settings = {
+      ...data.sarvestan_class_reminders_settings,
+      dndDuringClass:
+        data.sarvestan_class_reminders_settings.dndDuringClass ??
+        (data.sarvestan_dnd_during_class === true || data.sarvestan_dnd_during_class === 'true'),
+    };
+  }
+
   for (const [key, value] of Object.entries(data)) {
+    if (TRANSIENT_OR_EXCLUDED.has(key) || key === 'sarvestan_dnd_during_class') continue;
     if (!STORAGE_KEYS.includes(key) && !key.startsWith('sarvestan_') && !key.startsWith('sarv_')) continue;
     try {
       const valStr = typeof value === 'string' ? value : JSON.stringify(value);
@@ -362,8 +379,12 @@ export async function applyBundleToStorage(bundle) {
   // Also sync to chrome.storage if running in extension
   if (typeof chrome !== 'undefined' && chrome.storage?.local) {
     try {
+      if (removedKeys.length) {
+        await chrome.storage.local.remove(removedKeys);
+      }
       const cleanObj = {};
       for (const [key, value] of Object.entries(data)) {
+        if (TRANSIENT_OR_EXCLUDED.has(key) || key === 'sarvestan_dnd_during_class') continue;
         cleanObj[key] = value;
       }
       await chrome.storage.local.set(cleanObj);
@@ -372,10 +393,16 @@ export async function applyBundleToStorage(bundle) {
 
   // Notify store and all components of full data update
   try {
+    applyAnimationLevel(getAnimationLevel());
     window.dispatchEvent(new CustomEvent('sarvestan_data_restored', { detail: { count: itemsApplied } }));
     window.dispatchEvent(new CustomEvent('sarvStudyUpdated'));
     window.dispatchEvent(new CustomEvent('sarvestan:curriculum-update'));
+    window.dispatchEvent(new CustomEvent('sarvestanAnimationLevelChanged', { detail: { level: getAnimationLevel() } }));
+    window.dispatchEvent(new CustomEvent('sarvDashboardWidgetsUpdated'));
+    window.dispatchEvent(new CustomEvent('sarvThemeChanged'));
     window.dispatchEvent(new StorageEvent('storage', { key: 'sarvestan_live_profile' }));
+    requestWidgetSync();
+    rearmIfEnabled({ force: true }).catch(() => {});
   } catch {}
 
   return { ok: true, itemsApplied };

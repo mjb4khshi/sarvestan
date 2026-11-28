@@ -26,7 +26,7 @@ import {
   Hourglass,
   ChevronDown,
 } from 'lucide-react';
-import { getStudyTasks, updateTaskStatus, toggleSubtask } from '../services/studyPlanner';
+import { getStudyTasks, updateTaskStatus, toggleSubtask, deleteStudyTask, restoreStudyTask } from '../services/studyPlanner';
 import { toLocalDateString, formatTaskDateShort } from '../services/calendarHelper';
 import { triggerHaptic } from '../services/studyTimerEngine';
 import { cancelTaskReminder } from '../services/classAlarms';
@@ -36,12 +36,14 @@ import SarvCheckbox from '../components/SarvCheckbox';
 import { useSarvestanData } from '../hooks/useSarvestanData';
 import { openLoginModal } from '../services/loginFlow';
 import { toFaDigits } from '../utils/faDigits';
-import { getSelectedUniversity } from '../services/behestan/session';
+import { getSelectedUniversity, getUniversityLmsUrl } from '../services/behestan/session';
 import OdometerNumber from '../components/OdometerNumber';
 import StudyHeatmap from '../components/StudyHeatmap';
 import DashboardCalendar from '../components/DashboardCalendar';
 import DashboardCustomizeModal from '../components/DashboardCustomizeModal';
 import { getDashboardWidgetsConfig } from '../services/dashboardWidgets';
+import CourseHubSheet from '../components/CourseHubSheet';
+import TaskRow from '../components/TaskRow';
 import BatmanMask from '../components/BatmanMask';
 import { motion, AnimatePresence } from 'framer-motion';
 import FeedModal from '../components/FeedModal';
@@ -100,6 +102,8 @@ export default function HomeScreen({ onNavigate }) {
   const [feedFilter, setFeedFilter] = useState('all');
   const [tasksVer, setTasksVer] = useState(0);
   const [expandedHomeSubtasks, setExpandedHomeSubtasks] = useState(new Set());
+  const [hubCourse, setHubCourse] = useState(null);
+  const [undoBanner, setUndoBanner] = useState(null);
 
   useEffect(() => {
     return subscribeStore(() => setTasksVer((v) => v + 1));
@@ -117,11 +121,12 @@ export default function HomeScreen({ onNavigate }) {
     window.addEventListener('sarvDashboardWidgetsUpdated', handleUpdate);
     return () => window.removeEventListener('sarvDashboardWidgetsUpdated', handleUpdate);
   }, []);
-  const { live, isSessionAlive, syncing, sync, session } = useSarvestanData();
+  const { data, live, isSessionAlive, syncing, sync, session } = useSarvestanData();
   const isUt = (session?.university || getSelectedUniversity()) === 'ut';
   const vm = getViewModel();
   const STUDENT = vm.student;
   const SUMMARY = vm.summary;
+  const displayName = STUDENT.fullName || session?.studentName || data?.profile?.fullName || (isSessionAlive ? 'دانشجو' : '');
   const TODAY_CLASSES = vm.todayClasses;
   const WEEK = vm.week;
   const ANNOUNCEMENTS = vm.announcements;
@@ -185,9 +190,9 @@ export default function HomeScreen({ onNavigate }) {
                   {/* مشخصات: نام هم‌تراز با بالای تصویر و بج‌ها هم‌تراز با پایین تصویر */}
                   <div className="flex-1 min-w-0 text-right flex flex-col justify-between py-0.5">
                     <div>
-                      {STUDENT.fullName ? (
+                      {displayName ? (
                         <h2 className="text-[17px] font-black text-base-content leading-snug truncate">
-                          {STUDENT.fullName}
+                          {displayName}
                         </h2>
                       ) : syncing ? (
                         <div className="flex items-center gap-2 text-primary font-bold text-[13.5px]">
@@ -224,15 +229,14 @@ export default function HomeScreen({ onNavigate }) {
                           )}
                         </div>
                       )}
-                      <p className="text-[11.5px] text-neutral font-medium mt-0.5 truncate">
-                        {STUDENT.studentId ? (
-                          <>
-                            <span className="font-mono text-base-content font-bold">{toFaDigits(STUDENT.studentId)}</span>
-                            {STUDENT.major ? ' · ' : ''}
-                          </>
-                        ) : null}
-                        {STUDENT.major ? <span>{STUDENT.major}</span> : null}
-                      </p>
+                      {STUDENT.studentId ? (
+                        <p className="text-[11.5px] font-medium mt-0.5 truncate">
+                          <span className="font-mono text-base-content font-bold sarv-privacy">{toFaDigits(STUDENT.studentId)}</span>
+                        </p>
+                      ) : null}
+                      {STUDENT.major ? (
+                        <p className="text-[11.5px] text-neutral font-medium mt-0.5 truncate">{STUDENT.major}</p>
+                      ) : null}
                       {STUDENT.college ? (
                         <p className="text-[10.5px] text-neutral/80 mt-0.5 truncate">{STUDENT.college}</p>
                       ) : null}
@@ -288,9 +292,9 @@ export default function HomeScreen({ onNavigate }) {
                     />
                   </div>
 
-                  {STUDENT.fullName ? (
+                  {displayName ? (
                     <h2 className="text-[19px] font-black text-base-content mt-3 leading-tight">
-                      {STUDENT.fullName}
+                      {displayName}
                     </h2>
                   ) : syncing ? (
                     <h2 className="text-[17px] font-black text-primary mt-3 leading-tight flex items-center justify-center gap-1.5">
@@ -314,15 +318,14 @@ export default function HomeScreen({ onNavigate }) {
                       </div>
                     </div>
                   )}
-                  <p className="text-[12px] text-neutral font-medium mt-0.5">
-                    {STUDENT.studentId ? (
-                      <>
-                        <span className="font-mono text-base-content font-bold">{STUDENT.studentId}</span>
-                        {STUDENT.major ? ' · ' : ''}
-                      </>
-                    ) : null}
-                    {STUDENT.major ? <span>{STUDENT.major}</span> : null}
-                  </p>
+                  {STUDENT.studentId ? (
+                    <p className="text-[12px] font-medium mt-0.5">
+                      <span className="font-mono text-base-content font-bold">{STUDENT.studentId}</span>
+                    </p>
+                  ) : null}
+                  {STUDENT.major ? (
+                    <p className="text-[12px] text-neutral font-medium mt-0.5">{STUDENT.major}</p>
+                  ) : null}
                   {STUDENT.college ? (
                     <p className="text-[11px] text-neutral mt-0.5">{STUDENT.college}</p>
                   ) : null}
@@ -362,7 +365,7 @@ export default function HomeScreen({ onNavigate }) {
                 >
                   <p className="text-[10.5px] text-primary font-bold">معدل کل</p>
                   <div className="mt-0.5 flex items-center justify-center">
-                    <span className="text-[17px] text-primary font-black leading-tight">
+                    <span className="text-[17px] text-primary font-black leading-tight sarv-privacy">
                       {toFaDigits(SUMMARY.gpa)}
                     </span>
                   </div>
@@ -390,7 +393,7 @@ export default function HomeScreen({ onNavigate }) {
                   title="مشاهده وضعیت شهریه و امور مالی"
                 >
                   <p className={`text-[10.5px] ${tuitionTone.text} font-bold`}>شهریه</p>
-                  <div className="mt-0.5 flex items-center justify-center gap-1 max-w-full">
+                  <div className="mt-0.5 flex items-center justify-center gap-1 max-w-full sarv-privacy">
                     <span className={`text-[13.5px] ${tuitionTone.text} font-black leading-tight`}>
                       {toFaDigits(SUMMARY.unpaid)}
                     </span>
@@ -550,7 +553,7 @@ export default function HomeScreen({ onNavigate }) {
             </div>
 
             <div className="space-y-2">
-              {TODAY_CLASSES.map((cls) => {
+              {TODAY_CLASSES.map((cls, idx) => {
                 const meta = statusMeta[cls.status] || statusMeta.later;
                 const borderColMap = {
                   primary: 'border-r-primary',
@@ -563,12 +566,22 @@ export default function HomeScreen({ onNavigate }) {
                 };
                 const isHex = String(cls.color || '').startsWith('#') || String(cls.color || '').startsWith('rgb');
                 const borderCol = isHex ? '' : (borderColMap[cls.color] || 'border-r-primary');
+                const nextCls = TODAY_CLASSES[idx + 1];
+                const gapMins =
+                  nextCls && cls.endHour != null && nextCls.startHour != null
+                    ? Math.round((nextCls.startHour - cls.endHour) * 60)
+                    : 0;
+                const gapLabel =
+                  gapMins >= 60
+                    ? `${toFaDigits(Math.floor(gapMins / 60))} ساعت${gapMins % 60 > 0 ? ` و ${toFaDigits(gapMins % 60)} دقیقه` : ''}`
+                    : `${toFaDigits(gapMins)} دقیقه`;
 
                 return (
+                  <div key={cls.id} className="space-y-2">
                   <article
-                    key={cls.id}
+                    onClick={() => setHubCourse(cls.course || cls)}
                     style={isHex ? { borderRightColor: cls.color } : undefined}
-                    className={`sarv-card p-3.5 flex items-start gap-3 border-r-4 ${borderCol}`}
+                    className={`sarv-card p-3.5 flex items-start gap-3 border-r-4 cursor-pointer hover:border-primary/40 transition-colors ${borderCol}`}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
@@ -618,10 +631,10 @@ export default function HomeScreen({ onNavigate }) {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              window.open(cls.virtualUrl || cls.course?.virtualUrl || 'https://elearning.ut.ac.ir/', '_blank');
+                              window.open(cls.virtualUrl || cls.course?.virtualUrl || getUniversityLmsUrl(), '_blank');
                             }}
                             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10.5px] font-bold bg-primary-soft text-primary hover:bg-primary/20 transition active:scale-95 cursor-pointer shrink-0 border border-primary/20 mr-auto"
-                            title="ورود به سامانه یادگیری الکترونیکی و کلاس مجازی دانشگاه تهران (elearning.ut.ac.ir)"
+                            title="ورود به سامانه یادگیری الکترونیکی و کلاس مجازی دانشگاه"
                           >
                             <Globe className="w-3 h-3" />
                             <span>کلاس مجازی</span>
@@ -659,6 +672,16 @@ export default function HomeScreen({ onNavigate }) {
                       })()}
                     </div>
                   </article>
+                  {gapMins >= 20 && (
+                    <div className="flex items-center justify-center gap-2 py-0.5 text-[10px] text-neutral font-bold">
+                      <span className="flex-1 h-px bg-base-500/25" />
+                      <span className="px-2.5 py-0.5 rounded-full bg-base-500/15 border border-base-500/25">
+                        فاصله آزاد {gapLabel} تا کلاس بعدی
+                      </span>
+                      <span className="flex-1 h-px bg-base-500/25" />
+                    </div>
+                  )}
+                  </div>
                 );
               })}
             </div>
@@ -755,6 +778,8 @@ export default function HomeScreen({ onNavigate }) {
         const todayIso = toLocalDateString(new Date());
         const allTasks = getStudyTasks();
         const todayTasks = allTasks.filter((t) => {
+          // اگر تاریخ انجام کار (زمان‌بندی) تنظیم شده باشد، مبنای روز انجام کار است؛
+          // در غیر این صورت موعد نهایی (سررسید) ملاک قرار می‌گیرد.
           const d = t.scheduledDateStr || t.dateStr || toLocalDateString(new Date(t.createdAt || Date.now()));
           return d === todayIso;
         });
@@ -838,163 +863,31 @@ export default function HomeScreen({ onNavigate }) {
                   </button>
                 </div>
               ) : (
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-0.5">
-                  {todayTasks.map((t) => {
-                    const isDone = t.status === 'done';
-                    const matched = coursesList.find((c) => c.name === t.courseName);
-                    const tone = getCourseColor(matched || t.courseName);
-                    const priority = TASK_PRIORITIES[t.priority] || TASK_PRIORITIES.medium;
-
-                    return (
-                      <div
-                        key={t.id}
-                        className={`sarv-card p-3 rounded-2xl border transition flex flex-col gap-2 ${
-                          isDone
-                            ? 'bg-base-500/10 border-base-500/20 opacity-60'
-                            : 'border-base-500/40 hover:border-primary/50 shadow-xs'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-3 min-w-0 w-full">
-                          <div className="flex items-center gap-3 min-w-0 flex-1">
-                            <SarvCheckbox
-                              checked={isDone}
-                              onChange={() => {
-                                triggerHaptic('light');
-                                const nextStatus = isDone ? 'todo' : 'done';
-                                updateTaskStatus(t.id, nextStatus);
-                                if (nextStatus === 'done') {
-                                  cancelTaskReminder(t.id);
-                                }
-                                setTasksVer((v) => v + 1);
-                              }}
-                              variant="primary"
-                            />
-
-                            <div className="min-w-0 flex-1">
-                              <p
-                                className={`text-xs font-bold truncate ${
-                                  isDone ? 'line-through text-neutral' : 'text-base-content'
-                                }`}
-                              >
-                                {t.title}
-                              </p>
-                              <div className="flex items-center gap-1.5 mt-1 text-[10px] flex-wrap">
-                                <span
-                                  className={`px-1.5 py-0.2 rounded-md font-bold truncate max-w-[120px] ${
-                                    toneClasses[tone] || 'bg-base-500/20 text-neutral'
-                                  }`}
-                                >
-                                  {t.courseName || 'عمومی'}
-                                </span>
-
-                                {t.estimatedMinutes > 0 && (
-                                  <span className="flex items-center gap-0.5 font-mono text-[10px] text-accent bg-accent/10 px-1.5 py-0.2 rounded-md font-bold" title="مدت زمان تخمینی">
-                                    <Hourglass className="w-3 h-3" />
-                                    <span>{toFaDigits(t.estimatedMinutes)}د</span>
-                                  </span>
-                                )}
-
-                                {t.timeStr && (
-                                  <span className="flex items-center gap-1 font-mono text-[10px] text-primary bg-primary-soft px-1.5 py-0.2 rounded-md">
-                                    <Clock className="w-3 h-3" />
-                                    <span>{toFaDigits(t.timeStr)}</span>
-                                  </span>
-                                )}
-
-                                {t.reminderEnabled && (
-                                  <span className="text-primary flex items-center" title="یادآوری فعال">
-                                    <Bell className="w-3 h-3" />
-                                  </span>
-                                )}
-
-                                {t.priority && t.priority !== 'medium' && (
-                                  <span className={`px-1.5 py-0.2 rounded-md font-bold border ${priority.color}`}>
-                                    {priority.shortLabel}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* توضیحات در کارت صفحه اصلی */}
-                        {t.description && (
-                          <p className="text-[10px] text-neutral/85 bg-base-500/15 p-1.5 rounded-lg line-clamp-2 leading-relaxed border-r-2 border-primary/40 select-text">
-                            {t.description}
-                          </p>
-                        )}
-
-                        {/* خرده‌کارها با چک‌باکس تعاملی و حالت جمع‌شونده در صفحه اصلی */}
-                        {Array.isArray(t.subtasks) && t.subtasks.length > 0 && (
-                          <div className="w-full pt-1.5 border-t border-base-500/15">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setExpandedHomeSubtasks((prev) => {
-                                  const next = new Set(prev);
-                                  if (next.has(t.id)) next.delete(t.id);
-                                  else next.add(t.id);
-                                  return next;
-                                });
-                              }}
-                              className="flex items-center justify-between w-full py-0.5 text-[10px] text-neutral hover:text-base-content transition cursor-pointer select-none"
-                            >
-                              <span className="flex items-center gap-1 font-mono text-primary font-bold">
-                                <ListChecks className="w-3 h-3" />
-                                <span>{toFaDigits(t.subtasks.filter((s) => s.completed).length)} از {toFaDigits(t.subtasks.length)} خرده‌کار</span>
-                              </span>
-                              <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${expandedHomeSubtasks.has(t.id) ? 'rotate-180 text-primary' : 'text-neutral'}`} />
-                            </button>
-
-                            <AnimatePresence initial={false}>
-                              {expandedHomeSubtasks.has(t.id) && (
-                                <motion.div
-                                  key={`home-subtasks-${t.id}`}
-                                  initial={{ height: 0, opacity: 0 }}
-                                  animate={{ height: 'auto', opacity: 1 }}
-                                  exit={{ height: 0, opacity: 0 }}
-                                  transition={{ duration: 0.22, ease: 'easeInOut' }}
-                                  className="overflow-hidden"
-                                >
-                                  <div className="space-y-1 pt-1 pr-1 border-r-2 border-base-500/25 mt-1">
-                                    {t.subtasks.map((st) => (
-                                      <div
-                                        key={st.id}
-                                        onClick={() => {
-                                          triggerHaptic('light');
-                                          toggleSubtask(t.id, st.id);
-                                          setTasksVer((v) => v + 1);
-                                        }}
-                                        className="flex items-center gap-2 p-1 rounded-lg hover:bg-base-500/15 cursor-pointer transition select-none"
-                                      >
-                                        <SarvCheckbox
-                                          checked={st.completed}
-                                          onChange={() => {
-                                            triggerHaptic('light');
-                                            toggleSubtask(t.id, st.id);
-                                            setTasksVer((v) => v + 1);
-                                          }}
-                                          variant="primary"
-                                        />
-                                        <span className={`text-[10.5px] flex-1 min-w-0 truncate ${st.completed ? 'line-through text-neutral opacity-60' : 'text-base-content'}`}>
-                                          {st.title}
-                                        </span>
-                                        {st.dateStr && (
-                                          <span className="text-[9px] font-mono text-neutral bg-base-500/20 px-1 py-0.2 rounded font-bold shrink-0">
-                                            {formatTaskDateShort(st.dateStr)}
-                                          </span>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-0.5">
+                  {todayTasks.map((t) => (
+                    <TaskRow
+                      key={t.id}
+                      compact
+                      task={t}
+                      onToggleDone={(task) => {
+                        triggerHaptic('light');
+                        const nextStatus = task.status === 'done' ? 'todo' : 'done';
+                        updateTaskStatus(task.id, nextStatus);
+                        if (nextStatus === 'done') cancelTaskReminder(task.id);
+                        setTasksVer((v) => v + 1);
+                      }}
+                      onDelete={(task) => {
+                        const deleted = deleteStudyTask(task.id);
+                        if (deleted) {
+                          cancelTaskReminder(task.id);
+                          setUndoBanner(deleted);
+                          setTimeout(() => setUndoBanner((cur) => (cur?.id === deleted.id ? null : cur)), 4000);
+                        }
+                        setTasksVer((v) => v + 1);
+                      }}
+                      onOpen={() => onNavigate?.('study')}
+                    />
+                  ))}
                 </div>
               )}
             </section>
@@ -1185,6 +1078,30 @@ export default function HomeScreen({ onNavigate }) {
         channels={feedState.channels}
         subscribedIds={feedState.subscribedChannelIds}
       />
+
+      <CourseHubSheet
+        isOpen={Boolean(hubCourse)}
+        course={hubCourse}
+        onClose={() => setHubCourse(null)}
+        onNavigate={onNavigate}
+      />
+
+      {undoBanner && (
+        <div className="fixed bottom-20 left-4 right-4 z-[950] mx-auto max-w-sm px-4 py-2.5 rounded-2xl bg-base-content text-base text-[12px] font-bold flex items-center justify-between gap-3 shadow-2xl">
+          <span className="truncate">کار «{undoBanner.title}» حذف شد</span>
+          <button
+            type="button"
+            onClick={() => {
+              restoreStudyTask(undoBanner);
+              setUndoBanner(null);
+              setTasksVer((v) => v + 1);
+            }}
+            className="px-2.5 py-1 rounded-xl bg-primary text-primary-content text-[11px] font-black shrink-0 cursor-pointer"
+          >
+            بازگردانی
+          </button>
+        </div>
+      )}
     </div>
   );
 }

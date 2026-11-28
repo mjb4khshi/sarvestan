@@ -119,6 +119,7 @@ export default function SarvDatePickerModal({
   mode = 'general', // 'exam' | 'task' | 'general'
   onClose,
   onConfirm,
+  onClear = null,
 }) {
   const today = useMemo(() => getOffsetJalali(0), []);
   const tomorrow = useMemo(() => getOffsetJalali(1), []);
@@ -522,6 +523,17 @@ export default function SarvDatePickerModal({
                 {toFaDigits(selectedDay)} {JALALI_MONTHS[selectedMonth - 1]} {toFaDigits(selectedYear)}
               </span>
             </div>
+
+            {/* دکمه پاک کردن تاریخ (برای حالت بی‌تاریخ) در صورت فعال بودن */}
+            {typeof onClear === 'function' && (
+              <button
+                type="button"
+                onClick={onClear}
+                className="w-full py-2 rounded-xl bg-danger-soft/60 hover:bg-danger-soft text-danger text-[11.5px] font-bold transition active:scale-95 cursor-pointer"
+              >
+                پاک کردن روز انتخابی (بی‌تاریخ)
+              </button>
+            )}
 
             {/* دکمه‌های تایید و لغو */}
             <div className="flex items-center gap-2 pt-1">

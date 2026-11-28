@@ -8,10 +8,12 @@
 import { getCurrentTermSchedule, hasLiveData } from './behestan/store';
 import { detectCurrentTermId } from './behestan/parsers';
 import { parseClassTime, getScheduleMatrix, jalaliToDate } from '../data/viewModel';
+import { getUserBirthday, getNextGregorianForJalali } from '../data/iranCalendarEvents';
 import {
   supportsExtensionReminders,
   ensureNotificationPermission,
   scheduleExtensionReminders,
+  upsertExtensionReminders,
   cancelExtensionReminders,
   showExtensionNotification,
 } from './extensionNotify';
@@ -261,18 +263,37 @@ function pad(n) {
   return String(n).padStart(2, '0');
 }
 
+export function getClassReminderId(dateIso, slotKey, phase, courseKey = '') {
+  let hash = 2166136261;
+  const str = `${dateIso}|${slotKey}|${phase}|${courseKey}`;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const id = 17000 + ((hash >>> 0) % 12999);
+  return id === SAMAD_REMINDER_ID ? 19998 : id;
+}
+
 /**
  * ساخت لیست نوتیف‌ها: برای هر جلسه، تا ۷ روز آینده (شامل اعلان‌های پیش‌آگاهی، شروع و حالت مزاحم نشوید)
  */
 export function buildReminderItems({
-  daysAhead = 84, // ۱۲ هفته (کل طول ترم تحصیلی به جای فقط ۷ روز)
+  daysAhead = 7, // پنجره چرخشی ۷ روزه جهت جلوگیری از طوفان آلارم در اندروید
   leadMinutes = 10,
   notifyAtStart = true,
   dndDuringClass = false,
 } = {}) {
   const slots = collectWeeklySlots();
   const items = [];
-  let id = 17001;
+  const usedIds = new Set();
+  const nextUniqueId = (baseId) => {
+    let id = baseId;
+    while (usedIds.has(id) || id === SAMAD_REMINDER_ID) {
+      id = id >= 29999 ? 17000 : id + 1;
+    }
+    usedIds.add(id);
+    return id;
+  };
   const now = new Date();
 
   for (const slot of slots) {
@@ -289,6 +310,9 @@ export function buildReminderItems({
         const asCalDay = jsDay === 0 ? 1 : jsDay + 1;
         if (asCalDay !== calDay) continue;
 
+        const dateIso = `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}`;
+        const slotKey = `${dayFa}-${pad(slot.hour)}:${pad(slot.minute)}`;
+        const courseKey = slot.title || slot.label || '';
         const hall = slot.hall ? ` (محل: ${slot.hall})` : '';
         const startAt = when.getTime();
         const preAt = startAt - leadMinutes * 60_000;
@@ -301,40 +325,40 @@ export function buildReminderItems({
 
         if (leadMinutes > 0 && preAt > Date.now()) {
           items.push({
-            id: id++,
+            id: nextUniqueId(getClassReminderId(dateIso, slotKey, 'pre', courseKey)),
             triggerAtMs: preAt,
             title: `⏰ ${leadMinutes} دقیقه تا کلاس ${slot.title || slot.label}`,
             body: `کلاس «${slot.title || slot.label}» ساعت ${pad(slot.hour)}:${pad(slot.minute)} شروع می‌شود${hall}`,
             kind: 'pre',
-            slotKey: `${dayFa}-${pad(slot.hour)}:${pad(slot.minute)}`,
+            slotKey,
           });
         }
         if (notifyAtStart && startAt > Date.now()) {
           items.push({
-            id: id++,
+            id: nextUniqueId(getClassReminderId(dateIso, slotKey, 'start', courseKey)),
             triggerAtMs: startAt,
             title: `🔔 شروع کلاس ${slot.title || slot.label}`,
             body: `کلاس «${slot.title || slot.label}» هم‌اکنون آغاز شد${hall}${dndDuringClass ? ' (حالت مزاحم نشوید فعال شد)' : ''}`,
             kind: 'start',
             dndMode: dndDuringClass ? 'start' : null,
-            slotKey: `${dayFa}-${pad(slot.hour)}:${pad(slot.minute)}`,
+            slotKey,
           });
         } else if (dndDuringClass && startAt > Date.now()) {
           items.push({
-            id: id++,
+            id: nextUniqueId(getClassReminderId(dateIso, slotKey, 'dnd_start', courseKey)),
             triggerAtMs: startAt,
             title: `🔇 سایلنت کلاس ${slot.title || slot.label}`,
             body: `کلاس «${slot.title || slot.label}» آغاز شد — حالت مزاحم نشوید فعال شد.`,
             kind: 'dnd_start',
             dndMode: 'start',
-            slotKey: `${dayFa}-${pad(slot.hour)}:${pad(slot.minute)}`,
+            slotKey,
           });
         }
 
         // زمان بازگردانی صدا پس از اتمام کلاس
         if (dndDuringClass && endAt > Date.now()) {
           items.push({
-            id: id++,
+            id: nextUniqueId(getClassReminderId(dateIso, slotKey, 'dnd_end', courseKey)),
             triggerAtMs: endAt,
             title: `🔊 پایان کلاس ${slot.title || slot.label}`,
             body: `کلاس «${slot.title || slot.label}» به پایان رسید — صدای گوشی به حالت عادی بازگشت.`,
@@ -355,7 +379,7 @@ export function buildReminderItems({
  * زمان‌بندی یادآوری کلاس‌ها در سیستم
  */
 export async function scheduleClassReminders({
-  daysAhead = 84, // ۱۲ هفته پوشش کامل جلسات ترم
+  daysAhead = 7, // پنجره چرخشی ۷ روزه همسو با وب و اندروید
   leadMinutes = 10,
   notifyAtStart = true,
   dndDuringClass = null,
@@ -449,9 +473,10 @@ export async function scheduleClassReminders({
       body: x.body,
       url: x.url || null,
       dndMode: x.dndMode || null,
+      kind: x.kind || 'class',
     }));
 
-    const res = await p.scheduleReminders({ items: payload });
+    const res = await p.scheduleReminders({ items: payload, replaceScope: 'classes' });
     const scheduledIds = items.map((x) => x.id);
     localStorage.setItem(SCHEDULED_IDS_KEY, JSON.stringify(scheduledIds));
 
@@ -797,14 +822,33 @@ export function saveReminderSettings(settings) {
   } catch {}
 }
 
+let _lastRearmAt = 0;
+let _rearmListenerBound = false;
+
 /**
- * مسلح‌سازی مجدد یادآورها در زمان راه‌اندازی برنامه (اگر فعال باشند)
+ * مسلح‌سازی مجدد یادآورها در زمان راه‌اندازی یا بازگشت به برنامه (پنجره چرخشی ۷ روزه)
  */
-export async function rearmIfEnabled() {
+export async function rearmIfEnabled({ force = false } = {}) {
   try {
+    if (typeof document !== 'undefined' && !_rearmListenerBound) {
+      _rearmListenerBound = true;
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          rearmIfEnabled().catch(() => {});
+        }
+      });
+    }
+
+    const now = Date.now();
+    if (!force && now - _lastRearmAt < 15 * 60_000) {
+      return;
+    }
+    _lastRearmAt = now;
+
     const s = getReminderSettings();
     if (s && s.enabled) {
       await scheduleClassReminders({
+        daysAhead: 7,
         leadMinutes: s.leadMinutes,
         notifyAtStart: s.notifyAtStart,
         dndDuringClass: s.dndDuringClass,
@@ -814,6 +858,7 @@ export async function rearmIfEnabled() {
     if (samad && samad.enabled) {
       await updateSamadReminder(samad);
     }
+    await scheduleSpecialDayReminders();
   } catch (err) {
     console.warn('[ClassAlarms] rearm error:', err);
   }
@@ -1177,14 +1222,84 @@ export async function testSamadNotification() {
   }
 }
 
+export function getExamCategoryLabel(category) {
+  if (category === 'quiz') return 'کوییز';
+  if (category === 'midterm') return 'میانترم';
+  if (category === 'final') return 'امتحان پایان‌ترم';
+  return 'امتحان';
+}
+
+function formatIcsUtc(ms) {
+  const d = new Date(ms);
+  const pad = (n) => String(n).padStart(2, '0');
+  return (
+    `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}` +
+    `T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`
+  );
+}
+
+function escapeIcsText(str) {
+  return String(str || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/\r?\n/g, '\\n')
+    .replace(/,/g, '\\,')
+    .replace(/;/g, '\\;');
+}
+
+export function exportExamToIcs(exam, parsed = null) {
+  if (!exam || typeof document === 'undefined') return { ok: false };
+  const courseName = exam.course || exam.name || 'درس';
+  const catLabel = getExamCategoryLabel(exam.category || exam.examType);
+  const title = parsed?.title || `${catLabel} ${courseName}`;
+  const location = parsed?.location || (exam.room && exam.room !== 'ـ' ? `محل آزمون: ${exam.room}` : '');
+  const seatInfo = exam.seat && exam.seat !== '—' && exam.seat !== 'ـ' ? `شماره صندلی: ${exam.seat}` : '';
+  const instructor = exam.instructor && exam.instructor !== 'ـ' ? `استاد: ${exam.instructor}` : '';
+  const description = parsed?.description || [instructor, seatInfo, location].filter(Boolean).join(' | ');
+  const startMs = parsed?.startMs || Date.now();
+  const endMs = parsed?.endMs || startMs + 2 * 60 * 60 * 1000;
+
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Sarvestan//Exam Calendar//FA',
+    'CALSCALE:GREGORIAN',
+    'BEGIN:VEVENT',
+    `UID:sarv-exam-${String(exam.id || exam.code || Date.now()).replace(/[^a-zA-Z0-9_-]/g, '')}@sarvestan`,
+    `DTSTAMP:${formatIcsUtc(Date.now())}`,
+    `DTSTART:${formatIcsUtc(startMs)}`,
+    `DTEND:${formatIcsUtc(endMs)}`,
+    `SUMMARY:${escapeIcsText(title)}`,
+    description ? `DESCRIPTION:${escapeIcsText(description)}` : '',
+    location ? `LOCATION:${escapeIcsText(location)}` : '',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ]
+    .filter(Boolean)
+    .join('\r\n');
+
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `sarvestan-${exam.category || 'exam'}-${String(courseName).replace(/\s+/g, '_')}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 1000);
+  return { ok: true, ics: true };
+}
+
 /**
  * افزودن موعد امتحان به تقویم رسمی دستگاه (Google Calendar / تقویم پیش‌فرض)
  */
 export async function exportExamToCalendar(exam) {
   if (!exam) return { ok: false, error: 'اطلاعات امتحان نامعتبر است' };
 
-  const courseName = exam.course || 'امتحان';
-  const title = `امتحان ${courseName}`;
+  const courseName = exam.course || exam.name || 'امتحان';
+  const catLabel = getExamCategoryLabel(exam.category || exam.examType);
+  const title = `${catLabel} ${courseName}`;
   const location = exam.room && exam.room !== 'ـ' ? `محل آزمون: ${exam.room}` : '';
   const seatInfo = exam.seat && exam.seat !== '—' && exam.seat !== 'ـ' ? `شماره صندلی: ${exam.seat}` : '';
   const instructor = exam.instructor && exam.instructor !== 'ـ' ? `استاد: ${exam.instructor}` : '';
@@ -1244,16 +1359,23 @@ export async function exportExamToCalendar(exam) {
     }
   }
 
-  // لینک تحت وب گوگل کلندر در صورت عدم دسترسی به افزونه نیتیو
+  // لینک تحت وب گوگل کلندر در صورت عدم دسترسی به افزونه نیتیو + fallback فایل .ics
   try {
     const isoStart = startMs ? new Date(startMs).toISOString().replace(/-|:|\.\d\d\d/g, '') : '';
     const isoEnd = endMs ? new Date(endMs).toISOString().replace(/-|:|\.\d\d\d/g, '') : '';
     const datesParam = isoStart && isoEnd ? `&dates=${isoStart}/${isoEnd}` : '';
     const gUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&details=${encodeURIComponent(description)}&location=${encodeURIComponent(location)}${datesParam}`;
-    window.open(gUrl, '_blank');
+    const win = window.open(gUrl, '_blank');
+    if (!win) {
+      return exportExamToIcs(exam, { title, description, location, startMs, endMs });
+    }
     return { ok: true, web: true };
   } catch (e) {
-    return { ok: false, error: String(e?.message || e) };
+    try {
+      return exportExamToIcs(exam, { title, description, location, startMs, endMs });
+    } catch {
+      return { ok: false, error: String(e?.message || e) };
+    }
   }
 }
 
@@ -1321,7 +1443,7 @@ export function getDiningPortalInfo(customUrl = null) {
           const parsed = JSON.parse(rawProfile);
           if (parsed?.university === 'ut' || /تهران/i.test(parsed?.faculty || '')) isUT = true;
         }
-        const currentUni = localStorage.getItem('sarvestan_selected_uni');
+        const currentUni = localStorage.getItem('sarvestan_selected_university');
         if (currentUni === 'ut') isUT = true;
       }
     } catch {}
@@ -1386,6 +1508,13 @@ export async function scheduleTaskReminder(task) {
       kind: 'task',
     };
 
+    if (supportsExtensionReminders()) {
+      const permOk = await ensureNotificationPermission();
+      if (!permOk) return { ok: false, error: 'مجوز اعلان داده نشد', code: 'no-permission' };
+      const res = await upsertExtensionReminders([item]);
+      return { ok: Boolean(res?.ok), triggerAtMs, extension: true, error: res?.error };
+    }
+
     const p = plugins().ClassAlarms;
     if (p?.scheduleReminders) {
       await p.scheduleReminders({ items: [item] });
@@ -1400,9 +1529,68 @@ export async function scheduleTaskReminder(task) {
 export async function cancelTaskReminder(taskId) {
   try {
     const notifId = getTaskReminderId(taskId);
+    if (supportsExtensionReminders()) {
+      await cancelExtensionReminders([String(notifId)]);
+      return { ok: true, extension: true };
+    }
     const p = plugins().ClassAlarms;
     if (p?.cancelReminders) {
       await p.cancelReminders({ ids: [notifId] });
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+}
+
+export async function scheduleSpecialDayReminders() {
+  try {
+    const items = [];
+    const studentDayDate = getNextGregorianForJalali(9, 16, 9, 0);
+    if (studentDayDate) {
+      items.push({
+        id: 48001,
+        triggerAtMs: studentDayDate.getTime(),
+        title: 'روز دانشجو مبارک!',
+        body: '۱۶ آذر، روز دانشجو گرامی باد. موفق و پیروز باشی!',
+        url: null,
+        kind: 'celebration',
+      });
+    }
+
+    const bday = getUserBirthday();
+    if (bday?.month && bday?.day) {
+      const bdayDate = getNextGregorianForJalali(bday.month, bday.day, 9, 0);
+      if (bdayDate) {
+        items.push({
+          id: 48002,
+          triggerAtMs: bdayDate.getTime(),
+          title: 'تولدت مبارک!',
+          body: 'سروستان تولدت را تبریک می‌گوید. سالی پر از موفقیت در پیش داشته باشی!',
+          url: null,
+          kind: 'celebration',
+        });
+      }
+    } else {
+      if (supportsExtensionReminders()) {
+        await cancelExtensionReminders(['48002']);
+      } else {
+        const p = plugins().ClassAlarms;
+        if (p?.cancelReminders) {
+          await p.cancelReminders({ ids: [48002] });
+        }
+      }
+    }
+
+    if (!items.length) return { ok: true };
+
+    if (supportsExtensionReminders()) {
+      await upsertExtensionReminders(items);
+      return { ok: true, extension: true };
+    }
+    const p = plugins().ClassAlarms;
+    if (p?.scheduleReminders) {
+      await p.scheduleReminders({ items });
     }
     return { ok: true };
   } catch (e) {
@@ -1449,14 +1637,22 @@ export async function scheduleExamReminder(exam, leadHours = 2) {
     if (triggerAtMs <= Date.now()) return { ok: false, error: 'زمان یادآوری سپری شده است' };
 
     const notifId = getExamReminderId(exam.id || exam.course || exam.code);
+    const catLabel = getExamCategoryLabel(exam.category || exam.examType);
     const item = {
       id: notifId,
       triggerAtMs,
-      title: `یادآوری امتحان: ${exam.course || exam.name || 'درس'}`,
-      body: `امتحان شما تا ${toFaDigits(leadHours)} ساعت دیگر برگزار می‌شود.${exam.room ? ` محل: ${exam.room}` : ''}${exam.seat && exam.seat !== '—' ? ` صندلی: ${exam.seat}` : ''}`,
+      title: `یادآوری ${catLabel}: ${exam.course || exam.name || 'درس'}`,
+      body: `${catLabel} شما تا ${toFaDigits(leadHours)} ساعت دیگر برگزار می‌شود.${exam.room && exam.room !== 'ـ' ? ` محل: ${exam.room}` : ''}${exam.seat && exam.seat !== '—' && exam.seat !== 'ـ' ? ` صندلی: ${exam.seat}` : ''}`,
       url: null,
       kind: 'exam',
     };
+
+    if (supportsExtensionReminders()) {
+      const permOk = await ensureNotificationPermission();
+      if (!permOk) return { ok: false, error: 'مجوز اعلان داده نشد', code: 'no-permission' };
+      const res = await upsertExtensionReminders([item]);
+      return { ok: Boolean(res?.ok), triggerAtMs, extension: true, error: res?.error };
+    }
 
     const p = plugins().ClassAlarms;
     if (p?.scheduleReminders) {
@@ -1472,6 +1668,10 @@ export async function scheduleExamReminder(exam, leadHours = 2) {
 export async function cancelExamReminder(examIdOrCourse) {
   try {
     const notifId = getExamReminderId(examIdOrCourse);
+    if (supportsExtensionReminders()) {
+      await cancelExtensionReminders([String(notifId)]);
+      return { ok: true, extension: true };
+    }
     const p = plugins().ClassAlarms;
     if (p?.cancelReminders) {
       await p.cancelReminders({ ids: [notifId] });

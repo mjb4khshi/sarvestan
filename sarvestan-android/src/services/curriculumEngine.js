@@ -8,6 +8,8 @@ import { getEquivalentCodes, areCoursesEquivalent } from '../data/equivalenceDat
 import { toFaDigits, toPersianCourseName } from '../utils/faDigits.js';
 import { isProjectCourse, isInternshipCourse } from './behestan/parsers.js';
 import { notifyStoreChange } from './behestan/store.js';
+import { getUniversityName } from './behestan/session.js';
+import { estimateCurrentBehestanTermId } from './calendarHelper.js';
 
 
 /**
@@ -338,10 +340,11 @@ export function buildCurriculumState(
     });
 
     if (dynamicCourses.length > 0) {
+      const fallbackUni = getUniversityName();
       curriculum = {
-        degreeTitle: profile.major ? toPersianCourseName(`${profile.major} — کارشناسی پیوسته`) : 'چارت تحصیلی مصوب دانشگاه',
-        faculty: toPersianCourseName(profile.faculty || 'دانشگاه صنعتی خواجه نصیرالدین طوسی'),
-        university: 'دانشگاه صنعتی خواجه نصیرالدین طوسی',
+        degreeTitle: profile.major ? toPersianCourseName(`${profile.major} — ${profile.degree || 'کارشناسی'}`) : 'چارت تحصیلی مصوب دانشگاه',
+        faculty: toPersianCourseName(profile.faculty || fallbackUni),
+        university: profile.university || fallbackUni,
         defaultRequiredCredits: (() => {
           let req = Number(curriculumReport.totalUnitsRequired) || 140;
           if (req > 200) {
@@ -369,7 +372,7 @@ export function buildCurriculumState(
     .filter((t) => /^\d{4}$/.test(t))
     .sort()
     .reverse();
-  const currentTermId = allTermIds[0] || '4051';
+  const currentTermId = allTermIds[0] || estimateCurrentBehestanTermId();
 
   const cleanUserCourses = [];
   const seenUserKeys = new Map(); // key -> record
@@ -999,8 +1002,8 @@ export function buildCurriculumState(
   const passedCount = allCourses.filter((c) => c.status === 'passed').length;
 
   return {
-    degreeTitle: toPersianCourseName(profile.major ? `${profile.major} — کارشناسی پیوسته` : curriculum.degreeTitle),
-    university: curriculum.university || 'دانشگاه صنعتی خواجه نصیرالدین طوسی',
+    degreeTitle: toPersianCourseName(profile.major ? `${profile.major} — ${profile.degree || 'کارشناسی'}` : curriculum.degreeTitle),
+    university: profile.university || curriculum.university || getUniversityName(),
     studentName: profile.fullName || '',
     studentId: profile.studentId || '',
     gpa: profile.gpa || null,

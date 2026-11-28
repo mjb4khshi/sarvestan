@@ -1,6 +1,7 @@
 import { getAppPlatformBadge } from '../utils/platformBadge';
 import { getAnimationLevel, setAnimationLevel, ANIMATION_LEVELS } from '../services/animationSettings';
-import { isNativeAlarms, checkBatteryOptimization, requestIgnoreBatteryOptimization } from '../services/classAlarms';
+import { isNativeAlarms, checkBatteryOptimization, requestIgnoreBatteryOptimization, rearmIfEnabled } from '../services/classAlarms';
+import { getUserBirthday, setUserBirthday, JALALI_MONTH_NAMES } from '../data/iranCalendarEvents';
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,6 +9,7 @@ import {
   FileCheck2,
   FileText,
   ChevronLeft,
+  ChevronDown,
   BookOpenCheck,
   RefreshCw,
   ExternalLink,
@@ -461,7 +463,7 @@ export default function MoreScreen({
         clearSession();
       } catch {}
       try {
-        clearSavedCreds();
+        await clearSavedCreds();
       } catch {}
       try {
         await clearSsoCookies();
@@ -533,6 +535,32 @@ export default function MoreScreen({
   };
   const [chartModalOpen, setChartModalOpen] = useState(initialChartOpen);
   const [aboutModalOpen, setAboutModalOpen] = useState(false);
+  const [birthday, setBirthday] = useState(() => getUserBirthday() || { month: '', day: '' });
+  const [bdaySavedToast, setBdaySavedToast] = useState(false);
+  const [bdayDayOpen, setBdayDayOpen] = useState(false);
+  const [bdayMonthOpen, setBdayMonthOpen] = useState(false);
+  const bdayRef = useRef(null);
+
+  useEffect(() => {
+    const onDown = (e) => {
+      if (bdayRef.current && !bdayRef.current.contains(e.target)) {
+        setBdayDayOpen(false);
+        setBdayMonthOpen(false);
+      }
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        setBdayDayOpen(false);
+        setBdayMonthOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, []);
   const [referralModalOpen, setReferralModalOpen] = useState(false);
   const [aiPromptModalOpen, setAiPromptModalOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState('all');
@@ -897,7 +925,7 @@ export default function MoreScreen({
       {/* ۳. منوی خدمات دانشگاهی */}
       <section className="space-y-1.5">
         <h3 className="text-[12.5px] font-bold text-neutral px-1">خدمات و وضعیت آموزشی</h3>
-        <div className="sarv-card overflow-hidden divide-y divide-base-500/30">
+        <div className="sarv-card overflow-visible relative z-30 divide-y divide-base-500/30">
           {/* مهستان — سامانه مودل و کلاس‌های مجازی */}
           <button
             type="button"
@@ -1051,7 +1079,7 @@ export default function MoreScreen({
       {/* ۴. لینک‌های سروستان و دسترسی به وب و دسکتاپ */}
       <section className="space-y-1.5">
         <h3 className="text-[12.5px] font-bold text-neutral px-1">سروستان در بستر وب و افزونه</h3>
-        <div className="sarv-card overflow-hidden divide-y divide-base-500/30">
+        <div className="sarv-card overflow-visible relative z-30 divide-y divide-base-500/30">
           {/* سایت سروستان */}
           <button
             type="button"
@@ -1134,7 +1162,7 @@ export default function MoreScreen({
       {/* شخصی‌سازی ظاهر و چیدمان */}
       <section className="space-y-1.5">
         <h3 className="text-[12.5px] font-bold text-neutral px-1">شخصی‌سازی ظاهر</h3>
-        <div className="sarv-card overflow-hidden divide-y divide-base-500/30">
+        <div className="sarv-card overflow-visible relative z-30 divide-y divide-base-500/30">
                     {/* تنظیم سطح انیمیشن و صرفه‌جویی باتری */}
           <div className="p-3.5 space-y-3">
             <div className="flex items-center justify-between gap-3">
@@ -1192,6 +1220,123 @@ export default function MoreScreen({
                   انیمیشن کامل
                 </button>
               </div>
+            </div>
+          </div>
+
+          {/* تاریخ تولد کاربر برای تبریک و یادآور */}
+          <div className="p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-[13.5px] font-bold text-base-content">تاریخ تولد (شمسی)</p>
+                <p className="text-[10.5px] text-neutral mt-0.5">نمایش روی تقویم و اعلان تبریک ساعت ۹ صبح</p>
+              </div>
+              {bdaySavedToast && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-success-soft text-success">
+                  ذخیره شد
+                </span>
+              )}
+            </div>
+            <div ref={bdayRef} className="flex items-center gap-2 relative">
+              {/* انتخابگر اختصاصی روز */}
+              <div className="relative flex-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBdayDayOpen((v) => !v);
+                    setBdayMonthOpen(false);
+                  }}
+                  className="w-full px-3 py-2 rounded-xl bg-base border border-base-500/40 text-xs font-bold text-base-content flex items-center justify-between hover:border-primary/50 transition cursor-pointer"
+                >
+                  <span>{birthday.day ? toFaDigits(birthday.day) : 'روز'}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-neutral transition-transform ${bdayDayOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {bdayDayOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 z-[200] w-52 max-w-[calc(100vw-3rem)] max-h-48 overflow-y-auto rounded-2xl bg-base border border-base-500/40 shadow-xl p-1.5 grid grid-cols-5 gap-1">
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => {
+                          const next = { ...birthday, day: d };
+                          setBirthday(next);
+                          setBdayDayOpen(false);
+                          if (next.month && next.day) {
+                            setUserBirthday(next);
+                            rearmIfEnabled({ force: true }).catch(() => {});
+                            setBdaySavedToast(true);
+                            setTimeout(() => setBdaySavedToast(false), 2000);
+                          }
+                        }}
+                        className={`py-1.5 rounded-lg text-[11px] font-mono font-bold transition cursor-pointer ${
+                          birthday.day === d ? 'bg-primary text-primary-content' : 'text-base-content hover:bg-base-500/20'
+                        }`}
+                      >
+                        {toFaDigits(d)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* انتخابگر اختصاصی ماه */}
+              <div className="relative flex-[1.4]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBdayMonthOpen((v) => !v);
+                    setBdayDayOpen(false);
+                  }}
+                  className="w-full px-3 py-2 rounded-xl bg-base border border-base-500/40 text-xs font-bold text-base-content flex items-center justify-between hover:border-primary/50 transition cursor-pointer"
+                >
+                  <span>{birthday.month ? JALALI_MONTH_NAMES[birthday.month - 1] : 'ماه'}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-neutral transition-transform ${bdayMonthOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {bdayMonthOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 z-[200] w-full max-h-52 overflow-y-auto rounded-2xl bg-base border border-base-500/40 shadow-xl p-1.5 space-y-0.5">
+                    {JALALI_MONTH_NAMES.map((name, idx) => {
+                      const mNum = idx + 1;
+                      return (
+                        <button
+                          key={name}
+                          type="button"
+                          onClick={() => {
+                            const next = { ...birthday, month: mNum };
+                            setBirthday(next);
+                            setBdayMonthOpen(false);
+                            if (next.month && next.day) {
+                              setUserBirthday(next);
+                              rearmIfEnabled({ force: true }).catch(() => {});
+                              setBdaySavedToast(true);
+                              setTimeout(() => setBdaySavedToast(false), 2000);
+                            }
+                          }}
+                          className={`w-full text-right px-2.5 py-1.5 rounded-xl text-[11.5px] font-bold transition cursor-pointer ${
+                            birthday.month === mNum ? 'bg-primary-soft text-primary' : 'text-base-content hover:bg-base-500/20'
+                          }`}
+                        >
+                          {name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {(birthday.month || birthday.day) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBirthday({ month: '', day: '' });
+                    setUserBirthday(null);
+                    setBdayDayOpen(false);
+                    setBdayMonthOpen(false);
+                    rearmIfEnabled({ force: true }).catch(() => {});
+                  }}
+                  className="px-2.5 py-2 rounded-xl bg-danger-soft text-danger text-[11px] font-bold cursor-pointer"
+                >
+                  حذف
+                </button>
+              )}
             </div>
           </div>
 

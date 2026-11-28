@@ -5,7 +5,7 @@
 import { getSnapshot, getCurrentTermSchedule } from './behestan/store';
 import { detectCurrentTermId } from './behestan/parsers';
 import { getStudyTasks, saveStudyTask } from './studyPlanner';
-import { toLocalDateString } from './calendarHelper';
+import { toLocalDateString, estimateCurrentBehestanTermId } from './calendarHelper';
 import { getViewModel, getToneForCourse, cleanCourseName, cleanCourseCode } from '../data/viewModel';
 
 const SYNC_CHANNEL = 'sarvestan_mehestan_channel';
@@ -93,14 +93,21 @@ function importSingleTask(item, allCourses) {
 
   const existingTasks = getStudyTasks();
   const extId = item.externalId ? String(item.externalId) : item.id ? String(item.id) : null;
+  const finalCourseName = matchedCourse?.name || cleanRaw || '';
+  const targetCourseCode = String(matchedCourse?.code || rawCourseCode || '').replace(/\D/g, '');
   const existing = existingTasks.find((t) => {
     if (extId && t.externalId === extId) return true;
-    if (t.title === itemTitle) return true;
+    if (t.title === itemTitle) {
+      const tCode = String(t.courseCode || '').replace(/\D/g, '');
+      const tCourse = String(t.courseName || '').trim();
+      if (targetCourseCode && tCode) return tCode === targetCourseCode;
+      if (finalCourseName && tCourse) return tCourse === finalCourseName;
+      return !finalCourseName && !tCourse;
+    }
     return false;
   });
 
   // استفاده از عنوان استاندارد درس در سروستان جهت هماهنگی کامل با فیلترها و لیست دروس
-  const finalCourseName = matchedCourse?.name || cleanRaw || '';
 
   const taskPayload = {
     id: existing ? existing.id : undefined,
@@ -177,28 +184,51 @@ export function exportScheduleToMehestan() {
   if (typeof window === 'undefined') return false;
 
   const snap = getSnapshot();
-  const term = detectCurrentTermId(snap?.courses || []) || '4051';
+  const term = detectCurrentTermId(snap?.courses || []) || estimateCurrentBehestanTermId();
   const schedule = getCurrentTermSchedule(term) || [];
-  const courses = (snap?.courses || []).map((c) => ({
-    code: c.code || '',
-    name: c.name || '',
-    color: c.color || getToneForCourse(c),
-    professor: c.professor || '',
-    group: c.group || '',
-    units: c.units || '',
-  }));
+  const courses = (snap?.courses || [])
+    .filter((c) => {
+      if (!c) return false;
+      if (c.classType === 'ta' || c.category === 'ta') return false;
+      if (c.isDropped || c.regStatus === 'dropped' || c.regStatus === 'waitlist') return false;
+      if (c.termId && String(c.termId) !== String(term)) return false;
+      return true;
+    })
+    .map((c) => ({
+      code: c.code || '',
+      name: c.name || '',
+      color: c.color || getToneForCourse(c),
+      professor: c.professor || '',
+      group: c.group || '',
+      units: c.units || '',
+      classType: c.classType || 'lecture',
+    }));
   const scheduleWithColors = schedule.map((s) => ({
-    code: s.code || '',
-    name: s.name || '',
+    code: s.classType === 'ta' ? '' : (s.code || ''),
+    parentCourseCode: s.parentCourseCode || '',
+    name: s.name || s.title || '',
     color: s.color || getToneForCourse(s),
     professor: s.professor || '',
+    group: s.group || '',
+    units: s.classType === 'ta' ? 0 : (s.units || ''),
+    room: s.room || s.hall || '',
+    hall: s.hall || s.room || '',
     day: s.day || '',
-    time: s.time || '',
+    time: s.time || s.classTimeRaw || '',
+    daySlots: Array.isArray(s.daySlots) ? s.daySlots : [],
+    classType: s.classType || 'lecture',
   }));
 
+  const p = snap?.profile || {};
   const payload = {
     schedule: scheduleWithColors,
     courses,
+    profile: {
+      fullName: p.fullName || '',
+      studentNo: p.studentId || p.studentNo || '',
+      major: p.major || '',
+      faculty: p.faculty || '',
+    },
     exportedAt: Date.now(),
   };
 
@@ -232,12 +262,14 @@ export function initMehestanBridge() {
 
   const getAllCoursesWithColors = () => {
     const snap = getSnapshot();
-    const term = detectCurrentTermId(snap?.courses || []) || '4051';
+    const term = detectCurrentTermId(snap?.courses || []) || estimateCurrentBehestanTermId();
     const schedule = getCurrentTermSchedule(term) || [];
-    const courses = (snap?.courses || []).map((c) => ({
-      ...c,
-      color: getToneForCourse(c),
-    }));
+    const courses = (snap?.courses || [])
+      .filter((c) => !c?.termId || String(c.termId) === String(term))
+      .map((c) => ({
+        ...c,
+        color: getToneForCourse(c),
+      }));
     const scheduleWithColors = schedule.map((s) => ({
       ...s,
       color: getToneForCourse(s),
@@ -306,8 +338,17 @@ export function initMehestanBridge() {
     }
   };
 
+  let lastDeepLinkUri = '';
+  let lastDeepLinkAt = 0;
+
   const handleDeepLinkString = (rawUri) => {
     if (!rawUri || typeof rawUri !== 'string') return;
+    const now = Date.now();
+    if (rawUri === lastDeepLinkUri && now - lastDeepLinkAt < 5000) {
+      return;
+    }
+    lastDeepLinkUri = rawUri;
+    lastDeepLinkAt = now;
     try {
       if (rawUri.includes('export-schedule')) {
         exportScheduleToMehestan();

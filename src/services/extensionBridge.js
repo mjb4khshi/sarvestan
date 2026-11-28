@@ -23,6 +23,9 @@ const STORAGE_KEYS = {
   announcements: 'sarvestan_live_announcements',
   curriculumStats: 'sarvestan_live_curriculum_stats',
   curriculum_stats: 'sarvestan_live_curriculum_stats',
+  curriculumReport: 'sarvestan_live_curriculum_report',
+  curriculum_report: 'sarvestan_live_curriculum_report',
+  reg77: 'sarvestan_live_reg77',
 };
 
 const SUPPORTED_DOMAINS = ['kntu.ac.ir', 'aut.ac.ir', 'sbu.ac.ir', 'ut.ac.ir', 'iust.ac.ir'];

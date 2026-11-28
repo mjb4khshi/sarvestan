@@ -26,9 +26,11 @@ public class SarvestanWidgetPlugin extends Plugin {
         String nextTime = call.getString("nextTime", "");
         String nextRoom = call.getString("nextRoom", "");
         String examTitle = call.getString("examTitle", "");
+        String examCategory = call.getString("examCategory", "");
         int examDays = call.getInt("examDays", -1) == null ? -1 : call.getInt("examDays", -1);
         String examDate = call.getString("examDate", "");
         String secondExamTitle = call.getString("secondExamTitle", "");
+        String secondExamCategory = call.getString("secondExamCategory", "");
         int secondExamDays = call.getInt("secondExamDays", -1) == null ? -1 : call.getInt("secondExamDays", -1);
         String gpa = call.getString("gpa", "");
         String unitsPassed = call.getString("unitsPassed", "");
@@ -51,7 +53,9 @@ public class SarvestanWidgetPlugin extends Plugin {
             .putInt("study_minutes", studyMinutes)
             .putInt("study_streak", studyStreak)
             .putString("study_subject", studySubject)
+            .putString("exam_category", examCategory)
             .putString("second_exam_title", secondExamTitle)
+            .putString("second_exam_category", secondExamCategory)
             .putInt("second_exam_days", secondExamDays)
             .putInt("tasks_done_count", tasksDoneCount)
             .putInt("tasks_total_count", tasksTotalCount)

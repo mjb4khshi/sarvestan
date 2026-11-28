@@ -48,8 +48,9 @@ import { isProjectCourse } from '../services/behestan/parsers';
 import ClassAlarmModal from '../components/ClassAlarmModal';
 import CourseEditModal from '../components/CourseEditModal';
 import ExamEditModal from '../components/ExamEditModal';
+import CourseHubSheet from '../components/CourseHubSheet';
 import OdometerNumber from '../components/OdometerNumber';
-import { getSelectedUniversity, getUniversityName } from '../services/behestan/session';
+import { getSelectedUniversity, getUniversityName, getUniversityLmsUrl } from '../services/behestan/session';
 import WeeklyTimelineView from '../components/WeeklyTimelineView';
 import {
   getCurrentTermSchedule,
@@ -106,6 +107,11 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
   const { currentThemeMeta } = useTheme();
   const { isBatMode } = useBatMode();
   const [activeTab, setActiveTab] = useState(initialView);
+  const [hubCourse, setHubCourse] = useState(null);
+
+  useEffect(() => {
+    if (initialView) setActiveTab(initialView);
+  }, [initialView]);
   const selectedUni = getSelectedUniversity();
   const isUt = selectedUni === 'ut';
   const isAut = selectedUni === 'aut';
@@ -129,13 +135,15 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
   const { days, slots, cells } = getScheduleMatrix();
   const EXAMS_DATA = getExamsView();
 
-  // انتخاب هوشمند روز جاری هفته بر اساس روز تقویم
+  // انتخاب هوشمند روز جاری هفته بر اساس روز تقویم (با پشتیبانی پنجشنبه در صورت داشتن کلاس)
   const [selectedDayIndex, setSelectedDayIndex] = useState(() => {
     const dayMap = { 6: 'شنبه', 0: 'یکشنبه', 1: 'دوشنبه', 2: 'سه‌شنبه', 3: 'چهارشنبه', 4: 'پنجشنبه', 5: 'جمعه' };
     const todayName = dayMap[new Date().getDay()];
     const initialDays = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'];
     const idx = initialDays.indexOf(todayName);
-    return idx >= 0 && idx < 5 ? idx : 0; // پیش‌فرض روز جاری (یا شنبه اگر آخر هفته است)
+    if (idx >= 0 && idx < 5) return idx;
+    if (idx === 5 && Array.isArray(days) && days.includes('پنجشنبه')) return 5;
+    return 0;
   });
 
   const [isAlarmModalOpen, setIsAlarmModalOpen] = useState(false);
@@ -175,9 +183,20 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
     if (onViewChange) onViewChange(view);
   };
 
+  const toastTimerRef = useRef(null);
+  const copyTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    };
+  }, []);
+
   const showToast = (msg) => {
     setCalendarFeedback(msg);
-    setTimeout(() => setCalendarFeedback(''), 4000);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setCalendarFeedback(''), 4000);
   };
 
   const handleExportExam = async (exam) => {
@@ -301,7 +320,7 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
   const handleSaveExam = (examData) => {
     const currentTerm = resolveCurrentTermId();
     if (editingExam && (editingExam.id || editingExam.code)) {
-      updateExamInStore(currentTerm, editingExam.id || editingExam.code, examData);
+      updateExamInStore(currentTerm, editingExam.id || editingExam, examData);
       showToast(`نوبت امتحان «${examData.course}» اصلاح شد.`);
     } else {
       addExamToStore(currentTerm, examData);
@@ -381,7 +400,8 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
       await copyCanvasToClipboard(storyPreview.canvas);
       setStoryCopied(true);
       setStoryToast('تصویر در حافظه کپی شد (آماده چسباندن در استوری) ✓');
-      setTimeout(() => setStoryCopied(false), 2500);
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = setTimeout(() => setStoryCopied(false), 2500);
     } catch {
       await handleDownloadStory();
     }
@@ -475,7 +495,8 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
               <motion.div
                 layoutId="scheduleTabIndicator"
                 className="absolute inset-0 bg-primary rounded-xl shadow-xs -z-10"
-                transition={{ type: 'spring', bounce: 0.15, duration: 0.25 }}
+                layout="position"
+                    transition={{ type: 'tween', duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
               />
             )}
             <span className="relative z-10 inline-flex items-center gap-1.5">
@@ -497,7 +518,8 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
               <motion.div
                 layoutId="scheduleTabIndicator"
                 className="absolute inset-0 bg-primary rounded-xl shadow-xs -z-10"
-                transition={{ type: 'spring', bounce: 0.15, duration: 0.25 }}
+                layout="position"
+                    transition={{ type: 'tween', duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
               />
             )}
             <span className="relative z-10 inline-flex items-center gap-1.5">
@@ -519,7 +541,8 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
               <motion.div
                 layoutId="scheduleTabIndicator"
                 className="absolute inset-0 bg-primary rounded-xl shadow-xs -z-10"
-                transition={{ type: 'spring', bounce: 0.15, duration: 0.25 }}
+                layout="position"
+                    transition={{ type: 'tween', duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
               />
             )}
             <span className="relative z-10 inline-flex items-center gap-1.5">
@@ -765,12 +788,13 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                       return (
                         <motion.article
                           key={`${day}-${c.title}-${c.id || ci}`}
+                          onClick={() => setHubCourse(c.course || c)}
                           initial={{ opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: ci * 0.04 }}
                           data-highlight-class={isHighlight ? 'true' : undefined}
                           style={isHex ? { borderRightColor: c.color } : undefined}
-                          className={`sarv-card sarv-course-card p-4 hover:border-primary/40 transition-colors border-r-4 ${
+                          className={`sarv-card sarv-course-card p-4 hover:border-primary/40 transition-colors border-r-4 cursor-pointer ${
                             isHex ? '' : (borderEdge[c.color] || 'border-r-primary')
                           }`}
                         >
@@ -810,7 +834,10 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                             <div className="flex items-center gap-1.5 shrink-0">
                               {/* بج شمارنده غیبت‌های مجاز با انیمیشن شمارشگر */}
                               <span
-                                onClick={() => handleOpenEditCourse(c.course || c)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenEditCourse(c.course || c);
+                                }}
                                 title="تعداد غیبت‌های انجام‌شده از سقف مجاز (برای تغییر کلیک کنید)"
                                 className={`px-2 py-0.5 rounded-lg text-[10.5px] font-bold cursor-pointer transition active:scale-95 flex items-center gap-1 border ${
                                   c.absences >= c.maxAbsences
@@ -830,7 +857,10 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
 
                               <button
                                 type="button"
-                                onClick={() => handleOpenEditCourse(c.course || c)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenEditCourse(c.course || c);
+                                }}
                                 className="p-1.5 rounded-lg bg-base-500/20 hover:bg-base-500/35 text-neutral hover:text-base-content transition active:scale-90 cursor-pointer"
                                 title="ویرایش این درس"
                               >
@@ -852,10 +882,10 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    window.open(c.virtualUrl || c.course?.virtualUrl || 'https://elearning.ut.ac.ir/', '_blank');
+                                    window.open(c.virtualUrl || c.course?.virtualUrl || getUniversityLmsUrl(), '_blank');
                                   }}
                                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10.5px] font-bold bg-primary-soft text-primary hover:bg-primary/20 transition active:scale-95 cursor-pointer shrink-0 border border-primary/20"
-                                  title="ورود به سامانه یادگیری الکترونیکی و کلاس مجازی دانشگاه تهران (elearning.ut.ac.ir)"
+                                  title="ورود به سامانه یادگیری الکترونیکی و کلاس مجازی دانشگاه"
                                 >
                                   <Globe className="w-3 h-3" />
                                   <span>کلاس مجازی</span>
@@ -913,7 +943,8 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                       return (
                         <article
                           key={`unsched-${c.id || c.code || ci}`}
-                          className="sarv-card p-4 border-r-4 border-r-accent hover:border-accent/60 transition-colors"
+                          onClick={() => setHubCourse(c.course || c)}
+                          className="sarv-card p-4 border-r-4 border-r-accent hover:border-accent/60 transition-colors cursor-pointer"
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">
@@ -966,10 +997,10 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    window.open(c.virtualUrl || c.course?.virtualUrl || 'https://elearning.ut.ac.ir/', '_blank');
+                                    window.open(c.virtualUrl || c.course?.virtualUrl || getUniversityLmsUrl(), '_blank');
                                   }}
                                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10.5px] font-bold bg-primary-soft text-primary hover:bg-primary/20 transition active:scale-95 cursor-pointer shrink-0 border border-primary/20"
-                                  title="ورود به سامانه یادگیری الکترونیکی و کلاس مجازی دانشگاه تهران (elearning.ut.ac.ir)"
+                                  title="ورود به سامانه یادگیری الکترونیکی و کلاس مجازی دانشگاه"
                                 >
                                   <Globe className="w-3 h-3" />
                                   <span>کلاس مجازی</span>
@@ -1663,6 +1694,16 @@ export default function ScheduleScreen({ initialView = 'cards', onViewChange }) 
         }}
         onSave={handleSaveExam}
         onDelete={handleDeleteExam}
+      />
+
+      <CourseHubSheet
+        isOpen={Boolean(hubCourse)}
+        course={hubCourse}
+        onClose={() => setHubCourse(null)}
+        onEditCourse={(c) => {
+          setHubCourse(null);
+          handleOpenEditCourse(c);
+        }}
       />
     </div>
   );
